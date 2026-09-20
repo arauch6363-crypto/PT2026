@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+# Daten gehören nach Google Drive, nicht ins Repository
+pdfs/
+parquet/
+fortschritt.json
+track_codes.csv
