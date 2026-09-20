@@ -63,6 +63,9 @@ HINWEISE = {
     "LYON LA SOIE": ["SOI", "LYS"],
     "LA TESTE DE BUCH": ["TES", "LTB"],
     "LE CROISE LAROCHE": ["CRO", "LCL"],
+    "CROISE LAROCHE": ["CRO", "LCL"],
+    "MANS": ["MAN", "LEM"],
+    "SABLES D OLONNE": ["SAO", "LSO"],
     "CLAIREFONTAINE": ["CLA", "CLF"],
     "MONT DE MARSAN": ["MDM", "MAR"],
     "LA PALMYRE ROYAN": ["PAL", "ROY"],
@@ -106,7 +109,10 @@ class CodeStore:
             for s in SPALTEN:
                 if s not in df.columns:
                     df[s] = ""
-            self.df = df[SPALTEN]
+            df = df[SPALTEN].copy()
+            df["hippodrome"] = df["hippodrome"].map(norm)      # alte Namen wie "HIPPODROME DE X" angleichen
+            df = df.sort_values("fg_code", ascending=False).drop_duplicates("hippodrome", keep="first")
+            self.df = df.reset_index(drop=True)
         else:
             self.df = pd.DataFrame([{"hippodrome": h, "pmu_code": "", "fg_code": c, "gefunden_am": "",
                                      "versuche": "0", "letzter_versuch": "", "quelle": "seed"}
@@ -114,10 +120,12 @@ class CodeStore:
 
     # -- lesen -------------------------------------------------------------
     def _zeile(self, name: str):
+        """Zeile zu einem Bahnnamen – bewusst nur exakte Treffer (nach norm()).
+        Ein Namensanfang genügt nicht: DEAUVILLE CLAIREFONTAINE ist eine andere Bahn
+        als DEAUVILLE, ebenso LYON PARILLY und LYON LA SOIE."""
         n = norm(name)
         for i, h in enumerate(self.df["hippodrome"]):
-            hn = norm(h)
-            if hn and (hn == n or n.startswith(hn + " ") or hn.startswith(n + " ")):
+            if norm(h) == n:
                 return i
         return None
 
@@ -126,9 +134,11 @@ class CodeStore:
         return self.df.at[i, "fg_code"] if i is not None else ""
 
     def belegte_codes(self, ausser: str = "") -> set[str]:
-        """Codes, die bereits einer anderen Bahn gehören – die dürfen nicht doppelt vergeben werden."""
-        n = norm(ausser)
-        return {c for h, c in zip(self.df["hippodrome"], self.df["fg_code"]) if c and norm(h) != n}
+        """Codes, die bereits einer anderen Bahn gehören – die dürfen nicht doppelt vergeben werden.
+        Die eigene Zeile wird über den Zeilentreffer ausgeschlossen, nicht über Namensgleichheit:
+        sonst sperrt sich eine Bahn bei abweichender Schreibweise ihren eigenen Code."""
+        eigen = self._zeile(ausser) if ausser else None
+        return {c for i, c in enumerate(self.df["fg_code"]) if c and i != eigen}
 
     def soll_suchen(self, name: str, tag: date, *, force: bool = False) -> bool:
         """Lohnt sich heute ein neuer Code-Suchlauf für diese Bahn?"""
@@ -241,6 +251,10 @@ def _kopf(pdf: bytes) -> dict:
         tmp.unlink(missing_ok=True)
 
 
+# Wörter, die in vielen Bahnnamen vorkommen und deshalb keinen Treffer begründen dürfen
+GENERISCH = {"HIPPODROME", "HIPP", "COURSES", "SOCIETE", "RACECOURSE", "SAINT", "NOTRE", "GRAND"}
+
+
 def passt_bahn(pdf: bytes, hippodrome: str) -> bool | None:
     """True = Bahnname im PDF passt, False = passt nicht, None = nicht lesbar."""
     track = _kopf(pdf).get("track")
@@ -249,13 +263,13 @@ def passt_bahn(pdf: bytes, hippodrome: str) -> bool | None:
     a, b = norm(track), norm(hippodrome)
     if not a or not b:
         return None
-    if a == b or a.startswith(b) or b.startswith(a):
+    if a == b or a.startswith(b + " ") or b.startswith(a + " "):
         return True
-    ta = {w for w in a.split() if len(w) >= 4}
-    tb = {w for w in b.split() if len(w) >= 4}
-    if ta & tb:
-        return True
-    return False
+    ta = {w for w in a.split() if len(w) >= 4 and w not in GENERISCH}
+    tb = {w for w in b.split() if len(w) >= 4 and w not in GENERISCH}
+    if not ta or not tb:
+        return None                      # nichts Aussagekräftiges zum Vergleichen
+    return bool(ta & tb)
 
 
 # --------------------------------------------------------------------------

@@ -46,10 +46,22 @@ LETZTER_FEHLER = ""      # Diagnose, wenn das Programm nicht erreichbar war
 # --------------------------------------------------------------------------
 # Kleinkram
 # --------------------------------------------------------------------------
+# PMU nennt die Bahnen mal "CHANTILLY", mal "HIPPODROME DE CHANTILLY". Der Zusatz
+# muss weg, sonst erkennt die Codetabelle dieselbe Bahn nicht wieder.
+PRAEFIX = re.compile(r"^HIPP(?:ODROME)?\s+(?:DE\s+LA\s+|DE\s+L\s+|DE\s+|DU\s+|DES\s+|D\s+)?")
+
+
 def norm(name: str) -> str:
-    """'Le Lion-d'Angers' -> 'LE LION D ANGERS' (Akzente und Sonderzeichen raus)."""
+    """Bahnname vereinheitlichen: Akzente, Sonderzeichen und den Vorsatz
+    "Hippodrome de" entfernen. 'Hippodrome de Chantilly' -> 'CHANTILLY'."""
     s = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode()
-    return re.sub(r"\s+", " ", re.sub(r"[^A-Z0-9 ]", " ", s.upper())).strip()
+    s = re.sub(r"\s+", " ", re.sub(r"[^A-Z0-9 ]", " ", s.upper())).strip()
+    return PRAEFIX.sub("", s).strip() or s
+
+
+def bahn_name(hip: dict) -> str:
+    """Einheitlicher Bahnname, egal welche Schreibweise das Programm gerade liefert."""
+    return norm(hip.get("libelleCourt") or hip.get("libelleLong") or "?")
 
 
 def heute() -> date:
@@ -143,7 +155,7 @@ def meetings(tag: date, session: requests.Session, *, nur_flach: bool = True,
         if ((reu.get("pays") or {}).get("code") or "FRA").upper() not in FRANKREICH:
             continue
         hip = reu.get("hippodrome") or {}
-        name = hip.get("libelleLong") or hip.get("libelleCourt") or "?"
+        name = bahn_name(hip)
         reunion = reu.get("numOfficiel") or reu.get("numExterne")
         if reunion is None:
             continue
@@ -160,7 +172,7 @@ def meetings(tag: date, session: requests.Session, *, nur_flach: bool = True,
         if courses:
             out.append({
                 "hippodrome": name,
-                "hippodrome_kurz": hip.get("libelleCourt") or name,
+                "hippodrome_pmu": hip.get("libelleLong") or hip.get("libelleCourt") or "",
                 "pmu_code": hip.get("code") or "",
                 "reunion": int(reunion),
                 "courses": courses,

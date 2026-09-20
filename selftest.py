@@ -50,21 +50,21 @@ def _reunion(num, bahn, code, courses, pays="FRA"):
 
 PROGRAMM = {
     T1: [
-        _reunion(1, "CHANTILLY", "CHY", [
+        _reunion(1, "HIPPODROME DE CHANTILLY", "CHY", [
             _course(1), _course(2),
             _course(3, spec="HAIE"),                      # Hindernis -> raus
             _course(4, statut="COURSE_ANNULEE", arrivee=None),   # abgesagt -> raus
             _course(5),                                   # gelaufen, aber ohne Tracking-PDF
         ]),
-        _reunion(2, "MOULINS", "MOU", [_course(1), _course(2)]),      # Code noch unbekannt
-        _reunion(3, "CHATEAUBRIANT", "CTB", [_course(1)]),            # Code unbekannt, kein Tracking
+        _reunion(2, "HIPPODROME DE MOULINS", "MOU", [_course(1), _course(2)]),      # Code noch unbekannt
+        _reunion(3, "HIPPODROME DE CHATEAUBRIANT", "CTB", [_course(1)]),            # Code unbekannt, kein Tracking
         _reunion(4, "VINCENNES", "VIN", [_course(1, spec="ATTELE")]), # Trab -> raus
         _reunion(5, "ASCOT", "ASC", [_course(1)], pays="GBR"),        # Ausland -> raus
     ],
     T2: [
         # gleiche Bahn, an diesem Tag ohne Tracking – darf nicht dauerhaft ausgeschlossen werden
-        _reunion(1, "MOULINS", "MOU", [_course(1)]),
-        _reunion(2, "CHANTILLY", "CHY", [_course(1)]),
+        _reunion(1, "HIPPODROME DE MOULINS", "MOU", [_course(1)]),
+        _reunion(2, "HIPPODROME DE CHANTILLY", "CHY", [_course(1)]),
     ],
 }
 
@@ -78,6 +78,12 @@ PDFS: dict[str, str] = {
     f"{T2:%Y%m%d}CHA01_last_times_fr": "CHANTILLY",
 }
 ANGEFRAGT: list[str] = []
+SUCHLOG: list[str] = []
+
+
+def merk_log(text):
+    SUCHLOG.append(str(text))
+    print(text)
 
 
 def _fake_pdf(track: str) -> bytes:
@@ -163,6 +169,9 @@ def main() -> int:
     pt.read_pages = fake_read_pages
     pt.parse_pdf = fake_parse_pdf
 
+    _orig_tracking = fg.tracking_fuer_tag
+    fg.tracking_fuer_tag = lambda *a, **kw: _orig_tracking(*a, **{**kw, "log": merk_log})
+
     tmp = Path(tempfile.mkdtemp(prefix="pt_selftest_"))
     base, pdfs = tmp / "drive", tmp / "drive" / "pdfs"
     base.mkdir(parents=True)
@@ -174,6 +183,19 @@ def main() -> int:
     pruefe(fg.passt_bahn(_fake_pdf("PARISLONGCHAMP"), "PARISLONGCHAMP") is True, "PARISLONGCHAMP passt")
     pruefe("CHA" not in fg.kandidaten("CHATEAUBRIANT", "CTB", verboten={"CHA"}),
            "bereits vergebene Codes werden als Kandidat ausgeschlossen")
+
+    print("\n1b) Bahnnamen aus dem PMU-Programm")
+    pruefe(pmu.norm("HIPPODROME DE CHANTILLY") == "CHANTILLY", "Vorsatz 'Hippodrome de' wird entfernt")
+    pruefe(pmu.norm("HIPPODROME DU MANS") == "MANS", "auch 'Hippodrome du'")
+    pruefe(pmu.norm("HIPPODROME BORDEAUX LE BOUSCAT") == "BORDEAUX LE BOUSCAT", "auch ohne 'de'")
+    pruefe(pmu.norm("DEAUVILLE") == "DEAUVILLE", "kurze Namen bleiben unverändert")
+    s_ = fg.CodeStore(tmp / "leer"); (tmp / "leer").mkdir(exist_ok=True)
+    pruefe(s_.code("HIPPODROME DE CHANTILLY") == "CHA",
+           "bekannter Bahncode greift auch beim langen PMU-Namen")
+    pruefe("CHA" not in s_.belegte_codes(ausser="HIPPODROME DE CHANTILLY"),
+           "eine Bahn sperrt sich ihren eigenen Code nicht selbst")
+    pruefe(s_.code("DEAUVILLE CLAIREFONTAINE") == "",
+           "DEAUVILLE CLAIREFONTAINE erbt nicht den Code von DEAUVILLE")
 
     print("\n2) Erster Lauf (gestern)")
     bericht = tp.run(T2, T1, base=base, pdf_dir=pdfs, max_tage=1, pause=0)
@@ -190,6 +212,8 @@ def main() -> int:
            "CHANTILLY: C1/C2 mit Tracking, C5 ohne – pro Rennen entschieden")
     pruefe(not any(n.endswith("CHA03_last_times_fr") for n in ANGEFRAGT),
            "das Hindernisrennen C3 wurde gar nicht erst angefragt")
+    pruefe(not any("CHANTILLY" in z for z in SUCHLOG),
+           "für CHANTILLY wurde kein Bahncode gesucht – der Seed-Code greift sofort")
     mo = st[st["hippodrome"] == "MOULINS"]
     pruefe(list(mo["fg_code"].unique()) == ["MOU"] and mo["tracking"].all(),
            "MOULINS: unbekannter Bahncode wurde gefunden und beide Rennen geladen")
