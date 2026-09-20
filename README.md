@@ -52,6 +52,9 @@ Tracking ist eine Eigenschaft von **Renntag und Rennen**, nicht von der Bahn:
 * France Galop veröffentlicht PDFs teils verspätet. Renntage der letzten
   `nachzuegler_tage` Tage werden bei jedem Lauf erneut nach den noch fehlenden
   PDFs gefragt.
+* Wird ein Bahncode erst später gefunden, haben früher verarbeitete Tage Lücken.
+  Jeder Lauf prüft deshalb am Ende, für welche erledigten Tage inzwischen ein
+  passender Code bekannt ist, und trägt diese Tage nach.
 
 ## Dateien
 

@@ -236,9 +236,12 @@ def tag_verarbeiten(tag: date, base: Path, pdf_dir: Path, *, nur_flach: bool = T
     n = pdfs_auswerten(ymd, base, pdf_dir)
 
     offen = [z["race_id"] for z in status if not z["tracking"]]
+    offen_bahnen = sorted({(z["hippodrome"], z["pmu_code"]) for z in status
+                           if not z["tracking"] and not z["fg_code"]})
     return {"am": datetime.now().isoformat(timespec="seconds"), "pmu": True,
+            "neue_codes": store.gelernt,
             "rennen": len(status), "mit_tracking": sum(z["tracking"] for z in status),
-            "offen": offen, "bahnen": sorted({m["hippodrome"] for m in meets}),
+            "offen": offen, "offen_bahnen": [list(x) for x in offen_bahnen], "bahnen": sorted({m["hippodrome"] for m in meets}),
             "pmu_races": n_races, "pmu_runners": n_runners, **n}
 
 
@@ -253,6 +256,38 @@ def offene_tage(start, ende=None, base: Path = None) -> list[date]:
     """Noch nie abgeholte Tage, neueste zuerst."""
     state = fortschritt(base)
     return [d for d in pmu.tage_rueckwaerts(start, ende) if _key(d) not in state]
+
+
+def _offen_bahnen(k: str, state: dict, base: Path) -> list[list[str]]:
+    """Bahnen, wegen deren unbekanntem Code an diesem Tag Rennen offen blieben.
+    Steht der Eintrag noch nicht im Fortschritt (Tage aus älteren Ständen), wird er
+    einmalig aus der Tagesdatei nachgetragen – danach kostet die Prüfung nichts mehr."""
+    if "offen_bahnen" in state[k]:
+        return state[k]["offen_bahnen"]
+    st = _tages_tabelle(base, "tracking_status", k)
+    if st.empty:
+        state[k]["offen_bahnen"] = []
+        return []
+    luecke = st[(st["fg_code"].fillna("") == "") & (~_bool(st["tracking"]))]
+    codes = (luecke["pmu_code"].fillna("") if "pmu_code" in luecke.columns
+             else pd.Series([""] * len(luecke), index=luecke.index))
+    state[k]["offen_bahnen"] = sorted({(h, c) for h, c in zip(luecke["hippodrome"], codes)})
+    state[k]["offen_bahnen"] = [list(x) for x in state[k]["offen_bahnen"]]
+    return state[k]["offen_bahnen"]
+
+
+def _tage_mit_nachtrag(zeitraum: list[date], state: dict, base: Path) -> list[date]:
+    """Bereits erledigte Tage, deren offene Rennen auf Bahnen liegen, für die
+    inzwischen ein France-Galop-Code bekannt ist."""
+    store = fg.CodeStore(base)
+    out = []
+    for d in zeitraum:
+        k = _key(d)
+        if k not in state or not state[k].get("offen"):
+            continue
+        if any(store.code(h, c) for h, c in _offen_bahnen(k, state, base)):
+            out.append(d)
+    return out
 
 
 def run(start, ende=None, *, base: Path, pdf_dir: Path, max_tage: int = 10,
@@ -296,6 +331,7 @@ def run(start, ende=None, *, base: Path, pdf_dir: Path, max_tage: int = 10,
     neu = [d for d in zeitraum if _key(d) not in state][:max_tage]
 
     pmu_fehler_folge = 0
+    neu_gelernt: set[tuple[str, str]] = set()
 
     def verarbeite(d: date, art: str) -> bool:
         """True = weitermachen, False = PMU streikt, Lauf abbrechen."""
@@ -319,6 +355,7 @@ def run(start, ende=None, *, base: Path, pdf_dir: Path, max_tage: int = 10,
                 return False
             return True
         pmu_fehler_folge = 0
+        neu_gelernt.update(res.pop("neue_codes", []))
         alt = state.get(_key(d), {})
         state[_key(d)] = {**alt, **res}
         _save_state(base, state)
@@ -352,6 +389,19 @@ def run(start, ende=None, *, base: Path, pdf_dir: Path, max_tage: int = 10,
         for d in neu:
             if not verarbeite(d, "neu"):
                 return pd.DataFrame(bericht)
+
+    # 4) Wurde unterwegs ein Bahncode gelernt, können frühere Tage Lücken haben,
+    #    die jetzt zu schließen sind – auch außerhalb des Nachzügler-Fensters.
+    if neu_gelernt:
+        print(f"\nNeue Bahncodes gelernt: {', '.join(sorted(f'{h} = {c}' for h, c in neu_gelernt))}")
+    nachtrag = _tage_mit_nachtrag(zeitraum, state, base)
+    _save_state(base, state)
+    if nachtrag:
+        print(f"\nBahncode inzwischen bekannt -> {len(nachtrag)} frühere Tage nachtragen"
+              + (f" (davon {max_tage} in diesem Lauf)" if len(nachtrag) > max_tage else ""))
+        for d in nachtrag[:max_tage]:
+            if not verarbeite(d, "Bahncode nachgetragen"):
+                break
 
     if not bericht:
         print("Alles aktuell – nichts zu tun.")

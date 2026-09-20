@@ -46,17 +46,28 @@ LETZTER_FEHLER = ""      # Diagnose, wenn das Programm nicht erreichbar war
 # --------------------------------------------------------------------------
 # Kleinkram
 # --------------------------------------------------------------------------
-# PMU nennt die Bahnen mal "CHANTILLY", mal "HIPPODROME DE CHANTILLY". Der Zusatz
-# muss weg, sonst erkennt die Codetabelle dieselbe Bahn nicht wieder.
-PRAEFIX = re.compile(r"^HIPP(?:ODROME)?\s+(?:DE\s+LA\s+|DE\s+L\s+|DE\s+|DU\s+|DES\s+|D\s+)?")
+# PMU nennt dieselbe Bahn mal "CHANTILLY", mal "HIPPODROME DE CHANTILLY",
+# mal "HIPPODROME DU LION D'ANGERS" (wo der Artikel eigentlich "LE" lautet).
+# Vorsatz und führende Artikel müssen deshalb einheitlich weg, sonst findet die
+# Codetabelle dieselbe Bahn unter zwei Namen nicht wieder.
+PRAEFIX = re.compile(r"^HIPP(?:ODROME)?\s+")
+ARTIKEL = re.compile(r"^(?:DE|DU|DES|D|LE|LA|LES|L)\s+")
 
 
 def norm(name: str) -> str:
-    """Bahnname vereinheitlichen: Akzente, Sonderzeichen und den Vorsatz
-    "Hippodrome de" entfernen. 'Hippodrome de Chantilly' -> 'CHANTILLY'."""
+    """Bahnname vereinheitlichen: Akzente, Sonderzeichen, den Vorsatz "Hippodrome"
+    und führende Artikel entfernen.
+    'Hippodrome du Lion d\'Angers' und 'Le Lion-d\'Angers' -> 'LION D ANGERS'."""
     s = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode()
     s = re.sub(r"\s+", " ", re.sub(r"[^A-Z0-9 ]", " ", s.upper())).strip()
-    return PRAEFIX.sub("", s).strip() or s
+    roh = s
+    s = PRAEFIX.sub("", s)
+    while True:                       # "DE LA TESTE DE BUCH" -> "TESTE DE BUCH"
+        gekuerzt = ARTIKEL.sub("", s, count=1)
+        if gekuerzt == s:
+            break
+        s = gekuerzt
+    return s.strip() or roh
 
 
 def bahn_name(hip: dict) -> str:

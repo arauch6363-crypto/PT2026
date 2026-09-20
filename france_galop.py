@@ -83,6 +83,10 @@ HINWEISE = {
 
 STOPWORDS = {"LE", "LA", "LES", "DE", "DU", "DES", "D", "L", "SUR", "EN", "MIDI", "SOIR", "HIPPODROME"}
 
+# Schlüssel auf dieselbe Schreibweise bringen wie die Namen aus dem PMU-Programm
+HINWEISE = {norm(k): v for k, v in HINWEISE.items()}
+SEED_CODES = {norm(k): v for k, v in SEED_CODES.items()}
+
 # Wie hartnäckig wird nach einem noch unbekannten Bahncode gesucht?
 ERSTE_VERSUCHE = 12      # so oft wird an verschiedenen Renntagen ohne Pause gesucht
 WIEDER_NACH_TAGEN = 21   # danach nur noch alle X Tage erneut (die Bahn kann später Tracking bekommen)
@@ -103,6 +107,7 @@ class CodeStore:
     """
 
     def __init__(self, base: Path):
+        self.gelernt: list[tuple[str, str]] = []      # in dieser Sitzung neu gefundene Codes
         self.path = Path(base) / "track_codes.csv"
         if self.path.exists():
             df = pd.read_csv(self.path, dtype=str).fillna("")
@@ -201,6 +206,7 @@ class CodeStore:
     def treffer(self, name: str, pmu_code: str, fg_code: str, tag: date, quelle: str = "gefunden"):
         i = self.notiere(name, pmu_code)
         self.df.loc[i, ["fg_code", "gefunden_am", "quelle"]] = [fg_code, tag.isoformat(), quelle]
+        self.gelernt.append((norm(name), fg_code))
 
     def fehlversuch(self, name: str, pmu_code: str, tag: date):
         i = self.notiere(name, pmu_code)
@@ -373,7 +379,8 @@ def tracking_fuer_tag(tag: date, meets: list[dict], session: requests.Session, s
             r = pmu.race_no(c)
             rid = pmu.race_id(tag, m, c)
             zeile = {"race_id": rid, "date": ymd, "hippodrome": m["hippodrome"],
-                     "reunion": m["reunion"], "race_no": r, "fg_code": code or "",
+                     "pmu_code": m["pmu_code"], "reunion": m["reunion"], "race_no": r,
+                     "fg_code": code or "",
                      "specialite": c.get("specialite"),
                      "pdf": "", "tracking": False, "geprueft_am": datetime.now().isoformat(timespec="seconds")}
             if not code:

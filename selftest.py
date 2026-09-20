@@ -60,11 +60,13 @@ PROGRAMM = {
         _reunion(3, "HIPPODROME DE CHATEAUBRIANT", "CTB", [_course(1)]),            # Code unbekannt, kein Tracking
         _reunion(4, "VINCENNES", "VIN", [_course(1, spec="ATTELE")]), # Trab -> raus
         _reunion(5, "ASCOT", "ASC", [_course(1)], pays="GBR"),        # Ausland -> raus
+        _reunion(6, "CRAON", "ZZZ", [_course(i) for i in (1, 2, 3, 4, 5)]),
     ],
     T2: [
         # gleiche Bahn, an diesem Tag ohne Tracking – darf nicht dauerhaft ausgeschlossen werden
         _reunion(1, "HIPPODROME DE MOULINS", "MOU", [_course(1)]),
         _reunion(2, "CHANTILLY", "CHY", [_course(1)]),      # anderes Namensfeld, gleicher PMU-Code
+        _reunion(3, "CRAON", "ZZZ", [_course(1)]),
     ],
 }
 
@@ -76,6 +78,9 @@ PDFS: dict[str, str] = {
     f"{T1:%Y%m%d}MOU01_last_times_fr": "MOULINS",
     f"{T1:%Y%m%d}MOU02_last_times_fr": "MOULINS",
     f"{T2:%Y%m%d}CHA01_last_times_fr": "CHANTILLY",
+    f"{T1:%Y%m%d}CRA04_last_times_fr": "CRAON",     # nur hintere Rennen -> am T1 nicht auffindbar
+    f"{T1:%Y%m%d}CRA05_last_times_fr": "CRAON",
+    f"{T2:%Y%m%d}CRA01_last_times_fr": "CRAON",     # hier wird der Code gelernt
 }
 ANGEFRAGT: list[str] = []
 SUCHLOG: list[str] = []
@@ -219,7 +224,7 @@ def main() -> int:
     st = tp.lade("tracking_status", base)
     pr = tp.lade("pmu_races", base)
     pruefe(set(st["date"]) == {T1.strftime("%Y%m%d")}, "nur der eine angeforderte Tag wurde geholt")
-    pruefe(set(st["hippodrome"]) == {"CHANTILLY", "MOULINS", "CHATEAUBRIANT"},
+    pruefe(set(st["hippodrome"]) == {"CHANTILLY", "MOULINS", "CHATEAUBRIANT", "CRAON"},
            "Trab (VINCENNES) und Ausland (ASCOT) sind draußen")
     ch = st[st["hippodrome"] == "CHANTILLY"]
     pruefe(sorted(ch["race_no"]) == [1, 2, 5],
@@ -241,10 +246,13 @@ def main() -> int:
     cbz = codes[codes["hippodrome"] == "CHATEAUBRIANT"]
     pruefe(len(cbz) == 1 and cbz["fg_code"].iloc[0] == "" and int(cbz["versuche"].iloc[0]) == 1,
            "CHATEAUBRIANT ist als Fehlversuch vermerkt, nicht als 'kein Tracking'")
-    pruefe(len(pr) == len(st) == 6, "zu jedem gelaufenen Flachrennen gibt es eine PMU- und eine Statuszeile")
+    pruefe(len(pr) == len(st) == 11, "zu jedem gelaufenen Flachrennen gibt es eine PMU- und eine Statuszeile")
     pruefe(set(tp.lade("tracking_races", base)["race_id"]) <= set(pr["race_id"]),
            "Tracking- und PMU-Tabellen benutzen dieselbe race_id")
-    pruefe(len(tp.lade("pmu_runners", base)) == 18, "Starterdaten zu allen 6 Rennen geholt")
+    pruefe(len(tp.lade("pmu_runners", base)) == 33, "Starterdaten zu allen 11 Rennen geholt")
+    cr = st[st["hippodrome"] == "CRAON"]
+    pruefe(not cr["tracking"].any() and set(cr["fg_code"]) == {""},
+           "CRAON: Code an diesem Tag nicht gefunden, obwohl es PDFs gäbe")
 
     print("\n3) Zweiter Lauf (Tag davor) – Bahn ohne Tracking an diesem Tag")
     tp.run(T2, T1, base=base, pdf_dir=pdfs, max_tage=1, pause=0)
@@ -259,6 +267,13 @@ def main() -> int:
     pruefe(sum("CHANTILLY" in z for z in SUCHLOG) == 0,
            "CHANTILLY unter kurzem Namen: keine erneute Codesuche")
 
+    print("\n3b) Ein später gelernter Bahncode trägt frühere Tage nach")
+    st_cr = tp.lade("tracking_status", base)
+    cr1 = st_cr[(st_cr["date"] == T1.strftime("%Y%m%d")) & (st_cr["hippodrome"] == "CRAON")]
+    pruefe(cr1["fg_code"].iloc[0] == "CRA", "CRAON hat am ersten Tag jetzt den gelernten Code")
+    pruefe(int(cr1["tracking"].sum()) == 2,
+           "die beiden zunächst verfehlten CRAON-Rennen wurden nachgetragen")
+
     print("\n4) Nachzügler: France Galop veröffentlicht ein PDF verspätet")
     PDFS[f"{T1:%Y%m%d}CHA05_last_times_fr"] = "CHANTILLY"
     tp.run(T2, T1, base=base, pdf_dir=pdfs, max_tage=1, pause=0)
@@ -266,15 +281,16 @@ def main() -> int:
     c5 = st3[(st3["date"] == T1.strftime("%Y%m%d")) & (st3["hippodrome"] == "CHANTILLY") & (st3["race_no"] == 5)]
     pruefe(bool(c5["tracking"].iloc[0]), "das nachgereichte PDF wurde beim nächsten Lauf gefunden")
     state = tp.fortschritt(base)
-    pruefe(state[T1.strftime("%Y%m%d")]["offen"] == [f"{T1:%Y%m%d}R3C1"],
-           "offen bleibt nur noch das Rennen in CHATEAUBRIANT")
+    pruefe(f"{T1:%Y%m%d}R3C1" in state[T1.strftime("%Y%m%d")]["offen"],
+           "das Rennen in CHATEAUBRIANT bleibt offen")
 
     print("\n5) Abdeckung")
     ab = tp.abdeckung(base)
     print(ab.to_string())
     pruefe(ab.loc["CHANTILLY", "mit_tracking"] == 4, "CHANTILLY: 4 Rennen mit Tracking")
+    pruefe(ab.loc["CRAON", "mit_tracking"] == 3, "CRAON: 3 Rennen mit Tracking (2 nachgetragen + 1)")
     pruefe(ab.loc["CHATEAUBRIANT", "quote_%"] == 0.0, "CHATEAUBRIANT: 0 %")
-    pruefe(len(tp.ohne_tracking(base)) == 2, "zwei Rennen ohne Tracking-PDF übrig")
+    pruefe(len(tp.ohne_tracking(base)) == 5, "fünf Rennen ohne Tracking-PDF übrig")
 
     print("\n6) Doppelte Läufe schreiben nichts doppelt")
     vorher = len(tp.lade("pmu_races", base))
