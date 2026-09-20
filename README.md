@@ -41,14 +41,16 @@ Tracking ist eine Eigenschaft von **Renntag und Rennen**, nicht von der Bahn:
   `LA CEPIERE`. Namen werden zusätzlich vereinheitlicht (`pmu.norm`, entfernt auch
   den Vorsatz „Hippodrome de"), und ohne PMU-Code wird nur bei exaktem Namen
   zugeordnet – `DEAUVILLE CLAIREFONTAINE` ist eine andere Bahn als `DEAUVILLE`.
-* Gespeichert wird nur positives Wissen: welcher France-Galop-Code (z. B. `CHA`)
-  zu welcher Bahn gehört. Für unbekannte Bahnen werden Kandidaten
-  durchprobiert – ein Treffer zählt aber nur, wenn der Bahnname im PDF-Kopf
-  dazu passt. Sonst würde z. B. `CHATEAUBRIANT` den Code `CHA` von `CHANTILLY`
-  erben.
-* Findet sich kein Code, wird das nur als Fehlversuch gezählt. Die Bahn wird an
-  den nächsten Renntagen erneut geprüft (`ERSTE_VERSUCHE`), später in größeren
-  Abständen (`WIEDER_NACH_TAGEN`) – nie dauerhaft ausgeschlossen.
+* **Der France-Galop-Code ist der PMU-Bahncode.** In allen bisher bestätigten
+  Fällen gilt das ohne Ausnahme – auch dort, wo er sich aus dem Namen nicht
+  ableiten lässt: `NANTES` = `PET` (Le Petit Port), `SAINT MALO` = `S-M`,
+  `TOULOUSE LA CEPIERE` = `CEP`. Er wird deshalb unverändert übernommen,
+  einschließlich Sonderzeichen, und an **jedem** Renntag neu probiert.
+* Nur wenn der PMU-Code nichts liefert, werden Kandidaten aus dem Namen
+  geraten. Ein geratener Treffer zählt aber nur, wenn der Bahnname im PDF-Kopf
+  dazu passt – sonst würde `CHATEAUBRIANT` den Code `CHA` von `CHANTILLY` erben.
+  Nur dieses Raten unterliegt einer Sperre (`ERSTE_VERSUCHE`,
+  `WIEDER_NACH_TAGEN`); der PMU-Code selbst wird nie ausgesetzt.
 * France Galop veröffentlicht PDFs teils verspätet. Renntage der letzten
   `nachzuegler_tage` Tage werden bei jedem Lauf erneut nach den noch fehlenden
   PDFs gefragt.

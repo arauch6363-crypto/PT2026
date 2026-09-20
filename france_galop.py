@@ -22,6 +22,7 @@ Wichtig (und der Grund für den ganzen Aufwand hier):
 """
 from __future__ import annotations
 
+import re
 import tempfile
 import time
 from datetime import date, datetime
@@ -32,7 +33,7 @@ import requests
 
 import parse_tracking as pt
 import pmu
-from pmu import norm
+from pmu import norm, norm_code
 
 TRACK_URL = "https://www7.france-galop.com/Casaques/Tracking//{name}.pdf"
 DATEI = "{ymd}{code}{no:02d}_last_times_fr"
@@ -126,7 +127,7 @@ class CodeStore:
         die durch die früheren Schreibweisen entstanden sind (z. B. "TOULOUSE LA CEPIERE"
         und "LA CEPIERE"). Zeilen mit bekanntem Code haben Vorrang."""
         df["hippodrome"] = df["hippodrome"].map(norm)
-        df["pmu_code"] = df["pmu_code"].map(lambda x: norm(x) if x else "")
+        df["pmu_code"] = df["pmu_code"].map(lambda x: norm_code(x) if x else "")
         df = df.sort_values("fg_code", ascending=False, kind="stable")
         mit_code = df[df["pmu_code"] != ""].drop_duplicates("pmu_code", keep="first")
         ohne_code = df[df["pmu_code"] == ""]
@@ -144,9 +145,9 @@ class CodeStore:
         vereinheitlichten Namen gesucht – und dann nur exakt: DEAUVILLE CLAIREFONTAINE
         ist eine andere Bahn als DEAUVILLE, ebenso LYON PARILLY und LYON LA SOIE."""
         if pmu_code:
-            c = norm(pmu_code)
+            c = norm_code(pmu_code)
             for i, x in enumerate(self.df["pmu_code"]):
-                if x and norm(x) == c:
+                if x and norm_code(x) == c:
                     return i
         if name:
             n = norm(name)
@@ -165,7 +166,7 @@ class CodeStore:
         if i is None:
             i = self._neu(name)
         if pmu_code and not self.df.at[i, "pmu_code"]:
-            self.df.at[i, "pmu_code"] = norm(pmu_code)
+            self.df.at[i, "pmu_code"] = norm_code(pmu_code)
         if not self.df.at[i, "hippodrome"]:
             self.df.at[i, "hippodrome"] = norm(name)
         return i
@@ -219,7 +220,22 @@ class CodeStore:
 
 
 # --------------------------------------------------------------------------
-# Kandidaten für einen unbekannten Code
+# Code einer Bahn: der PMU-Bahncode
+# --------------------------------------------------------------------------
+def code_aus_pmu(pmu_code) -> str:
+    """Der France-Galop-Code ist der PMU-Bahncode – in allen bisher bestätigten
+    Fällen ohne Ausnahme, auch dort, wo er sich aus dem Namen nicht ableiten lässt
+    (NANTES = PET für Le Petit Port, SAINT MALO = S-M, TOULOUSE LA CEPIERE = CEP).
+    Deshalb wird er unverändert übernommen und nicht wie ein geratener Kandidat
+    auf drei Buchstaben zurechtgestutzt."""
+    c = norm_code(pmu_code)
+    if 2 <= len(c) <= 4 and re.fullmatch(r"[A-Z0-9-]+", c):
+        return c
+    return ""
+
+
+# --------------------------------------------------------------------------
+# Geratene Kandidaten – nur noch Rückfallebene, falls der PMU-Code nichts liefert
 # --------------------------------------------------------------------------
 def kandidaten(name: str, pmu_code: str = "", *, verboten: set[str] = frozenset()) -> list[str]:
     n = norm(name)
@@ -310,18 +326,36 @@ def passt_bahn(pdf: bytes, hippodrome: str) -> bool | None:
 # Code einer Bahn suchen
 # --------------------------------------------------------------------------
 def suche_code(m: dict, tag: date, session: requests.Session, store: CodeStore, pdf_dir: Path, *,
-               pause: float = 0.3, max_kandidaten: int = 8, rennen_je_kandidat: int = 3,
-               tabu: set[str] = frozenset(), log=print) -> tuple[str | None, dict]:
-    """Unbekannten France-Galop-Code über Probe-Downloads ermitteln.
+               pause: float = 0.3, raten: bool = True, max_kandidaten: int = 8,
+               rennen_je_kandidat: int = 3, tabu: set[str] = frozenset(),
+               log=print) -> tuple[str | None, dict]:
+    """France-Galop-Code einer Bahn bestätigen.
+
+    Zuerst wird der PMU-Bahncode auf allen Rennen des Tages probiert – das ist der
+    Code, nicht bloß eine Vermutung. Erst wenn der nichts liefert, werden Kandidaten
+    aus dem Namen geraten (nur dann greift auch die Sperre aus ERSTE_VERSUCHE /
+    WIEDER_NACH_TAGEN). Ein Treffer zählt nur, wenn der Bahnname im PDF-Kopf passt.
 
     Rückgabe: (code oder None, {dateiname: pdf-bytes} der dabei gefundenen PDFs).
-    Ein Treffer zählt nur, wenn der Bahnname im PDF-Kopf passt.
     """
     ymd = tag.strftime("%Y%m%d")
     verboten = store.belegte_codes(ausser=m["hippodrome"], pmu_code=m["pmu_code"]) | set(tabu)
     gefunden: dict[str, bytes] = {}
-    for i, cand in enumerate(kandidaten(m["hippodrome"], m["pmu_code"], verboten=verboten)[:max_kandidaten]):
-        rennen = m["races"] if i == 0 else m["races"][:rennen_je_kandidat]
+
+    versuche: list[tuple[str, list[int], bool]] = []
+    pk = code_aus_pmu(m["pmu_code"])
+    if pk and pk not in verboten:
+        versuche.append((pk, m["races"], False))        # der PMU-Code: immer, alle Rennen
+    if raten:
+        versuche += [(c, m["races"][:rennen_je_kandidat], True)
+                     for c in kandidaten(m["hippodrome"], m["pmu_code"], verboten=verboten)[:max_kandidaten]
+                     if c != pk]
+
+    gemeldet = False
+    for cand, rennen, geraten in versuche:
+        if geraten and not gemeldet:                    # erst melden, wenn wirklich geraten wird
+            log(f"  {m['hippodrome']}: PMU-Code {pk or '(keiner)'} liefert nichts – rate Kandidaten …")
+            gemeldet = True
         for r in rennen:
             name = dateiname(ymd, cand, r)
             pdf = hole_pdf(session, name)
@@ -339,7 +373,8 @@ def suche_code(m: dict, tag: date, session: requests.Session, store: CodeStore, 
             store.treffer(m["hippodrome"], m["pmu_code"], cand, tag)
             log(f"    Bahncode gelernt: {m['hippodrome']} = {cand}")
             return cand, gefunden
-    store.fehlversuch(m["hippodrome"], m["pmu_code"], tag)
+    if raten:
+        store.fehlversuch(m["hippodrome"], m["pmu_code"], tag)
     return None, gefunden
 
 
@@ -369,9 +404,12 @@ def tracking_fuer_tag(tag: date, meets: list[dict], session: requests.Session, s
         store.notiere(m["hippodrome"], m["pmu_code"])      # Bahn bekannt machen / PMU-Code nachtragen
         code = store.code(m["hippodrome"], m["pmu_code"])
         vorab: dict[str, bytes] = {}
-        if not code and code_suche and store.soll_suchen(m["hippodrome"], tag, pmu_code=m["pmu_code"]):
-            log(f"  {m['hippodrome']}: Bahncode unbekannt – suche …")
-            code, vorab = suche_code(m, tag, session, store, pdf_dir, pause=pause, tabu=tabu, log=log)
+        if not code and code_suche:
+            # Der PMU-Code wird an jedem Renntag neu probiert – eine Bahn kann heute
+            # Tracking haben und gestern nicht. Nur das Raten unterliegt der Sperre.
+            raten = store.soll_suchen(m["hippodrome"], tag, pmu_code=m["pmu_code"])
+            code, vorab = suche_code(m, tag, session, store, pdf_dir, pause=pause,
+                                     raten=raten, tabu=tabu, log=log)
         if code:
             tabu.add(code)
 

@@ -70,6 +70,12 @@ def norm(name: str) -> str:
     return s.strip() or roh
 
 
+def norm_code(code) -> str:
+    """Bahncode vereinheitlichen – nur Großschreibung und Leerzeichen weg.
+    Sonderzeichen bleiben: Saint-Malo hat den Code 'S-M'."""
+    return re.sub(r"\s+", "", str(code or "")).upper()
+
+
 def bahn_name(hip: dict) -> str:
     """Einheitlicher Bahnname. Der lange Name ist der aussagekräftigere
     ("TOULOUSE LA CEPIERE" statt "LA CEPIERE"); die Zuordnung in der Codetabelle
