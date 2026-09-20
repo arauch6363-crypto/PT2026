@@ -31,6 +31,7 @@ import pandas as pd
 import requests
 
 import parse_tracking as pt
+import pmu
 from pmu import norm
 
 TRACK_URL = "https://www7.france-galop.com/Casaques/Tracking//{name}.pdf"
@@ -307,8 +308,6 @@ def tracking_fuer_tag(tag: date, meets: list[dict], session: requests.Session, s
     gefunden, ohne dass etwas doppelt geladen wird.
     Rückgabe: eine Statuszeile je Rennen.
     """
-    import pmu
-
     ymd = tag.strftime("%Y%m%d")
     pdf_dir.mkdir(parents=True, exist_ok=True)
     tabu: set[str] = set()                     # Codes, die heute schon einer anderen Bahn gehören

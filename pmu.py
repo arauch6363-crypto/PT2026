@@ -52,9 +52,14 @@ def norm(name: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^A-Z0-9 ]", " ", s.upper())).strip()
 
 
+def heute() -> date:
+    """Heutiges Datum in Frankreich – Colab läuft nach UTC und wäre spätabends einen Tag zurück."""
+    return datetime.now(PARIS).date()
+
+
 def tage_rueckwaerts(start, ende=None):
     """Tage von ende (Vorgabe: heute) rückwärts bis start – neueste zuerst."""
-    d1 = pd.to_datetime(ende).date() if ende else date.today()
+    d1 = pd.to_datetime(ende).date() if ende else heute()
     d0 = pd.to_datetime(start).date()
     d = d1
     while d >= d0:

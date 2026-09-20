@@ -268,7 +268,7 @@ def run(start, ende=None, *, base: Path, pdf_dir: Path, max_tage: int = 10,
     """
     base, pdf_dir = Path(base), Path(pdf_dir)
     pdf_dir.mkdir(parents=True, exist_ok=True)
-    heute = date.today()
+    heute = pmu.heute()
     ende_d = min(pd.to_datetime(ende).date(), heute) if ende else heute
     zeitraum = list(pmu.tage_rueckwaerts(start, ende_d))          # neueste zuerst
     state = fortschritt(base)
