@@ -60,8 +60,10 @@ def norm(name: str) -> str:
 
 
 def bahn_name(hip: dict) -> str:
-    """Einheitlicher Bahnname, egal welche Schreibweise das Programm gerade liefert."""
-    return norm(hip.get("libelleCourt") or hip.get("libelleLong") or "?")
+    """Einheitlicher Bahnname. Der lange Name ist der aussagekräftigere
+    ("TOULOUSE LA CEPIERE" statt "LA CEPIERE"); die Zuordnung in der Codetabelle
+    hängt ohnehin am PMU-Bahncode, nicht am Namen."""
+    return norm(hip.get("libelleLong") or hip.get("libelleCourt") or "?")
 
 
 def heute() -> date:

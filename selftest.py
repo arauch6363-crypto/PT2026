@@ -64,7 +64,7 @@ PROGRAMM = {
     T2: [
         # gleiche Bahn, an diesem Tag ohne Tracking – darf nicht dauerhaft ausgeschlossen werden
         _reunion(1, "HIPPODROME DE MOULINS", "MOU", [_course(1)]),
-        _reunion(2, "HIPPODROME DE CHANTILLY", "CHY", [_course(1)]),
+        _reunion(2, "CHANTILLY", "CHY", [_course(1)]),      # anderes Namensfeld, gleicher PMU-Code
     ],
 }
 
@@ -197,6 +197,23 @@ def main() -> int:
     pruefe(s_.code("DEAUVILLE CLAIREFONTAINE") == "",
            "DEAUVILLE CLAIREFONTAINE erbt nicht den Code von DEAUVILLE")
 
+    print("\n1c) PMU-Bahncode als Schlüssel (Namensfelder wechseln, der Code bleibt)")
+    d2 = tmp / "codes2"; d2.mkdir()
+    pd.DataFrame([
+        {"hippodrome": "TOULOUSE LA CEPIERE", "pmu_code": "CEP", "fg_code": "CEP",
+         "gefunden_am": "2026-09-16", "versuche": "0", "letzter_versuch": "", "quelle": "gefunden"},
+        {"hippodrome": "LA CEPIERE", "pmu_code": "CEP", "fg_code": "",
+         "gefunden_am": "", "versuche": "1", "letzter_versuch": "2026-09-16", "quelle": ""},
+    ]).to_csv(d2 / "track_codes.csv", index=False)
+    s2 = fg.CodeStore(d2)
+    pruefe(len(s2.df) == 1, "Dubletten aus alten Schreibweisen werden zusammengeführt")
+    pruefe(s2.code("LA CEPIERE", "CEP") == "CEP" and s2.code("TOULOUSE LA CEPIERE", "CEP") == "CEP",
+           "Bahn wird unter beiden Namensvarianten gefunden")
+    pruefe("CEP" not in s2.belegte_codes(ausser="LA CEPIERE", pmu_code="CEP"),
+           "auch bei abweichendem Namen sperrt die Bahn ihren eigenen Code nicht")
+    pruefe(not s2.soll_suchen("LA CEPIERE", T1, pmu_code="CEP"),
+           "für eine Bahn mit bekanntem Code wird nicht erneut gesucht")
+
     print("\n2) Erster Lauf (gestern)")
     bericht = tp.run(T2, T1, base=base, pdf_dir=pdfs, max_tage=1, pause=0)
     st = tp.lade("tracking_status", base)
@@ -239,6 +256,8 @@ def main() -> int:
     pruefe(bool(ch2["tracking"].iloc[0]), "CHANTILLY hat am Vortag Tracking – Bahn bleibt in Betrieb")
     pruefe(f"{T2:%Y%m%d}MOU01_last_times_fr" in ANGEFRAGT,
            "die Bahn wurde am zweiten Tag erneut abgefragt und nicht ausgeschlossen")
+    pruefe(sum("CHANTILLY" in z for z in SUCHLOG) == 0,
+           "CHANTILLY unter kurzem Namen: keine erneute Codesuche")
 
     print("\n4) Nachzügler: France Galop veröffentlicht ein PDF verspätet")
     PDFS[f"{T1:%Y%m%d}CHA05_last_times_fr"] = "CHANTILLY"

@@ -36,10 +36,11 @@ Tracking ist eine Eigenschaft von **Renntag und Rennen**, nicht von der Bahn:
 * Eine Bahn trägt oft Flach- **und** Hindernisrennen am selben Tag aus. Ein
   fehlendes PDF für ein Rennen sagt deshalb nichts über die übrigen Rennen
   desselben Tages aus.
-* PMU nennt dieselbe Bahn mal `CHANTILLY`, mal `HIPPODROME DE CHANTILLY`. Alle
-  Namen werden deshalb vereinheitlicht (`pmu.norm`), sonst findet die Codetabelle
-  eine bekannte Bahn nicht wieder. Zugeordnet wird nur bei exaktem Namen –
-  `DEAUVILLE CLAIREFONTAINE` ist eine andere Bahn als `DEAUVILLE`.
+* Schlüssel der Codetabelle ist der **PMU-Bahncode**, nicht der Name: das Programm
+  nennt dieselbe Bahn je nach Feld `HIPPODROME DE TOULOUSE LA CEPIERE` oder
+  `LA CEPIERE`. Namen werden zusätzlich vereinheitlicht (`pmu.norm`, entfernt auch
+  den Vorsatz „Hippodrome de"), und ohne PMU-Code wird nur bei exaktem Namen
+  zugeordnet – `DEAUVILLE CLAIREFONTAINE` ist eine andere Bahn als `DEAUVILLE`.
 * Gespeichert wird nur positives Wissen: welcher France-Galop-Code (z. B. `CHA`)
   zu welcher Bahn gehört. Für unbekannte Bahnen werden Kandidaten
   durchprobiert – ein Treffer zählt aber nur, wenn der Bahnname im PDF-Kopf

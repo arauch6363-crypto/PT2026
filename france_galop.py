@@ -109,40 +109,72 @@ class CodeStore:
             for s in SPALTEN:
                 if s not in df.columns:
                     df[s] = ""
-            df = df[SPALTEN].copy()
-            df["hippodrome"] = df["hippodrome"].map(norm)      # alte Namen wie "HIPPODROME DE X" angleichen
-            df = df.sort_values("fg_code", ascending=False).drop_duplicates("hippodrome", keep="first")
-            self.df = df.reset_index(drop=True)
+            self.df = self._aufraeumen(df[SPALTEN].copy())
         else:
             self.df = pd.DataFrame([{"hippodrome": h, "pmu_code": "", "fg_code": c, "gefunden_am": "",
                                      "versuche": "0", "letzter_versuch": "", "quelle": "seed"}
                                     for h, c in SEED_CODES.items()], columns=SPALTEN)
 
+    @staticmethod
+    def _aufraeumen(df: pd.DataFrame) -> pd.DataFrame:
+        """Alte Tabellen instand setzen: Namen vereinheitlichen und Dubletten zusammenführen,
+        die durch die früheren Schreibweisen entstanden sind (z. B. "TOULOUSE LA CEPIERE"
+        und "LA CEPIERE"). Zeilen mit bekanntem Code haben Vorrang."""
+        df["hippodrome"] = df["hippodrome"].map(norm)
+        df["pmu_code"] = df["pmu_code"].map(lambda x: norm(x) if x else "")
+        df = df.sort_values("fg_code", ascending=False, kind="stable")
+        mit_code = df[df["pmu_code"] != ""].drop_duplicates("pmu_code", keep="first")
+        ohne_code = df[df["pmu_code"] == ""]
+        ohne_code = ohne_code[~ohne_code["hippodrome"].isin(mit_code["hippodrome"])]
+        df = pd.concat([mit_code, ohne_code], ignore_index=True)
+        return df.drop_duplicates("hippodrome", keep="first").reset_index(drop=True)
+
     # -- lesen -------------------------------------------------------------
-    def _zeile(self, name: str):
-        """Zeile zu einem Bahnnamen – bewusst nur exakte Treffer (nach norm()).
-        Ein Namensanfang genügt nicht: DEAUVILLE CLAIREFONTAINE ist eine andere Bahn
-        als DEAUVILLE, ebenso LYON PARILLY und LYON LA SOIE."""
-        n = norm(name)
-        for i, h in enumerate(self.df["hippodrome"]):
-            if norm(h) == n:
-                return i
+    def _zeile(self, name: str = "", pmu_code: str = ""):
+        """Zeile zu einer Bahn finden.
+
+        Schlüssel ist der PMU-Bahncode: das Programm nennt dieselbe Bahn je nach Feld
+        "HIPPODROME DE TOULOUSE LA CEPIERE" oder "LA CEPIERE", der Code bleibt derselbe.
+        Nur wenn kein Code vorliegt (z. B. bei den mitgelieferten Bahnen), wird über den
+        vereinheitlichten Namen gesucht – und dann nur exakt: DEAUVILLE CLAIREFONTAINE
+        ist eine andere Bahn als DEAUVILLE, ebenso LYON PARILLY und LYON LA SOIE."""
+        if pmu_code:
+            c = norm(pmu_code)
+            for i, x in enumerate(self.df["pmu_code"]):
+                if x and norm(x) == c:
+                    return i
+        if name:
+            n = norm(name)
+            for i, h in enumerate(self.df["hippodrome"]):
+                if norm(h) == n:
+                    return i
         return None
 
-    def code(self, name: str) -> str:
-        i = self._zeile(name)
+    def code(self, name: str, pmu_code: str = "") -> str:
+        i = self._zeile(name, pmu_code)
         return self.df.at[i, "fg_code"] if i is not None else ""
 
-    def belegte_codes(self, ausser: str = "") -> set[str]:
+    def notiere(self, name: str, pmu_code: str) -> int:
+        """Bahn anlegen bzw. den PMU-Code nachtragen, ohne Bekanntes zu überschreiben."""
+        i = self._zeile(name, pmu_code)
+        if i is None:
+            i = self._neu(name)
+        if pmu_code and not self.df.at[i, "pmu_code"]:
+            self.df.at[i, "pmu_code"] = norm(pmu_code)
+        if not self.df.at[i, "hippodrome"]:
+            self.df.at[i, "hippodrome"] = norm(name)
+        return i
+
+    def belegte_codes(self, ausser: str = "", pmu_code: str = "") -> set[str]:
         """Codes, die bereits einer anderen Bahn gehören – die dürfen nicht doppelt vergeben werden.
         Die eigene Zeile wird über den Zeilentreffer ausgeschlossen, nicht über Namensgleichheit:
         sonst sperrt sich eine Bahn bei abweichender Schreibweise ihren eigenen Code."""
-        eigen = self._zeile(ausser) if ausser else None
+        eigen = self._zeile(ausser, pmu_code) if (ausser or pmu_code) else None
         return {c for i, c in enumerate(self.df["fg_code"]) if c and i != eigen}
 
-    def soll_suchen(self, name: str, tag: date, *, force: bool = False) -> bool:
+    def soll_suchen(self, name: str, tag: date, *, pmu_code: str = "", force: bool = False) -> bool:
         """Lohnt sich heute ein neuer Code-Suchlauf für diese Bahn?"""
-        i = self._zeile(name)
+        i = self._zeile(name, pmu_code)
         if i is None:
             return True
         if self.df.at[i, "fg_code"]:
@@ -167,15 +199,11 @@ class CodeStore:
         return len(self.df) - 1
 
     def treffer(self, name: str, pmu_code: str, fg_code: str, tag: date, quelle: str = "gefunden"):
-        i = self._zeile(name)
-        i = self._neu(name) if i is None else i
-        self.df.loc[i, ["pmu_code", "fg_code", "gefunden_am", "quelle"]] = \
-            [pmu_code, fg_code, tag.isoformat(), quelle]
+        i = self.notiere(name, pmu_code)
+        self.df.loc[i, ["fg_code", "gefunden_am", "quelle"]] = [fg_code, tag.isoformat(), quelle]
 
     def fehlversuch(self, name: str, pmu_code: str, tag: date):
-        i = self._zeile(name)
-        i = self._neu(name) if i is None else i
-        self.df.loc[i, "pmu_code"] = pmu_code or self.df.at[i, "pmu_code"]
+        i = self.notiere(name, pmu_code)
         self.df.loc[i, "versuche"] = str(int(self.df.at[i, "versuche"] or 0) + 1)
         self.df.loc[i, "letzter_versuch"] = tag.isoformat()
 
@@ -284,7 +312,7 @@ def suche_code(m: dict, tag: date, session: requests.Session, store: CodeStore, 
     Ein Treffer zählt nur, wenn der Bahnname im PDF-Kopf passt.
     """
     ymd = tag.strftime("%Y%m%d")
-    verboten = store.belegte_codes(ausser=m["hippodrome"]) | set(tabu)
+    verboten = store.belegte_codes(ausser=m["hippodrome"], pmu_code=m["pmu_code"]) | set(tabu)
     gefunden: dict[str, bytes] = {}
     for i, cand in enumerate(kandidaten(m["hippodrome"], m["pmu_code"], verboten=verboten)[:max_kandidaten]):
         rennen = m["races"] if i == 0 else m["races"][:rennen_je_kandidat]
@@ -326,15 +354,16 @@ def tracking_fuer_tag(tag: date, meets: list[dict], session: requests.Session, s
     pdf_dir.mkdir(parents=True, exist_ok=True)
     tabu: set[str] = set()                     # Codes, die heute schon einer anderen Bahn gehören
     for m in meets:
-        c = store.code(m["hippodrome"])
+        c = store.code(m["hippodrome"], m["pmu_code"])
         if c:
             tabu.add(c)
 
     status: list[dict] = []
     for m in meets:
-        code = store.code(m["hippodrome"])
+        store.notiere(m["hippodrome"], m["pmu_code"])      # Bahn bekannt machen / PMU-Code nachtragen
+        code = store.code(m["hippodrome"], m["pmu_code"])
         vorab: dict[str, bytes] = {}
-        if not code and code_suche and store.soll_suchen(m["hippodrome"], tag):
+        if not code and code_suche and store.soll_suchen(m["hippodrome"], tag, pmu_code=m["pmu_code"]):
             log(f"  {m['hippodrome']}: Bahncode unbekannt – suche …")
             code, vorab = suche_code(m, tag, session, store, pdf_dir, pause=pause, tabu=tabu, log=log)
         if code:
