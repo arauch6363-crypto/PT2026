@@ -15,6 +15,16 @@ Ergebnis (im Ausgabeordner):
 
 --de       CSV mit ';' und Dezimalkomma (für deutsches Excel)
 --parquet  zusätzlich Parquet-Dateien (z. B. für Databricks/PowerBI)
+
+Änderungen (Fix Abschnittstabelle):
+  * Sprung-Spalte in der Abschnittstabelle ist optional (Flach-PDFs haben keine).
+    Vorher wurde die Meterangabe der nächsten Zeile als Sprungzahl gelesen und
+    dadurch jeder zweite Abschnitt verschluckt.
+  * Plausibilitätsprüfung der Schrittlänge (3–12 m); unplausible Werte werden
+    verworfen und nicht verbraucht (sonst verrutscht die Positionsgrafik).
+  * Positionsgrafik wird ab dem korrekten Ende der Tabelle gelesen.
+  * Neue Warnung in errors.csv, wenn die Abschnitte nicht die volle Distanz abdecken.
+  * distance_covered_m nur noch aus positiven Werten > 300.
 """
 from __future__ import annotations
 
@@ -31,6 +41,9 @@ import pandas as pd
 TIME = r"\d{2}:\d{2}\.\d{2}"          # 00:50.46
 OFFTIME = r"\d+'\d{2}\"\d{2}"         # 1'53"70
 NUM = r"-?\d+(?:,\d+)?"               # 62,17 / -9,45 / 60
+
+STRIDE_MIN_M, STRIDE_MAX_M = 3, 12    # plausible Sprunglänge eines Galoppers
+VMAX_LIMIT_KMH = 90                   # darüber: Messausfall des Trackings
 
 MONTHS = {"janvier": 1, "février": 2, "fevrier": 2, "mars": 3, "avril": 4, "mai": 5,
           "juin": 6, "juillet": 7, "août": 8, "aout": 8, "septembre": 9,
@@ -232,7 +245,8 @@ def parse_summary(text: str, distance: int) -> tuple[list[dict], list[dict], lis
             r["official_time_s"] = t2s(offs[0]) if offs else None
             r["redk_official"] = offs[1] if len(offs) > 1 else None
             r["last600_s"] = t2s(times[0]) if times else None
-            dist = [x for x in nums if x is not None and abs(x) > 300]
+            # FIX: gelaufene Distanz ist immer positiv (vorher landete z. B. -1017,87 hier)
+            dist = [x for x in nums if x is not None and x > 300]
             vs = [x for x in nums if x is not None and abs(x) <= 300]
             r["distance_covered_m"] = dist[0] if dist else None
             r["dist_vs_winner_m"] = vs[0] if vs else (0.0 if r["place"] == "1" else None)
@@ -248,6 +262,24 @@ def parse_summary(text: str, distance: int) -> tuple[list[dict], list[dict], lis
             runners.append(r)
         except Exception as e:
             errors.append(f"Übersicht Nr. {s[1]}: {e}")
+
+    # FIX: Manche PDFs enthalten beim Führenden nur die Endzeit. Dann die Durchgangszeiten
+    # des Führenden aus den schnellsten Zwischenzeiten der Pferde rekonstruieren.
+    if segs and len(leader) < len(segs):
+        rebuilt, prev = [], 0.0
+        for k, (a, b) in enumerate(segs, 1):
+            cums = [r[f"T{k}_cum_s"] for r in runners
+                    if r.get(f"T{k}_cum_s") and r.get("vmax_kmh", 0) <= VMAX_LIMIT_KMH]
+            if not cums:
+                rebuilt = []
+                break
+            c = min(cums)
+            rebuilt.append({"seg": f"T{k}", "from": a, "to": b,
+                            "leader_cum_s": c, "leader_split_s": round(c - prev, 2)})
+            prev = c
+        if rebuilt:
+            leader = rebuilt
+            errors.append("Führenden-Zeiten fehlten im PDF – aus Pferdedaten rekonstruiert")
     return runners, leader, errors
 
 
@@ -266,6 +298,12 @@ def _chart_positions(tokens: list[str], n: int) -> tuple[list[int | None], int]:
         else:
             pos.append(None)
     return pos, j
+
+
+# FIX: Sprungzahl optional. Flach-PDFs haben keine Sprung-Spalte; das negative Lookahead
+# verhindert, dass die Meterangabe der nächsten Zeile ("1600m") als Sprungzahl gelesen wird.
+SECTION_ROW = re.compile(
+    rf"(DEP|\d{{3,4}}m) (\d{{2,4}}m|ARR) ({TIME}) ({TIME}) ({NUM})(?: (\d+)(?![\d,.m]))?")
 
 
 def parse_detail(text: str, distance: int) -> dict:
@@ -288,15 +326,27 @@ def parse_detail(text: str, distance: int) -> dict:
     m = re.search(r"Nombre de foulées (\d+)", t)
     d["strides_total"] = int(m[1]) if m else None
 
-    row = re.compile(rf"(DEP|\d{{3,4}}m) (\d{{2,4}}m|ARR) ({TIME}) ({TIME}) ({NUM}) (\d+)")
-    rows = list(row.finditer(t))
     secs = []
-    for r in rows:
+    table_end = None
+    matches = list(SECTION_ROW.finditer(t))
+
+    def _plausible(r) -> bool:
+        length = mark_to_m(r[1], distance) - mark_to_m(r[2], distance)
+        return bool(r[6]) and length > 0 and STRIDE_MIN_M <= length / int(r[6]) <= STRIDE_MAX_M
+
+    # FIX: Hat diese Seite überhaupt eine Sprung-Spalte? Nur wenn die Mehrheit der Zeilen
+    # plausible Sprungzahlen hat. Sonst sind gefundene Zahlen z. B. Beschriftungen der
+    # Positionsgrafik (km/h, Positionen) und werden weder übernommen noch verbraucht.
+    has_strides = sum(_plausible(r) for r in matches) > len(matches) / 2
+    for r in matches:
         f, to = mark_to_m(r[1], distance), mark_to_m(r[2], distance)
-        length, strides = f - to, int(r[6])
+        length = f - to
+        strides = int(r[6]) if has_strides and _plausible(r) else None
+        end = r.end() if strides else r.end(5)
         secs.append({"seg_from": r[1], "seg_to": r[2], "m_to_go": to, "seg_len_m": length,
                      "cum_s": t2s(r[3]), "split_s": t2s(r[4]), "speed_kmh": num(r[5]), "strides": strides,
                      "stride_len_m": round(length / strides, 3) if strides else None, "position": None})
+        table_end = end
 
     # Hindernis-Abschnitte (von Sprung zu Sprung). Beschriftung: "1/13 2/13" oder Hindernisnamen
     obs = []
@@ -307,7 +357,7 @@ def parse_detail(text: str, distance: int) -> dict:
     if otab:
         body = otab[1].split("Tracking data powered")[0]
         orow = re.compile(rf"(.+?) ({TIME}) ({TIME})(?: ({NUM}) ({NUM}) ({NUM}) (\d+) ({NUM}))?(?= |$)")
-        prev_to, pos0 = "Départ", 0
+        prev_to = "Départ"
         for r in orow.finditer(body):
             label = r[1].strip()
             if label.startswith(prev_to + " "):
@@ -320,13 +370,13 @@ def parse_detail(text: str, distance: int) -> dict:
                         "cum_s": t2s(r[2]), "split_s": t2s(r[3]),
                         "speed_kmh": num(r[4]), "dist_m": num(r[5]), "dist_covered_m": num(r[6]),
                         "strides": int(r[7]) if r[7] else None,
-                        "stride_len_m": sl if sl is not None and 3 <= sl <= 12 else None,   # offensichtliche Messfehler raus
+                        "stride_len_m": sl if sl is not None and STRIDE_MIN_M <= sl <= STRIDE_MAX_M else None,
                         "position": None})
             prev_to = to
             last_end = otab.start(1) + r.end()
 
-    # Positionsgrafiken am Seitenende
-    last = last_end if last_end is not None else (rows[-1].end() if rows else None)
+    # Positionsgrafiken am Seitenende (FIX: ab dem tatsächlichen Tabellenende lesen)
+    last = last_end if last_end is not None else table_end
     if last is not None:
         tail = t[last:].split("Tracking data powered")[0].split()
         p1, used = _chart_positions(tail, len(secs))
@@ -378,7 +428,16 @@ def parse_pages(texts: list[str], race_id: str, links: list[str]) -> dict:
         if jockey == "NON PARTANT":
             jockey = None
 
+        # FIX: Messausfall erkennen (unmögliche Vmax oder Abschnitte decken die Distanz nicht ab)
+        tracking_failed = (s.get("vmax_kmh") or 0) > VMAX_LIMIT_KMH
         if d and d["sections"]:
+            covered = sum(x["seg_len_m"] for x in d["sections"])
+            if distance and covered != distance:
+                tracking_failed = True
+        if tracking_failed:
+            errors.append(f"Tracking-Ausfall bei {horse} (Nr. {s['saddle_no']}) – nur Platz/Endzeit übernommen")
+
+        if d and d["sections"] and not tracking_failed:
             secs = d["sections"]
             sp = s.get("summary_pos", {})
             ok = d["positions_from_chart"] and all(
@@ -398,6 +457,8 @@ def parse_pages(texts: list[str], race_id: str, links: list[str]) -> dict:
              **{k: v for k, v in s.items() if k not in ("names_blob", "summary_pos")}}
         if r["status"] == "ohne Daten" and d and (d["sections"] or d["obstacle_sections"]):
             r["status"] = "nicht platziert/ausgeschieden"      # Übersicht leer, aber Streckendaten vorhanden
+        if r["status"] == "ohne Daten" and d and d.get("place_detail") == "0":
+            r["status"] = "Rang 0 (nicht klassiert, ohne Tracking)"   # gestartet, aber ohne Platz und Messdaten
         if d:
             for k in ("redk", "avg_speed_kmh", "strides_total"):
                 r[k] = d.get(k)
@@ -408,6 +469,12 @@ def parse_pages(texts: list[str], race_id: str, links: list[str]) -> dict:
             basis = d["sections"] or _pseudo_sections(d["obstacle_sections"])
             if basis:
                 r.update(derive_runner(basis, r.get("avg_speed_kmh")))
+        if tracking_failed:
+            keep = {"race_id", "horse", "jockey", "saddle_no", "draw", "place"}
+            r = {k: v for k, v in r.items() if k in keep}
+            r["status"] = "Tracking-Ausfall"
+            if d and d.get("race_time_s"):
+                r["official_time_s"], r["time_is_official"] = d["race_time_s"], False
         runners.append(r)
 
     times = [r["official_time_s"] for r in runners if r.get("official_time_s") and r.get("place")]
