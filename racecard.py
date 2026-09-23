@@ -64,7 +64,8 @@ KATEGORIE = {
 # Plausibilitätsgrenzen – Werte außerhalb sind Mess- oder Parserfehler
 PLAUSIBEL = {"best_seg_s": (9.0, 16.0), "speed_last600_kmh": (40.0, 75.0),
              "speed_last400_kmh": (40.0, 75.0), "finish_index": (70.0, 130.0),
-             "pos_gain_800_finish": (-20, 20), "pace_ratio": (60.0, 160.0)}
+             "pos_gain_800_finish": (-20, 20), "pace_ratio": (60.0, 160.0),
+             "dist_vs_winner_m": (-60.0, 100.0)}
 ADJ = {"best_seg_s": False, "speed_last600_kmh": True, "speed_last400_kmh": True}   # höher = besser?
 # Einflussgrößen der Adjustierung. Das Renntempo gehört dazu, weil ein langsam angegangenes
 # Rennen (Pace-Ratio < 100) automatisch schnelle Schlussabschnitte liefert.
@@ -235,7 +236,7 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
         t = trk_runners.copy()
         t["saddle_no"] = pd.to_numeric(t["saddle_no"], errors="coerce")
         cols = [c for c in ["finish_index", "pos_gain_800_finish", "best_seg_s", "speed_last600_kmh",
-                            "speed_last400_kmh"] if c in t]
+                            "speed_last400_kmh", "dist_vs_winner_m"] if c in t]
         for c in cols:
             t[c] = pd.to_numeric(t[c], errors="coerce")
         t = t.drop_duplicates(["race_id", "saddle_no"], keep="last")[["race_id", "saddle_no", *cols]]
@@ -465,7 +466,7 @@ def _formzeile(z) -> dict:
         "early_pos": _num(z.get("early_pos"), 0),
         "pos_before": _num(z["pos_before"], 0), "pos_before_m": _num(z["pos_before_m"], 0),
         "fifth": _num(z["fifth"], 0), "pace_ratio": _num(z["pace_ratio"], 1),
-        "finish_index": _num(z["finish_index"], 1), "pos_gain": _num(z["pos_gain_800_finish"], 0),
+        "finish_index": _num(z["finish_index"], 1), "dist_vs_winner": _num(z["dist_vs_winner_m"], 1), "pos_gain": _num(z["pos_gain_800_finish"], 0),
         "best_seg_s": _num(z["best_seg_s"], 2), "best_seg_adj": _num(z["best_seg_s_adj"], 2),
         "v600": _num(z["speed_last600_kmh"], 2), "v600_adj": _num(z["speed_last600_kmh_adj"], 2),
         "v400": _num(z["speed_last400_kmh"], 2), "v400_adj": _num(z["speed_last400_kmh_adj"], 2),

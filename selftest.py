@@ -350,7 +350,8 @@ def racecard_pruefen() -> None:
     sections = pd.DataFrame([{"race_id": rid(10, 1), "saddle_no": 1, "m_to_go": m, "position": p}
                              for m, p in ((800, 2), (400, 1), (200, 1), (0, 1))])
     hist = rc.vorbereiten(races, runners, pd.DataFrame([{"race_id": rid(10, 1), "pace_ratio": 97.0}]),
-                          pd.DataFrame([{"race_id": rid(10, 1), "saddle_no": 1, "finish_index": 104.0}]), sections)
+                          pd.DataFrame([{"race_id": rid(10, 1), "saddle_no": 1, "finish_index": 104.0},
+                                        {"race_id": rid(10, 1), "saddle_no": 2, "dist_vs_winner_m": 13.31}]), sections)
     heute_r = pd.DataFrame([{"race_id": f"{tag:%Y%m%d}R1C1", "reunion": 1, "race_no": 1, "hippodrome": "DEAUVILLE",
                              "distance_m": 1200, "going": "Bon", "going_value": "4,8", "categorie": "HANDICAP"}])
     heute_s = pd.DataFrame([{**lauf(f"{tag:%Y%m%d}R1C1", 1, "X", "TR", None, 3.0), "finish_pos": None},
@@ -370,6 +371,7 @@ def racecard_pruefen() -> None:
     f = x["form_lines"][0]
     pruefe((f["pos"], f["ran"], f["fifth"], f["pos_before"], f["pace_ratio"], f["margin"]) == (1, 2, 3, 1, 97.0, 2.0),
            "Formzeile: 1/2, Siegabstand 2 L, Position 400 m vor dem Ziel = 1 -> Fünftel 3, Pace 97")
+    pruefe(y["form_lines"][0]["dist_vs_winner"] == 13.3, "Formzeile: gelaufene Meter gegenüber dem Sieger (+13,3 m)")
     pruefe(x["days"] == 10 and len(x["form_lines"]) == 2, "10 Tage seit dem letzten Lauf, 2 Formzeilen")
     # Adjustierung: bekannte Effekte für Boden und Tempo müssen herausgerechnet werden
     import numpy as np
