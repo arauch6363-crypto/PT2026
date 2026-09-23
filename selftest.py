@@ -352,7 +352,7 @@ def racecard_pruefen() -> None:
     hist = rc.vorbereiten(races, runners, pd.DataFrame([{"race_id": rid(10, 1), "pace_ratio": 97.0}]),
                           pd.DataFrame([{"race_id": rid(10, 1), "saddle_no": 1, "finish_index": 104.0}]), sections)
     heute_r = pd.DataFrame([{"race_id": f"{tag:%Y%m%d}R1C1", "reunion": 1, "race_no": 1, "hippodrome": "DEAUVILLE",
-                             "distance_m": 1200, "going": "Bon", "going_value": "3,2", "categorie": "HANDICAP"}])
+                             "distance_m": 1200, "going": "Bon", "going_value": "4,8", "categorie": "HANDICAP"}])
     heute_s = pd.DataFrame([{**lauf(f"{tag:%Y%m%d}R1C1", 1, "X", "TR", None, 3.0), "finish_pos": None},
                             {**lauf(f"{tag:%Y%m%d}R1C1", 2, "Y", "TR", None, 3.0), "finish_pos": None}])
     d = rc.baue_daten(hist, heute_r, heute_s, tag)
@@ -362,7 +362,8 @@ def racecard_pruefen() -> None:
     pruefe(x["ae"]["trainer"]["d365"]["runs"] == 3 and x["ae"]["trainer"]["d365"]["ae"] == 1.05,
            "Trainer-A/E 365 Tage schließt den Lauf vor 100 Tagen ein (1 / 0,95 = 1,05)")
     pruefe(x["pref"]["horse"]["going"]["runs"] == 1 and x["pref"]["horse"]["going"]["wins"] == 1,
-           "Pferd auf heutigem Boden (gut): 1 Lauf, 1 Sieg – der Lauf auf schwerem Boden zählt nicht")
+           "Pferd auf heutigem Boden (Bon laut PMU, Penetrometer ignoriert): 1 Lauf, 1 Sieg – Lourd zählt nicht")
+    pruefe(d["races"][f"{tag:%Y%m%d}R1C1"]["going_label"] == "Bon", "Boden-Beschriftung in den Vorlieben: 'Bon'")
     pruefe(x["pref"]["trainer"]["course"]["runs"] == 2, "Trainer in Deauville: 2 Läufe")
     pruefe(x["badges"] == ["CD"] and "BF" in y["badges"],
            "CD für den Bahn-/Distanzsieger, BF für den geschlagenen Favoriten")
@@ -370,6 +371,48 @@ def racecard_pruefen() -> None:
     pruefe((f["pos"], f["ran"], f["fifth"], f["pos_before"], f["pace_ratio"], f["margin"]) == (1, 2, 3, 1, 97.0, 2.0),
            "Formzeile: 1/2, Siegabstand 2 L, Position 400 m vor dem Ziel = 1 -> Fünftel 3, Pace 97")
     pruefe(x["days"] == 10 and len(x["form_lines"]) == 2, "10 Tage seit dem letzten Lauf, 2 Formzeilen")
+    # Adjustierung: bekannte Effekte für Boden und Tempo müssen herausgerechnet werden
+    import numpy as np
+    rng = np.random.default_rng(1)
+    n = 3000
+    df = pd.DataFrame({"going_class": rng.choice(["BON", "SOUPLE", "TRES SOUPLE"], n),
+                       "pace_class": rng.choice(["< 94", "97–100", "> 103"], n),
+                       "dist_bucket": "mile", "age_bucket": "4", "course_key": rng.choice(["A", "B"], n)})
+    boden = df["going_class"].map({"BON": 1.0, "SOUPLE": 0.0, "TRES SOUPLE": -1.5})
+    tempo = df["pace_class"].map({"< 94": 2.0, "97–100": 0.0, "> 103": -1.0})
+    df["speed_last400_kmh"] = 58 + boden + tempo + rng.normal(0, 0.3, n)
+    adj = rc.adjustieren(df, "speed_last400_kmh", True)
+    mittel = adj.groupby([df["going_class"], df["pace_class"]]).mean().abs().max()
+    pruefe(mittel < 0.1 and adj.std() < 0.35,
+           f"Adjustierung rechnet Boden- und Tempoeffekt heraus (größte Gruppenabweichung {mittel:.3f})")
+    pruefe(rc.going_klasse("Très souple", None) == "TRES SOUPLE" and rc.going_klasse("Souple", None) == "SOUPLE"
+           and rc.going_klasse(None, 3.5) == "BON SOUPLE", "Bodenbegriffe: Très souple ≠ Souple")
+
+    pruefe(x["style"] == "H" and f["early_pos"] == 2,
+           "Laufstil aus der frühen Position (erster Messpunkt 800 m: 2. von 2 -> hinten)")
+
+    # Pace-Kalibrierung und Bahn-Bias an erfundener Historie mit bekanntem Zusammenhang
+    zeilen, tempo = [], {}
+    for i in range(300):
+        rid_i, nf = f"2025{i:04d}R1C1", i % 4                      # nf Frontrenner je Rennen
+        tempo[rid_i] = 98 + 1.5 * (nf - 1.5)
+        for no in range(8):
+            front = no < nf
+            zeilen.append({"race_id": rid_i, "saddle_no": no, "horse_id": f"P{(i * 8 + no) % 40}" if not front
+                           else f"F{no}", "date": pd.Timestamp("2025-01-01") + timedelta(days=i),
+                           "early_pct": 0.05 if front else 0.4 + 0.08 * no, "won": int(no == 0),
+                           "dist_bucket": "mile", "course_key": "BAHN", "distance_m": 1600})
+    hh = pd.DataFrame(zeilen)
+    hh["pace_ratio"] = hh["race_id"].map(tempo)
+    kal = rc.pace_kalibrierung(hh)
+    pruefe(kal["effekt"] and kal["effekt"][3][0] > kal["effekt"][1][0] > kal["effekt"][0][0],
+           "Pace-Kalibrierung: mehr Tempomacher -> höhere Pace-Ratio")
+    sz = rc.pace_szenario([{"no": n, "style": "F", "early": 0.05} for n in (1, 2, 3)]
+                          + [{"no": 4, "style": "H", "early": 0.9}], "mile", kal)
+    pruefe(sz["n_front"] == 3 and sz["label"] == "schnell", "drei Tempomacher heute -> schnelles Tempo erwartet")
+    bb = rc.bahn_bias(hh)
+    pruefe(bb["exakt"][("BAHN", 1600)]["bias"] > 0, "Bahn-Bias positiv, wenn meist die Frontrenner gewinnen")
+
     seite = rc.html(d)
     pruefe(seite.startswith("<!doctype html>") and "/*__DATA__*/null" not in seite, "HTML mit eingesetzten Daten")
 
