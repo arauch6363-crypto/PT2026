@@ -352,7 +352,7 @@ def racecard_pruefen() -> None:
     hist = rc.vorbereiten(races, runners, pd.DataFrame([{"race_id": rid(10, 1), "pace_ratio": 97.0}]),
                           pd.DataFrame([{"race_id": rid(10, 1), "saddle_no": 1, "finish_index": 104.0}]), sections)
     heute_r = pd.DataFrame([{"race_id": f"{tag:%Y%m%d}R1C1", "reunion": 1, "race_no": 1, "hippodrome": "DEAUVILLE",
-                             "distance_m": 1200, "going": "Bon", "going_value": "3,2", "categorie": "HANDICAP"}])
+                             "distance_m": 1200, "going": "Bon", "going_value": "4,8", "categorie": "HANDICAP"}])
     heute_s = pd.DataFrame([{**lauf(f"{tag:%Y%m%d}R1C1", 1, "X", "TR", None, 3.0), "finish_pos": None},
                             {**lauf(f"{tag:%Y%m%d}R1C1", 2, "Y", "TR", None, 3.0), "finish_pos": None}])
     d = rc.baue_daten(hist, heute_r, heute_s, tag)
@@ -362,7 +362,8 @@ def racecard_pruefen() -> None:
     pruefe(x["ae"]["trainer"]["d365"]["runs"] == 3 and x["ae"]["trainer"]["d365"]["ae"] == 1.05,
            "Trainer-A/E 365 Tage schließt den Lauf vor 100 Tagen ein (1 / 0,95 = 1,05)")
     pruefe(x["pref"]["horse"]["going"]["runs"] == 1 and x["pref"]["horse"]["going"]["wins"] == 1,
-           "Pferd auf heutigem Boden (gut): 1 Lauf, 1 Sieg – der Lauf auf schwerem Boden zählt nicht")
+           "Pferd auf heutigem Boden (Bon laut PMU, Penetrometer ignoriert): 1 Lauf, 1 Sieg – Lourd zählt nicht")
+    pruefe(d["races"][f"{tag:%Y%m%d}R1C1"]["going_label"] == "Bon", "Boden-Beschriftung in den Vorlieben: 'Bon'")
     pruefe(x["pref"]["trainer"]["course"]["runs"] == 2, "Trainer in Deauville: 2 Läufe")
     pruefe(x["badges"] == ["CD"] and "BF" in y["badges"],
            "CD für den Bahn-/Distanzsieger, BF für den geschlagenen Favoriten")

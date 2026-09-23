@@ -48,8 +48,6 @@ LETZTE_LAEUFE = 6               # so viele Formzeilen je Pferd
 AE_FENSTER = (90, 365)          # Tage
 MIN_GRUPPE = 30                 # so viele Läufe braucht eine Gruppe, bevor ihr Effekt zählt
 
-GOING_LABEL = {"good": "Gut (≤ 3,3)", "soft": "Weich (3,4–3,9)", "heavy": "Schwer (≥ 4,0)",
-               "psf": "PSF (Allwetter)"}
 DIST_BINS = [0, 1300, 1700, 2100, 2600, 5000]
 DIST_LABELS = ["sprint", "mile", "inter", "long", "stayer"]
 DIST_LABEL = {"sprint": "bis 1300 m", "mile": "1301–1700 m", "inter": "1701–2100 m",
@@ -132,15 +130,6 @@ def kategorie(c) -> str | None:
     return KATEGORIE.get(c) or c.replace("_", " ").title()
 
 
-def going_bucket(going, going_value) -> str | None:
-    if going is not None and "PSF" in str(going).upper():
-        return "psf"
-    v = _num(going_value)
-    if v is None:
-        return None
-    return "good" if v <= 3.3 else "soft" if v <= 3.9 else "heavy"
-
-
 def going_klasse(going, going_value) -> str | None:
     """Bodenbegriff wie bei PMU ('BON SOUPLE', 'TRES SOUPLE', …), PSF getrennt.
     Fehlt der Begriff, wird er aus dem Penetrometer-Wert abgeleitet."""
@@ -155,6 +144,13 @@ def going_klasse(going, going_value) -> str | None:
     if v is None:
         return None
     return next(k for bis, k in GOING_NACH_WERT if v <= bis)
+
+
+def going_anzeige(k: str | None) -> str | None:
+    """'TRES SOUPLE' -> 'Très souple'"""
+    if not k:
+        return None
+    return "PSF" if k == "PSF" else k.capitalize().replace("Tres ", "Très ").replace("leger", "léger").replace("Leger", "Léger")
 
 
 def pace_klasse(p) -> str | None:
@@ -195,7 +191,8 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     r["distance_m"] = pd.to_numeric(r["distance_m"], errors="coerce")
     r["prize_eur"] = pd.to_numeric(r.get("prize_eur"), errors="coerce")
     r["going_value"] = to_float(r["going_value"]) if "going_value" in r else np.nan
-    r["going_bucket"] = [going_bucket(g, v) for g, v in zip(r.get("going"), r["going_value"])]
+    # Vorlieben: nur der Bodenbegriff aus dem PMU-Programm (going), nicht der Penetrometer-Wert
+    r["going_pmu"] = [going_klasse(g, None) for g in r.get("going", pd.Series(None, index=r.index))]
     r["going_class"] = [going_klasse(g, v) for g, v in zip(r.get("going"), r["going_value"])]
     r["dist_bucket"] = r["distance_m"].map(dist_bucket)
     r["racetype"] = r["categorie"].map(kategorie) if "categorie" in r else None
@@ -217,7 +214,7 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     h = h[(stat != "NON_PARTANT") & (inc != "NON_PARTANT")].copy()
 
     h = h.merge(r[["race_id", "date", "hippodrome", "course_key", "distance_m", "going", "going_value",
-                   "going_bucket", "going_class", "dist_bucket", "prize_eur", "racetype"]],
+                   "going_pmu", "going_class", "dist_bucket", "prize_eur", "racetype"]],
                 on="race_id", how="inner")
     h["n_runners"] = h.groupby("race_id")["saddle_no"].transform("count")
     h["won"] = (h["finish_pos"] == 1).astype(int)
@@ -481,7 +478,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     h = hist[hist["date"] < heute].copy() if not hist.empty else hist
     if h.empty:
         h = pd.DataFrame(columns=["date", "horse_id", "trainer_key", "jockey_key", "sire_key", "course_key",
-                                  "going_bucket", "dist_bucket", "racetype", "won", "placed", "odds_final",
+                                  "going_pmu", "dist_bucket", "racetype", "won", "placed", "odds_final",
                                   "distance_m", "finish_pos"])
 
     # A/E-Tabellen
@@ -496,14 +493,14 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
 
     # Vorlieben (gesamte Historie vor heute)
     pref = {
-        "horse_going": gruppen(h, ["horse_id", "going_bucket"]),
+        "horse_going": gruppen(h, ["horse_id", "going_pmu"]),
         "horse_dist": gruppen(h, ["horse_id", "dist_bucket"]),
         "trainer_jockey": gruppen(h, ["trainer_key", "jockey_key"]),
         "trainer_course": gruppen(h, ["trainer_key", "course_key"]),
         "trainer_type": gruppen(h, ["trainer_key", "racetype"]),
         "jockey_course": gruppen(h, ["jockey_key", "course_key"]),
         "sire_dist": gruppen(h, ["sire_key", "dist_bucket"]),
-        "sire_going": gruppen(h, ["sire_key", "going_bucket"]),
+        "sire_going": gruppen(h, ["sire_key", "going_pmu"]),
     }
 
     rh = races_heute.drop_duplicates("race_id").copy()
@@ -518,7 +515,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     meetings: dict[int, dict] = {}
     races_out = {}
     for _, r in rh.sort_values(["reunion", "race_no"]).iterrows():
-        gb = going_bucket(r.get("going"), to_float(pd.Series([r.get("going_value")])).iloc[0])
+        gb = going_klasse(r.get("going"), None)          # Bodenbegriff laut PMU
         db = dist_bucket(r.get("distance_m"))
         rt = kategorie(r.get("categorie"))
         course = norm_name(pd.Series([r.get("hippodrome")])).iloc[0]
@@ -587,7 +584,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             "race_id": r["race_id"], "reunion": int(r["reunion"]), "race_no": int(r["race_no"]),
             "time": _txt(r.get("post_time")), "name": _txt(r.get("race_name")), "course": _txt(r.get("hippodrome")),
             "distance": dist, "going": _txt(r.get("going")), "going_value": _txt(r.get("going_value")),
-            "going_bucket": gb, "going_label": GOING_LABEL.get(gb), "dist_bucket": db,
+            "going_pmu": gb, "going_label": going_anzeige(gb), "dist_bucket": db,
             "dist_label": DIST_LABEL.get(db), "prize": _num(r.get("prize_eur"), 0), "type": rt,
             "age": _txt(r.get("conditions_age")), "sex": _txt(r.get("conditions_sexe")),
             "corde": _txt(r.get("corde")), "declared": _num(r.get("runners_declared"), 0),
