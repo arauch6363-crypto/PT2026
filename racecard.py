@@ -176,7 +176,8 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     h["favourite"] = (h["odds_final"] == fav) & h["odds_final"].notna()
 
     # Abstand des Siegers zum Zweiten (Formzeile "1/9 (1½l)")
-    zweite = h[h["finish_pos"] == 2].set_index("race_id")["lengths_prev"]
+    # (bei totem Rennen um Platz 2 gibt es zwei Zweite – dann zählt der erste Eintrag)
+    zweite = h[h["finish_pos"] == 2].groupby("race_id")["lengths_prev"].first()
     sieger = h["finish_pos"] == 1
     h.loc[sieger, "margin"] = h.loc[sieger, "race_id"].map(zweite)
     h.loc[~sieger, "margin"] = h.loc[~sieger, "lengths_behind"]
