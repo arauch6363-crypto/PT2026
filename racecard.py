@@ -21,7 +21,8 @@ Kennzahlen
                    Platz im Feld am Messpunkt POS_VOR_FINISH_M vor dem Ziel, als Fünftel
                    des Feldes (1 = vorderstes Fünftel)
     adjustiert     best_seg_s, speed_last600_kmh, speed_last400_kmh abzüglich des Erwartungswerts
-                   für Boden, Distanz und Alter (additives Modell, per Backfitting geschätzt).
+                   für Boden (PMU-Begriff), Distanz, Alter, Renntempo (Pace-Ratio) und Bahn
+                   (additives Modell, per Backfitting geschätzt).
                    Positiv heißt immer: besser als erwartet (bei best_seg_s also schneller).
 """
 from __future__ import annotations
@@ -29,6 +30,8 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
+import unicodedata
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -65,6 +68,18 @@ PLAUSIBEL = {"best_seg_s": (9.0, 16.0), "speed_last600_kmh": (40.0, 75.0),
              "speed_last400_kmh": (40.0, 75.0), "finish_index": (70.0, 130.0),
              "pos_gain_800_finish": (-20, 20), "pace_ratio": (60.0, 160.0)}
 ADJ = {"best_seg_s": False, "speed_last600_kmh": True, "speed_last400_kmh": True}   # höher = besser?
+# Einflussgrößen der Adjustierung. Das Renntempo gehört dazu, weil ein langsam angegangenes
+# Rennen (Pace-Ratio < 100) automatisch schnelle Schlussabschnitte liefert.
+ADJ_KEYS = ("going_class", "dist_bucket", "age_bucket", "pace_class", "course_key")
+
+# PMU-Bodenbegriffe, längste zuerst ("TRES SOUPLE" vor "SOUPLE")
+GOING_KLASSEN = ["TRES LEGER", "BON LEGER", "BON SOUPLE", "TRES SOUPLE", "COLLANT", "LOURD",
+                 "LEGER", "SOUPLE", "BON"]
+# Ersatz, wenn nur der Penetrometer-Wert bekannt ist: (bis Wert, Klasse)
+GOING_NACH_WERT = [(2.8, "BON LEGER"), (3.3, "BON"), (3.6, "BON SOUPLE"), (3.9, "SOUPLE"),
+                   (4.4, "TRES SOUPLE"), (99, "LOURD")]
+PACE_BINS = [0, 94, 97, 100, 103, 999]
+PACE_LABELS = ["< 94", "94–97", "97–100", "100–103", "> 103"]
 
 
 # --------------------------------------------------------------------------
@@ -118,6 +133,32 @@ def going_bucket(going, going_value) -> str | None:
     return "good" if v <= 3.3 else "soft" if v <= 3.9 else "heavy"
 
 
+def going_klasse(going, going_value) -> str | None:
+    """Bodenbegriff wie bei PMU ('BON SOUPLE', 'TRES SOUPLE', …), PSF getrennt.
+    Fehlt der Begriff, wird er aus dem Penetrometer-Wert abgeleitet."""
+    t = unicodedata.normalize("NFKD", str(going or "")).encode("ascii", "ignore").decode().upper()
+    t = re.sub(r"[^A-Z]+", " ", t).strip()
+    if "PSF" in t:
+        return "PSF"
+    for k in GOING_KLASSEN:
+        if re.search(rf"\b{k}\b", t):
+            return k
+    v = _num(going_value)
+    if v is None:
+        return None
+    return next(k for bis, k in GOING_NACH_WERT if v <= bis)
+
+
+def pace_klasse(p) -> str | None:
+    p = _num(p)
+    if p is None:
+        return None
+    for lo, hi, lab in zip(PACE_BINS[:-1], PACE_BINS[1:], PACE_LABELS):
+        if lo <= p < hi:
+            return lab
+    return None
+
+
 def dist_bucket(d) -> str | None:
     d = _num(d)
     if d is None:
@@ -147,6 +188,7 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     r["prize_eur"] = pd.to_numeric(r.get("prize_eur"), errors="coerce")
     r["going_value"] = to_float(r["going_value"]) if "going_value" in r else np.nan
     r["going_bucket"] = [going_bucket(g, v) for g, v in zip(r.get("going"), r["going_value"])]
+    r["going_class"] = [going_klasse(g, v) for g, v in zip(r.get("going"), r["going_value"])]
     r["dist_bucket"] = r["distance_m"].map(dist_bucket)
     r["racetype"] = r["categorie"].map(kategorie) if "categorie" in r else None
     r["course_key"] = norm_name(r["hippodrome"])
@@ -167,7 +209,8 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     h = h[(stat != "NON_PARTANT") & (inc != "NON_PARTANT")].copy()
 
     h = h.merge(r[["race_id", "date", "hippodrome", "course_key", "distance_m", "going", "going_value",
-                   "going_bucket", "dist_bucket", "prize_eur", "racetype"]], on="race_id", how="inner")
+                   "going_bucket", "going_class", "dist_bucket", "prize_eur", "racetype"]],
+                on="race_id", how="inner")
     h["n_runners"] = h.groupby("race_id")["saddle_no"].transform("count")
     h["won"] = (h["finish_pos"] == 1).astype(int)
     h["placed"] = (h["finish_pos"] <= 3).astype(int)
@@ -206,6 +249,7 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
             h[c] = np.nan
     for c, (lo, hi) in PLAUSIBEL.items():
         h[c] = h[c].where(h[c].between(lo, hi))
+    h["pace_class"] = h["pace_ratio"].map(pace_klasse)
     ok = h["pos_before"].notna() & (h["n_runners"] > 0)
     h["fifth"] = np.where(ok, np.ceil(h["pos_before"] / h["n_runners"].clip(lower=1) * 5).clip(1, 5), np.nan)
 
@@ -230,9 +274,12 @@ def position_vor_finish(sections: pd.DataFrame, meter: int = POS_VOR_FINISH_M) -
 
 
 def adjustieren(h: pd.DataFrame, col: str, higher_better: bool, *,
-                keys=("going_bucket", "dist_bucket", "age_bucket"), runden: int = 8) -> pd.Series:
-    """Wert minus Erwartung für Boden, Distanz und Alter (additive Effekte, Backfitting).
-    Vorzeichen so, dass positiv immer 'besser als erwartet' bedeutet."""
+                keys=ADJ_KEYS, runden: int = 12) -> pd.Series:
+    """Wert minus Erwartung für Boden, Distanz, Alter, Renntempo und Bahn (additive Effekte,
+    Backfitting: jeder Effekt wird auf dem Rest der übrigen geschätzt, so dass sich z. B. Bahn
+    und Boden nicht gegenseitig doppelt zählen). Gruppen mit weniger als MIN_GRUPPE Läufen
+    bekommen keinen eigenen Effekt. Positiv heißt immer 'besser als erwartet'."""
+    keys = [k for k in keys if k in h]
     y = pd.to_numeric(h[col], errors="coerce")
     m = y.notna()
     if m.sum() < MIN_GRUPPE:

@@ -370,6 +370,23 @@ def racecard_pruefen() -> None:
     pruefe((f["pos"], f["ran"], f["fifth"], f["pos_before"], f["pace_ratio"], f["margin"]) == (1, 2, 3, 1, 97.0, 2.0),
            "Formzeile: 1/2, Siegabstand 2 L, Position 400 m vor dem Ziel = 1 -> Fünftel 3, Pace 97")
     pruefe(x["days"] == 10 and len(x["form_lines"]) == 2, "10 Tage seit dem letzten Lauf, 2 Formzeilen")
+    # Adjustierung: bekannte Effekte für Boden und Tempo müssen herausgerechnet werden
+    import numpy as np
+    rng = np.random.default_rng(1)
+    n = 3000
+    df = pd.DataFrame({"going_class": rng.choice(["BON", "SOUPLE", "TRES SOUPLE"], n),
+                       "pace_class": rng.choice(["< 94", "97–100", "> 103"], n),
+                       "dist_bucket": "mile", "age_bucket": "4", "course_key": rng.choice(["A", "B"], n)})
+    boden = df["going_class"].map({"BON": 1.0, "SOUPLE": 0.0, "TRES SOUPLE": -1.5})
+    tempo = df["pace_class"].map({"< 94": 2.0, "97–100": 0.0, "> 103": -1.0})
+    df["speed_last400_kmh"] = 58 + boden + tempo + rng.normal(0, 0.3, n)
+    adj = rc.adjustieren(df, "speed_last400_kmh", True)
+    mittel = adj.groupby([df["going_class"], df["pace_class"]]).mean().abs().max()
+    pruefe(mittel < 0.1 and adj.std() < 0.35,
+           f"Adjustierung rechnet Boden- und Tempoeffekt heraus (größte Gruppenabweichung {mittel:.3f})")
+    pruefe(rc.going_klasse("Très souple", None) == "TRES SOUPLE" and rc.going_klasse("Souple", None) == "SOUPLE"
+           and rc.going_klasse(None, 3.5) == "BON SOUPLE", "Bodenbegriffe: Très souple ≠ Souple")
+
     seite = rc.html(d)
     pruefe(seite.startswith("<!doctype html>") and "/*__DATA__*/null" not in seite, "HTML mit eingesetzten Daten")
 

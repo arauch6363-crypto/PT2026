@@ -354,7 +354,7 @@ function renderLegend(){
   $("#legend").innerHTML = `
     <div><b>A/E</b> = Siege ÷ Σ(1/Endquote). Über 1 gewinnt die Person öfter, als der Markt erwartet. Grün ≥ 1,15, rot ≤ 0,85; blass bei weniger als 10 Starts (Vorlieben: 5).</div>
     <div><b>Pos. vor Finish</b>: Platz ${p.pos_before_m} m vor dem Ziel, eingeteilt in Fünftel des Feldes (hervorgehoben). <b>Pace-Ratio</b>: Tempo der frühen Phase ÷ Tempo der letzten ≥ 600 m × 100; unter 100 Schlusssprint, über 100 schnell angegangen.</div>
-    <div><b>Adjustiert</b> (klein, farbig): Abweichung vom Erwartungswert für Boden, Distanz und Alter. Positiv = besser als erwartet (bei Best Seg also schneller). <b>L400+</b> in der Zeile: bester adjustierter Wert der letzten 3 Läufe mit Tracking.</div>
+    <div><b>Adjustiert</b> (klein, farbig): Abweichung vom Erwartungswert für Boden, Distanz, Alter, Renntempo (Pace-Ratio) und Bahn. Ein langsam angegangenes Rennen liefert von selbst schnelle Schlussabschnitte – das wird herausgerechnet. Positiv = besser als erwartet (bei Best Seg also schneller). <b>L400+</b> in der Zeile: bester adjustierter Wert der letzten 3 Läufe mit Tracking.</div>
     <div><b>C</b> Sieger auf der Bahn · <b>D</b> Sieger über die Distanz (±100 m) · <b>CD</b> beides im selben Rennen · <b>BF</b> letzter Start als Favorit geschlagen. <b>Tage</b> seit dem letzten Lauf in der Datenbank. Die Historie umfasst nur französische Flachrennen aus der PMU-Sammlung.</div>`;
 }
 
