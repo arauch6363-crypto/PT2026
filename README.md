@@ -112,21 +112,22 @@ Die HTML-Datei ist eigenständig und lässt sich direkt im Browser öffnen.
 
 Je Starter:
 
-* **Formzeilen** der letzten 6 Läufe: `29 Aug 2026 Deauville · 1200m Bon 27k Handicap · 4/13 (2l) 57kg`,
-  dazu je Lauf eine Grafik, in welchem Fünftel des Feldes das Pferd 400 m vor dem Ziel lag,
-  eine Grafik zum Pace-Ratio des Rennens sowie `finish_index`, `pos_gain_800_finish`,
-  `best_seg_s`, `speed_last600_kmh` und `speed_last400_kmh`.
-  Die drei letzten Werte werden zusätzlich **adjustiert** gezeigt: Abweichung vom
-  Erwartungswert für Boden (PMU-Begriff), Distanz, Alter, Renntempo (Pace-Ratio) und Bahn
-  (additives Modell). Positiv heißt immer besser als erwartet.
-* **A/E** für Trainer, Jockey und Vater über 90 und 365 Tage: Siege / Σ(1/Endquote).
-* **Vorlieben unter heutigen Bedingungen**: Pferd (Boden, Distanz), Trainer (Jockey, Bahn,
-  Renntyp), Jockey (Bahn, Trainer), Vater (Distanz, Boden), jeweils Siege-Starts, Quote und A/E.
-* **Laufstil** je Pferd (F führend · V vorne dabei · M Mittelfeld · H hinten) aus der frühen
-  Position der letzten 5 Läufe mit Tracking.
-* **Pace-Szenario** je Rennen: Anzahl der Tempomacher im Feld, kalibriert an früheren Rennen
-  mit gleich vielen Tempomachern (erwartete Pace-Ratio gegenüber der Norm der Distanz).
-* **Bahn-Bias** je Bahn und Distanz: IV vorne − IV hinten (Impact Value der Pferde, die früh im
-  vorderen bzw. hinteren Drittel lagen); positiv heißt, Frontrenner waren erfolgreicher.
-* Racing-Post-Kürzel **C / D / CD / BF**, Tage seit dem letzten Lauf, Musique, Gewicht, Rating,
-  Startbox, Kurs und Morgenkurs.
+* **Übersicht**: Trikot (PMU `urlCasaque`, eingebettet), Musique, Karriere Starts-Siege-Plätze
+  und Gewinn je Start, Jockey und Trainer mit A/E über 365 Tage (🔥 / 🧊, wenn die letzten 30 Tage
+  deutlich besser/schlechter waren), Hinweise auf Trainerwechsel, Scheuklappen-Wechsel und
+  „erstmals Wallach“, der Kurs hervorgehoben, dazu Ø der bereinigten L600, L400 und Best Seg
+  der letzten 3 Läufe mit Tracking samt Rang im heutigen Feld.
+* **Formzeilen** der letzten 6 Läufe mit Fünftel-Position 400 m vor dem Ziel, Pace-Ratio,
+  Finish-Index (roh und bereinigt), ±800, Weg gegenüber dem Median des Feldes, Best Seg
+  (letzte 800 m), L600, L400. Für die letzten 5 Läufe lassen sich die Gegner aufklappen, die seitdem
+  wieder liefen (die 3, die dem Pferd am nächsten waren), mit Platz im nächsten Start und ob der
+  besser oder schlechter war als der Rang ihrer Quote.
+* **Bereinigte Kennzahlen** (`speedfig.py`): Rennanteil (Median der vorderen Hälfte) gegen einen Par
+  aus Distanz, Boden, Bahn und Pace-Ratio, plus Pferdeanteil gegenüber dem Feld; in Längen.
+  Beim Lauf wird eine Validierung ausgegeben (Wiederholbarkeit, Prognosekraft; bereinigt gegen roh).
+* **A/E** für Trainer, Jockey und Vater über 30, 90 und 365 Tage.
+* **Vorlieben**: Pferd mit allen Böden und Distanzen der gesamten Historie (heute markiert),
+  Trainer und Jockey der letzten zwei Jahre, Vater über die gesamte Historie.
+* **Laufstil** je Pferd (F / V / M / H), **Pace-Szenario** aus Tempomachern und Feldgröße,
+  **Bahn-Bias** vorne gegen hinten je Bahn und Distanz.
+* Racing-Post-Kürzel **C / D / CD / BF**, Tage seit dem letzten Lauf, Gewicht, Rating, Startbox.
