@@ -122,5 +122,11 @@ Je Starter:
 * **A/E** für Trainer, Jockey und Vater über 90 und 365 Tage: Siege / Σ(1/Endquote).
 * **Vorlieben unter heutigen Bedingungen**: Pferd (Boden, Distanz), Trainer (Jockey, Bahn,
   Renntyp), Jockey (Bahn, Trainer), Vater (Distanz, Boden), jeweils Siege-Starts, Quote und A/E.
+* **Laufstil** je Pferd (F führend · V vorne dabei · M Mittelfeld · H hinten) aus der frühen
+  Position der letzten 5 Läufe mit Tracking.
+* **Pace-Szenario** je Rennen: Anzahl der Tempomacher im Feld, kalibriert an früheren Rennen
+  mit gleich vielen Tempomachern (erwartete Pace-Ratio gegenüber der Norm der Distanz).
+* **Bahn-Bias** je Bahn und Distanz: IV vorne − IV hinten (Impact Value der Pferde, die früh im
+  vorderen bzw. hinteren Drittel lagen); positiv heißt, Frontrenner waren erfolgreicher.
 * Racing-Post-Kürzel **C / D / CD / BF**, Tage seit dem letzten Lauf, Musique, Gewicht, Rating,
   Startbox, Kurs und Morgenkurs.

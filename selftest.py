@@ -387,6 +387,31 @@ def racecard_pruefen() -> None:
     pruefe(rc.going_klasse("Très souple", None) == "TRES SOUPLE" and rc.going_klasse("Souple", None) == "SOUPLE"
            and rc.going_klasse(None, 3.5) == "BON SOUPLE", "Bodenbegriffe: Très souple ≠ Souple")
 
+    pruefe(x["style"] == "H" and f["early_pos"] == 2,
+           "Laufstil aus der frühen Position (erster Messpunkt 800 m: 2. von 2 -> hinten)")
+
+    # Pace-Kalibrierung und Bahn-Bias an erfundener Historie mit bekanntem Zusammenhang
+    zeilen, tempo = [], {}
+    for i in range(300):
+        rid_i, nf = f"2025{i:04d}R1C1", i % 4                      # nf Frontrenner je Rennen
+        tempo[rid_i] = 98 + 1.5 * (nf - 1.5)
+        for no in range(8):
+            front = no < nf
+            zeilen.append({"race_id": rid_i, "saddle_no": no, "horse_id": f"P{(i * 8 + no) % 40}" if not front
+                           else f"F{no}", "date": pd.Timestamp("2025-01-01") + timedelta(days=i),
+                           "early_pct": 0.05 if front else 0.4 + 0.08 * no, "won": int(no == 0),
+                           "dist_bucket": "mile", "course_key": "BAHN", "distance_m": 1600})
+    hh = pd.DataFrame(zeilen)
+    hh["pace_ratio"] = hh["race_id"].map(tempo)
+    kal = rc.pace_kalibrierung(hh)
+    pruefe(kal["effekt"] and kal["effekt"][3][0] > kal["effekt"][1][0] > kal["effekt"][0][0],
+           "Pace-Kalibrierung: mehr Tempomacher -> höhere Pace-Ratio")
+    sz = rc.pace_szenario([{"no": n, "style": "F", "early": 0.05} for n in (1, 2, 3)]
+                          + [{"no": 4, "style": "H", "early": 0.9}], "mile", kal)
+    pruefe(sz["n_front"] == 3 and sz["label"] == "schnell", "drei Tempomacher heute -> schnelles Tempo erwartet")
+    bb = rc.bahn_bias(hh)
+    pruefe(bb["exakt"][("BAHN", 1600)]["bias"] > 0, "Bahn-Bias positiv, wenn meist die Frontrenner gewinnen")
+
     seite = rc.html(d)
     pruefe(seite.startswith("<!doctype html>") and "/*__DATA__*/null" not in seite, "HTML mit eingesetzten Daten")
 

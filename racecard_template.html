@@ -116,6 +116,28 @@ svg text{fill:var(--ink-3);font:10px var(--f-mono)}
 .legend b{color:var(--ink)}
 .empty{padding:24px;text-align:center;color:var(--ink-2)}
 
+/* Pace-Szenario & Bahn-Bias */
+.insight{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:4px;overflow:hidden;margin-bottom:12px}
+.insight>section{background:var(--surface);padding:12px 14px;display:grid;gap:8px;align-content:start;min-width:0}
+.insight h3{margin:0;font:600 12px/1.2 var(--f-display);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.verdict{font:700 22px/1.05 var(--f-display);text-transform:uppercase;letter-spacing:.02em}
+.verdict.schnell{color:var(--bad)} .verdict.langsam{color:var(--accent)} .verdict.normal{color:var(--ink)}
+.verdict small{font:500 13px var(--f-mono);color:var(--ink-2);text-transform:none;letter-spacing:0;margin-left:6px}
+.note{font-size:12px;color:var(--ink-2)}
+.styles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.styles div{border:1px solid var(--line);border-radius:3px;padding:5px 6px;min-width:0}
+.styles b{display:flex;justify-content:space-between;gap:4px;font:600 11px var(--f-body);letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2)}
+.styles b span{font-family:var(--f-mono);color:var(--ink)}
+.styles i{display:block;font:500 12px var(--f-mono);font-style:normal;color:var(--ink);word-break:break-word;min-height:1.2em}
+.styles .F{border-color:var(--bad)} .styles .H{border-color:var(--accent)}
+.stil{font:700 10.5px/1 var(--f-mono);padding:3px 5px;border-radius:2px;border:1px solid var(--line);color:var(--ink-2)}
+.stil.F{border-color:var(--bad);color:var(--bad)} .stil.V{border-color:var(--hi);color:var(--ink)}
+.stil.H{border-color:var(--accent);color:var(--accent)}
+.bias-num{font:700 30px/1 var(--f-display)}
+.bias-num.up{color:var(--bad)} .bias-num.down{color:var(--accent)}
+.early{display:block;font:10px var(--f-mono);color:var(--ink-3)}
+@media (max-width:760px){ .insight{grid-template-columns:minmax(0,1fr)} .styles{grid-template-columns:repeat(2,minmax(0,1fr))} }
+
 @media (max-width:760px){
   .row{grid-template-columns:44px minmax(0,1fr)}
   .facts{grid-column:1/-1;grid-template-columns:repeat(5,minmax(0,1fr));text-align:left}
@@ -207,6 +229,7 @@ const SORTS = {
   tae:  ["Trainer A/E 90 T", r => r.ae.trainer.d90.ae ?? -1, -1],
   jae:  ["Jockey A/E 90 T", r => r.ae.jockey.d90.ae ?? -1, -1],
   rating:["Rating", r => r.rating ?? -1, -1],
+  style:["Laufstil (vorne zuerst)", r => r.early ?? 9, 1],
 };
 
 function renderRace(){
@@ -229,6 +252,7 @@ function renderRace(){
       <div class="race-sub">${tags.map(([k,v]) => `<span class="tag"><i>${k}</i>${esc(v)}</span>`).join("")}</div>
       ${r.result ? `<div class="result">Einlauf: <span class="num">${esc(r.result)}</span></div>` : ""}
     </div>
+    ${insightHTML(r)}
     <div class="tools">
       <label for="sort">Sortieren <select id="sort">${Object.entries(SORTS).map(([k,[l]]) => `<option value="${k}" ${k===state.sort?"selected":""}>${l}</option>`).join("")}</select></label>
       <button class="btn" id="toggle-all" type="button">${state.open.size ? "Alle zuklappen" : "Alle aufklappen"}</button>
@@ -242,6 +266,34 @@ function renderRace(){
     const go = () => { const n = +el.dataset.no; state.open.has(n) ? state.open.delete(n) : state.open.add(n); renderRace(); };
     el.onclick = go; el.onkeydown = e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); go(); } };
   });
+}
+
+function insightHTML(r){
+  const P = r.pace, B = r.bias, A = DATA.bias_all;
+  const styles = DATA.params.styles;
+  const grid = styles.map(st => { const nos = (P && P.groups[st.key]) || [];
+    return `<div class="${st.key}"><b>${st.label}<span>${nos.length}</span></b><i>${nos.join(" · ") || "–"}</i></div>`; }).join("");
+  let verdict = `<div class="verdict normal">Keine Einschätzung</div><div class="note">Zu wenige Starter mit Laufstil-Daten (mindestens 3 nötig).</div>`;
+  if (P && P.expected != null){
+    const txt = {schnell:"Schnelles Tempo erwartet", langsam:"Langsames Tempo – Sprintfinish", normal:"Normales Tempo erwartet"}[P.label];
+    verdict = `<div class="verdict ${P.label}">${txt}<small>Pace ≈ ${fx(P.expected,1)}</small></div>
+      ${paceSVG(P.expected)}
+      <div class="note">${P.n_front} Tempomacher (früh im vorderen ${Math.round(DATA.params.pacemaker*100)} %). Frühere Rennen mit ${P.n_front >= 4 ? "4+" : P.n_front} Tempomachern: ${sgn(P.diff,1)} gegenüber dem Ø ${fx(P.norm,1)} dieser Distanzgruppe (${P.basis.toLocaleString("de-DE")} Rennen).</div>`;
+  }
+  const unk = P && P.unknown.length ? `<div class="note">Ohne Laufstil-Daten: ${P.unknown.join(" · ")}</div>` : "";
+  let bias = `<div class="note">Zu wenige Rennen mit Tracking auf dieser Bahn/Distanz (mindestens 15).</div>`;
+  if (B){
+    const d = A ? B.bias - A.bias : null;
+    const rel = d == null ? "" : Math.abs(d) < 0.25 ? "etwa wie im Schnitt aller Bahnen" :
+      d > 0 ? "vorne stärker im Vorteil als im Schnitt" : "abwartend gerittene Pferde hier besser als im Schnitt";
+    bias = `<div><span class="bias-num ${B.bias > 0 ? "up" : B.bias < 0 ? "down" : ""}">${sgn(B.bias,2)}</span>
+      <span class="note">${B.bias > 0 ? "Frontrenner erfolgreicher" : B.bias < 0 ? "Abwartend Gerittene erfolgreicher" : "ausgeglichen"} · ${rel}</span></div>
+      <div class="note">IV vorne ${fx(B.iv_front,2)} · IV hinten ${fx(B.iv_back,2)} · ${B.races} Rennen (${B.basis === "exakt" ? `${esc(title(r.course))} ${r.distance} m` : `${esc(title(r.course))}, ${esc(r.dist_label || "")}`})${A ? ` · alle Bahnen ${sgn(A.bias,2)}` : ""}</div>`;
+  }
+  return `<div class="insight">
+    <section><h3>Pace-Szenario</h3>${verdict}<div class="styles">${grid}</div>${unk}</section>
+    <section><h3>Bahn-Bias · vorne vs. hinten</h3>${bias}</section>
+  </div>`;
 }
 
 function aeChip(s, minRuns=10){
@@ -267,7 +319,7 @@ function runnerHTML(x, race){
     <div class="row" data-no="${x.no}" tabindex="0" role="button" aria-expanded="${open}">
       <div class="cloth"><b>${x.no ?? ""}</b>${x.draw ? `<small>(${x.draw})</small>` : ""}</div>
       <div class="who">
-        <div class="name"><strong>${esc(x.horse)}</strong><span class="muted">${age}</span>${badges}${blink}${x.nr ? `<span class="badge bf">NP</span>` : ""}</div>
+        <div class="name"><strong>${esc(x.horse)}</strong><span class="muted">${age}</span>${x.style ? `<span class="stil ${x.style}" title="Laufstil: ${esc(x.style_label)} – Ø frühe Position ${fx(x.early*100,0)} % des Feldes aus ${x.early_runs} Läufen">${x.style}</span>` : ""}${badges}${blink}${x.nr ? `<span class="badge bf">NP</span>` : ""}</div>
         <div class="form" title="Musique (PMU)">${esc(x.form || "")}</div>
         <div class="line2">
           <span><em>J</em> ${esc(title(x.jockey) || "–")} ${aeChip(x.ae.jockey.d90)}</span>
@@ -294,7 +346,7 @@ function detailHTML(x, race){
     <div class="grp"><b>Vater</b>${it("Distanz: " + (race.dist_label || "–"), P.sire.distance)}${it("Boden: " + (race.going_label || "unbekannt"), P.sire.going)}</div>`;
   const career = x.starts != null ? `${x.wins ?? 0}-${x.starts} · Plätze ${x.places ?? 0} · €${prize(x.earnings)}` : "–";
   return `<div class="detail">
-    <div class="line2"><span><em>Karriere</em> ${career}</span><span><em>Besitzer</em> ${esc(title(x.owner) || "–")}</span>${x.odds_morning != null ? `<span><em>Morgenkurs</em> ${fx(x.odds_morning,1)}</span>` : ""}</div>
+    <div class="line2"><span><em>Karriere</em> ${career}</span><span><em>Besitzer</em> ${esc(title(x.owner) || "–")}</span>${x.odds_morning != null ? `<span><em>Morgenkurs</em> ${fx(x.odds_morning,1)}</span>` : ""}${x.style ? `<span><em>Laufstil</em> ${esc(x.style_label)} · früh Ø ${fx(x.early*100,0)} % des Feldes (${x.early_runs} Läufe)</span>` : ""}</div>
     <div class="panels">
       <div class="panel"><h4>A/E · Siege/Starts</h4>
         <table><thead><tr><th></th>${w.map(t => `<th class="r">${t} Tage</th><th class="r">A/E</th>`).join("")}</tr></thead><tbody>${aeRows}</tbody></table>
@@ -331,7 +383,7 @@ function formTable(rows){
       <td class="fl-date">${dt(f.date)}<br><span class="muted">${esc(title(f.course))}</span></td>
       <td class="fl-cond num">${f.dist ?? "–"}m ${esc(f.going || "–")} ${prize(f.prize)}<br><span class="muted">${esc(f.type || "")}</span></td>
       <td class="fl-pos">${pos} ${mg ? `(${mg})` : ""} <span class="num">${f.weight != null ? fx(f.weight,1).replace(/\.0$/,"") + "kg" : ""}</span><br><span class="muted">${esc(title(f.jockey) || "")} · <span class="num">${f.odds != null ? fx(f.odds,1) : "–"}${f.fav ? " F" : ""}</span></span></td>
-      <td>${f.fifth ? fifthSVG(f.fifth, f.pos_before, f.ran, f.pos_before_m) : `<span class="muted">${f.tracking ? "–" : "kein Tracking"}</span>`}</td>
+      <td>${f.fifth ? fifthSVG(f.fifth, f.pos_before, f.ran, f.pos_before_m) : `<span class="muted">${f.tracking ? "–" : "kein Tracking"}</span>`}${f.early_pos ? `<span class="early">früh ${f.early_pos}. → ${f.pos_before_m ?? ""} m ${f.pos_before ?? "–"}.</span>` : ""}</td>
       <td>${f.pace_ratio != null ? paceSVG(f.pace_ratio) + `<span class="num"> ${fx(f.pace_ratio,1)}</span>` : `<span class="muted">–</span>`}</td>
       <td class="r num">${fx(f.finish_index,1)}</td>
       <td class="r num">${f.pos_gain != null ? sgn(f.pos_gain, 0) : "–"}</td>
@@ -355,6 +407,7 @@ function renderLegend(){
     <div><b>A/E</b> = Siege ÷ Σ(1/Endquote). Über 1 gewinnt die Person öfter, als der Markt erwartet. Grün ≥ 1,15, rot ≤ 0,85; blass bei weniger als 10 Starts (Vorlieben: 5).</div>
     <div><b>Pos. vor Finish</b>: Platz ${p.pos_before_m} m vor dem Ziel, eingeteilt in Fünftel des Feldes (hervorgehoben). <b>Pace-Ratio</b>: Tempo der frühen Phase ÷ Tempo der letzten ≥ 600 m × 100; unter 100 Schlusssprint, über 100 schnell angegangen.</div>
     <div><b>Adjustiert</b> (klein, farbig): Abweichung vom Erwartungswert für Boden, Distanz, Alter, Renntempo (Pace-Ratio) und Bahn. Ein langsam angegangenes Rennen liefert von selbst schnelle Schlussabschnitte – das wird herausgerechnet. Positiv = besser als erwartet (bei Best Seg also schneller). <b>L400+</b> in der Zeile: bester adjustierter Wert der letzten 3 Läufe mit Tracking.</div>
+    <div><b>Laufstil</b> F führend · V vorne dabei · M Mittelfeld · H hinten – aus der Ø frühen Position (erster Messpunkt nach dem Start) der letzten ${p.style_runs} Läufe mit Tracking. <b>Pace-Szenario</b>: Zahl der Tempomacher heute, verglichen mit früheren Rennen mit gleich vielen Tempomachern (Pace-Ratio relativ zur Norm der Distanz). <b>Bahn-Bias</b> = IV vorne − IV hinten (IV = Anteil an den Siegern ÷ Anteil an den Startern, früh im vorderen bzw. hinteren Drittel); positiv: Frontrenner erfolgreicher.</div>
     <div><b>C</b> Sieger auf der Bahn · <b>D</b> Sieger über die Distanz (±100 m) · <b>CD</b> beides im selben Rennen · <b>BF</b> letzter Start als Favorit geschlagen. <b>Tage</b> seit dem letzten Lauf in der Datenbank. Die Historie umfasst nur französische Flachrennen aus der PMU-Sammlung.</div>`;
 }
 

@@ -78,6 +78,14 @@ GOING_KLASSEN = ["TRES LEGER", "BON LEGER", "BON SOUPLE", "TRES SOUPLE", "COLLAN
 # Ersatz, wenn nur der Penetrometer-Wert bekannt ist: (bis Wert, Klasse)
 GOING_NACH_WERT = [(2.8, "BON LEGER"), (3.3, "BON"), (3.6, "BON SOUPLE"), (3.9, "SOUPLE"),
                    (4.4, "TRES SOUPLE"), (99, "LOURD")]
+# Laufstil: mittlere frühe Position als Anteil des Feldes (0 = an der Spitze, 1 = Letzter)
+STIL_LAEUFE = 5                 # so viele Läufe mit Tracking bestimmen den Laufstil
+STIL = [(0.20, "F", "Führend"), (0.40, "V", "Vorne dabei"), (0.65, "M", "Mittelfeld"), (1.01, "H", "Hinten")]
+TEMPOMACHER = 0.20              # bis zu dieser frühen Position zählt ein Pferd als Tempomacher
+BIAS_VORNE, BIAS_HINTEN = 1 / 3, 2 / 3   # frühe Position: vorderes / hinteres Drittel
+MIN_BIAS_RENNEN = 15            # so viele Rennen braucht eine Bahn/Distanz für den Bias
+PACE_SCHWELLE = 1.0             # erwartete Pace-Ratio so weit über/unter der Norm -> schnell/langsam
+
 PACE_BINS = [0, 94, 97, 100, 103, 999]
 PACE_LABELS = ["< 94", "94–97", "97–100", "100–103", "> 103"]
 
@@ -244,12 +252,14 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
         h = h.merge(p, on="race_id", how="left")
     if trk_sections is not None and not trk_sections.empty:
         h = h.merge(position_vor_finish(trk_sections), on=["race_id", "saddle_no"], how="left")
-    for c in list(PLAUSIBEL) + ["pos_before", "pos_before_m"]:
+        h = h.merge(position_frueh(trk_sections), on=["race_id", "saddle_no"], how="left")
+    for c in list(PLAUSIBEL) + ["pos_before", "pos_before_m", "early_pos"]:
         if c not in h:
             h[c] = np.nan
     for c, (lo, hi) in PLAUSIBEL.items():
         h[c] = h[c].where(h[c].between(lo, hi))
     h["pace_class"] = h["pace_ratio"].map(pace_klasse)
+    h["early_pct"] = ((h["early_pos"] - 1) / (h["n_runners"] - 1).where(h["n_runners"] > 1)).clip(0, 1)
     ok = h["pos_before"].notna() & (h["n_runners"] > 0)
     h["fifth"] = np.where(ok, np.ceil(h["pos_before"] / h["n_runners"].clip(lower=1) * 5).clip(1, 5), np.nan)
 
@@ -271,6 +281,106 @@ def position_vor_finish(sections: pd.DataFrame, meter: int = POS_VOR_FINISH_M) -
     s = s.drop_duplicates(["race_id", "saddle_no"])
     return s.rename(columns={"position": "pos_before", "m_to_go": "pos_before_m"})[
         ["race_id", "saddle_no", "pos_before", "pos_before_m"]]
+
+
+def position_frueh(sections: pd.DataFrame) -> pd.DataFrame:
+    """Frühe Position: Platz am ersten Messpunkt nach dem Start (Ende des ersten Abschnitts)."""
+    s = sections.copy()
+    for c in ["saddle_no", "m_to_go", "position"]:
+        s[c] = pd.to_numeric(s[c], errors="coerce")
+    s = s[(s["m_to_go"] > 0) & s["position"].notna()]
+    if s.empty:
+        return pd.DataFrame(columns=["race_id", "saddle_no", "early_pos"])
+    s = s.sort_values(["race_id", "saddle_no", "m_to_go"], ascending=[True, True, False])
+    s = s.drop_duplicates(["race_id", "saddle_no"])
+    return s.rename(columns={"position": "early_pos"})[["race_id", "saddle_no", "early_pos"]]
+
+
+def stil(early_pct) -> tuple[str, str] | tuple[None, None]:
+    v = _num(early_pct, 3)
+    if v is None:
+        return None, None
+    return next((k, lab) for bis, k, lab in STIL if v <= bis)
+
+
+def pace_kalibrierung(h: pd.DataFrame) -> dict:
+    """Wie schnell waren frühere Rennen mit 0, 1, 2, 3, 4+ Tempomachern?
+
+    Für jedes Rennen mit Pace-Ratio wird gezählt, wie viele Starter VOR diesem Rennen
+    (Mittel ihrer letzten STIL_LAEUFE frühen Positionen) als Tempomacher galten. Die
+    Pace-Ratio hängt stark von der Distanz ab, deshalb wird die Abweichung von der
+    Norm der Distanzgruppe gemittelt."""
+    leer = {"norm": {}, "effekt": {}, "gesamt": None}
+    if h.empty or "early_pct" not in h or h["early_pct"].notna().sum() < MIN_GRUPPE:
+        return leer
+    t = h[h["early_pct"].notna()].sort_values(["date", "race_id"])
+    vorher = (t.groupby("horse_id")["early_pct"]
+                .transform(lambda x: x.shift().rolling(STIL_LAEUFE, min_periods=1).mean()))
+    h2 = h[["race_id", "saddle_no", "horse_id"]].merge(
+        pd.DataFrame({"race_id": t["race_id"], "saddle_no": t["saddle_no"], "stil_vorher": vorher}),
+        on=["race_id", "saddle_no"], how="left")
+    per_rennen = (h2.assign(front=h2["stil_vorher"] <= TEMPOMACHER)
+                    .groupby("race_id").agg(n_front=("front", "sum"), bekannt=("stil_vorher", "count")))
+    r = (h.drop_duplicates("race_id")[["race_id", "pace_ratio", "dist_bucket"]]
+          .merge(per_rennen, on="race_id", how="inner"))
+    r = r[r["pace_ratio"].notna() & (r["bekannt"] >= 3)]
+    if len(r) < MIN_GRUPPE:
+        return leer
+    norm = r.groupby("dist_bucket")["pace_ratio"].mean()
+    r["abw"] = r["pace_ratio"] - r["dist_bucket"].map(norm)
+    r["klasse"] = r["n_front"].clip(upper=4).astype(int)
+    eff = r.groupby("klasse")["abw"].agg(["mean", "count"])
+    return {"norm": {k: round(float(v), 1) for k, v in norm.items()},
+            "effekt": {int(k): (round(float(v["mean"]), 2), int(v["count"])) for k, v in eff.iterrows()},
+            "gesamt": round(float(r["pace_ratio"].mean()), 1)}
+
+
+def _iv(g: pd.DataFrame, maske: pd.Series) -> float | None:
+    """Impact Value: Anteil an den Siegern / Anteil an den Startern."""
+    starter, sieger = maske.mean(), g["won"].sum()
+    if not starter or not sieger:
+        return None
+    return float(g.loc[maske, "won"].sum() / sieger / starter)
+
+
+def _bias(g: pd.DataFrame) -> dict | None:
+    rennen = g["race_id"].nunique()
+    if rennen < MIN_BIAS_RENNEN:
+        return None
+    vorne, hinten = _iv(g, g["early_pct"] <= BIAS_VORNE), _iv(g, g["early_pct"] >= BIAS_HINTEN)
+    if vorne is None or hinten is None:
+        return None
+    return {"races": int(rennen), "iv_front": round(vorne, 2), "iv_back": round(hinten, 2),
+            "bias": round(vorne - hinten, 2)}
+
+
+def bahn_bias(h: pd.DataFrame) -> dict:
+    """Waren an einer Bahn über eine Distanz Frontrenner oder abwartend gerittene Pferde
+    erfolgreicher? bias = IV(vorderes Drittel früh) − IV(hinteres Drittel früh); positiv = vorne besser.
+    Schlüssel: (Bahn, Distanz), ersatzweise (Bahn, Distanzgruppe); dazu der Schnitt aller Bahnen."""
+    if h.empty or "early_pct" not in h:
+        return {"exakt": {}, "gruppe": {}, "gesamt": None}
+    t = h[h["early_pct"].notna()]
+    return {"exakt": {k: b for k, g in t.groupby(["course_key", "distance_m"]) if (b := _bias(g))},
+            "gruppe": {k: b for k, g in t.groupby(["course_key", "dist_bucket"]) if (b := _bias(g))},
+            "gesamt": _bias(t)}
+
+
+def pace_szenario(stile: list[dict], dist_bucket: str | None, kal: dict) -> dict:
+    """Erwartetes Tempo aus den Laufstilen der heutigen Starter."""
+    bekannt = [x for x in stile if x["style"]]
+    n_front = sum(1 for x in bekannt if x["early"] <= TEMPOMACHER)
+    out = {"n_front": n_front, "known": len(bekannt), "runners": len(stile),
+           "groups": {k: [x["no"] for x in bekannt if x["style"] == k] for _, k, _ in STIL},
+           "unknown": [x["no"] for x in stile if not x["style"]],
+           "expected": None, "norm": None, "diff": None, "label": None, "basis": None}
+    norm = kal["norm"].get(dist_bucket, kal["gesamt"])
+    eff = kal["effekt"].get(min(n_front, 4))
+    if norm is None or eff is None or len(bekannt) < 3:
+        return out
+    out.update(expected=round(norm + eff[0], 1), norm=norm, diff=eff[0], basis=eff[1],
+               label="schnell" if eff[0] >= PACE_SCHWELLE else "langsam" if eff[0] <= -PACE_SCHWELLE else "normal")
+    return out
 
 
 def adjustieren(h: pd.DataFrame, col: str, higher_better: bool, *,
@@ -355,6 +465,7 @@ def _formzeile(z) -> dict:
         "jockey": _txt(z.get("jockey")), "odds": _num(z["odds_final"], 1),
         "incident": _txt(z.get("incident")), "fav": bool(z["favourite"]),
         "tracking": bool(z["tracking"]),
+        "early_pos": _num(z.get("early_pos"), 0),
         "pos_before": _num(z["pos_before"], 0), "pos_before_m": _num(z["pos_before_m"], 0),
         "fifth": _num(z["fifth"], 0), "pace_ratio": _num(z["pace_ratio"], 1),
         "finish_index": _num(z["finish_index"], 1), "pos_gain": _num(z["pos_gain_800_finish"], 0),
@@ -379,6 +490,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         for tage in AE_FENSTER:
             sub = h[h["date"] >= heute - timedelta(days=tage)]
             ae[(rolle, tage)] = gruppen(sub, [rolle + "_key"])
+
+    kal = pace_kalibrierung(h)
+    bias = bahn_bias(h)
 
     # Vorlieben (gesamte Historie vor heute)
     pref = {
@@ -423,6 +537,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             if len(vorher) and bool(vorher.iloc[0]["favourite"]) and vorher.iloc[0]["won"] != 1:
                 badges.append("BF")
             tracked = vorher[vorher["tracking"]].head(3) if len(vorher) else vorher
+            fr = vorher["early_pct"].dropna().head(STIL_LAEUFE) if len(vorher) else pd.Series(dtype=float)
+            early = float(fr.mean()) if len(fr) else None
+            st_k, st_l = stil(early)
 
             def q(tab, key):
                 return _leer() if any(_txt(k) is None for k in key) else pref[tab].get(key, _leer())
@@ -442,6 +559,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "nr": "NON_PARTANT" in (status, inc),
                 "days": int((heute - vorher.iloc[0]["date"]).days) if len(vorher) else None,
                 "badges": badges,
+                "style": st_k, "style_label": st_l, "early": _num(early, 2), "early_runs": int(len(fr)),
                 "summary": {
                     "v400_adj": _num(tracked["speed_last400_kmh_adj"].max(), 2) if len(tracked) else None,
                     "v600_adj": _num(tracked["speed_last600_kmh_adj"].max(), 2) if len(tracked) else None,
@@ -458,6 +576,10 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 },
                 "form_lines": form,
             })
+        partanten = [x for x in starters if not x["nr"]]
+        szenario = pace_szenario(partanten, db, kal)
+        b = bias["exakt"].get((course, dist)) or bias["gruppe"].get((course, db))
+        b_basis = "exakt" if bias["exakt"].get((course, dist)) else ("gruppe" if b else None)
         m = meetings.setdefault(int(r["reunion"]), {"reunion": int(r["reunion"]),
                                                      "course": _txt(r.get("hippodrome")), "races": []})
         m["races"].append(r["race_id"])
@@ -471,6 +593,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             "corde": _txt(r.get("corde")), "declared": _num(r.get("runners_declared"), 0),
             "status": _txt(r.get("statut")), "result": _txt(r.get("finish_order")),
             "runners": starters,
+            "pace": szenario,
+            "bias": {**b, "basis": b_basis} if b else None,
         }
     hist_von = h["date"].min() if len(h) else None
     return {
@@ -478,7 +602,10 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         "generated": datetime.now(pmu.PARIS).strftime("%Y-%m-%d %H:%M"),
         "history": {"from": hist_von.strftime("%Y-%m-%d") if hist_von is not None else None,
                     "runs": int(len(h)), "tracked": int(h["tracking"].sum()) if "tracking" in h else 0},
-        "params": {"pos_before_m": POS_VOR_FINISH_M, "ae_windows": list(AE_FENSTER), "form_runs": LETZTE_LAEUFE},
+        "params": {"pos_before_m": POS_VOR_FINISH_M, "ae_windows": list(AE_FENSTER), "form_runs": LETZTE_LAEUFE,
+                   "style_runs": STIL_LAEUFE, "pacemaker": TEMPOMACHER,
+                   "styles": [{"key": k, "label": lab, "max": bis} for bis, k, lab in STIL]},
+        "bias_all": bias["gesamt"],
         "meetings": sorted(meetings.values(), key=lambda m: m["reunion"]),
         "races": races_out,
     }
