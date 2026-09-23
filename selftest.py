@@ -345,7 +345,8 @@ def racecard_pruefen() -> None:
         "status": "PARTANT", "finish_pos": pos, "odds_final": odds, "weight_kg": 57, "age": 4,
         "lengths_prev": None if pos == 1 else 2.0, "lengths_behind": None if pos == 1 else 2.0}
     runners = pd.DataFrame([lauf(rid(10, 1), 1, "X", "TR", 1, 4.0), lauf(rid(10, 1), 2, "Y", "TR", 2, 2.0),
-                            lauf(rid(100, 1), 1, "X", "TR", 2, 5.0), lauf(rid(100, 1), 2, "Y", "AND", 1, 3.0)])
+                            lauf(rid(100, 1), 1, "X", "TR", 2, 5.0), lauf(rid(100, 1), 2, "Y", "AND", 1, 3.0),
+                            lauf(rid(100, 1), 3, "Z", "AND", 2, 9.0)])       # totes Rennen um Platz 2
     sections = pd.DataFrame([{"race_id": rid(10, 1), "saddle_no": 1, "m_to_go": m, "position": p}
                              for m, p in ((800, 2), (400, 1), (200, 1), (0, 1))])
     hist = rc.vorbereiten(races, runners, pd.DataFrame([{"race_id": rid(10, 1), "pace_ratio": 97.0}]),
