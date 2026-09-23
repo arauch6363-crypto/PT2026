@@ -271,6 +271,7 @@ def runner_row(rid: str, p: dict) -> dict:
                                 if isinstance(p.get("distanceChevalPrecedent"), str) else None)
                             or p.get("ecart")),
         "incident": p.get("incident"),
+        "silks_url": p.get("urlCasaque"),
         "comment": _g(p, "commentaireApresCourse", "texte"),
     }
 
