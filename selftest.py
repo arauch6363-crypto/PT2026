@@ -350,12 +350,34 @@ def racecard_pruefen() -> None:
     runners = pd.DataFrame([lauf(rid(10, 1), 1, "X", "TR", 1, 4.0), lauf(rid(10, 1), 2, "Y", "TR", 2, 2.0),
                             lauf(rid(100, 1), 1, "X", "TR", 2, 5.0), lauf(rid(100, 1), 2, "Y", "AND", 1, 3.0),
                             lauf(rid(100, 1), 3, "Z", "AND", 2, 9.0)])       # totes Rennen um Platz 2
-    sections = pd.DataFrame([{"race_id": rid(10, 1), "saddle_no": 1, "m_to_go": m, "position": p}
-                             for m, p in ((800, 2), (400, 1), (200, 1), (0, 1))])
+    # Abschnitte 1200 m: DEP-1000, 1000-800, ... je 200 m; Pferd 1 sauber, Pferd 2 mit falscher Zeit
+    splits = {1: (12.6, 11.9, 11.7, 11.5, 11.3, 11.6), 2: (12.6, 11.9, 11.7, 11.5, 11.3, 9.0)}
+    sections = pd.DataFrame([{"race_id": rid(10, 1), "saddle_no": no, "m_to_go": m, "seg_len_m": 200,
+                              "split_s": t, "cum_s": sum(splits[no][:k + 1]),
+                              "position": {800: 2, 400: 1, 200: 1, 0: 1}.get(m)}
+                             for no in (1, 2) for k, (m, t) in enumerate(zip((1000, 800, 600, 400, 200, 0), splits[no]))])
+    leader = pd.DataFrame([{"race_id": rid(10, 1), "seg": f"T{k + 1}", "from": f_, "to": to, "leader_cum_s": c,
+                            "leader_split_s": None}
+                           for k, (f_, to, c) in enumerate(zip(("DEP", "1000m", "800m", "600m", "400m", "200m"),
+                                                               ("1000m", "800m", "600m", "400m", "200m", "ARR"),
+                                                               (12.4, 24.2, 35.8, 47.2, 58.4, 70.0)))])
     hist = rc.vorbereiten(races, runners, pd.DataFrame([{"race_id": rid(10, 1), "pace_ratio": 97.0}]),
                           pd.DataFrame([{"race_id": rid(10, 1), "saddle_no": 1, "finish_index": 104.0,
-                                         "dist_vs_winner_m": 0.0},
-                                        {"race_id": rid(10, 1), "saddle_no": 2, "dist_vs_winner_m": 13.31}]), sections)
+                                         "dist_vs_winner_m": 0.0, "speed_last600_kmh": 55.0,
+                                         "distance_covered_m": 1212.0, "last600_s": 34.4},
+                                        {"race_id": rid(10, 1), "saddle_no": 2, "dist_vs_winner_m": 13.31,
+                                         "speed_last600_kmh": 63.0, "last600_s": 34.5}]), sections, leader)
+    im_rennen = hist["race_id"] == rid(10, 1)
+    hx = hist[im_rennen & (hist["horse"] == "X")].iloc[0]
+    pruefe(abs(hx["speed_last600_kmh"] - 600 / 34.4 * 3.6 * 1.01) < 0.02 and hx["path_factor"] == 1.01,
+           "L600 aus den Abschnitten neu gebildet (geparster Wert 55 ersetzt) und mit Wegfaktor skaliert")
+    pruefe(abs(hx["finish_index"] - (400 / 22.9) / (800 / 47.7) * 100) < 0.1,
+           "Finish-Index = Endspeed ÷ Tempo davor (nicht der geparste 104.0)")
+    pruefe(hist.loc[hist["horse"] == "Y", "speed_last600_kmh"].isna().all()
+           and bool(hist.loc[im_rennen & (hist["horse"] == "Y"), "last600_mismatch"].all()),
+           "Gegenprobe: L600 verworfen, wenn die Abschnitte von der offiziellen Angabe abweichen")
+    pruefe(abs(hx["pace_early_kmh"] - 600 / 35.8 * 3.6) < 0.02,
+           "frühes Tempo ohne Spalte pace_early_kmh aus tracking_leader ersetzt")
     heute_r = pd.DataFrame([{"race_id": f"{tag:%Y%m%d}R1C1", "reunion": 1, "race_no": 1, "hippodrome": "DEAUVILLE",
                              "distance_m": 1200, "going": "Bon", "going_value": "4,8", "categorie": "HANDICAP"}])
     heute_s = pd.DataFrame([{**lauf(f"{tag:%Y%m%d}R1C1", 1, "X", "TR", None, 3.0, blinkers="OEILLERES_CLASSIQUE"),
@@ -430,6 +452,7 @@ def racecard_pruefen() -> None:
         rid_i = f"2024{i:05d}"
         dist_i, gv, pace = rng.choice([1200, 1600, 2400]), rng.uniform(2.8, 4.8), rng.normal(98, 3)
         bahn = rng.choice(["A", "B", "C"])
+        v_early = 16.8 + 0.15 * (pace - 98)          # frühes Tempo des Führenden (m/s), Ursache des Verlaufs
         basis = 17.2 - 0.9 * (dist_i - 1200) / 1200 - 0.5 * (gv - 3.5) - 0.08 * (pace - 98) \
             + {"A": 0.2, "B": 0.0, "C": -0.2}[bahn]
         feld = rng.choice(list(koennen), 10, replace=False)
@@ -438,8 +461,10 @@ def racecard_pruefen() -> None:
             zeilen.append({"race_id": rid_i, "saddle_no": pos, "horse_id": p, "date": pd.Timestamp("2024-01-01")
                            + timedelta(days=i), "finish_pos": pos, "n_runners": 10, "lengths_behind": (pos - 1) * 0.8,
                            "speed_last400_kmh": vv * 3.6, "speed_last600_kmh": (vv - 0.3) * 3.6,
+                           "speed_600_400_kmh": (vv - 0.9) * 3.6, "path_factor": 1.0,
                            "finish_index": 100 + (vv - basis) * 5, "distance_m": dist_i, "going_value": gv,
-                           "going_class": "SOUPLE", "course_key": bahn, "pace_ratio": pace, "true": koennen[p]})
+                           "going_class": "SOUPLE", "course_key": bahn, "pace_ratio": pace,
+                           "pace_early_kmh": v_early * 3.6, "true": koennen[p]})
             secs += [{"race_id": rid_i, "saddle_no": pos, "m_to_go": mtg, "seg_len_m": 200,
                       "split_s": 200 / (vv + (1.5 if mtg >= 800 else 0))} for mtg in (1000, 600, 400, 200, 0)]
     sim = sf.berechnen(pd.DataFrame(zeilen), pd.DataFrame(secs))
@@ -449,9 +474,22 @@ def racecard_pruefen() -> None:
            f"L400 bereinigt trifft das Können deutlich besser als roh (r = {r_adj:.2f} statt {r_roh:.2f})")
     pruefe(sim["best_seg_to_go_m"].max() <= 800 and sim["best_seg_s"].notna().all(),
            "Best Seg nur aus den letzten 800 m – der schnellere frühe Abschnitt zählt nicht")
+    pruefe(sim["accel_adj"].notna().all() and sim["peak_adj"].notna().all()
+           and abs(sim["accel_kmh"].mean() - 0.9 * 3.6) < 0.05,
+           "Δ400 = L400 − Tempo 600–400 m und Peak = Best Seg − L600 werden gebildet und bereinigt")
     val = sf.validierung(sim.assign(ausgeritten=False))
     z = val.set_index("Kennzahl").loc["L400"]
     pruefe(z["Wiederholbarkeit bereinigt"] > z["Wiederholbarkeit roh"], "Validierung: bereinigt wiederholbarer als roh")
+    pruefe(set(val["Kennzahl"]) >= {"Δ400", "Peak", "Best Seg"}, "Validierung deckt auch Δ400 und Peak ab")
+
+    # Rohwerte aus den Abschnitten: fehlender Split -> kein Tempo (statt zu hohem), 600–400 m bleibt
+    secs = pd.DataFrame([{"race_id": "R", "saddle_no": 1, "m_to_go": m, "seg_len_m": 200, "split_s": t, "cum_s": None}
+                         for m, t in ((1000, 12.5), (800, 11.8), (600, 11.6), (400, 11.4), (200, None), (0, 11.5))])
+    k = sf.rohwerte_aus_abschnitten(pd.DataFrame([{"race_id": "R", "saddle_no": 1, "distance_m": 1200,
+                                                   "speed_last400_kmh": 70.0, "speed_last600_kmh": 68.0}]), secs).iloc[0]
+    pruefe(pd.isna(k["speed_last400_kmh"]) and pd.isna(k["speed_last600_kmh"]) and pd.isna(k["finish_index"])
+           and k["speed_600_400_kmh"] == round(200 / 11.4 * 3.6, 2),
+           "fehlender Split: kein L400/L600/Finish-Index statt zu hohem Tempo; 600–400 m bleibt")
 
     class BildSession:
         def get(self, url, headers=None, timeout=None):

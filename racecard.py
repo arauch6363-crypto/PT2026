@@ -21,9 +21,12 @@ Kennzahlen
     Position vor dem Finish
                    Platz im Feld am Messpunkt POS_VOR_FINISH_M vor dem Ziel, als Fünftel
                    des Feldes (1 = vorderstes Fünftel)
-    bereinigt      L600, L400, Best Seg (letzte 800 m) und Finish-Index nach dem Vier-Stufen-Modell
-                   in speedfig.py: Rennanteil gegen einen Par aus Distanz, Boden, Bahn und
-                   Pace-Ratio, plus Pferdeanteil gegenüber dem Feld; in Längen, positiv = schneller.
+    bereinigt      L600, L400, Best Seg (letzte 800 m), Δ400 (L400 − Tempo 600–400 m), Peak
+                   (Best Seg − L600) und Finish-Index nach dem Vier-Stufen-Modell in speedfig.py:
+                   Rennanteil gegen einen Par aus Distanz, Boden, Bahn und frühem Tempo (Leave-one-out),
+                   plus Pferdeanteil gegenüber dem Feld. L600/L400 in Längen, Best Seg/Δ400/Peak in
+                   km/h, positiv = schneller bzw. stärker. Übersicht: distanzgewichteter, zum Nullpunkt
+                   geschrumpfter Ø der letzten SCHNITT_LAEUFE Läufe mit Tracking.
 """
 from __future__ import annotations
 
@@ -52,7 +55,9 @@ TREND_MIN_STARTS = 5            # so viele Starts in 30 Tagen braucht der Trend
 VORLIEBEN_JT_TAGE = 730         # Jockey-/Trainer-Vorlieben: letzte zwei Jahre
 GEGNER_LAEUFE = 5               # für so viele der letzten Läufe werden die Gegner verfolgt
 GEGNER_MAX = 3                  # so viele Gegner je Lauf (die am nächsten am Pferd waren)
-SCHNITT_LAEUFE = 3              # Ø der bereinigten Kennzahlen über so viele Läufe mit Tracking
+SCHNITT_LAEUFE = 5              # Ø der bereinigten Kennzahlen über so viele Läufe mit Tracking
+SCHNITT_PRIOR = 1.0             # Schrumpfung zum Nullpunkt: wirkt wie ein zusätzlicher Lauf mit Wert 0
+SCHNITT_DIST_M = 400            # Gewicht eines Laufs = 1 / (1 + |Distanz − heute| / SCHNITT_DIST_M)
 MIN_GRUPPE = 30                 # so viele Läufe braucht eine Gruppe, bevor ihr Effekt zählt
 
 DIST_BINS = [0, 1300, 1700, 2100, 2600, 5000]
@@ -69,9 +74,9 @@ KATEGORIE = {
 }
 
 # Plausibilitätsgrenzen – Werte außerhalb sind Mess- oder Parserfehler
-PLAUSIBEL = {"speed_last600_kmh": (40.0, 75.0),
+PLAUSIBEL = {"speed_last600_kmh": (40.0, 75.0), "speed_600_400_kmh": (40.0, 75.0),
              "speed_last400_kmh": (40.0, 75.0), "finish_index": (70.0, 130.0),
-             "pos_gain_800_finish": (-20, 20), "pace_ratio": (60.0, 160.0),
+             "pos_gain_800_finish": (-20, 20), "pace_ratio": (60.0, 160.0), "pace_early_kmh": (40.0, 75.0),
              "dist_vs_winner_m": (-60.0, 100.0)}
 
 # PMU-Bodenbegriffe, längste zuerst ("TRES SOUPLE" vor "SOUPLE")
@@ -187,8 +192,11 @@ def age_bucket(a) -> str | None:
 # Historie vorbereiten
 # --------------------------------------------------------------------------
 def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFrame | None = None,
-                trk_runners: pd.DataFrame | None = None, trk_sections: pd.DataFrame | None = None) -> pd.DataFrame:
-    """Eine Zeile je Starter und Rennen, mit Renndaten und Tracking-Kennzahlen."""
+                trk_runners: pd.DataFrame | None = None, trk_sections: pd.DataFrame | None = None,
+                trk_leader: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Eine Zeile je Starter und Rennen, mit Renndaten und Tracking-Kennzahlen.
+    Die Tempi der Schlussphase und der Finish-Index werden aus tracking_sections neu gebildet
+    (speedfig.rohwerte_aus_abschnitten); die geparsten Spalten dienen nur als Ersatz."""
     if races.empty or runners.empty:
         return pd.DataFrame()
     r = races.drop_duplicates("race_id", keep="last").copy()
@@ -241,7 +249,7 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
         t = trk_runners.copy()
         t["saddle_no"] = pd.to_numeric(t["saddle_no"], errors="coerce")
         cols = [c for c in ["finish_index", "pos_gain_800_finish", "speed_last600_kmh",
-                            "speed_last400_kmh", "dist_vs_winner_m"] if c in t]
+                            "speed_last400_kmh", "dist_vs_winner_m", "distance_covered_m", "last600_s"] if c in t]
         for c in cols:
             t[c] = pd.to_numeric(t[c], errors="coerce")
         t = t.drop_duplicates(["race_id", "saddle_no"], keep="last")[["race_id", "saddle_no", *cols]]
@@ -249,10 +257,25 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
         h["tracking"] = h["race_id"].isin(set(t["race_id"]))
     else:
         h["tracking"] = False
+    for c in ["speed_last600_kmh", "speed_last400_kmh", "finish_index", "pos_gain_800_finish", "dist_vs_winner_m"]:
+        if c not in h:
+            h[c] = np.nan
+    # Tempi der Schlussphase, Finish-Index, Wegfaktor und Gegenprobe neu aus den Abschnitten
+    h = speedfig.rohwerte_aus_abschnitten(h, trk_sections)
     if trk_races is not None and not trk_races.empty and "pace_ratio" in trk_races:
-        p = trk_races.drop_duplicates("race_id", keep="last")[["race_id", "pace_ratio"]].copy()
-        p["pace_ratio"] = pd.to_numeric(p["pace_ratio"], errors="coerce")
+        pc = [c for c in ["pace_ratio", "pace_early_kmh"] if c in trk_races]
+        p = trk_races.drop_duplicates("race_id", keep="last")[["race_id", *pc]].copy()
+        for c in pc:
+            p[c] = pd.to_numeric(p[c], errors="coerce")
         h = h.merge(p, on="race_id", how="left")
+    if "pace_early_kmh" not in h:
+        h["pace_early_kmh"] = np.nan
+    # Frühes Tempo für Daten, die vor der Spalte pace_early_kmh geparst wurden: aus tracking_leader
+    fehlt = h["pace_early_kmh"].isna()
+    if fehlt.any() and trk_leader is not None and not trk_leader.empty:
+        distanz = r.drop_duplicates("race_id").set_index("race_id")["distance_m"]
+        ersatz = speedfig.pace_frueh_aus_leader(trk_leader[trk_leader["race_id"].isin(h.loc[fehlt, "race_id"])], distanz)
+        h.loc[fehlt, "pace_early_kmh"] = h.loc[fehlt, "race_id"].map(ersatz)
     if trk_sections is not None and not trk_sections.empty:
         h = h.merge(position_vor_finish(trk_sections), on=["race_id", "saddle_no"], how="left")
         h = h.merge(position_frueh(trk_sections), on=["race_id", "saddle_no"], how="left")
@@ -455,9 +478,13 @@ def _formzeile(z) -> dict:
         "finish_index": _num(z["finish_index"], 1), "fi_adj": _num(z.get("fi_adj"), 1),
         "weg_med": _num(z.get("weg_med"), 1), "pos_gain": _num(z["pos_gain_800_finish"], 0),
         "best_seg_s": _num(z.get("best_seg_s"), 2), "best_seg_to_go": _num(z.get("best_seg_to_go_m"), 0),
-        "best_adj": _num(z.get("best_adj_l"), 2),
+        "best_adj": _num(z.get("best_adj"), 1),
         "v600": _num(z["speed_last600_kmh"], 2), "v600_adj": _num(z.get("v600_adj_l"), 2),
         "v400": _num(z["speed_last400_kmh"], 2), "v400_adj": _num(z.get("v400_adj_l"), 2),
+        "accel": _num(z.get("accel_kmh"), 1), "accel_adj": _num(z.get("accel_adj"), 1),
+        "peak": _num(z.get("peak_kmh"), 1), "peak_adj": _num(z.get("peak_adj"), 1),
+        "path_factor": _num(z.get("path_factor"), 3),
+        "sec_mismatch": bool(z.get("last600_mismatch") is True),
     }
 
 
@@ -639,11 +666,21 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             # Ø der bereinigten Kennzahlen aus den letzten Läufen mit Tracking (ohne ausgerittene)
             zuverl = vorher[vorher["tracking"] & ~vorher["ausgeritten"].fillna(False).astype(bool)] if len(vorher) else vorher
 
-            def schnitt(spalte):
+            def schnitt(spalte, streuung=False):
+                """Gewichteter Ø der letzten Läufe, zum Nullpunkt geschrumpft:
+                Gewicht nach Distanzähnlichkeit zu heute, SCHNITT_PRIOR wirkt wie ein Lauf mit 0.
+                Ein Lauf bei +2,0 landet so unter drei Läufen bei +1,5."""
                 if not len(zuverl) or spalte not in zuverl:
                     return None
-                w = zuverl[spalte].dropna().head(SCHNITT_LAEUFE)
-                return _num(w.mean(), 2) if len(w) else None
+                w = zuverl[[spalte, "distance_m"]].dropna(subset=[spalte]).head(SCHNITT_LAEUFE)
+                if not len(w):
+                    return None
+                if streuung:
+                    return _num(w[spalte].std(), 2) if len(w) >= 2 else None
+                d_heute = _num(r.get("distance_m"))
+                gew = (1 / (1 + (w["distance_m"] - d_heute).abs() / SCHNITT_DIST_M)
+                       if d_heute is not None else pd.Series(1.0, index=w.index)).fillna(1.0)
+                return _num(float((gew * w[spalte]).sum() / (gew.sum() + SCHNITT_PRIOR)), 2)
 
             def q(tab, key):
                 return _leer() if any(_txt(k) is None for k in key) else pref[tab].get(key, _leer())
@@ -673,7 +710,10 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "changes": _wechsel(p, vorher.iloc[0] if len(vorher) else None),
                 "style": st_k, "style_label": st_l, "early": _num(early, 2), "early_runs": int(len(fr)),
                 "summary": {"v600": schnitt("v600_adj_l"), "v400": schnitt("v400_adj_l"),
-                            "best": schnitt("best_adj_l"), "fi": schnitt("fi_adj"),
+                            "best": schnitt("best_adj"), "fi": schnitt("fi_adj"),
+                            "accel": schnitt("accel_adj"), "peak": schnitt("peak_adj"),
+                            "v600_sd": schnitt("v600_adj_l", True), "accel_sd": schnitt("accel_adj", True),
+                            "best_sd": schnitt("best_adj", True),
                             "runs": int(min(len(zuverl), SCHNITT_LAEUFE)) if len(zuverl) else 0},
                 "ae": ae_p,
                 "pref": {
@@ -688,7 +728,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "form_lines": form,
             })
         partanten = [x for x in starters if not x["nr"]]
-        for k in ("v600", "v400", "best", "fi"):                  # Rang im heutigen Feld
+        for k in ("v600", "v400", "best", "fi", "accel", "peak"):  # Rang im heutigen Feld
             werte = [x["summary"][k] for x in partanten]
             for x in starters:
                 x["summary"][k + "_rank"] = _rang(werte, x["summary"][k]) if not x["nr"] else None
@@ -723,6 +763,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                    "trend_diff": TREND_DIFF, "trend_min": TREND_MIN_STARTS, "pref_jt_years": VORLIEBEN_JT_TAGE // 365,
                    "avg_runs": SCHNITT_LAEUFE, "rivals_runs": GEGNER_LAEUFE, "rivals_max": GEGNER_MAX,
                    "best_seg_m": speedfig.BEST_SEG_BEREICH_M, "beaten_l": speedfig.AUSGERITTEN_L,
+                   "avg_prior": SCHNITT_PRIOR, "avg_dist_m": SCHNITT_DIST_M,
                    "styles": [{"key": k, "label": lab, "max": bis} for bis, k, lab in STIL]},
         "bias_all": bias["gesamt"],
         "meetings": sorted(meetings.values(), key=lambda m: m["reunion"]),
@@ -767,10 +808,19 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     print(f"{len(races_heute)} Rennen, {len(runners_heute)} Starter. Historie laden …")
     hist = vorbereiten(tp.lade("pmu_races", base), tp.lade("pmu_runners", base),
                        tp.lade("tracking_races", base), tp.lade("tracking_runners", base),
-                       tp.lade("tracking_sections", base))
+                       tp.lade("tracking_sections", base), tp.lade("tracking_leader", base))
     silks = trikots(runners_heute.get("silks_url", pd.Series(dtype=str)).dropna())
     print(f"{len(silks)} Trikots geladen.")
     if not hist.empty:
+        if "last600_diff_s" in hist:
+            gp = hist["last600_diff_s"].dropna()
+            if len(gp):
+                print(f"Gegenprobe letzte 600 m (berechnet − offiziell): {len(gp)} Läufe, "
+                      f"Median {gp.median():+.2f} s, {int((gp.abs() > speedfig.LAST600_TOLERANZ_S).sum())} verworfen "
+                      f"(> {speedfig.LAST600_TOLERANZ_S} s)")
+        pf = hist["path_factor"].dropna() if "path_factor" in hist else pd.Series(dtype=float)
+        if len(pf):
+            print(f"Wegfaktor bekannt für {len(pf)} Läufe, Median {pf.median():.3f}")
         print("Validierung der bereinigten Kennzahlen (höher = besser; Prognose: negativer = besser):")
         print(speedfig.validierung(hist).to_string(index=False))
     daten = baue_daten(hist, races_heute, runners_heute, tag, silks)
