@@ -129,6 +129,7 @@ svg text{fill:var(--ink-3);font:10px var(--f-mono)}
 .metric span{font:500 14px var(--f-mono)}
 .metric span.up{color:var(--good)} .metric span.down{color:var(--bad)}
 .metric small{font:10.5px var(--f-mono);color:var(--ink-3)}
+.metric em.sd{font:9.5px var(--f-mono);color:var(--ink-3);margin-left:2px}
 .oddsbox{display:grid;justify-items:center;align-content:center;background:var(--accent);color:var(--accent-ink);border-radius:4px;padding:4px 10px;min-width:58px}
 .oddsbox i{font-style:normal;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;opacity:.85}
 .oddsbox b{font:700 22px/1.05 var(--f-display);font-variant-numeric:tabular-nums}
@@ -257,7 +258,9 @@ const SORTS = {
   odds:  ["Kurs", r => r.odds ?? r.odds_morning ?? 999, 1],
   v600:  ["L600 bereinigt (Ø)", r => r.summary.v600 ?? -99, -1],
   v400:  ["L400 bereinigt (Ø)", r => r.summary.v400 ?? -99, -1],
+  accel: ["Δ400 bereinigt (Ø)", r => r.summary.accel ?? -99, -1],
   best:  ["Best Seg bereinigt (Ø)", r => r.summary.best ?? -99, -1],
+  peak:  ["Peak bereinigt (Ø)", r => r.summary.peak ?? -99, -1],
   tae:   ["Trainer A/E 365 T", r => r.ae.trainer.d365.ae ?? -1, -1],
   jae:   ["Jockey A/E 365 T", r => r.ae.jockey.d365.ae ?? -1, -1],
   rating:["Rating", r => r.rating ?? -1, -1],
@@ -345,8 +348,9 @@ function trendIcon(a){
 const rec = s => s && s.runs ? `${s.wins}-${s.runs} (${pct(s.wins, s.runs)})` : "0-0";
 const lenTxt = v => v == null ? "–" : sgn(v, 1) + " L";
 
-function metric(label, v, rank, n, tip){
-  return `<div class="metric" title="${esc(tip)}"><i>${label}</i><span class="${v == null ? "" : v > 0 ? "up" : v < 0 ? "down" : ""}">${v == null ? "–" : sgn(v, 1)}</span><small>${rank ? `#${rank}/${n}` : "&nbsp;"}</small></div>`;
+function metric(label, v, rank, n, tip, sd){
+  const spread = sd != null ? `<em class="sd" title="Streuung (Standardabweichung) der einzelnen Läufe">±${fx(sd,1)}</em>` : "";
+  return `<div class="metric" title="${esc(tip)}"><i>${label}</i><span class="${v == null ? "" : v > 0 ? "up" : v < 0 ? "down" : ""}">${v == null ? "–" : sgn(v, 1)}${spread}</span><small>${rank ? `#${rank}/${n}` : "&nbsp;"}</small></div>`;
 }
 
 function runnerHTML(x, race){
@@ -355,7 +359,7 @@ function runnerHTML(x, race){
   const badges = x.badges.map(b => `<span class="badge ${b==="BF"?"bf":""}" title="${{C:"Sieger auf dieser Bahn",D:"Sieger über diese Distanz (±100 m)",CD:"Sieger auf Bahn und Distanz",BF:"Beim letzten Start Favorit und nicht gewonnen"}[b]}">${b}</span>`).join("");
   const changes = (x.changes || []).map(c => `<span class="badge chg" title="${esc(c.text)}">${esc(c.text)}</span>`).join("");
   const blink = x.blinkers && !/^SANS/i.test(x.blinkers) ? `<span class="badge" title="${esc(x.blinkers)}">${/AUSTRAL/i.test(x.blinkers) ? "p" : "b"}</span>` : "";
-  const S = x.summary, tip = n => `Ø bereinigt der letzten ${S.runs} Läufe mit Tracking in Längen (+ = schneller als erwartet), Rang im heutigen Feld`;
+  const S = x.summary, tip = (einheit, was) => `${was} – bereinigt, Ø der letzten ${S.runs} Läufe mit Tracking (gewichtet nach Distanzähnlichkeit, zum Nullpunkt geschrumpft) in ${einheit}, + = besser als erwartet; darunter Rang im heutigen Feld`;
   const career = x.starts != null ? `${x.starts}-${x.wins ?? 0}-${x.places ?? 0}${x.earn_per_start ? ` · €${fmtEur(x.earn_per_start)}/Start` : ""}` : "";
   const odds = x.odds ?? x.odds_morning;
   return `<article class="runner ${x.nr ? "nr" : ""}">
@@ -376,7 +380,7 @@ function runnerHTML(x, race){
         <div class="fact"><i>Gew.</i><span>${x.weight != null ? fx(x.weight, 1) : "–"}</span></div>
         <div class="fact"><i>Rating</i><span>${x.rating != null ? fx(x.rating, 1).replace(/\.0$/, "") : "–"}</span></div>
         <div class="fact"><i>Tage</i><span>${x.days ?? "–"}</span></div>
-        ${metric("L600", S.v600, S.v600_rank, S.v600_n, tip())}${metric("L400", S.v400, S.v400_rank, S.v400_n, tip())}${metric("Best", S.best, S.best_rank, S.best_n, tip())}
+        ${metric("L600", S.v600, S.v600_rank, S.v600_n, tip("Längen", "Tempo letzte 600 m"), S.v600_sd)}${metric("Δ400", S.accel, S.accel_rank, S.accel_n, tip("km/h", "Tempo letzte 400 m minus Tempo 600–400 m: beschleunigt (+) oder bricht ein (−)"), S.accel_sd)}${metric("Best", S.best, S.best_rank, S.best_n, tip("km/h", "schnellster 200-m-Abschnitt der letzten " + DATA.params.best_seg_m + " m"), S.best_sd)}
         <div class="oddsbox" title="${x.odds != null ? "Aktueller Kurs" : "Morgenkurs"}"><i>Kurs</i><b>${odds != null ? fx(odds, 1) : "–"}</b></div>
       </div>
     </div>
@@ -464,17 +468,21 @@ function formTable(rows, no){
       <td class="r num">${fx(f.finish_index,1)}${adjSpan(f.fi_adj, 1, "")}</td>
       <td class="r num">${f.pos_gain != null ? sgn(f.pos_gain, 0) : "–"}</td>
       <td class="r num" title="${f.weg_med != null ? `${fx(Math.abs(f.weg_med),1)} m ${f.weg_med >= 0 ? "mehr" : "weniger"} gelaufen als der Median des Feldes (≈ ${fx(Math.abs(f.weg_med)/2.4,1)} Längen)` : ""}">${f.weg_med != null ? sgn(f.weg_med, 1) : "–"}</td>
-      <td class="r num" title="${f.best_seg_to_go != null ? `Schnellster Abschnitt ab ${f.best_seg_to_go} m vor dem Ziel, als Zeit je 200 m` : ""}">${fx(f.best_seg_s,2)}${adjSpan(f.best_adj, 2)}</td>
-      <td class="r num">${fx(f.v600,1)}${adjSpan(f.v600_adj)}</td>
+      <td class="r num" title="${f.best_seg_to_go != null ? `Schnellster Abschnitt ab ${f.best_seg_to_go} m vor dem Ziel, als Zeit je 200 m` : ""}">${fx(f.best_seg_s,2)}${adjSpan(f.best_adj, 1, "")}</td>
+      <td class="r num" title="${f.sec_mismatch ? "Abschnittszeiten passen nicht zur offiziellen Zeit der letzten 600 m – Tempi der Schlussphase verworfen" : f.path_factor != null ? `Wegfaktor ${fx(f.path_factor,3)} (gelaufene ÷ nominale Distanz) eingerechnet` : ""}">${f.sec_mismatch ? "✗" : fx(f.v600,1)}${adjSpan(f.v600_adj)}</td>
       <td class="r num">${fx(f.v400,1)}${adjSpan(f.v400_adj)}</td>
-    </tr>${offen ? `<tr class="rivrow"><td colspan="11">${rivalsHTML(f.rivals)}</td></tr>` : ""}`; }).join("");
+      <td class="r num" title="Tempo letzte 400 m minus Tempo 600–400 m (km/h); klein: bereinigt">${f.accel != null ? sgn(f.accel,1) : "–"}${adjSpan(f.accel_adj, 1, "")}</td>
+      <td class="r num" title="Best Seg minus L600 (km/h): Spitze über Ausdauer; klein: bereinigt">${f.peak != null ? sgn(f.peak,1) : "–"}${adjSpan(f.peak_adj, 1, "")}</td>
+    </tr>${offen ? `<tr class="rivrow"><td colspan="13">${rivalsHTML(f.rivals)}</td></tr>` : ""}`; }).join("");
   return `<div class="scroll"><table class="formtab"><thead><tr>
     <th>Datum · Bahn</th><th>Dist · Boden · Preis · Typ</th><th>Pos · Gew. · Jockey · Kurs</th>
     <th title="Position ${DATA.params.pos_before_m} m vor dem Ziel als Fünftel des Feldes">Pos. vor Finish</th>
     <th title="Tempo frühe Phase / Tempo Schlussphase × 100">Pace-Ratio</th>
-    <th class="r" title="Endspeed / Durchschnittstempo × 100; klein: bereinigt in Indexpunkten">Finish-Idx</th><th class="r" title="Plätze gut gemacht von 800 m bis Ziel">±800</th><th class="r" title="Gelaufene Meter mehr (+) oder weniger (−) als der Median aller Starter im Rennen">Weg m</th>
-    <th class="r" title="Schnellster 200-m-Abschnitt in den letzten ${DATA.params.best_seg_m} m (s); klein: bereinigt in Längen">Best Seg</th>
+    <th class="r" title="Endspeed (letzte 400 m) ÷ Tempo davor × 100; klein: bereinigt in Indexpunkten">Finish-Idx</th><th class="r" title="Plätze gut gemacht von 800 m bis Ziel">±800</th><th class="r" title="Gelaufene Meter mehr (+) oder weniger (−) als der Median aller Starter im Rennen">Weg m</th>
+    <th class="r" title="Schnellster 200-m-Abschnitt in den letzten ${DATA.params.best_seg_m} m (s); klein: bereinigt in km/h">Best Seg</th>
     <th class="r" title="km/h letzte 600 m; klein: bereinigt in Längen">L600</th><th class="r" title="km/h letzte 400 m; klein: bereinigt in Längen">L400</th>
+    <th class="r" title="L400 minus Tempo 600–400 m (km/h): beschleunigt (+) oder bricht ein (−); klein: bereinigt in km/h">Δ400</th>
+    <th class="r" title="Best Seg minus L600 (km/h): Spitze über Ausdauer; klein: bereinigt in km/h">Peak</th>
   </tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
@@ -482,7 +490,7 @@ function renderLegend(){
   const p = DATA.params;
   $("#legend").innerHTML = `
     <div><b>A/E</b> = Siege ÷ Σ(1/Endquote). Über 1 gewinnt die Person öfter, als der Markt erwartet. Grün ≥ 0,95, rot ≤ 0,75; blass bei weniger als 10 Starts (Vorlieben: 5). In der Übersicht: 365 Tage; 🔥 / 🧊 wenn die letzten 30 Tage um mindestens ${String(p.trend_diff).replace(".", ",")} darüber bzw. darunter lagen (ab ${p.trend_min} Starts).</div>
-    <div><b>Bereinigt</b> (L600, L400, Best Seg, in Längen; Finish-Index in Punkten): Das Tempo des Pferdes wird zerlegt in einen Rennanteil – wie schnell die vordere Hälfte des Feldes im Finish war, verglichen mit einem Par für Distanz, Boden, Bahn und Pace-Ratio – und einen Pferdeanteil gegenüber diesem Feld. 0 = wie die vordere Hälfte eines normalen Rennens, + = schneller. Best Seg nur aus den letzten ${p.best_seg_m} m. Mehr als ${p.beaten_l} Längen Geschlagene gelten als ausgeritten und zählen nicht in den Schnitt. Übersicht: Ø der letzten ${p.avg_runs} Läufe mit Tracking, darunter der Rang im heutigen Feld.</div>
+    <div><b>Bereinigt</b> (L600, L400 in Längen; Best Seg, Δ400, Peak in km/h; Finish-Index in Punkten): Das Tempo des Pferdes wird zerlegt in einen Rennanteil – wie schnell die vordere Hälfte des Feldes im Finish war, verglichen mit einem Par für Distanz, Boden, Bahn und das frühe Tempo des Rennens (Leave-one-out, das Rennen bestimmt sein Par nicht selbst) – und einen Pferdeanteil gegenüber diesem Feld. 0 = wie die vordere Hälfte eines normalen Rennens, + = schneller. Tempi der Schlussphase und Finish-Index werden aus den Abschnittszeiten je Pferd gebildet, mit dem Wegfaktor (gelaufene ÷ nominale Distanz) skaliert und gegen die offizielle Zeit der letzten 600 m geprüft (✗ = Abschnitte unbrauchbar). <b>Finish-Index</b> = Tempo letzte 400 m ÷ Tempo davor × 100. <b>Δ400</b> = Tempo letzte 400 m minus Tempo 600–400 m (beschleunigt oder bricht ein), <b>Peak</b> = Best Seg minus L600 (Spitze über Ausdauer); Best Seg nur aus den letzten ${p.best_seg_m} m. Mehr als ${p.beaten_l} Längen Geschlagene gelten als ausgeritten und zählen nicht in den Schnitt. Übersicht: Ø der letzten ${p.avg_runs} Läufe mit Tracking, gewichtet nach Distanzähnlichkeit (halbes Gewicht bei ${p.avg_dist_m} m Unterschied) und zum Nullpunkt geschrumpft (wie ein zusätzlicher Lauf mit 0 – ein Lauf allein zählt weniger als drei); ± = Streuung der Einzelläufe; darunter der Rang im heutigen Feld.</div>
     <div><b>Pos. vor Finish</b>: Platz ${p.pos_before_m} m vor dem Ziel, eingeteilt in Fünftel des Feldes (hervorgehoben). <b>Pace-Ratio</b>: Tempo der frühen Phase ÷ Tempo der letzten ≥ 600 m × 100; unter 100 Schlusssprint, über 100 schnell angegangen. <b>Weg m</b>: gelaufene Meter gegenüber dem Median aller Starter im Rennen (≈ 2,4 m je Länge); + = weiter gelaufen, meist außen.</div>
     <div><b>Gegner</b>: für die letzten ${p.rivals_runs} Läufe die bis zu ${p.rivals_max} Gegner, die am nächsten am Pferd ins Ziel kamen und seitdem wieder gelaufen sind – mit Platz im nächsten Start und ob der besser oder schlechter war als der Rang ihrer Quote.</div>
     <div><b>Laufstil</b> F führend · V vorne dabei · M Mittelfeld · H hinten – aus der Ø frühen Position der letzten ${p.style_runs} Läufe mit Tracking. <b>Pace-Szenario</b>: Norm der Distanzgruppe plus Effekt der Tempomacher und der Feldgröße, geschätzt aus früheren Rennen. <b>Bahn-Bias</b> = IV vorne − IV hinten; positiv: Frontrenner erfolgreicher.</div>

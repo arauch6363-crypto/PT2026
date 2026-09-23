@@ -115,16 +115,29 @@ Je Starter:
 * **Übersicht**: Trikot (PMU `urlCasaque`, eingebettet), Musique, Karriere Starts-Siege-Plätze
   und Gewinn je Start, Jockey und Trainer mit A/E über 365 Tage (🔥 / 🧊, wenn die letzten 30 Tage
   deutlich besser/schlechter waren), Hinweise auf Trainerwechsel, Scheuklappen-Wechsel und
-  „erstmals Wallach“, der Kurs hervorgehoben, dazu Ø der bereinigten L600, L400 und Best Seg
-  der letzten 3 Läufe mit Tracking samt Rang im heutigen Feld.
+  „erstmals Wallach“, der Kurs hervorgehoben, dazu Ø der bereinigten L600, Δ400 und Best Seg
+  der letzten 5 Läufe mit Tracking (gewichtet nach Distanzähnlichkeit zu heute, zum Nullpunkt
+  geschrumpft, mit Streuung) samt Rang im heutigen Feld.
 * **Formzeilen** der letzten 6 Läufe mit Fünftel-Position 400 m vor dem Ziel, Pace-Ratio,
   Finish-Index (roh und bereinigt), ±800, Weg gegenüber dem Median des Feldes, Best Seg
-  (letzte 800 m), L600, L400. Für die letzten 5 Läufe lassen sich die Gegner aufklappen, die seitdem
-  wieder liefen (die 3, die dem Pferd am nächsten waren), mit Platz im nächsten Start und ob der
-  besser oder schlechter war als der Rang ihrer Quote.
+  (letzte 800 m), L600, L400, Δ400 (L400 − Tempo 600–400 m) und Peak (Best Seg − L600). Für die
+  letzten 5 Läufe lassen sich die Gegner aufklappen, die seitdem wieder liefen (die 3, die dem Pferd
+  am nächsten waren), mit Platz im nächsten Start und ob der besser oder schlechter war als der Rang
+  ihrer Quote.
+* **Rohwerte aus den Abschnitten** (`speedfig.rohwerte_aus_abschnitten`): L600, L400, Tempo
+  600–400 m und Finish-Index werden beim Bau der Race Card aus `tracking_sections` neu gebildet,
+  nicht aus den beim Parsen abgelegten Spalten – so gelten die Korrekturen auch für alte Daten ohne
+  Neu-Parsen: fehlender Split → kein Tempo (statt zu hohem), Wegfaktor (gelaufene ÷ nominale
+  Distanz) skaliert die Tempi, Finish-Index = Tempo letzte 400 m ÷ Tempo davor, und die berechneten
+  letzten 600 m werden gegen die offizielle Angabe der Übersichtsseite geprüft (bei Abweichung
+  > 0,5 s werden die Tempi dieses Laufs verworfen).
 * **Bereinigte Kennzahlen** (`speedfig.py`): Rennanteil (Median der vorderen Hälfte) gegen einen Par
-  aus Distanz, Boden, Bahn und Pace-Ratio, plus Pferdeanteil gegenüber dem Feld; in Längen.
-  Beim Lauf wird eine Validierung ausgegeben (Wiederholbarkeit, Prognosekraft; bereinigt gegen roh).
+  aus Distanz, Boden, Bahn und frühem Tempo des Führenden (nicht der Pace-Ratio – deren Nenner
+  ist das Schlusstempo selbst), geschätzt per Ridge-Regression mit Leave-one-out, plus
+  Pferdeanteil gegenüber dem Feld. L600/L400 in Längen, Best Seg/Δ400/Peak in km/h. Fehlt
+  `pace_early_kmh` in älteren `tracking_races`, wird das frühe Tempo aus `tracking_leader` gebildet.
+  Beim Lauf wird eine Validierung ausgegeben (Wiederholbarkeit, Prognosekraft; bereinigt gegen roh)
+  sowie die Gegenprobe der letzten 600 m.
 * **A/E** für Trainer, Jockey und Vater über 30, 90 und 365 Tage.
 * **Vorlieben**: Pferd mit allen Böden und Distanzen der gesamten Historie (heute markiert),
   Trainer und Jockey der letzten zwei Jahre, Vater über die gesamte Historie.
