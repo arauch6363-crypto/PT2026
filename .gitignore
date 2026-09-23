@@ -6,3 +6,5 @@ pdfs/
 parquet/
 fortschritt.json
 track_codes.csv
+racecards/
+racecard_2*.html

@@ -320,11 +320,57 @@ def main() -> int:
     tp.run(T2, T1, base=base, pdf_dir=pdfs, max_tage=5, pause=0)
     pruefe(len(tp.lade("pmu_races", base)) == vorher, "Rennanzahl unverändert")
 
+    print("\n7) Race Card: A/E, Vorlieben, Formzeilen")
+    racecard_pruefen()
+
     pt.read_pages = requests_session_orig
     print("\n" + ("Alle Prüfungen bestanden." if not fehler else f"{len(fehler)} Prüfung(en) fehlgeschlagen:"))
     for f in fehler:
         print("  -", f)
     return 1 if fehler else 0
+
+
+def racecard_pruefen() -> None:
+    import racecard as rc
+    tag = date(2026, 9, 23)
+    rid = lambda d, n: f"{tag - timedelta(days=d):%Y%m%d}R1C{n}"
+    races = pd.DataFrame([
+        {"race_id": rid(10, 1), "hippodrome": "DEAUVILLE", "distance_m": 1200, "going": "Bon",
+         "going_value": "3,1", "prize_eur": 27000, "categorie": "HANDICAP"},
+        {"race_id": rid(100, 1), "hippodrome": "VICHY", "distance_m": 2000, "going": "Lourd",
+         "going_value": "4,5", "prize_eur": 15000, "categorie": "A_RECLAMER"},
+    ])
+    lauf = lambda r, no, horse, tr, pos, odds: {
+        "race_id": r, "saddle_no": no, "horse": horse, "sire": "VATER", "jockey": "J. OCKEY", "trainer": tr,
+        "status": "PARTANT", "finish_pos": pos, "odds_final": odds, "weight_kg": 57, "age": 4,
+        "lengths_prev": None if pos == 1 else 2.0, "lengths_behind": None if pos == 1 else 2.0}
+    runners = pd.DataFrame([lauf(rid(10, 1), 1, "X", "TR", 1, 4.0), lauf(rid(10, 1), 2, "Y", "TR", 2, 2.0),
+                            lauf(rid(100, 1), 1, "X", "TR", 2, 5.0), lauf(rid(100, 1), 2, "Y", "AND", 1, 3.0)])
+    sections = pd.DataFrame([{"race_id": rid(10, 1), "saddle_no": 1, "m_to_go": m, "position": p}
+                             for m, p in ((800, 2), (400, 1), (200, 1), (0, 1))])
+    hist = rc.vorbereiten(races, runners, pd.DataFrame([{"race_id": rid(10, 1), "pace_ratio": 97.0}]),
+                          pd.DataFrame([{"race_id": rid(10, 1), "saddle_no": 1, "finish_index": 104.0}]), sections)
+    heute_r = pd.DataFrame([{"race_id": f"{tag:%Y%m%d}R1C1", "reunion": 1, "race_no": 1, "hippodrome": "DEAUVILLE",
+                             "distance_m": 1200, "going": "Bon", "going_value": "3,2", "categorie": "HANDICAP"}])
+    heute_s = pd.DataFrame([{**lauf(f"{tag:%Y%m%d}R1C1", 1, "X", "TR", None, 3.0), "finish_pos": None},
+                            {**lauf(f"{tag:%Y%m%d}R1C1", 2, "Y", "TR", None, 3.0), "finish_pos": None}])
+    d = rc.baue_daten(hist, heute_r, heute_s, tag)
+    x, y = d["races"][f"{tag:%Y%m%d}R1C1"]["runners"]
+    pruefe(x["ae"]["trainer"]["d90"] == {"runs": 2, "wins": 1, "places": 2, "exp": 0.75, "ae": 1.33},
+           "Trainer-A/E 90 Tage = 1 Sieg / (1/4 + 1/2) = 1,33")
+    pruefe(x["ae"]["trainer"]["d365"]["runs"] == 3 and x["ae"]["trainer"]["d365"]["ae"] == 1.05,
+           "Trainer-A/E 365 Tage schließt den Lauf vor 100 Tagen ein (1 / 0,95 = 1,05)")
+    pruefe(x["pref"]["horse"]["going"]["runs"] == 1 and x["pref"]["horse"]["going"]["wins"] == 1,
+           "Pferd auf heutigem Boden (gut): 1 Lauf, 1 Sieg – der Lauf auf schwerem Boden zählt nicht")
+    pruefe(x["pref"]["trainer"]["course"]["runs"] == 2, "Trainer in Deauville: 2 Läufe")
+    pruefe(x["badges"] == ["CD"] and "BF" in y["badges"],
+           "CD für den Bahn-/Distanzsieger, BF für den geschlagenen Favoriten")
+    f = x["form_lines"][0]
+    pruefe((f["pos"], f["ran"], f["fifth"], f["pos_before"], f["pace_ratio"], f["margin"]) == (1, 2, 3, 1, 97.0, 2.0),
+           "Formzeile: 1/2, Siegabstand 2 L, Position 400 m vor dem Ziel = 1 -> Fünftel 3, Pace 97")
+    pruefe(x["days"] == 10 and len(x["form_lines"]) == 2, "10 Tage seit dem letzten Lauf, 2 Formzeilen")
+    seite = rc.html(d)
+    pruefe(seite.startswith("<!doctype html>") and "/*__DATA__*/null" not in seite, "HTML mit eingesetzten Daten")
 
 
 if __name__ == "__main__":

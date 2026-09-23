@@ -1,0 +1,362 @@
+<title>PMU Race Card</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#F3F5F1; --surface:#FFFFFF; --surface-2:#E9EEE7; --ink:#15201A; --ink-2:#4B5A51; --ink-3:#7D8A82;
+  --line:#D5DDD3; --accent:#1D5C3A; --accent-ink:#FFFFFF; --hi:#E3A21A; --hi-soft:#F8E6B8;
+  --good:#23794A; --bad:#B3392F; --good-soft:#DCEFE2; --bad-soft:#F6DEDB; --cloth:#15201A; --cloth-ink:#F3F5F1;
+  --f-display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --ground:#0E1411; --surface:#161E19; --surface-2:#1E2822; --ink:#E4EBE5; --ink-2:#A9B6AD; --ink-3:#77857C;
+    --line:#2A362F; --accent:#5DBE86; --accent-ink:#0E1411; --hi:#F0B93A; --hi-soft:#4A3A12;
+    --good:#6BD394; --bad:#F08A7E; --good-soft:#1B3526; --bad-soft:#3D1F1C; --cloth:#E4EBE5; --cloth-ink:#0E1411;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --ground:#0E1411; --surface:#161E19; --surface-2:#1E2822; --ink:#E4EBE5; --ink-2:#A9B6AD; --ink-3:#77857C;
+  --line:#2A362F; --accent:#5DBE86; --accent-ink:#0E1411; --hi:#F0B93A; --hi-soft:#4A3A12;
+  --good:#6BD394; --bad:#F08A7E; --good-soft:#1B3526; --bad-soft:#3D1F1C; --cloth:#E4EBE5; --cloth-ink:#0E1411;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:14px/1.45 var(--f-body);padding-inline:16px;padding-block:0 48px}
+.wrap{max-width:1180px;margin:0 auto}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--hi);outline-offset:2px}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--ink-3)}
+
+/* Kopf */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 16px;padding-block:20px 12px;border-bottom:3px solid var(--ink)}
+.top h1{margin:0;font:700 34px/1 var(--f-display);letter-spacing:.01em;text-transform:uppercase}
+.top h1 span{color:var(--accent)}
+.top .meta{font-size:12px;color:var(--ink-2)}
+.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--ground);padding-block:10px;display:grid;gap:8px;border-bottom:1px solid var(--line)}
+.tabs,.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin;padding-bottom:2px}
+.tab{border:1px solid var(--line);background:var(--surface);padding:6px 12px;border-radius:3px;cursor:pointer;white-space:nowrap;font:600 15px/1.2 var(--f-display);letter-spacing:.04em;text-transform:uppercase}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+.chip{border:1px solid var(--line);background:transparent;padding:4px 10px;border-radius:999px;cursor:pointer;white-space:nowrap;font-size:13px}
+.chip b{font-family:var(--f-mono);font-weight:500;margin-right:6px}
+.chip[aria-selected="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+
+/* Rennkopf */
+.race-head{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;align-items:end;padding-block:18px 12px}
+.race-time{font:700 44px/0.9 var(--f-display);color:var(--accent)}
+.race-title{font:700 26px/1.05 var(--f-display);text-transform:uppercase;text-wrap:balance;margin:0}
+.race-sub{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px}
+.tag{display:inline-flex;gap:6px;align-items:baseline;border:1px solid var(--line);background:var(--surface);border-radius:3px;padding:3px 8px;font-size:12.5px}
+.tag i{font-style:normal;color:var(--ink-3);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.result{grid-column:1/-1;font-size:13px;color:var(--ink-2)}
+.tools{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;padding-block:6px 10px}
+.tools label{font-size:12px;color:var(--ink-2);display:flex;gap:6px;align-items:center}
+.tools select{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:4px 6px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:3px;padding:5px 10px;cursor:pointer;font-size:12.5px}
+
+/* Starter */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:4px}
+.runner{border-top:1px solid var(--line)}
+.runner:first-child{border-top:0}
+.row{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:12px;padding:12px 14px;cursor:pointer;align-items:start}
+.row:hover{background:var(--surface-2)}
+.cloth{width:40px;text-align:center}
+.cloth b{display:block;background:var(--cloth);color:var(--cloth-ink);font:700 22px/34px var(--f-display);border-radius:3px}
+.cloth small{display:block;font:500 11px/1.6 var(--f-mono);color:var(--ink-3)}
+.who{min-width:0;display:grid;gap:2px}
+.name{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline}
+.name strong{font:700 20px/1.05 var(--f-display);letter-spacing:.02em;text-transform:uppercase}
+.form{font:500 12.5px var(--f-mono);color:var(--ink-2);letter-spacing:.02em}
+.badge{font:600 10.5px/1 var(--f-body);padding:3px 5px;border-radius:2px;background:var(--hi-soft);color:var(--ink);letter-spacing:.04em}
+.badge.bf{background:var(--bad-soft)}
+.line2{font-size:12.5px;color:var(--ink-2);display:flex;flex-wrap:wrap;gap:2px 14px}
+.line2 em{font-style:normal;color:var(--ink-3)}
+.facts{display:grid;grid-template-columns:repeat(5,minmax(46px,auto));gap:2px 14px;text-align:right}
+.fact i{display:block;font-style:normal;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+.fact span{font:500 14px var(--f-mono);font-variant-numeric:tabular-nums}
+.fact .odds{font-weight:500;color:var(--accent)}
+.nr .row{opacity:.45}
+.nr .name strong{text-decoration:line-through}
+
+/* Detail */
+.detail{padding:4px 14px 18px 78px;display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.detail>*,.panel{min-width:0}
+.panels{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:16px}
+.panel h4{margin:0 0 6px;font:600 13px/1.2 var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+table{border-collapse:collapse;width:100%}
+th,td{padding:4px 6px;text-align:left;vertical-align:middle;border-bottom:1px solid var(--line);font-size:12.5px}
+th{font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+td.r,th.r{text-align:right}
+.ae{font-family:var(--f-mono);font-variant-numeric:tabular-nums;padding:1px 5px;border-radius:2px}
+.ae.up{background:var(--good-soft);color:var(--good)}
+.ae.down{background:var(--bad-soft);color:var(--bad)}
+.ae.thin{opacity:.55}
+.pref{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px}
+.pref .grp b{display:block;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin-bottom:2px}
+.pref .it{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:2px 0;border-bottom:1px dotted var(--line)}
+.pref .it span:first-child{color:var(--ink-2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pref .it span:last-child{font-family:var(--f-mono);white-space:nowrap}
+.scroll{overflow-x:auto}
+.formtab{min-width:960px}
+.formtab td{padding:6px}
+.fl-date{font-weight:600;white-space:nowrap}
+.fl-cond{white-space:nowrap}
+.fl-pos b{font:700 16px var(--f-display)}
+.adj{font-size:11px;margin-left:4px}
+.adj.up{color:var(--good)} .adj.down{color:var(--bad)}
+svg text{fill:var(--ink-3);font:10px var(--f-mono)}
+.legend{font-size:12px;color:var(--ink-2);display:grid;gap:4px;padding:14px;background:var(--surface-2);border-radius:4px;margin-top:18px}
+.legend b{color:var(--ink)}
+.empty{padding:24px;text-align:center;color:var(--ink-2)}
+
+@media (max-width:760px){
+  .row{grid-template-columns:44px minmax(0,1fr)}
+  .facts{grid-column:1/-1;grid-template-columns:repeat(5,minmax(0,1fr));text-align:left}
+  .detail{padding-left:14px}
+  .panels,.pref{grid-template-columns:minmax(0,1fr)}
+  .race-time{font-size:34px}.race-title{font-size:21px}
+}
+@media (prefers-reduced-motion:no-preference){ .row{transition:background .12s} }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Race Card <span id="hd-date"></span></h1>
+    <div class="meta" id="hd-meta"></div>
+  </header>
+  <nav class="nav" aria-label="Rennen">
+    <div class="tabs" id="meetings" role="tablist"></div>
+    <div class="chips" id="races" role="tablist"></div>
+  </nav>
+  <main id="race"></main>
+  <section class="legend" id="legend"></section>
+</div>
+
+<script>
+const DATA = /*__DATA__*/null;
+
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fx = (v, d=1) => v == null ? "–" : Number(v).toFixed(d);
+const sgn = (v, d=2) => v == null ? "" : (v > 0 ? "+" : v < 0 ? "−" : "±") + Math.abs(v).toFixed(d);
+const title = s => s ? String(s).toLowerCase().replace(/(^|[\s\-'])(\p{L})/gu, (m,a,b) => a + b.toUpperCase()) : "";
+const dt = s => { if (!s) return "–"; const [y,m,d] = s.split("-"); return `${+d} ${MON[+m-1]} ${y}`; };
+const prize = v => v == null ? "–" : v >= 1e6 ? (v/1e6).toFixed(1).replace(/\.0$/,"") + "m" : Math.round(v/1000) + "k";
+const pct = (w, r) => r ? Math.round(100*w/r) + "%" : "–";
+function lengths(v){
+  if (v == null) return "";
+  if (v >= 30) return "dist";
+  if (v <= 0) return "dh";
+  if (v < 0.08) return "nse";
+  if (v < 0.15) return "shd";
+  if (v < 0.23) return "hd";
+  if (v < 0.4) return "nk";
+  const w = Math.floor(v + 1e-9), f = v - w;
+  const fr = f < 0.125 ? "" : f < 0.375 ? "¼" : f < 0.625 ? "½" : f < 0.875 ? "¾" : "";
+  const whole = f >= 0.875 ? w + 1 : w;
+  return (whole ? whole : "") + fr + "l";
+}
+const INC = {DISQUALIFIE:"DSQ", ARRETE:"PU", TOMBE:"F", NON_PLACE:"", RESTE_AU_POTEAU:"RR", DEROBE:"RO", ARRETE_AVANT:"PU"};
+
+// Starterzeile bleibt zwischen Neuladen erhalten
+const store = {get(k){try{return localStorage.getItem(k)}catch(e){return null}}, set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+
+let state = {meeting:null, race:null, sort:"no", open:new Set()};
+
+function init(){
+  if (!DATA || !DATA.meetings || !DATA.meetings.length){
+    $("#race").innerHTML = `<p class="empty">Keine Rennen in den Daten.</p>`; return;
+  }
+  $("#hd-date").textContent = dt(DATA.date);
+  const h = DATA.history || {};
+  $("#hd-meta").textContent = `Stand ${DATA.generated} · Historie ab ${dt(h.from)} · ${(h.runs||0).toLocaleString("de-DE")} Läufe, davon ${(h.tracked||0).toLocaleString("de-DE")} mit Tracking`;
+  const saved = store.get("rc-race");
+  const first = DATA.races[saved] ? DATA.races[saved] : DATA.races[DATA.meetings[0].races[0]];
+  state.meeting = first.reunion; state.race = first.race_id;
+  state.sort = store.get("rc-sort") || "no";
+  renderNav(); renderRace(); renderLegend();
+}
+
+function renderNav(){
+  $("#meetings").innerHTML = DATA.meetings.map(m =>
+    `<button class="tab" role="tab" aria-selected="${m.reunion===state.meeting}" data-m="${m.reunion}">R${m.reunion} · ${esc(title(m.course))}</button>`).join("");
+  const m = DATA.meetings.find(x => x.reunion === state.meeting);
+  $("#races").innerHTML = m.races.map(id => { const r = DATA.races[id];
+    return `<button class="chip" role="tab" aria-selected="${id===state.race}" data-r="${id}"><b>C${r.race_no}</b>${esc(r.time||"")}</button>`; }).join("");
+  document.querySelectorAll("#meetings .tab").forEach(b => b.onclick = () => {
+    state.meeting = +b.dataset.m; state.race = DATA.meetings.find(x => x.reunion === state.meeting).races[0];
+    state.open.clear(); renderNav(); renderRace(); });
+  document.querySelectorAll("#races .chip").forEach(b => b.onclick = () => {
+    state.race = b.dataset.r; state.open.clear(); renderNav(); renderRace(); });
+  store.set("rc-race", state.race);
+}
+
+const SORTS = {
+  no:   ["Startnummer", r => r.no ?? 99, 1],
+  odds: ["Kurs", r => r.odds ?? r.odds_morning ?? 999, 1],
+  v400: ["L400 adj. (beste 3)", r => r.summary.v400_adj ?? -99, -1],
+  fi:   ["Finish-Index Ø", r => r.summary.fi ?? -99, -1],
+  tae:  ["Trainer A/E 90 T", r => r.ae.trainer.d90.ae ?? -1, -1],
+  jae:  ["Jockey A/E 90 T", r => r.ae.jockey.d90.ae ?? -1, -1],
+  rating:["Rating", r => r.rating ?? -1, -1],
+};
+
+function renderRace(){
+  const r = DATA.races[state.race];
+  const [, key, dir] = SORTS[state.sort] || SORTS.no;
+  const runners = [...r.runners].sort((a,b) => (a.nr - b.nr) || dir*(key(a) - key(b)) || (a.no - b.no));
+  const tags = [
+    ["Distanz", r.distance ? r.distance + " m" : "–"],
+    ["Boden", (r.going || "–") + (r.going_value ? " · " + r.going_value : "")],
+    ["Preisgeld", "€" + prize(r.prize)],
+    ["Typ", r.type || "–"],
+    ["Alter", r.age ? title(r.age.replace(/_/g," ")) : "–"],
+    ["Starter", r.runners.filter(x => !x.nr).length + (r.declared ? "/" + r.declared : "")],
+    ["Bahn", r.corde ? title(r.corde.replace(/_/g," ")) : "–"],
+  ];
+  $("#race").innerHTML = `
+    <div class="race-head">
+      <div class="race-time">${esc(r.time || "")}</div>
+      <h2 class="race-title">R${r.reunion} C${r.race_no} · ${esc(title(r.name))}</h2>
+      <div class="race-sub">${tags.map(([k,v]) => `<span class="tag"><i>${k}</i>${esc(v)}</span>`).join("")}</div>
+      ${r.result ? `<div class="result">Einlauf: <span class="num">${esc(r.result)}</span></div>` : ""}
+    </div>
+    <div class="tools">
+      <label for="sort">Sortieren <select id="sort">${Object.entries(SORTS).map(([k,[l]]) => `<option value="${k}" ${k===state.sort?"selected":""}>${l}</option>`).join("")}</select></label>
+      <button class="btn" id="toggle-all" type="button">${state.open.size ? "Alle zuklappen" : "Alle aufklappen"}</button>
+    </div>
+    <div class="card">${runners.map(x => runnerHTML(x, r)).join("") || `<p class="empty">Keine Starter.</p>`}</div>`;
+  $("#sort").onchange = e => { state.sort = e.target.value; store.set("rc-sort", state.sort); renderRace(); };
+  $("#toggle-all").onclick = () => {
+    if (state.open.size) state.open.clear(); else r.runners.forEach(x => state.open.add(x.no));
+    renderRace(); };
+  document.querySelectorAll(".row").forEach(el => {
+    const go = () => { const n = +el.dataset.no; state.open.has(n) ? state.open.delete(n) : state.open.add(n); renderRace(); };
+    el.onclick = go; el.onkeydown = e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); go(); } };
+  });
+}
+
+function aeChip(s, minRuns=10){
+  if (!s || !s.runs) return `<span class="muted">–</span>`;
+  const cls = s.ae == null ? "" : s.ae >= 1.15 ? "up" : s.ae <= 0.85 ? "down" : "";
+  return `<span class="ae ${cls} ${s.runs < minRuns ? "thin" : ""}">${s.ae == null ? "–" : s.ae.toFixed(2)}</span>`;
+}
+const rec = s => s && s.runs ? `${s.wins}-${s.runs} (${pct(s.wins, s.runs)})` : "0-0";
+
+function runnerHTML(x, race){
+  const open = state.open.has(x.no);
+  const age = [x.age ? x.age + "j" : "", x.sex ? x.sex[0] : ""].filter(Boolean).join(" ");
+  const badges = x.badges.map(b => `<span class="badge ${b==="BF"?"bf":""}" title="${{C:"Sieger auf dieser Bahn",D:"Sieger über diese Distanz (±100 m)",CD:"Sieger auf Bahn und Distanz",BF:"Beim letzten Start Favorit und nicht gewonnen"}[b]}">${b}</span>`).join("");
+  const blink = x.blinkers && !/^SANS/i.test(x.blinkers) ? `<span class="badge" title="${esc(x.blinkers)}">${/AUSTRAL/i.test(x.blinkers) ? "p" : "b"}</span>` : "";
+  const facts = [
+    ["Gew.", x.weight != null ? fx(x.weight, 1) : "–"],
+    ["Rating", x.rating != null ? fx(x.rating, 1).replace(/\.0$/, "") : "–"],
+    ["Tage", x.days ?? "–"],
+    ["L400+", x.summary.v400_adj != null ? sgn(x.summary.v400_adj, 1) : "–"],
+    ["Kurs", x.odds != null ? fx(x.odds, 1) : x.odds_morning != null ? fx(x.odds_morning, 1) : "–", "odds"],
+  ];
+  return `<article class="runner ${x.nr ? "nr" : ""}">
+    <div class="row" data-no="${x.no}" tabindex="0" role="button" aria-expanded="${open}">
+      <div class="cloth"><b>${x.no ?? ""}</b>${x.draw ? `<small>(${x.draw})</small>` : ""}</div>
+      <div class="who">
+        <div class="name"><strong>${esc(x.horse)}</strong><span class="muted">${age}</span>${badges}${blink}${x.nr ? `<span class="badge bf">NP</span>` : ""}</div>
+        <div class="form" title="Musique (PMU)">${esc(x.form || "")}</div>
+        <div class="line2">
+          <span><em>J</em> ${esc(title(x.jockey) || "–")} ${aeChip(x.ae.jockey.d90)}</span>
+          <span><em>T</em> ${esc(title(x.trainer) || "–")} ${aeChip(x.ae.trainer.d90)}</span>
+          <span><em>v.</em> ${esc(title(x.sire) || "–")} – ${esc(title(x.dam) || "–")}</span>
+        </div>
+      </div>
+      <div class="facts">${facts.map(([k,v,c]) => `<div class="fact"><i>${k}</i><span class="${c||""}">${esc(v)}</span></div>`).join("")}</div>
+    </div>
+    ${open ? detailHTML(x, race) : ""}
+  </article>`;
+}
+
+function detailHTML(x, race){
+  const w = DATA.params.ae_windows;
+  const aeRows = [["Trainer", x.ae.trainer], ["Jockey", x.ae.jockey], ["Vater", x.ae.sire]].map(([l, s]) =>
+    `<tr><td>${l}</td>${w.map(t => { const v = s["d"+t]; return `<td class="r num">${rec(v)}</td><td class="r">${aeChip(v)}</td>`; }).join("")}</tr>`).join("");
+  const P = x.pref;
+  const it = (label, s) => `<div class="it"><span title="${esc(label)}">${esc(label)}</span><span>${rec(s)} ${aeChip(s, 5)}</span></div>`;
+  const pref = `
+    <div class="grp"><b>Pferd</b>${it("Boden: " + (race.going_label || "unbekannt"), P.horse.going)}${it("Distanz: " + (race.dist_label || "–"), P.horse.distance)}</div>
+    <div class="grp"><b>Trainer</b>${it("mit " + (title(x.jockey) || "–"), P.trainer.jockey)}${it("in " + title(race.course), P.trainer.course)}${it("Typ: " + (race.type || "–"), P.trainer.racetype)}</div>
+    <div class="grp"><b>Jockey</b>${it("in " + title(race.course), P.jockey.course)}${it("für " + (title(x.trainer) || "–"), P.jockey.trainer)}</div>
+    <div class="grp"><b>Vater</b>${it("Distanz: " + (race.dist_label || "–"), P.sire.distance)}${it("Boden: " + (race.going_label || "unbekannt"), P.sire.going)}</div>`;
+  const career = x.starts != null ? `${x.wins ?? 0}-${x.starts} · Plätze ${x.places ?? 0} · €${prize(x.earnings)}` : "–";
+  return `<div class="detail">
+    <div class="line2"><span><em>Karriere</em> ${career}</span><span><em>Besitzer</em> ${esc(title(x.owner) || "–")}</span>${x.odds_morning != null ? `<span><em>Morgenkurs</em> ${fx(x.odds_morning,1)}</span>` : ""}</div>
+    <div class="panels">
+      <div class="panel"><h4>A/E · Siege/Starts</h4>
+        <table><thead><tr><th></th>${w.map(t => `<th class="r">${t} Tage</th><th class="r">A/E</th>`).join("")}</tr></thead><tbody>${aeRows}</tbody></table>
+      </div>
+      <div class="panel"><h4>Vorlieben unter heutigen Bedingungen</h4><div class="pref">${pref}</div></div>
+    </div>
+    <div class="panel"><h4>Letzte Läufe</h4>${formTable(x.form_lines)}</div>
+  </div>`;
+}
+
+function fifthSVG(f, pos, ran, m){
+  const W = 104, H = 26, cw = 18;
+  const cells = [1,2,3,4,5].map(i => `<rect x="${2+(i-1)*(cw+2)}" y="2" width="${cw}" height="14" rx="2" fill="${i===f ? "var(--hi)" : "var(--surface-2)"}" stroke="var(--line)"/>`).join("");
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Fünftel ${f} (Platz ${pos} von ${ran} bei ${m} m)"><title>Platz ${pos} von ${ran}, ${m} m vor dem Ziel → Fünftel ${f}</title>${cells}<text x="2" y="25">vorn</text><text x="${W-2}" y="25" text-anchor="end">hinten</text></svg>`;
+}
+function paceSVG(v){
+  const W = 112, H = 26, lo = 85, hi = 115, x = t => 4 + (Math.max(lo, Math.min(hi, t)) - lo) / (hi - lo) * (W - 8);
+  const col = v > 102 ? "var(--bad)" : v < 98 ? "var(--accent)" : "var(--ink-2)";
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Pace-Ratio ${v}"><title>Pace-Ratio ${v}: ${v > 100 ? "schnell angegangen (früh schneller als am Schluss)" : "Schlusssprint (am Schluss schneller)"}</title>
+    <rect x="4" y="7" width="${W-8}" height="4" rx="2" fill="var(--surface-2)" stroke="var(--line)"/>
+    <line x1="${x(100)}" x2="${x(100)}" y1="3" y2="15" stroke="var(--ink-3)"/>
+    <circle cx="${x(v)}" cy="9" r="5" fill="${col}"/>
+    <text x="4" y="25">Sprint</text><text x="${x(100)}" y="25" text-anchor="middle">100</text><text x="${W-4}" y="25" text-anchor="end">Tempo</text></svg>`;
+}
+const adjSpan = (v, d=2) => v == null ? "" : `<span class="adj ${v > 0 ? "up" : v < 0 ? "down" : ""}">${sgn(v, d)}</span>`;
+
+function formTable(rows){
+  if (!rows.length) return `<p class="muted">Keine früheren Läufe in der Datenbank (nur französische Flachrennen seit Beginn der Sammlung).</p>`;
+  const body = rows.map(f => {
+    const inc = f.incident && INC[f.incident] !== undefined ? INC[f.incident] : "";
+    const pos = f.pos ? `<b>${f.pos}</b>/${f.ran}` : `<b>${inc || "–"}</b>/${f.ran}`;
+    const mg = f.pos ? lengths(f.margin) : "";
+    return `<tr>
+      <td class="fl-date">${dt(f.date)}<br><span class="muted">${esc(title(f.course))}</span></td>
+      <td class="fl-cond num">${f.dist ?? "–"}m ${esc(f.going || "–")} ${prize(f.prize)}<br><span class="muted">${esc(f.type || "")}</span></td>
+      <td class="fl-pos">${pos} ${mg ? `(${mg})` : ""} <span class="num">${f.weight != null ? fx(f.weight,1).replace(/\.0$/,"") + "kg" : ""}</span><br><span class="muted">${esc(title(f.jockey) || "")} · <span class="num">${f.odds != null ? fx(f.odds,1) : "–"}${f.fav ? " F" : ""}</span></span></td>
+      <td>${f.fifth ? fifthSVG(f.fifth, f.pos_before, f.ran, f.pos_before_m) : `<span class="muted">${f.tracking ? "–" : "kein Tracking"}</span>`}</td>
+      <td>${f.pace_ratio != null ? paceSVG(f.pace_ratio) + `<span class="num"> ${fx(f.pace_ratio,1)}</span>` : `<span class="muted">–</span>`}</td>
+      <td class="r num">${fx(f.finish_index,1)}</td>
+      <td class="r num">${f.pos_gain != null ? sgn(f.pos_gain, 0) : "–"}</td>
+      <td class="r num">${fx(f.best_seg_s,2)}${adjSpan(f.best_seg_adj)}</td>
+      <td class="r num">${fx(f.v600,1)}${adjSpan(f.v600_adj,1)}</td>
+      <td class="r num">${fx(f.v400,1)}${adjSpan(f.v400_adj,1)}</td>
+    </tr>`; }).join("");
+  return `<div class="scroll"><table class="formtab"><thead><tr>
+    <th>Datum · Bahn</th><th>Dist · Boden · Preis · Typ</th><th>Pos · Gew. · Jockey · Kurs</th>
+    <th title="Position ${DATA.params.pos_before_m} m vor dem Ziel als Fünftel des Feldes">Pos. vor Finish</th>
+    <th title="Tempo frühe Phase / Tempo Schlussphase × 100">Pace-Ratio</th>
+    <th class="r" title="Endspeed / Durchschnittstempo × 100">Finish-Idx</th><th class="r" title="Plätze gut gemacht von 800 m bis Ziel">±800</th>
+    <th class="r" title="Bester Abschnitt (s), daneben adjustiert: + = schneller als erwartet">Best Seg</th>
+    <th class="r" title="km/h letzte 600 m, adjustiert">L600</th><th class="r" title="km/h letzte 400 m, adjustiert">L400</th>
+  </tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+function renderLegend(){
+  const p = DATA.params;
+  $("#legend").innerHTML = `
+    <div><b>A/E</b> = Siege ÷ Σ(1/Endquote). Über 1 gewinnt die Person öfter, als der Markt erwartet. Grün ≥ 1,15, rot ≤ 0,85; blass bei weniger als 10 Starts (Vorlieben: 5).</div>
+    <div><b>Pos. vor Finish</b>: Platz ${p.pos_before_m} m vor dem Ziel, eingeteilt in Fünftel des Feldes (hervorgehoben). <b>Pace-Ratio</b>: Tempo der frühen Phase ÷ Tempo der letzten ≥ 600 m × 100; unter 100 Schlusssprint, über 100 schnell angegangen.</div>
+    <div><b>Adjustiert</b> (klein, farbig): Abweichung vom Erwartungswert für Boden, Distanz und Alter. Positiv = besser als erwartet (bei Best Seg also schneller). <b>L400+</b> in der Zeile: bester adjustierter Wert der letzten 3 Läufe mit Tracking.</div>
+    <div><b>C</b> Sieger auf der Bahn · <b>D</b> Sieger über die Distanz (±100 m) · <b>CD</b> beides im selben Rennen · <b>BF</b> letzter Start als Favorit geschlagen. <b>Tage</b> seit dem letzten Lauf in der Datenbank. Die Historie umfasst nur französische Flachrennen aus der PMU-Sammlung.</div>`;
+}
+
+init();
+</script>

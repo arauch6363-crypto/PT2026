@@ -66,6 +66,8 @@ Tracking ist eine Eigenschaft von **Renntag und Rennen**, nicht von der Bahn:
 | `france_galop.py` | Bahncodes, PDF-Suche und -Download, Gegenprüfung des Bahnnamens |
 | `parse_tracking.py` | Tracking-PDF → Tabellen (Zwischenzeiten, Abschnitte, Kennzahlen) |
 | `pipeline.py` | Tagesablauf, Fortschritt, Parquet-Ausgabe, Auswertungshilfen |
+| `racecard.py` | Interaktive Race Card für die heutigen Rennen (HTML) |
+| `racecard_template.html` | Layout der Race Card; die Daten werden als JSON eingesetzt |
 | `selftest.py` | Selbsttest ohne Internet (`python selftest.py`) |
 
 ## Ausgabe in Drive
@@ -96,3 +98,28 @@ base = Path('daten')
 tp.run('2022-01-01', base=base, pdf_dir=base/'pdfs', max_tage=5)
 "
 ```
+
+## Race Card für heute
+
+```python
+import racecard
+racecard.run(BASE)          # -> <BASE>/racecards/racecard_<JJJJMMTT>.html
+```
+
+Holt das heutige PMU-Programm (französische Flachrennen, auch die noch nicht
+gelaufenen) und kombiniert es mit der gesammelten Historie in `parquet/`.
+Die HTML-Datei ist eigenständig und lässt sich direkt im Browser öffnen.
+
+Je Starter:
+
+* **Formzeilen** der letzten 6 Läufe: `29 Aug 2026 Deauville · 1200m Bon 27k Handicap · 4/13 (2l) 57kg`,
+  dazu je Lauf eine Grafik, in welchem Fünftel des Feldes das Pferd 400 m vor dem Ziel lag,
+  eine Grafik zum Pace-Ratio des Rennens sowie `finish_index`, `pos_gain_800_finish`,
+  `best_seg_s`, `speed_last600_kmh` und `speed_last400_kmh`.
+  Die drei letzten Werte werden zusätzlich **adjustiert** gezeigt: Abweichung vom
+  Erwartungswert für Boden, Distanz und Alter (additives Modell). Positiv heißt immer besser als erwartet.
+* **A/E** für Trainer, Jockey und Vater über 90 und 365 Tage: Siege / Σ(1/Endquote).
+* **Vorlieben unter heutigen Bedingungen**: Pferd (Boden, Distanz), Trainer (Jockey, Bahn,
+  Renntyp), Jockey (Bahn, Trainer), Vater (Distanz, Boden), jeweils Siege-Starts, Quote und A/E.
+* Racing-Post-Kürzel **C / D / CD / BF**, Tage seit dem letzten Lauf, Musique, Gewicht, Rating,
+  Startbox, Kurs und Morgenkurs.
