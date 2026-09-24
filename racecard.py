@@ -521,7 +521,9 @@ def programm(tag: date, session: requests.Session | None = None, *, nur_flach: b
 def _formzeile(z, replays: dict | None = None) -> dict:
     return {
         "date": z["date"].strftime("%Y-%m-%d"), "race_id": z["race_id"],
-        "replay": (replays or {}).get(z["race_id"]), "page": pmu.pmu_seite(z["race_id"]),
+        "replay": ((replays or {}).get(z["race_id"]) or {}).get("url"),
+        "replay_ok": bool(((replays or {}).get(z["race_id"]) or {}).get("available")),
+        "page": pmu.pmu_seite(z["race_id"]),
         "course": _txt(z["hippodrome"]), "dist": _num(z["distance_m"], 0),
         "going": _txt(z["going"]), "going_value": _num(z["going_value"], 1),
         "prize": _num(z["prize_eur"], 0), "type": _txt(z["racetype"]),
@@ -864,9 +866,10 @@ def letzte_rennen(hist: pd.DataFrame, runners_heute: pd.DataFrame, tag: date, n:
 
 def replays(race_ids, base: Path | None = None, session: requests.Session | None = None, *,
             tag: date | None = None, pause: float = 0.3) -> dict:
-    """Replay-Adressen je Rennen (pmu.replay), zwischengespeichert in <base>/replays.json.
-    Gefundene Adressen werden nie neu geholt. Fehlt eine, wird nur bei Rennen der letzten
-    REPLAY_NACHFRAGE_TAGE Tage erneut gefragt (höchstens einmal am Tag) – PMU stellt Replays teils später ein."""
+    """Replay je Rennen (pmu.replay): {race_id: {"available": bool, "url": Video-Adresse oder None}},
+    zwischengespeichert in <base>/replays.json. Ein vorhandenes Replay wird nie neu abgefragt; fehlt es,
+    nur bei Rennen der letzten REPLAY_NACHFRAGE_TAGE Tage erneut (höchstens einmal am Tag) – PMU stellt
+    Replays teils später ein. Antwortet die Schnittstelle nicht, wird nichts gespeichert."""
     tag = tag or pmu.heute()
     datei = Path(base) / "replays.json" if base else None
     cache = {}
@@ -880,23 +883,24 @@ def replays(race_ids, base: Path | None = None, session: requests.Session | None
     offen = []
     for rid in race_ids:
         e = cache.get(rid)
-        if e and e.get("url"):
+        if e and (e.get("available") or e.get("url")):
             continue
         try:
             alter = (tag - datetime.strptime(str(rid)[:8], "%Y%m%d").date()).days
         except ValueError:
             continue
-        if e is None or (e.get("checked") != heute_s and alter <= REPLAY_NACHFRAGE_TAGE):
+        # Einträge ohne "available" stammen aus der früheren Abfrage (nur Video-Adresse) -> neu fragen
+        if e is None or "available" not in e or (e.get("checked") != heute_s and alter <= REPLAY_NACHFRAGE_TAGE):
             offen.append(rid)
     stumm, geaendert = 0, False
     for i, rid in enumerate(offen, 1):
         try:
-            url = pmu.replay(rid, s)
+            erg = pmu.replay(rid, s)
         except (ValueError, requests.RequestException):
-            url = None
-        if url is None and not pmu.REPLAY_ERREICHT:
-            # keine Adresse hat geantwortet: nicht als "kein Replay" merken, und nach REPLAY_STUMM_MAX
-            # Rennen in Folge aufhören, statt jedes Rennen einzeln ins Leere laufen zu lassen
+            erg = None
+        if erg is None:
+            # keine Antwort: nicht als "kein Replay" merken, und nach REPLAY_STUMM_MAX Rennen in Folge
+            # aufhören, statt jedes Rennen einzeln ins Leere laufen zu lassen
             stumm += 1
             if stumm >= REPLAY_STUMM_MAX:
                 print(f"  Replays: PMU antwortet nicht ({stumm} Rennen in Folge) – Abfrage abgebrochen. "
@@ -904,13 +908,14 @@ def replays(race_ids, base: Path | None = None, session: requests.Session | None
                 break
             continue
         stumm, geaendert = 0, True
-        cache[rid] = {"url": url, "checked": heute_s}
+        cache[rid] = {**erg, "checked": heute_s}
         if i % 50 == 0:
             print(f"  Replays: {i}/{len(offen)} abgefragt")
         time.sleep(pause)
     if datei and geaendert:
         datei.write_text(json.dumps(cache, ensure_ascii=False, indent=0), encoding="utf-8")
-    return {rid: cache[rid]["url"] for rid in race_ids if cache.get(rid, {}).get("url")}
+    return {rid: {"available": bool(cache[rid].get("available")), "url": cache[rid].get("url")}
+            for rid in race_ids if rid in cache and "available" in cache[rid]}
 
 
 def trikots(urls, session: requests.Session | None = None) -> dict:
@@ -968,7 +973,7 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     rennen = letzte_rennen(hist, runners_heute, tag)
     print(f"Replays für {len(rennen)} frühere Rennen der Starter …")
     rp = replays(rennen, base, tag=tag)
-    print(f"{len(rp)} Replays gefunden (sonst Link zur PMU-Rennseite).")
+    print(f"{sum(e['available'] for e in rp.values())} von {len(rennen)} Rennen mit Replay auf pmu.fr.")
     daten = baue_daten(hist, races_heute, runners_heute, tag, silks, rp)
     out = Path(out) if out else base / "racecards" / f"racecard_{tag:%Y%m%d}.html"
     out.parent.mkdir(parents=True, exist_ok=True)

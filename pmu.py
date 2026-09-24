@@ -34,17 +34,13 @@ PARTICIPANTS_URLS = [
     "https://online.turfinfo.api.pmu.fr/rest/client/61/programme/{d}/R{r}/C{c}/participants",
     "https://offline.turfinfo.api.pmu.fr/rest/client/7/programme/{d}/R{r}/C{c}/participants",
 ]
-# Replay: Kandidaten der Reihe nach, die erste Antwort mit Video-Adresse zählt. online.pmu.fr war aus Colab
-# nicht erreichbar (ConnectionError), der turfinfo-Host dagegen schon – deshalb beide. Nicht bestätigt:
-# pmu.replay_diagnose() zeigt, welche Adresse antwortet und was darin steht.
+# Replay: die Rennseite der PMU-Schnittstelle meldet nur, ob es ein Replay gibt ("replayDisponible"),
+# keine Video-Adresse (geprüft 23.09.2026). /replay-Endpunkte und online.pmu.fr liefern aus Colab nichts.
+# Das Replay selbst spielt die Rennseite auf pmu.fr (PMU_SEITE).
 REPLAY_URLS = [
-    "https://online.turfinfo.api.pmu.fr/rest/client/61/programme/{d}/R{r}/C{c}/replay",
-    "https://online.turfinfo.api.pmu.fr/rest/papi/v1/programme/{d}/R{r}/C{c}/replay",
     "https://online.turfinfo.api.pmu.fr/rest/client/61/programme/{d}/R{r}/C{c}",
-    "https://online.pmu.fr/rest/papi/v1/programme/{d}/R{r}/C{c}/replay",
-    "https://online.pmu.fr/rest/papi/v1/programme/{d}/R{r}/C{c}",
+    "https://offline.turfinfo.api.pmu.fr/rest/client/7/programme/{d}/R{r}/C{c}",
 ]
-REPLAY_ERREICHT = False      # hat beim letzten pmu.replay() überhaupt eine Adresse JSON geliefert?
 BROWSER_HEADERS = {
     "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
                    "Chrome/120.0.0.0 Safari/537.36"),
@@ -426,29 +422,26 @@ def _papi(session: requests.Session, url: str):
     return None
 
 
-def replay(rid: str, session: requests.Session | None = None) -> str | None:
-    """Replay-Adresse eines Rennens: GET /rest/papi/v1/programme/{DDMMYYYY}/R{r}/C{c}/replay,
-    ersatzweise die Rennseite /programme/{DDMMYYYY}/R{r}/C{c}; None, wenn keine Video-Adresse dabei ist."""
-    global REPLAY_ERREICHT
+def replay(rid: str, session: requests.Session | None = None) -> dict | None:
+    """Gibt es ein Replay? {"available": bool, "url": Video-Adresse oder None}.
+    None, wenn keine Adresse der Schnittstelle geantwortet hat (dann ist nichts bekannt)."""
     d, r, c = _race_teile(rid)
     s = session or requests.Session()
-    REPLAY_ERREICHT = False
     for u in REPLAY_URLS:
         data = _papi(s, u.format(d=d, r=r, c=c))
-        if data is None:
+        if not isinstance(data, dict):
             continue
-        REPLAY_ERREICHT = True
         urls = video_urls(data)
-        if urls:
-            return urls[0][1]
+        return {"available": bool(data.get("replayDisponible")) or bool(urls),
+                "url": urls[0][1] if urls else None}
     return None
 
 
 def replay_diagnose(rid: str, session: requests.Session | None = None) -> None:
-    """Zeigt, was /replay für ein Rennen liefert – zum Prüfen, ob die richtige Adresse gewählt wird."""
-    import json
+    """Zeigt, was die Schnittstelle zum Replay eines Rennens liefert."""
     d, r, c = _race_teile(rid)
     s = session or requests.Session()
+    print("Rennseite pmu.fr:", pmu_seite(rid))
     for u in REPLAY_URLS:
         url = u.format(d=d, r=r, c=c)
         try:
@@ -456,13 +449,16 @@ def replay_diagnose(rid: str, session: requests.Session | None = None) -> None:
         except requests.RequestException as e:
             print(url, "->", type(e).__name__)
             continue
-        print(url, "-> HTTP", resp.status_code, resp.headers.get("Content-Type"))
+        print(url, "-> HTTP", resp.status_code)
         try:
             data = resp.json()
         except ValueError:
-            print(resp.text[:1500])
+            print(resp.text[:500])
             continue
-        print(json.dumps(data, ensure_ascii=False, indent=1)[:3000])
-        print("gefundene Video-Adressen (die erste wird verwendet):")
-        for pfad, v in video_urls(data):
-            print(f"  {pfad}: {v}")
+        if isinstance(data, dict):
+            print("  replayDisponible:", data.get("replayDisponible"))
+            felder = [k for k in data if _VIDEO_WORT.search(k)]
+            print("  Felder mit Video-Bezug:", {k: data[k] for k in felder})
+        print("  Video-Adressen:", video_urls(data) or "keine")
+        print("  ->", replay(rid, s))
+        return
