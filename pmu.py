@@ -34,6 +34,18 @@ PARTICIPANTS_URLS = [
     "https://online.turfinfo.api.pmu.fr/rest/client/61/programme/{d}/R{r}/C{c}/participants",
     "https://offline.turfinfo.api.pmu.fr/rest/client/7/programme/{d}/R{r}/C{c}/participants",
 ]
+# Replay: zuerst der eigene Endpunkt, dann die Rennseite selbst; die erste Antwort mit Video-Adresse zählt
+REPLAY_URLS = [
+    "https://online.pmu.fr/rest/papi/v1/programme/{d}/R{r}/C{c}/replay",
+    "https://online.pmu.fr/rest/papi/v1/programme/{d}/R{r}/C{c}",
+]
+BROWSER_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                   "Chrome/120.0.0.0 Safari/537.36"),
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+}
+PMU_SEITE = "https://www.pmu.fr/turf/{d}/R{r}/C{c}/"     # Rennseite, Ersatz ohne Replay-Adresse
 HEADERS = {"User-Agent": "Mozilla/5.0 (private racing analysis)"}
 
 TROT = {"ATTELE", "MONTE", "TROT_ATTELE", "TROT_MONTE"}
@@ -351,3 +363,95 @@ def add_lengths(df: pd.DataFrame) -> pd.DataFrame:
         df.loc[g.index, "lengths_behind"] = out
     df["lengths_behind"] = pd.to_numeric(df["lengths_behind"], errors="coerce")
     return df
+
+
+# --------------------------------------------------------------------------
+# Replay-Videos
+# --------------------------------------------------------------------------
+_VIDEO_DATEI = re.compile(r"\.(mp4|m3u8|webm|mov)(\?|$)", re.I)
+_VIDEO_WORT = re.compile(r"video|replay|vod|media|stream|film", re.I)
+
+
+def _race_teile(rid: str) -> tuple[str, int, int]:
+    """'20260919R3C5' -> ('19092026', 3, 5)"""
+    m = re.fullmatch(r"(\d{4})(\d{2})(\d{2})R(\d+)C(\d+)", str(rid))
+    if not m:
+        raise ValueError(f"race_id nicht lesbar: {rid}")
+    j, mo, t, r, c = m.groups()
+    return f"{t}{mo}{j}", int(r), int(c)
+
+
+def pmu_seite(rid: str) -> str | None:
+    try:
+        d, r, c = _race_teile(rid)
+    except ValueError:
+        return None
+    return PMU_SEITE.format(d=d, r=r, c=c)
+
+
+def video_urls(obj, pfad: str = "") -> list[tuple[str, str]]:
+    """Alle Adressen in einer JSON-Antwort, die nach Video aussehen: (Pfad, URL).
+    Videodateien (mp4, m3u8 …) zuerst, dann Adressen unter Schlüsseln wie 'video' / 'replay'.
+    Die Antwort von /replay ist nicht dokumentiert – deshalb wird gesucht statt ein Feld gelesen."""
+    treffer = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            treffer += video_urls(v, f"{pfad}.{k}" if pfad else str(k))
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            treffer += video_urls(v, f"{pfad}[{i}]")
+    elif isinstance(obj, str) and obj.startswith(("http://", "https://", "//")):
+        url = "https:" + obj if obj.startswith("//") else obj
+        if _VIDEO_DATEI.search(url) or _VIDEO_WORT.search(pfad) or _VIDEO_WORT.search(url):
+            treffer.append((pfad, url))
+    if pfad == "":
+        treffer.sort(key=lambda t: (not _VIDEO_DATEI.search(t[1]), not _VIDEO_WORT.search(t[0])))
+    return treffer
+
+
+def _papi(session: requests.Session, url: str):
+    """JSON von online.pmu.fr (papi) oder None."""
+    try:
+        r = session.get(url, headers=BROWSER_HEADERS, timeout=15)
+        if r.ok and r.text.lstrip()[:1] in "{[":
+            return r.json()
+    except (requests.RequestException, ValueError):
+        pass
+    return None
+
+
+def replay(rid: str, session: requests.Session | None = None) -> str | None:
+    """Replay-Adresse eines Rennens: GET /rest/papi/v1/programme/{DDMMYYYY}/R{r}/C{c}/replay,
+    ersatzweise die Rennseite /programme/{DDMMYYYY}/R{r}/C{c}; None, wenn keine Video-Adresse dabei ist."""
+    d, r, c = _race_teile(rid)
+    s = session or requests.Session()
+    for u in REPLAY_URLS:
+        data = _papi(s, u.format(d=d, r=r, c=c))
+        urls = video_urls(data) if data is not None else []
+        if urls:
+            return urls[0][1]
+    return None
+
+
+def replay_diagnose(rid: str, session: requests.Session | None = None) -> None:
+    """Zeigt, was /replay für ein Rennen liefert – zum Prüfen, ob die richtige Adresse gewählt wird."""
+    import json
+    d, r, c = _race_teile(rid)
+    s = session or requests.Session()
+    for u in REPLAY_URLS:
+        url = u.format(d=d, r=r, c=c)
+        try:
+            resp = s.get(url, headers=BROWSER_HEADERS, timeout=30)
+        except requests.RequestException as e:
+            print(url, "->", type(e).__name__)
+            continue
+        print(url, "-> HTTP", resp.status_code, resp.headers.get("Content-Type"))
+        try:
+            data = resp.json()
+        except ValueError:
+            print(resp.text[:1500])
+            continue
+        print(json.dumps(data, ensure_ascii=False, indent=1)[:3000])
+        print("gefundene Video-Adressen (die erste wird verwendet):")
+        for pfad, v in video_urls(data):
+            print(f"  {pfad}: {v}")

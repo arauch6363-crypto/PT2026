@@ -36,6 +36,7 @@ import argparse
 import json
 import math
 import re
+import time
 import unicodedata
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -51,7 +52,8 @@ import speedfig
 TEMPLATE = Path(__file__).with_name("racecard_template.html")
 
 POS_VOR_FINISH_M = 400          # Messpunkt für "Position vor dem Finish"
-LETZTE_LAEUFE = 6               # so viele Formzeilen je Pferd
+LETZTE_LAEUFE = 7               # so viele Formzeilen je Pferd (jede mit Replay-Link)
+REPLAY_NACHFRAGE_TAGE = 14      # fehlt ein Replay, wird so lange nach dem Rennen erneut gefragt
 AE_FENSTER = (30, 90, 365)      # Tage
 TREND_DIFF = 0.4                # A/E 30 Tage so viel über/unter 365 Tagen -> Feuer/Eis
 TREND_MIN_STARTS = 5            # so viele Starts in 30 Tagen braucht der Trend
@@ -522,9 +524,10 @@ def programm(tag: date, session: requests.Session | None = None, *, nur_flach: b
 # --------------------------------------------------------------------------
 # Race Card bauen
 # --------------------------------------------------------------------------
-def _formzeile(z) -> dict:
+def _formzeile(z, replays: dict | None = None) -> dict:
     return {
         "date": z["date"].strftime("%Y-%m-%d"), "race_id": z["race_id"],
+        "replay": (replays or {}).get(z["race_id"]), "page": pmu.pmu_seite(z["race_id"]),
         "course": _txt(z["hippodrome"]), "dist": _num(z["distance_m"], 0),
         "going": _txt(z["going"]), "going_value": _num(z["going_value"], 1),
         "prize": _num(z["prize_eur"], 0), "type": _txt(z["racetype"]),
@@ -653,7 +656,7 @@ def _rang(werte: list, wert) -> int | None:
 
 
 def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.DataFrame,
-               tag: date, silks: dict | None = None) -> dict:
+               tag: date, silks: dict | None = None, replays: dict | None = None) -> dict:
     heute = pd.Timestamp(tag)
     silks = silks or {}
     h = hist[hist["date"] < heute].copy() if not hist.empty else hist
@@ -713,7 +716,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             vorher = per_pferd.get(hid, pd.DataFrame())
             form = []
             for n, (_, z) in enumerate(vorher.head(LETZTE_LAEUFE).iterrows()):
-                f = _formzeile(z)
+                f = _formzeile(z, replays)
                 f["rivals"] = _gegner(z, h_rennen, h_pferde, heute) if n < GEGNER_LAEUFE else None
                 form.append(f)
             siege = vorher[vorher["won"] == 1] if len(vorher) else vorher
@@ -844,6 +847,58 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     }
 
 
+def letzte_rennen(hist: pd.DataFrame, runners_heute: pd.DataFrame, tag: date, n: int = LETZTE_LAEUFE) -> list[str]:
+    """race_ids der letzten `n` Läufe aller heutigen Starter (die Formzeilen der Race Card)."""
+    if hist.empty or runners_heute.empty:
+        return []
+    ru = runners_heute.copy()
+    for c in ["horse", "sire"]:
+        ru[c + "_key"] = norm_name(ru[c]) if c in ru else pd.Series(pd.NA, index=ru.index, dtype="string")
+    ids = set(ru["horse_key"].fillna("?") + "|" + ru["sire_key"].fillna("?"))
+    h = hist[(hist["date"] < pd.Timestamp(tag)) & hist["horse_id"].isin(ids)].sort_values("date", ascending=False)
+    return sorted(set(h.groupby("horse_id").head(n)["race_id"]))
+
+
+def replays(race_ids, base: Path | None = None, session: requests.Session | None = None, *,
+            tag: date | None = None, pause: float = 0.3) -> dict:
+    """Replay-Adressen je Rennen (pmu.replay), zwischengespeichert in <base>/replays.json.
+    Gefundene Adressen werden nie neu geholt. Fehlt eine, wird nur bei Rennen der letzten
+    REPLAY_NACHFRAGE_TAGE Tage erneut gefragt (höchstens einmal am Tag) – PMU stellt Replays teils später ein."""
+    tag = tag or pmu.heute()
+    datei = Path(base) / "replays.json" if base else None
+    cache = {}
+    if datei and datei.exists():
+        try:
+            cache = json.loads(datei.read_text(encoding="utf-8"))
+        except ValueError:
+            cache = {}
+    s = session or requests.Session()
+    heute_s = tag.strftime("%Y-%m-%d")
+    offen = []
+    for rid in race_ids:
+        e = cache.get(rid)
+        if e and e.get("url"):
+            continue
+        try:
+            alter = (tag - datetime.strptime(str(rid)[:8], "%Y%m%d").date()).days
+        except ValueError:
+            continue
+        if e is None or (e.get("checked") != heute_s and alter <= REPLAY_NACHFRAGE_TAGE):
+            offen.append(rid)
+    for i, rid in enumerate(offen, 1):
+        try:
+            url = pmu.replay(rid, s)
+        except (ValueError, requests.RequestException):
+            url = None
+        cache[rid] = {"url": url, "checked": heute_s}
+        if i % 50 == 0:
+            print(f"  Replays: {i}/{len(offen)} abgefragt")
+        time.sleep(pause)
+    if datei and offen:
+        datei.write_text(json.dumps(cache, ensure_ascii=False, indent=0), encoding="utf-8")
+    return {rid: cache[rid]["url"] for rid in race_ids if cache.get(rid, {}).get("url")}
+
+
 def trikots(urls, session: requests.Session | None = None) -> dict:
     """Trikot-Bilder (PMU 'urlCasaque') laden und als data:-URI einbetten, damit die Race Card
     ohne Internet funktioniert. Fehlende oder fehlerhafte Bilder werden übergangen."""
@@ -896,7 +951,11 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
             print(f"Wegfaktor bekannt für {len(pf)} Läufe, Median {pf.median():.3f}")
         print("Validierung der bereinigten Kennzahlen (höher = besser; Prognose: negativer = besser):")
         print(speedfig.validierung(hist).to_string(index=False))
-    daten = baue_daten(hist, races_heute, runners_heute, tag, silks)
+    rennen = letzte_rennen(hist, runners_heute, tag)
+    print(f"Replays für {len(rennen)} frühere Rennen der Starter …")
+    rp = replays(rennen, base, tag=tag)
+    print(f"{len(rp)} Replays gefunden (sonst Link zur PMU-Rennseite).")
+    daten = baue_daten(hist, races_heute, runners_heute, tag, silks, rp)
     out = Path(out) if out else base / "racecards" / f"racecard_{tag:%Y%m%d}.html"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html(daten), encoding="utf-8")

@@ -119,7 +119,7 @@ Je Starter:
   „erstmals Wallach“, der Kurs hervorgehoben, dazu Ø der bereinigten L600, Δ400 und Best Seg
   der letzten 5 Läufe mit Tracking (gewichtet nach Distanzähnlichkeit zu heute, zum Nullpunkt
   geschrumpft, mit Streuung) samt Rang im heutigen Feld.
-* **Formzeilen** der letzten 6 Läufe mit Fünftel-Position 400 m vor dem Ziel, Pace-Ratio,
+* **Formzeilen** der letzten 7 Läufe mit Fünftel-Position 400 m vor dem Ziel, Pace-Ratio,
   Finish-Index (roh und bereinigt), ±800, Weg gegenüber dem Median des Feldes, Best Seg
   (letzte 800 m), L600, L400, Δ400 (L400 − Tempo 600–400 m) und Peak (Best Seg − L600). Für die
   letzten 5 Läufe lassen sich die Gegner aufklappen, die seitdem wieder liefen (die 3, die dem Pferd
@@ -139,6 +139,10 @@ Je Starter:
   `pace_early_kmh` in älteren `tracking_races`, wird das frühe Tempo aus `tracking_leader` gebildet.
   Beim Lauf wird eine Validierung ausgegeben (Wiederholbarkeit, Prognosekraft; bereinigt gegen roh)
   sowie die Gegenprobe der letzten 600 m.
+* **Replay** je Formzeile: `pmu.replay` fragt `online.pmu.fr/rest/papi/v1/programme/{TTMMJJJJ}/R{r}/C{c}/replay`
+  (ersatzweise die Rennseite ohne `/replay`) und nimmt die erste Video-Adresse der Antwort. Zwischengespeichert in
+  `<BASE>/replays.json`; fehlt ein Replay, wird 14 Tage lang höchstens einmal am Tag erneut gefragt. Ohne Replay
+  verlinkt die Formzeile die PMU-Rennseite. Prüfen, was PMU liefert: `pmu.replay_diagnose("20260923R3C3")`.
 * **RPR** (`rpr.py`, Performance-Rating nach Racing-Post-Art in lb, ≈ Rating in kg × 2,2) für jeden
   gespeicherten Lauf: Leistung im Rennen aus Gewicht (mit Gewichtsausgleich für das Alter) und geschlagenen
   Längen, Niveau des Rennens über Starter mit Rating oder früheren RPRs (chronologisch bewertet), zum

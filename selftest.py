@@ -509,6 +509,36 @@ def racecard_pruefen() -> None:
     pruefe(pmu.runner_row("R", {"urlCasaque": "https://x/c.png"})["silks_url"] == "https://x/c.png",
            "PMU-Starterzeile übernimmt die Trikot-Adresse (urlCasaque)")
 
+    # Replays: /replay zuerst, dann die Rennseite; Zwischenspeicher in replays.json
+    import json as _json
+    class ReplaySession:
+        def __init__(self):
+            self.urls = []
+        def get(self, url, headers=None, timeout=None):
+            self.urls.append(url)
+            if url.endswith("/19092026/R3/C5/replay"):
+                return FakeResponse(status=200, text=_json.dumps({"logo": "https://x/logo.png",
+                                    "videos": [{"url": "https://cdn.pmu/v/abc.m3u8"}]}))
+            if url.endswith("/19092026/R3/C6"):
+                return FakeResponse(status=200, text=_json.dumps({"course": {"replay": {"lien": "https://cdn.pmu/r/c6"}}}))
+            return FakeResponse(status=404, text="nicht da")
+    rs = ReplaySession()
+    pruefe(pmu.replay("20260919R3C5", rs) == "https://cdn.pmu/v/abc.m3u8"
+           and rs.urls[0] == "https://online.pmu.fr/rest/papi/v1/programme/19092026/R3/C5/replay",
+           "Replay über /rest/papi/v1/programme/{DDMMYYYY}/R{r}/C{c}/replay, das Logo zählt nicht")
+    pruefe(pmu.replay("20260919R3C6", rs) == "https://cdn.pmu/r/c6" and pmu.replay("20260919R3C7", rs) is None,
+           "ohne /replay: Video-Adresse aus der Rennseite, sonst keine")
+    with tempfile.TemporaryDirectory() as tmp:
+        rs = ReplaySession()
+        rp = rc.replays(["20260919R3C5", "20260919R3C7"], Path(tmp), rs, tag=date(2026, 9, 23), pause=0)
+        n = len(rs.urls)
+        rp2 = rc.replays(["20260919R3C5", "20260919R3C7"], Path(tmp), rs, tag=date(2026, 9, 23), pause=0)
+        rc.replays(["20260919R3C5", "20260919R3C7"], Path(tmp), rs, tag=date(2026, 9, 24), pause=0)
+        pruefe(rp == rp2 == {"20260919R3C5": "https://cdn.pmu/v/abc.m3u8"} and len(rs.urls) == n + 2,
+               "Replays zwischengespeichert: gefundene nie neu, fehlende höchstens einmal am Tag erneut")
+    pruefe(len(x["form_lines"]) <= rc.LETZTE_LAEUFE == 7 and x["form_lines"][0]["page"] == pmu.pmu_seite(x["form_lines"][0]["race_id"]),
+           "höchstens 7 Formzeilen, jede mit Link (Replay oder PMU-Rennseite)")
+
     seite = rc.html(d)
     pruefe(seite.startswith("<!doctype html>") and "/*__DATA__*/null" not in seite, "HTML mit eingesetzten Daten")
 
