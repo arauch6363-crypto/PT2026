@@ -78,7 +78,7 @@ button,select{font:inherit;color:inherit}
 .badge.bf{background:var(--bad-soft)}
 .line2{font-size:12.5px;color:var(--ink-2);display:flex;flex-wrap:wrap;gap:2px 14px}
 .line2 em{font-style:normal;color:var(--ink-3)}
-.facts{display:grid;grid-template-columns:repeat(3,minmax(38px,auto)) repeat(3,minmax(46px,auto)) auto;gap:2px 12px;text-align:right;align-items:start}
+.facts{display:grid;grid-template-columns:repeat(3,minmax(38px,auto)) repeat(4,minmax(46px,auto)) auto;gap:2px 12px;text-align:right;align-items:start}
 .fact i{display:block;font-style:normal;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
 .fact span{font:500 14px var(--f-mono);font-variant-numeric:tabular-nums}
 .fact .odds{font-weight:500;color:var(--accent)}
@@ -130,12 +130,18 @@ svg text{fill:var(--ink-3);font:10px var(--f-mono)}
 .metric span.up{color:var(--good)} .metric span.down{color:var(--bad)}
 .metric small{font:10.5px var(--f-mono);color:var(--ink-3)}
 .metric em.sd{font:9.5px var(--f-mono);color:var(--ink-3);margin-left:2px}
+.metric.rpr span{font-weight:600;color:var(--accent)}
+.rpr-cell b{font:600 14px var(--f-mono)} .rpr-cell.prov b{color:var(--ink-3);font-style:italic}
+.rpr-cell small{display:block;font:10px var(--f-body);color:var(--ink-3);max-width:110px;white-space:normal}
+.rpr-cell small.up{color:var(--good)} .rpr-cell small.down{color:var(--bad)}
 .oddsbox{display:grid;justify-items:center;align-content:center;background:var(--accent);color:var(--accent-ink);border-radius:4px;padding:4px 10px;min-width:58px}
 .oddsbox i{font-style:normal;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;opacity:.85}
 .oddsbox b{font:700 22px/1.05 var(--f-display);font-variant-numeric:tabular-nums}
 .panels.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 .preftab tr.today td{background:var(--hi-soft);font-weight:600}
 .heute{font:600 9.5px var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);margin-left:4px}
+.replay{display:inline-block;margin:4px 4px 0 0;border:1px solid var(--accent);border-radius:3px;padding:1px 6px;font:500 11px var(--f-body);color:var(--accent);text-decoration:none;white-space:nowrap}
+.replay:hover{background:var(--accent);color:var(--accent-ink)} .replay.page{border-color:var(--line);color:var(--ink-2)}
 .riv-btn{margin-top:4px;border:1px solid var(--line);background:var(--surface);border-radius:3px;padding:1px 6px;font:500 11px var(--f-body);color:var(--ink-2);cursor:pointer}
 .rivrow td{background:var(--surface-2)}
 .rivals{padding:4px 2px}
@@ -264,6 +270,7 @@ const SORTS = {
   tae:   ["Trainer A/E 365 T", r => r.ae.trainer.d365.ae ?? -1, -1],
   jae:   ["Jockey A/E 365 T", r => r.ae.jockey.d365.ae ?? -1, -1],
   rating:["Rating", r => r.rating ?? -1, -1],
+  rpr:   ["RPR (bestes der letzten Läufe)", r => r.rpr.best ?? -1, -1],
   style: ["Laufstil (vorne zuerst)", r => r.early ?? 9, 1],
 };
 
@@ -380,12 +387,17 @@ function runnerHTML(x, race){
         <div class="fact"><i>Gew.</i><span>${x.weight != null ? fx(x.weight, 1) : "–"}</span></div>
         <div class="fact"><i>Rating</i><span>${x.rating != null ? fx(x.rating, 1).replace(/\.0$/, "") : "–"}</span></div>
         <div class="fact"><i>Tage</i><span>${x.days ?? "–"}</span></div>
+        ${rprFact(x.rpr)}
         ${metric("L600", S.v600, S.v600_rank, S.v600_n, tip("Längen", "Tempo letzte 600 m"), S.v600_sd)}${metric("Δ400", S.accel, S.accel_rank, S.accel_n, tip("km/h", "Tempo letzte 400 m minus Tempo 600–400 m: beschleunigt (+) oder bricht ein (−)"), S.accel_sd)}${metric("Best", S.best, S.best_rank, S.best_n, tip("km/h", "schnellster 200-m-Abschnitt der letzten " + DATA.params.best_seg_m + " m"), S.best_sd)}
         <div class="oddsbox" title="${x.odds != null ? "Aktueller Kurs" : "Morgenkurs"}"><i>Kurs</i><b>${odds != null ? fx(odds, 1) : "–"}</b></div>
       </div>
     </div>
     ${open ? detailHTML(x, race) : ""}
   </article>`;
+}
+function rprFact(R){
+  const t = R.runs ? `RPR (Performance-Rating, lb): bestes der letzten ${DATA.params.rpr_runs} Läufe; zuletzt ${R.last ?? "–"}, Ø letzte 3: ${R.avg3 ?? "–"} (${R.runs} bewertete Läufe); darunter Rang im heutigen Feld` : "Kein bewerteter früherer Lauf";
+  return `<div class="metric rpr" title="${esc(t)}"><i>RPR</i><span>${R.best ?? "–"}${R.last != null && R.last !== R.best ? `<em class="sd">${R.last}</em>` : ""}</span><small>${R.rank ? `#${R.rank}/${R.n}` : "&nbsp;"}</small></div>`;
 }
 const fmtEur = v => v >= 1000 ? (v/1000).toFixed(1).replace(/\.0$/,"") + "k" : String(Math.round(v));
 
@@ -451,6 +463,11 @@ function rivalsHTML(list){
         <td><span class="verdict-chip ${v[0]}" title="Platz ${n.pos ?? "–"} bei Quotenrang ${n.odds_rank ?? "–"} (Kurs ${fx(n.odds,1)})">${v[1]}</span> <span class="muted num">Q-Rang ${n.odds_rank ?? "–"}</span></td></tr>`; }).join("")}</tbody></table></div>`;
 }
 
+function replayLink(f){
+  if (f.replay) return `<a class="replay" href="${esc(f.replay)}" target="_blank" rel="noopener" title="Replay des Rennens (PMU)">▶ Replay</a>`;
+  if (f.page) return `<a class="replay page" href="${esc(f.page)}" target="_blank" rel="noopener" title="Kein Replay-Link gefunden – Rennseite bei PMU öffnen">PMU ↗</a>`;
+  return "";
+}
 function formTable(rows, no){
   if (!rows.length) return `<p class="muted">Keine früheren Läufe in der Datenbank (nur französische Flachrennen seit Beginn der Sammlung).</p>`;
   const body = rows.map(f => {
@@ -460,9 +477,10 @@ function formTable(rows, no){
     const k = `${no}|${f.race_id}`, offen = state.rivals.has(k);
     const btn = f.rivals ? `<button class="riv-btn" type="button" data-k="${k}" aria-expanded="${offen}" title="Gegner aus diesem Rennen und ihr nächster Start">${offen ? "▾" : "▸"} Gegner${f.rivals.length ? ` (${f.rivals.length})` : ""}</button>` : "";
     return `<tr class="${f.unreliable ? "unrel" : ""}">
-      <td class="fl-date">${dt(f.date)}<br><span class="muted">${esc(title(f.course))}</span><br>${btn}</td>
+      <td class="fl-date">${dt(f.date)}<br><span class="muted">${esc(title(f.course))}</span><br>${replayLink(f)}${btn}</td>
       <td class="fl-cond num">${f.dist ?? "–"}m ${esc(f.going || "–")} ${prize(f.prize)}<br><span class="muted">${esc(f.type || "")}</span></td>
       <td class="fl-pos">${pos} ${mg ? `(${mg})` : ""} <span class="num">${f.weight != null ? fx(f.weight,1).replace(/\.0$/,"") + "kg" : ""}</span><br><span class="muted">${esc(title(f.jockey) || "")} · <span class="num">${f.odds != null ? fx(f.odds,1) : "–"}${f.fav ? " F" : ""}</span></span>${f.unreliable ? `<br><span class="muted" title="Mehr als ${DATA.params.beaten_l} Längen geschlagen – vermutlich ausgeritten, zählt nicht in den Schnitt">ausgeritten?</span>` : ""}</td>
+      <td class="r rpr-cell ${f.rpr_prov ? "prov" : ""}" title="${esc([f.rpr_prov ? "vorläufig: kein Starter mit Rating/RPR, Niveau nur aus der Rennklasse" : "", f.rpr_note || ""].filter(Boolean).join(" · "))}">${f.rpr != null ? `<b>${f.rpr}${f.rpr_prov ? "?" : ""}</b>` : `<span class="muted">–</span>`}${f.rpr_note && /career-best/.test(f.rpr_note) ? `<small class="up">Bestwert</small>` : f.rpr_note && /well below/.test(f.rpr_note) ? `<small class="down">unter Wert</small>` : f.rpr_note && /capped/.test(f.rpr_note) ? `<small>Abstand gekappt</small>` : ""}</td>
       <td>${f.fifth ? fifthSVG(f.fifth, f.pos_before, f.ran, f.pos_before_m) : `<span class="muted">${f.tracking ? "–" : "kein Tracking"}</span>`}${f.early_pos ? `<span class="early">früh ${f.early_pos}. → ${f.pos_before_m ?? ""} m ${f.pos_before ?? "–"}.</span>` : ""}</td>
       <td>${f.pace_ratio != null ? paceSVG(f.pace_ratio) + `<span class="num"> ${fx(f.pace_ratio,1)}</span>` : `<span class="muted">–</span>`}</td>
       <td class="r num">${fx(f.finish_index,1)}${adjSpan(f.fi_adj, 1, "")}</td>
@@ -473,9 +491,10 @@ function formTable(rows, no){
       <td class="r num">${fx(f.v400,1)}${adjSpan(f.v400_adj)}</td>
       <td class="r num" title="Tempo letzte 400 m minus Tempo 600–400 m (km/h); klein: bereinigt">${f.accel != null ? sgn(f.accel,1) : "–"}${adjSpan(f.accel_adj, 1, "")}</td>
       <td class="r num" title="Best Seg minus L600 (km/h): Spitze über Ausdauer; klein: bereinigt">${f.peak != null ? sgn(f.peak,1) : "–"}${adjSpan(f.peak_adj, 1, "")}</td>
-    </tr>${offen ? `<tr class="rivrow"><td colspan="13">${rivalsHTML(f.rivals)}</td></tr>` : ""}`; }).join("");
+    </tr>${offen ? `<tr class="rivrow"><td colspan="14">${rivalsHTML(f.rivals)}</td></tr>` : ""}`; }).join("");
   return `<div class="scroll"><table class="formtab"><thead><tr>
     <th>Datum · Bahn</th><th>Dist · Boden · Preis · Typ</th><th>Pos · Gew. · Jockey · Kurs</th>
+    <th class="r" title="Racing-Post-artiges Performance-Rating in lb (Rating-Skala × 2,2); ? = vorläufig, nur aus der Rennklasse">RPR</th>
     <th title="Position ${DATA.params.pos_before_m} m vor dem Ziel als Fünftel des Feldes">Pos. vor Finish</th>
     <th title="Tempo frühe Phase / Tempo Schlussphase × 100">Pace-Ratio</th>
     <th class="r" title="Endspeed (letzte 400 m) ÷ Tempo davor × 100; klein: bereinigt in Indexpunkten">Finish-Idx</th><th class="r" title="Plätze gut gemacht von 800 m bis Ziel">±800</th><th class="r" title="Gelaufene Meter mehr (+) oder weniger (−) als der Median aller Starter im Rennen">Weg m</th>
@@ -492,6 +511,8 @@ function renderLegend(){
     <div><b>A/E</b> = Siege ÷ Σ(1/Endquote). Über 1 gewinnt die Person öfter, als der Markt erwartet. Grün ≥ 0,95, rot ≤ 0,75; blass bei weniger als 10 Starts (Vorlieben: 5). In der Übersicht: 365 Tage; 🔥 / 🧊 wenn die letzten 30 Tage um mindestens ${String(p.trend_diff).replace(".", ",")} darüber bzw. darunter lagen (ab ${p.trend_min} Starts).</div>
     <div><b>Bereinigt</b> (L600, L400 in Längen; Best Seg, Δ400, Peak in km/h; Finish-Index in Punkten): Das Tempo des Pferdes wird zerlegt in einen Rennanteil – wie schnell die vordere Hälfte des Feldes im Finish war, verglichen mit einem Par für Distanz, Boden, Bahn und das frühe Tempo des Rennens (Leave-one-out, das Rennen bestimmt sein Par nicht selbst) – und einen Pferdeanteil gegenüber diesem Feld. 0 = wie die vordere Hälfte eines normalen Rennens, + = schneller. Tempi der Schlussphase und Finish-Index werden aus den Abschnittszeiten je Pferd gebildet, mit dem Wegfaktor (gelaufene ÷ nominale Distanz) skaliert und gegen die offizielle Zeit der letzten 600 m geprüft (✗ = Abschnitte unbrauchbar). <b>Finish-Index</b> = Tempo letzte 400 m ÷ Tempo davor × 100. <b>Δ400</b> = Tempo letzte 400 m minus Tempo 600–400 m (beschleunigt oder bricht ein), <b>Peak</b> = Best Seg minus L600 (Spitze über Ausdauer); Best Seg nur aus den letzten ${p.best_seg_m} m. Mehr als ${p.beaten_l} Längen Geschlagene gelten als ausgeritten und zählen nicht in den Schnitt. Übersicht: Ø der letzten ${p.avg_runs} Läufe mit Tracking, gewichtet nach Distanzähnlichkeit (halbes Gewicht bei ${p.avg_dist_m} m Unterschied) und zum Nullpunkt geschrumpft (wie ein zusätzlicher Lauf mit 0 – ein Lauf allein zählt weniger als drei); ± = Streuung der Einzelläufe; darunter der Rang im heutigen Feld.</div>
     <div><b>Pos. vor Finish</b>: Platz ${p.pos_before_m} m vor dem Ziel, eingeteilt in Fünftel des Feldes (hervorgehoben). <b>Pace-Ratio</b>: Tempo der frühen Phase ÷ Tempo der letzten ≥ 600 m × 100; unter 100 Schlusssprint, über 100 schnell angegangen. <b>Weg m</b>: gelaufene Meter gegenüber dem Median aller Starter im Rennen (≈ 2,4 m je Länge); + = weiter gelaufen, meist außen.</div>
+    <div><b>RPR</b> (Performance-Rating nach Racing-Post-Art, in lb; ≈ französisches Rating in kg × 2,2): Leistung im Rennen aus Gewicht (mit Gewichtsausgleich für das Alter) und geschlagenen Längen (lb je Länge nach Distanz, auf weichem Boden weniger). Das Niveau des Rennens setzen Starter mit bekanntem Rating oder früheren RPRs aus dem vorderen Teil des Feldes (Median ihrer implizierten Niveaus, zum Klassenwert von Kategorie und Preisgeld geschrumpft); die Rennen werden chronologisch bewertet. Ein Sieger bekommt höchstens 8 lb Abstand zum Zweiten angerechnet. <b>?</b> = vorläufig, kein Anker im Feld. Übersicht: bestes RPR der letzten ${p.rpr_runs} Läufe (klein daneben das letzte), darunter der Rang im heutigen Feld.</div>
+    <div><b>▶ Replay</b>: Video des früheren Rennens (PMU, für die letzten ${p.form_runs} Läufe); <b>PMU ↗</b>, wenn PMU kein Replay liefert – dann die Rennseite bei PMU.</div>
     <div><b>Gegner</b>: für die letzten ${p.rivals_runs} Läufe die bis zu ${p.rivals_max} Gegner, die am nächsten am Pferd ins Ziel kamen und seitdem wieder gelaufen sind – mit Platz im nächsten Start und ob der besser oder schlechter war als der Rang ihrer Quote.</div>
     <div><b>Laufstil</b> F führend · V vorne dabei · M Mittelfeld · H hinten – aus der Ø frühen Position der letzten ${p.style_runs} Läufe mit Tracking. <b>Pace-Szenario</b>: Norm der Distanzgruppe plus Effekt der Tempomacher und der Feldgröße, geschätzt aus früheren Rennen. <b>Bahn-Bias</b> = IV vorne − IV hinten; positiv: Frontrenner erfolgreicher.</div>
     <div><b>C</b> Sieger auf der Bahn · <b>D</b> Sieger über die Distanz (±100 m) · <b>CD</b> beides im selben Rennen · <b>BF</b> letzter Start als Favorit geschlagen. Karriere: Starts-Siege-Plätze · Gewinnsumme je Start. Wechsel (Trainer, Scheuklappen, erstmals Wallach) gegenüber dem letzten Lauf in der Datenbank. <b>Tage</b> seit dem letzten Lauf in der Datenbank.</div>`;

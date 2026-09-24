@@ -27,6 +27,8 @@ Kennzahlen
                    plus Pferdeanteil gegenüber dem Feld. L600/L400 in Längen, Best Seg/Δ400/Peak in
                    km/h, positiv = schneller bzw. stärker. Übersicht: distanzgewichteter, zum Nullpunkt
                    geschrumpfter Ø der letzten SCHNITT_LAEUFE Läufe mit Tracking.
+    RPR            Performance-Rating nach Racing-Post-Art (rpr.py) für jeden Lauf der Historie, in lb.
+                   Übersicht: bestes RPR der letzten RPR_LAEUFE Läufe, das letzte und der Rang im Feld
 """
 from __future__ import annotations
 
@@ -34,6 +36,7 @@ import argparse
 import json
 import math
 import re
+import time
 import unicodedata
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -43,12 +46,14 @@ import pandas as pd
 import requests
 
 import pmu
+import rpr
 import speedfig
 
 TEMPLATE = Path(__file__).with_name("racecard_template.html")
 
 POS_VOR_FINISH_M = 400          # Messpunkt für "Position vor dem Finish"
-LETZTE_LAEUFE = 6               # so viele Formzeilen je Pferd
+LETZTE_LAEUFE = 7               # so viele Formzeilen je Pferd (jede mit Replay-Link)
+REPLAY_NACHFRAGE_TAGE = 14      # fehlt ein Replay, wird so lange nach dem Rennen erneut gefragt
 AE_FENSTER = (30, 90, 365)      # Tage
 TREND_DIFF = 0.4                # A/E 30 Tage so viel über/unter 365 Tagen -> Feuer/Eis
 TREND_MIN_STARTS = 5            # so viele Starts in 30 Tagen braucht der Trend
@@ -58,6 +63,7 @@ GEGNER_MAX = 3                  # so viele Gegner je Lauf (die am nächsten am P
 SCHNITT_LAEUFE = 5              # Ø der bereinigten Kennzahlen über so viele Läufe mit Tracking
 SCHNITT_PRIOR = 1.0             # Schrumpfung zum Nullpunkt: wirkt wie ein zusätzlicher Lauf mit Wert 0
 SCHNITT_DIST_M = 400            # Gewicht eines Laufs = 1 / (1 + |Distanz − heute| / SCHNITT_DIST_M)
+RPR_LAEUFE = 6                  # Übersicht: bestes RPR aus so vielen der letzten Läufe
 MIN_GRUPPE = 30                 # so viele Läufe braucht eine Gruppe, bevor ihr Effekt zählt
 
 DIST_BINS = [0, 1300, 1700, 2100, 2600, 5000]
@@ -292,7 +298,65 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     # Weg: gelaufene Meter gegenüber dem Median aller Starter im Rennen (nicht gegenüber dem Sieger)
     h["weg_med"] = h["dist_vs_winner_m"] - h.groupby("race_id")["dist_vs_winner_m"].transform("median")
     h = speedfig.berechnen(h, trk_sections)
+    h = h.merge(rpr_je_lauf(races, runners), on=["race_id", "horse_id"], how="left")
     return h.sort_values(["date", "race_id", "finish_pos"]).reset_index(drop=True)
+
+
+def rpr_je_lauf(races: pd.DataFrame, runners: pd.DataFrame, cfg: rpr.RPRConfig | None = None) -> pd.DataFrame:
+    """Racing-Post-artige Performance-Ratings (rpr.py) für jeden gespeicherten Lauf.
+
+    Die Rennen werden chronologisch bewertet; frühere RPRs eines Pferdes dienen später als Anker.
+    Das Pferd wird über horse_id (Name|Vater) identifiziert, wie im Rest der Race Card.
+    Rückgabe: race_id, horse_id, rpr, rpr_note, rpr_method (Niveau über Anker oder nur Klassen-Prior)."""
+    leer = pd.DataFrame(columns=["race_id", "horse_id", "rpr", "rpr_note", "rpr_method"])
+    if races.empty or runners.empty:
+        return leer
+    r = races.drop_duplicates("race_id", keep="last").copy()
+    r["date"] = r["race_id"].astype(str).str[:8]
+    r["distance_m"] = pd.to_numeric(r["distance_m"], errors="coerce")
+    r = r[r["distance_m"] > 0]
+    r["prize_eur"] = pd.to_numeric(r.get("prize_eur"), errors="coerce").fillna(0.0)
+    r["statut"] = "FIN_COURSE"          # die Historie enthält nur gelaufene Rennen
+    for c in ["hippodrome", "race_name", "categorie", "going", "going_value"]:
+        if c not in r:
+            r[c] = None
+    r["categorie"] = r["categorie"].fillna("?")
+    r["hippodrome"] = r["hippodrome"].fillna("")
+    r["race_no"] = pd.to_numeric(r.get("race_no", r["race_id"].astype(str).str.extract(r"C(\d+)$")[0]),
+                                 errors="coerce").fillna(0)
+
+    h = runners.drop_duplicates(["race_id", "saddle_no"], keep="last").copy()
+    h = h[h["race_id"].isin(set(r["race_id"]))]
+    for c in ["horse", "sire"]:
+        h[c + "_key"] = norm_name(h[c]) if c in h else pd.Series(pd.NA, index=h.index, dtype="string")
+    h["horse"] = (h["horse_key"].fillna("?") + "|" + h["sire_key"].fillna("?")).astype(str)
+    for c in ["weight_kg", "rating", "finish_pos", "lengths_behind", "lengths_prev", "age"]:
+        h[c] = pd.to_numeric(h[c], errors="coerce") if c in h else np.nan
+    h["age"] = h["age"].fillna(4)
+    h["sex"] = h["sex"].astype("string").str.upper().fillna("").astype(str) if "sex" in h else ""
+    inc = h["incident"].astype("string").str.upper().fillna("") if "incident" in h else pd.Series("", index=h.index)
+    h["incident"] = inc.where(~inc.str.startswith("DISQUALIFIE"), "DISQUALIFIE").astype(str)
+    stat = h["status"].astype("string").str.upper().fillna("") if "status" in h else pd.Series("", index=h.index)
+    h["status"] = np.where((stat == "NON_PARTANT") | (h["incident"] == "NON_PARTANT"), "NON_PARTANT", "PARTANT")
+    h = h.drop_duplicates(["race_id", "horse"], keep="first")
+    if h.empty:
+        return leer
+    # nur die benötigten Spalten, Texte als object: rpr.py bewertet Rennen für Rennen, breite
+    # Tabellen und Arrow-Strings kosten dort ein Vielfaches der Rechenzeit
+    h = h[["race_id", "horse", "status", "incident", "age", "sex", "weight_kg", "rating", "finish_pos",
+           "lengths_behind", "lengths_prev"]].astype({"race_id": object, "horse": object, "sex": object,
+                                                      "incident": object, "status": object})
+    r = r[["race_id", "date", "statut", "hippodrome", "race_no", "race_name", "categorie", "prize_eur",
+           "distance_m", "going", "going_value"]].astype({"race_id": object, "hippodrome": object,
+                                                          "categorie": object})
+
+    model = rpr.RPRModel(cfg)
+    ratings, info = model.fit(r, h)
+    if ratings.empty:
+        return leer
+    out = ratings[["race_id", "horse", "rpr", "note"]].rename(columns={"horse": "horse_id", "note": "rpr_note"})
+    out = out.merge(info[["race_id", "method"]].rename(columns={"method": "rpr_method"}), on="race_id", how="left")
+    return out.dropna(subset=["rpr"])
 
 
 def position_vor_finish(sections: pd.DataFrame, meter: int = POS_VOR_FINISH_M) -> pd.DataFrame:
@@ -460,9 +524,10 @@ def programm(tag: date, session: requests.Session | None = None, *, nur_flach: b
 # --------------------------------------------------------------------------
 # Race Card bauen
 # --------------------------------------------------------------------------
-def _formzeile(z) -> dict:
+def _formzeile(z, replays: dict | None = None) -> dict:
     return {
         "date": z["date"].strftime("%Y-%m-%d"), "race_id": z["race_id"],
+        "replay": (replays or {}).get(z["race_id"]), "page": pmu.pmu_seite(z["race_id"]),
         "course": _txt(z["hippodrome"]), "dist": _num(z["distance_m"], 0),
         "going": _txt(z["going"]), "going_value": _num(z["going_value"], 1),
         "prize": _num(z["prize_eur"], 0), "type": _txt(z["racetype"]),
@@ -485,6 +550,8 @@ def _formzeile(z) -> dict:
         "peak": _num(z.get("peak_kmh"), 1), "peak_adj": _num(z.get("peak_adj"), 1),
         "path_factor": _num(z.get("path_factor"), 3),
         "sec_mismatch": bool(z.get("last600_mismatch") is True),
+        "rpr": _num(z.get("rpr"), 0), "rpr_note": _txt(z.get("rpr_note")),
+        "rpr_prov": _txt(z.get("rpr_method")) == "class prior",
     }
 
 
@@ -589,7 +656,7 @@ def _rang(werte: list, wert) -> int | None:
 
 
 def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.DataFrame,
-               tag: date, silks: dict | None = None) -> dict:
+               tag: date, silks: dict | None = None, replays: dict | None = None) -> dict:
     heute = pd.Timestamp(tag)
     silks = silks or {}
     h = hist[hist["date"] < heute].copy() if not hist.empty else hist
@@ -649,7 +716,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             vorher = per_pferd.get(hid, pd.DataFrame())
             form = []
             for n, (_, z) in enumerate(vorher.head(LETZTE_LAEUFE).iterrows()):
-                f = _formzeile(z)
+                f = _formzeile(z, replays)
                 f["rivals"] = _gegner(z, h_rennen, h_pferde, heute) if n < GEGNER_LAEUFE else None
                 form.append(f)
             siege = vorher[vorher["won"] == 1] if len(vorher) else vorher
@@ -661,6 +728,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             if len(vorher) and bool(vorher.iloc[0]["favourite"]) and vorher.iloc[0]["won"] != 1:
                 badges.append("BF")
             fr = vorher["early_pct"].dropna().head(STIL_LAEUFE) if len(vorher) else pd.Series(dtype=float)
+            rp = (vorher["rpr"].head(RPR_LAEUFE).dropna() if len(vorher) and "rpr" in vorher
+                  else pd.Series(dtype=float))
             early = float(fr.mean()) if len(fr) else None
             st_k, st_l = stil(early)
             # Ø der bereinigten Kennzahlen aus den letzten Läufen mit Tracking (ohne ausgerittene)
@@ -709,6 +778,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "badges": badges,
                 "changes": _wechsel(p, vorher.iloc[0] if len(vorher) else None),
                 "style": st_k, "style_label": st_l, "early": _num(early, 2), "early_runs": int(len(fr)),
+                "rpr": {"best": _num(rp.max(), 0) if len(rp) else None,
+                        "last": _num(vorher.iloc[0].get("rpr"), 0) if len(vorher) else None,
+                        "avg3": _num(rp.head(3).mean(), 0) if len(rp) else None, "runs": int(len(rp))},
                 "summary": {"v600": schnitt("v600_adj_l"), "v400": schnitt("v400_adj_l"),
                             "best": schnitt("best_adj"), "fi": schnitt("fi_adj"),
                             "accel": schnitt("accel_adj"), "peak": schnitt("peak_adj"),
@@ -733,6 +805,10 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             for x in starters:
                 x["summary"][k + "_rank"] = _rang(werte, x["summary"][k]) if not x["nr"] else None
                 x["summary"][k + "_n"] = sum(w is not None for w in werte)
+        werte = [x["rpr"]["best"] for x in partanten]
+        for x in starters:
+            x["rpr"]["rank"] = _rang(werte, x["rpr"]["best"]) if not x["nr"] else None
+            x["rpr"]["n"] = sum(w is not None for w in werte)
         szenario = pace_szenario(partanten, db, kal)
         b = bias["exakt"].get((course, dist)) or bias["gruppe"].get((course, db))
         b_basis = "exakt" if bias["exakt"].get((course, dist)) else ("gruppe" if b else None)
@@ -763,12 +839,64 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                    "trend_diff": TREND_DIFF, "trend_min": TREND_MIN_STARTS, "pref_jt_years": VORLIEBEN_JT_TAGE // 365,
                    "avg_runs": SCHNITT_LAEUFE, "rivals_runs": GEGNER_LAEUFE, "rivals_max": GEGNER_MAX,
                    "best_seg_m": speedfig.BEST_SEG_BEREICH_M, "beaten_l": speedfig.AUSGERITTEN_L,
-                   "avg_prior": SCHNITT_PRIOR, "avg_dist_m": SCHNITT_DIST_M,
+                   "avg_prior": SCHNITT_PRIOR, "avg_dist_m": SCHNITT_DIST_M, "rpr_runs": RPR_LAEUFE,
                    "styles": [{"key": k, "label": lab, "max": bis} for bis, k, lab in STIL]},
         "bias_all": bias["gesamt"],
         "meetings": sorted(meetings.values(), key=lambda m: m["reunion"]),
         "races": races_out,
     }
+
+
+def letzte_rennen(hist: pd.DataFrame, runners_heute: pd.DataFrame, tag: date, n: int = LETZTE_LAEUFE) -> list[str]:
+    """race_ids der letzten `n` Läufe aller heutigen Starter (die Formzeilen der Race Card)."""
+    if hist.empty or runners_heute.empty:
+        return []
+    ru = runners_heute.copy()
+    for c in ["horse", "sire"]:
+        ru[c + "_key"] = norm_name(ru[c]) if c in ru else pd.Series(pd.NA, index=ru.index, dtype="string")
+    ids = set(ru["horse_key"].fillna("?") + "|" + ru["sire_key"].fillna("?"))
+    h = hist[(hist["date"] < pd.Timestamp(tag)) & hist["horse_id"].isin(ids)].sort_values("date", ascending=False)
+    return sorted(set(h.groupby("horse_id").head(n)["race_id"]))
+
+
+def replays(race_ids, base: Path | None = None, session: requests.Session | None = None, *,
+            tag: date | None = None, pause: float = 0.3) -> dict:
+    """Replay-Adressen je Rennen (pmu.replay), zwischengespeichert in <base>/replays.json.
+    Gefundene Adressen werden nie neu geholt. Fehlt eine, wird nur bei Rennen der letzten
+    REPLAY_NACHFRAGE_TAGE Tage erneut gefragt (höchstens einmal am Tag) – PMU stellt Replays teils später ein."""
+    tag = tag or pmu.heute()
+    datei = Path(base) / "replays.json" if base else None
+    cache = {}
+    if datei and datei.exists():
+        try:
+            cache = json.loads(datei.read_text(encoding="utf-8"))
+        except ValueError:
+            cache = {}
+    s = session or requests.Session()
+    heute_s = tag.strftime("%Y-%m-%d")
+    offen = []
+    for rid in race_ids:
+        e = cache.get(rid)
+        if e and e.get("url"):
+            continue
+        try:
+            alter = (tag - datetime.strptime(str(rid)[:8], "%Y%m%d").date()).days
+        except ValueError:
+            continue
+        if e is None or (e.get("checked") != heute_s and alter <= REPLAY_NACHFRAGE_TAGE):
+            offen.append(rid)
+    for i, rid in enumerate(offen, 1):
+        try:
+            url = pmu.replay(rid, s)
+        except (ValueError, requests.RequestException):
+            url = None
+        cache[rid] = {"url": url, "checked": heute_s}
+        if i % 50 == 0:
+            print(f"  Replays: {i}/{len(offen)} abgefragt")
+        time.sleep(pause)
+    if datei and offen:
+        datei.write_text(json.dumps(cache, ensure_ascii=False, indent=0), encoding="utf-8")
+    return {rid: cache[rid]["url"] for rid in race_ids if cache.get(rid, {}).get("url")}
 
 
 def trikots(urls, session: requests.Session | None = None) -> dict:
@@ -823,7 +951,11 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
             print(f"Wegfaktor bekannt für {len(pf)} Läufe, Median {pf.median():.3f}")
         print("Validierung der bereinigten Kennzahlen (höher = besser; Prognose: negativer = besser):")
         print(speedfig.validierung(hist).to_string(index=False))
-    daten = baue_daten(hist, races_heute, runners_heute, tag, silks)
+    rennen = letzte_rennen(hist, runners_heute, tag)
+    print(f"Replays für {len(rennen)} frühere Rennen der Starter …")
+    rp = replays(rennen, base, tag=tag)
+    print(f"{len(rp)} Replays gefunden (sonst Link zur PMU-Rennseite).")
+    daten = baue_daten(hist, races_heute, runners_heute, tag, silks, rp)
     out = Path(out) if out else base / "racecards" / f"racecard_{tag:%Y%m%d}.html"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html(daten), encoding="utf-8")

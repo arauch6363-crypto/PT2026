@@ -67,6 +67,7 @@ Tracking ist eine Eigenschaft von **Renntag und Rennen**, nicht von der Bahn:
 | `parse_tracking.py` | Tracking-PDF → Tabellen (Zwischenzeiten, Abschnitte, Kennzahlen) |
 | `pipeline.py` | Tagesablauf, Fortschritt, Parquet-Ausgabe, Auswertungshilfen |
 | `racecard.py` | Interaktive Race Card für die heutigen Rennen (HTML) |
+| `rpr.py` | Performance-Ratings nach Racing-Post-Art (RPR) aus Gewicht, Längen und Ankerpferden |
 | `racecard_template.html` | Layout der Race Card; die Daten werden als JSON eingesetzt |
 | `selftest.py` | Selbsttest ohne Internet (`python selftest.py`) |
 
@@ -118,7 +119,7 @@ Je Starter:
   „erstmals Wallach“, der Kurs hervorgehoben, dazu Ø der bereinigten L600, Δ400 und Best Seg
   der letzten 5 Läufe mit Tracking (gewichtet nach Distanzähnlichkeit zu heute, zum Nullpunkt
   geschrumpft, mit Streuung) samt Rang im heutigen Feld.
-* **Formzeilen** der letzten 6 Läufe mit Fünftel-Position 400 m vor dem Ziel, Pace-Ratio,
+* **Formzeilen** der letzten 7 Läufe mit Fünftel-Position 400 m vor dem Ziel, Pace-Ratio,
   Finish-Index (roh und bereinigt), ±800, Weg gegenüber dem Median des Feldes, Best Seg
   (letzte 800 m), L600, L400, Δ400 (L400 − Tempo 600–400 m) und Peak (Best Seg − L600). Für die
   letzten 5 Läufe lassen sich die Gegner aufklappen, die seitdem wieder liefen (die 3, die dem Pferd
@@ -138,6 +139,15 @@ Je Starter:
   `pace_early_kmh` in älteren `tracking_races`, wird das frühe Tempo aus `tracking_leader` gebildet.
   Beim Lauf wird eine Validierung ausgegeben (Wiederholbarkeit, Prognosekraft; bereinigt gegen roh)
   sowie die Gegenprobe der letzten 600 m.
+* **Replay** je Formzeile: `pmu.replay` fragt `online.pmu.fr/rest/papi/v1/programme/{TTMMJJJJ}/R{r}/C{c}/replay`
+  (ersatzweise die Rennseite ohne `/replay`) und nimmt die erste Video-Adresse der Antwort. Zwischengespeichert in
+  `<BASE>/replays.json`; fehlt ein Replay, wird 14 Tage lang höchstens einmal am Tag erneut gefragt. Ohne Replay
+  verlinkt die Formzeile die PMU-Rennseite. Prüfen, was PMU liefert: `pmu.replay_diagnose("20260923R3C3")`.
+* **RPR** (`rpr.py`, Performance-Rating nach Racing-Post-Art in lb, ≈ Rating in kg × 2,2) für jeden
+  gespeicherten Lauf: Leistung im Rennen aus Gewicht (mit Gewichtsausgleich für das Alter) und geschlagenen
+  Längen, Niveau des Rennens über Starter mit Rating oder früheren RPRs (chronologisch bewertet), zum
+  Klassenwert geschrumpft. In der Übersicht bestes RPR der letzten 6 Läufe (klein das letzte) mit Rang im
+  Feld, in den Formzeilen je Lauf (`?` = vorläufig, kein Anker im Feld; Bestwert / unter Wert / Abstand gekappt).
 * **A/E** für Trainer, Jockey und Vater über 30, 90 und 365 Tage.
 * **Vorlieben**: Pferd mit allen Böden und Distanzen der gesamten Historie (heute markiert),
   Trainer und Jockey der letzten zwei Jahre, Vater über die gesamte Historie.
