@@ -29,8 +29,8 @@ Kennzahlen
                    geschrumpfter Ø der letzten SCHNITT_LAEUFE Läufe mit Tracking.
     RTR / ARR      Ratings aus PT_Vorarbeiten (rtr_arr.py), in kg: RTR = Elo-artiges Rating nach dem Rennen,
                    ARR = Leistung im Rennen, gemessen an den Pferden im vorderen Drittel. Bereinigt nach
-                   Gewicht: x_adj = x − Gewicht + GEWICHT_REF (Übersicht: heutiges Gewicht, Formzeile: Gewicht
-                   in jenem Lauf)
+                   Gewicht: x_adj = x − heutiges Gewicht + GEWICHT_REF – in der Übersicht und in den
+                   Formzeilen (ein früherer ARR von 36 bei heute 52 kg -> 39)
 """
 from __future__ import annotations
 
@@ -518,7 +518,8 @@ def programm(tag: date, session: requests.Session | None = None, *, nur_flach: b
 # --------------------------------------------------------------------------
 # Race Card bauen
 # --------------------------------------------------------------------------
-def _formzeile(z, replays: dict | None = None) -> dict:
+def _formzeile(z, replays: dict | None = None, gewicht_heute=None) -> dict:
+    """Eine Formzeile. RTR/ARR bereinigt mit dem heutigen Gewicht (gewicht_heute), nicht mit dem damaligen."""
     return {
         "date": z["date"].strftime("%Y-%m-%d"), "race_id": z["race_id"],
         "replay": ((replays or {}).get(z["race_id"]) or {}).get("url"),
@@ -546,8 +547,8 @@ def _formzeile(z, replays: dict | None = None) -> dict:
         "peak": _num(z.get("peak_kmh"), 1), "peak_adj": _num(z.get("peak_adj"), 1),
         "path_factor": _num(z.get("path_factor"), 3),
         "sec_mismatch": bool(z.get("last600_mismatch") is True),
-        "rtr": _num(z.get("rtr"), 1), "rtr_adj": _adj(z.get("rtr"), z["weight_kg"]),
-        "arr": _num(z.get("arr"), 1), "arr_adj": _adj(z.get("arr"), z["weight_kg"]),
+        "rtr": _num(z.get("rtr"), 1), "rtr_adj": _adj(z.get("rtr"), gewicht_heute),
+        "arr": _num(z.get("arr"), 1), "arr_adj": _adj(z.get("arr"), gewicht_heute),
         "rating_filled": bool(pd.isna(z.get("rating")) and pd.notna(z.get("rating_filled"))),
     }
 
@@ -713,7 +714,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             vorher = per_pferd.get(hid, pd.DataFrame())
             form = []
             for n, (_, z) in enumerate(vorher.head(LETZTE_LAEUFE).iterrows()):
-                f = _formzeile(z, replays)
+                f = _formzeile(z, replays, p.get("weight_kg"))
                 f["rivals"] = _gegner(z, h_rennen, h_pferde, heute) if n < GEGNER_LAEUFE else None
                 form.append(f)
             siege = vorher[vorher["won"] == 1] if len(vorher) else vorher

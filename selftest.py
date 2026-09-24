@@ -427,6 +427,12 @@ def racecard_pruefen() -> None:
     pruefe(f["rtr_adj"] == 32.3 and x["rtr"]["raw"] == 34.3 and x["rtr"]["adj"] == 32.3 and x["rtr"]["rank"] == 1
            and y["rtr"]["adj"] == 26.9 and x["rtr"]["prev"] == 30.4,
            "RTR bereinigt = RTR − Gewicht (57) + 55, Rang im Feld")
+    z = hist.iloc[0].copy()
+    z["arr"], z["rtr"], z["weight_kg"] = 36.0, 40.0, 58.0          # damals 58 kg getragen
+    fz = rc._formzeile(z, None, 52.0)                              # heute 52 kg
+    pruefe(fz["arr_adj"] == 39.0 and fz["rtr_adj"] == 43.0 and fz["arr"] == 36.0
+           and rc._formzeile(z, None, None)["arr_adj"] is None,
+           "Formzeile: bereinigt mit dem heutigen Gewicht, nicht dem damaligen (ARR 36, heute 52 kg -> 39)")
     ra_df = pd.DataFrame({"race_id": "R", "date": pd.Timestamp("2026-01-01"), "horse": list("ABCD"),
                           "finish_pos": [1, 2, 3, 4], "lengths_back": [0, 1, 3, 7], "weight_kg": [58, 57, 56, 55],
                           "rating": [40, 38, 35, 30], "age": 4, "going_category": "FAST",
