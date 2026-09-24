@@ -417,6 +417,13 @@ def racecard_pruefen() -> None:
            "Gegner: Y lief danach wieder, Platz 2 bei Quotenrang 1 -> schlechter als erwartet; Z lief nicht wieder")
     pruefe(rc.going_klasse("Très souple", None) == "TRES SOUPLE" and rc.going_klasse("Souple", None) == "SOUPLE"
            and rc.going_klasse(None, 3.5) == "BON SOUPLE", "Bodenbegriffe: Très souple ≠ Souple")
+    fy = y["form_lines"]
+    pruefe((fy[1]["rpr"], x["form_lines"][1]["rpr"]) == (70, 67) and fy[1]["rpr_prov"]
+           and (f["rpr"], fy[0]["rpr"]) == (68, 64) and not f["rpr_prov"],
+           "RPR: erstes Rennen vorläufig aus dem Klassenwert (2 L auf Lourd über 2000 m = 2,55 lb), "
+           "danach dienen die früheren RPRs als Anker (2 L über 1200 m = 5 lb)")
+    pruefe(x["rpr"]["best"] == 68 and y["rpr"] == {"best": 70, "last": 64, "avg3": 67, "runs": 2, "rank": 1, "n": 2},
+           "RPR in der Übersicht: bestes, letztes, Ø und Rang im Feld")
     pruefe(x["style"] == "H" and f["early_pos"] == 2,
            "Laufstil aus der frühen Position (erster Messpunkt 800 m: 2. von 2 -> hinten)")
 
