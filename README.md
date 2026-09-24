@@ -67,7 +67,7 @@ Tracking ist eine Eigenschaft von **Renntag und Rennen**, nicht von der Bahn:
 | `parse_tracking.py` | Tracking-PDF → Tabellen (Zwischenzeiten, Abschnitte, Kennzahlen) |
 | `pipeline.py` | Tagesablauf, Fortschritt, Parquet-Ausgabe, Auswertungshilfen |
 | `racecard.py` | Interaktive Race Card für die heutigen Rennen (HTML) |
-| `rpr.py` | Performance-Ratings nach Racing-Post-Art (RPR) aus Gewicht, Längen und Ankerpferden |
+| `rtr_arr.py` | Ratings aus PT_Vorarbeiten: RTR (Elo-artiges Rating nach dem Rennen) und ARR (Leistung im Rennen) |
 | `racecard_template.html` | Layout der Race Card; die Daten werden als JSON eingesetzt |
 | `selftest.py` | Selbsttest ohne Internet (`python selftest.py`) |
 
@@ -139,15 +139,18 @@ Je Starter:
   `pace_early_kmh` in älteren `tracking_races`, wird das frühe Tempo aus `tracking_leader` gebildet.
   Beim Lauf wird eine Validierung ausgegeben (Wiederholbarkeit, Prognosekraft; bereinigt gegen roh)
   sowie die Gegenprobe der letzten 600 m.
-* **Replay** je Formzeile: `pmu.replay` fragt `online.pmu.fr/rest/papi/v1/programme/{TTMMJJJJ}/R{r}/C{c}/replay`
-  (ersatzweise die Rennseite ohne `/replay`) und nimmt die erste Video-Adresse der Antwort. Zwischengespeichert in
+* **Replay** je Formzeile: `pmu.replay` fragt die Adressen in `pmu.REPLAY_URLS` (turfinfo-Host und
+  `online.pmu.fr`, jeweils `…/programme/{TTMMJJJJ}/R{r}/C{c}/replay` und die Rennseite) und nimmt die erste
+  Video-Adresse. Antwortet keine Adresse, bricht die Abfrage nach 5 Rennen ab und merkt sich nichts. Zwischengespeichert in
   `<BASE>/replays.json`; fehlt ein Replay, wird 14 Tage lang höchstens einmal am Tag erneut gefragt. Ohne Replay
   verlinkt die Formzeile die PMU-Rennseite. Prüfen, was PMU liefert: `pmu.replay_diagnose("20260923R3C3")`.
-* **RPR** (`rpr.py`, Performance-Rating nach Racing-Post-Art in lb, ≈ Rating in kg × 2,2) für jeden
-  gespeicherten Lauf: Leistung im Rennen aus Gewicht (mit Gewichtsausgleich für das Alter) und geschlagenen
-  Längen, Niveau des Rennens über Starter mit Rating oder früheren RPRs (chronologisch bewertet), zum
-  Klassenwert geschrumpft. In der Übersicht bestes RPR der letzten 6 Läufe (klein das letzte) mit Rang im
-  Feld, in den Formzeilen je Lauf (`?` = vorläufig, kein Anker im Feld; Bestwert / unter Wert / Abstand gekappt).
+* **RTR und ARR** (`rtr_arr.py`, wie in PT_Vorarbeiten, in kg) für jeden gespeicherten Lauf:
+  RTR = Elo-artiges Rating nach dem Rennen (jeder gegen jeden, erwarteter Abstand aus Rating − 0,625 × Gewicht
+  gegen tatsächliche Längen × kg je Länge, K = 0,5), ARR = Leistung im Rennen gemessen an den Pferden im
+  vorderen Drittel des Einlaufs (fehlende Ratings wie im Notebook ergänzt). Gegen das Notebook geprüft:
+  ARR und Ergänzung identisch, RTR identisch bei gleicher Reihenfolge der Starter (hier: Einlauf). Bereinigt
+  nach Gewicht: `x_adj = x − Gewicht + 55` – in der Übersicht mit dem heutigen Gewicht (RTR aktuell, ARR bestes
+  der letzten 7 Läufe, Rang im Feld), in den Formzeilen mit dem Gewicht jenes Laufs; klein daneben der Rohwert.
 * **A/E** für Trainer, Jockey und Vater über 30, 90 und 365 Tage.
 * **Vorlieben**: Pferd mit allen Böden und Distanzen der gesamten Historie (heute markiert),
   Trainer und Jockey der letzten zwei Jahre, Vater über die gesamte Historie.
