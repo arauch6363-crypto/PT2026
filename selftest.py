@@ -26,6 +26,7 @@ import france_galop as fg
 import parse_tracking as pt
 import pipeline as tp
 import pmu
+import rtr_arr
 
 HEUTE = date.today()
 T1 = HEUTE - timedelta(days=1)          # gestern
@@ -418,12 +419,22 @@ def racecard_pruefen() -> None:
     pruefe(rc.going_klasse("Très souple", None) == "TRES SOUPLE" and rc.going_klasse("Souple", None) == "SOUPLE"
            and rc.going_klasse(None, 3.5) == "BON SOUPLE", "Bodenbegriffe: Très souple ≠ Souple")
     fy = y["form_lines"]
-    pruefe((fy[1]["rpr"], x["form_lines"][1]["rpr"]) == (70, 67) and fy[1]["rpr_prov"]
-           and (f["rpr"], fy[0]["rpr"]) == (68, 64) and not f["rpr_prov"],
-           "RPR: erstes Rennen vorläufig aus dem Klassenwert (2 L auf Lourd über 2000 m = 2,55 lb), "
-           "danach dienen die früheren RPRs als Anker (2 L über 1200 m = 5 lb)")
-    pruefe(x["rpr"]["best"] == 68 and y["rpr"] == {"best": 70, "last": 64, "avg3": 67, "runs": 2, "rank": 1, "n": 2},
-           "RPR in der Übersicht: bestes, letztes, Ø und Rang im Feld")
+    # RTR von Hand: Rennen vor 100 Tagen (2000 m Lourd -> 0,85 kg/L), alle Start 30, Y vor X (2 L) vor Z (4 L):
+    # Stufe(1,7) = 3,2009, Stufe(3,4) = 4,1413, erwartet je Paar Stufe(0) = 1; Preisbonus (4/6 − 0,5)·5·e^−0,07
+    # -> Y 31,7, X 30,4.  Dann 1200 m Bon (1,4 kg/L): X schlägt Y um 2 L -> X 34,3, Y 28,9
+    pruefe((fy[1]["rtr"], x["form_lines"][1]["rtr"], f["rtr"], fy[0]["rtr"]) == (31.7, 30.4, 34.3, 28.9),
+           "RTR (rating after race) wie im Notebook: Elo über alle Paare, Stufen und Preisbonus")
+    pruefe(f["rtr_adj"] == 32.3 and x["rtr"]["raw"] == 34.3 and x["rtr"]["adj"] == 32.3 and x["rtr"]["rank"] == 1
+           and y["rtr"]["adj"] == 26.9 and x["rtr"]["prev"] == 30.4,
+           "RTR bereinigt = RTR − Gewicht (57) + 55, Rang im Feld")
+    ra_df = pd.DataFrame({"race_id": "R", "date": pd.Timestamp("2026-01-01"), "horse": list("ABCD"),
+                          "finish_pos": [1, 2, 3, 4], "lengths_back": [0, 1, 3, 7], "weight_kg": [58, 57, 56, 55],
+                          "rating": [40, 38, 35, 30], "age": 4, "going_category": "FAST",
+                          "distance_group": rtr_arr.distance_group(1600), "prize": 20000, "categorie": "HANDICAP",
+                          "horse_run": 5})
+    ra = rtr_arr.berechnen(ra_df)
+    pruefe(ra["arr"].tolist() == [40.2, 37.8, 34.2, 28.2],
+           "ARR von Hand: Referenzen A, B (vorderes Drittel, pos_perc > 0,66), 1,2 kg/L; B = Ø(40 − 1,2 − 1,2; 38), D = Ø(40 − 8,4 − 3,6; 38 − 7,2 − 2,4) = 28,2")
     pruefe(x["style"] == "H" and f["early_pos"] == 2,
            "Laufstil aus der frühen Position (erster Messpunkt 800 m: 2. von 2 -> hinten)")
 
@@ -509,33 +520,44 @@ def racecard_pruefen() -> None:
     pruefe(pmu.runner_row("R", {"urlCasaque": "https://x/c.png"})["silks_url"] == "https://x/c.png",
            "PMU-Starterzeile übernimmt die Trikot-Adresse (urlCasaque)")
 
-    # Replays: /replay zuerst, dann die Rennseite; Zwischenspeicher in replays.json
+    # Replays: Kandidaten der Reihe nach, erste Antwort mit Video zählt; Zwischenspeicher in replays.json
     import json as _json
     class ReplaySession:
-        def __init__(self):
-            self.urls = []
+        def __init__(self, tot=False):
+            self.urls, self.tot = [], tot
         def get(self, url, headers=None, timeout=None):
             self.urls.append(url)
+            if self.tot:
+                raise pmu.requests.ConnectionError("keine Verbindung")
             if url.endswith("/19092026/R3/C5/replay"):
                 return FakeResponse(status=200, text=_json.dumps({"logo": "https://x/logo.png",
                                     "videos": [{"url": "https://cdn.pmu/v/abc.m3u8"}]}))
             if url.endswith("/19092026/R3/C6"):
                 return FakeResponse(status=200, text=_json.dumps({"course": {"replay": {"lien": "https://cdn.pmu/r/c6"}}}))
+            if "/19092026/R3/C7" in url:
+                return FakeResponse(status=200, text=_json.dumps({"course": {"libelle": "PRIX OHNE VIDEO"}}))
             return FakeResponse(status=404, text="nicht da")
     rs = ReplaySession()
-    pruefe(pmu.replay("20260919R3C5", rs) == "https://cdn.pmu/v/abc.m3u8"
-           and rs.urls[0] == "https://online.pmu.fr/rest/papi/v1/programme/19092026/R3/C5/replay",
-           "Replay über /rest/papi/v1/programme/{DDMMYYYY}/R{r}/C{c}/replay, das Logo zählt nicht")
-    pruefe(pmu.replay("20260919R3C6", rs) == "https://cdn.pmu/r/c6" and pmu.replay("20260919R3C7", rs) is None,
-           "ohne /replay: Video-Adresse aus der Rennseite, sonst keine")
+    pruefe(pmu.replay("20260919R3C5", rs) == "https://cdn.pmu/v/abc.m3u8" and rs.urls[0] == pmu.REPLAY_URLS[0].format(d="19092026", r=3, c=5)
+           and len(rs.urls) == 1, "Replay: erste Adresse mit Video zählt, das Logo nicht")
+    pruefe(pmu.replay("20260919R3C6", rs) == "https://cdn.pmu/r/c6" and pmu.replay("20260919R3C7", rs) is None
+           and pmu.REPLAY_ERREICHT, "ohne /replay: Video-Adresse aus der Rennseite, sonst keine")
     with tempfile.TemporaryDirectory() as tmp:
         rs = ReplaySession()
         rp = rc.replays(["20260919R3C5", "20260919R3C7"], Path(tmp), rs, tag=date(2026, 9, 23), pause=0)
         n = len(rs.urls)
         rp2 = rc.replays(["20260919R3C5", "20260919R3C7"], Path(tmp), rs, tag=date(2026, 9, 23), pause=0)
+        pruefe(rp == rp2 == {"20260919R3C5": "https://cdn.pmu/v/abc.m3u8"} and len(rs.urls) == n,
+               "Replays zwischengespeichert: gefundene nie neu, fehlende nicht am selben Tag erneut")
         rc.replays(["20260919R3C5", "20260919R3C7"], Path(tmp), rs, tag=date(2026, 9, 24), pause=0)
-        pruefe(rp == rp2 == {"20260919R3C5": "https://cdn.pmu/v/abc.m3u8"} and len(rs.urls) == n + 2,
-               "Replays zwischengespeichert: gefundene nie neu, fehlende höchstens einmal am Tag erneut")
+        pruefe(len(rs.urls) > n, "fehlendes Replay am nächsten Tag erneut gefragt")
+    with tempfile.TemporaryDirectory() as tmp:
+        tot = ReplaySession(tot=True)
+        ids = [f"20260919R3C{k}" for k in range(1, 20)]
+        rp = rc.replays(ids, Path(tmp), tot, tag=date(2026, 9, 23), pause=0)
+        pruefe(rp == {} and len(tot.urls) == rc.REPLAY_STUMM_MAX * len(pmu.REPLAY_URLS)
+               and not (Path(tmp) / "replays.json").exists(),
+               "PMU nicht erreichbar: Abbruch nach 5 Rennen, nichts als 'kein Replay' gespeichert")
     pruefe(len(x["form_lines"]) <= rc.LETZTE_LAEUFE == 7 and x["form_lines"][0]["page"] == pmu.pmu_seite(x["form_lines"][0]["race_id"]),
            "höchstens 7 Formzeilen, jede mit Link (Replay oder PMU-Rennseite)")
 

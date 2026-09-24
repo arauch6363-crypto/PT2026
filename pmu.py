@@ -34,11 +34,17 @@ PARTICIPANTS_URLS = [
     "https://online.turfinfo.api.pmu.fr/rest/client/61/programme/{d}/R{r}/C{c}/participants",
     "https://offline.turfinfo.api.pmu.fr/rest/client/7/programme/{d}/R{r}/C{c}/participants",
 ]
-# Replay: zuerst der eigene Endpunkt, dann die Rennseite selbst; die erste Antwort mit Video-Adresse zählt
+# Replay: Kandidaten der Reihe nach, die erste Antwort mit Video-Adresse zählt. online.pmu.fr war aus Colab
+# nicht erreichbar (ConnectionError), der turfinfo-Host dagegen schon – deshalb beide. Nicht bestätigt:
+# pmu.replay_diagnose() zeigt, welche Adresse antwortet und was darin steht.
 REPLAY_URLS = [
+    "https://online.turfinfo.api.pmu.fr/rest/client/61/programme/{d}/R{r}/C{c}/replay",
+    "https://online.turfinfo.api.pmu.fr/rest/papi/v1/programme/{d}/R{r}/C{c}/replay",
+    "https://online.turfinfo.api.pmu.fr/rest/client/61/programme/{d}/R{r}/C{c}",
     "https://online.pmu.fr/rest/papi/v1/programme/{d}/R{r}/C{c}/replay",
     "https://online.pmu.fr/rest/papi/v1/programme/{d}/R{r}/C{c}",
 ]
+REPLAY_ERREICHT = False      # hat beim letzten pmu.replay() überhaupt eine Adresse JSON geliefert?
 BROWSER_HEADERS = {
     "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
                    "Chrome/120.0.0.0 Safari/537.36"),
@@ -423,11 +429,16 @@ def _papi(session: requests.Session, url: str):
 def replay(rid: str, session: requests.Session | None = None) -> str | None:
     """Replay-Adresse eines Rennens: GET /rest/papi/v1/programme/{DDMMYYYY}/R{r}/C{c}/replay,
     ersatzweise die Rennseite /programme/{DDMMYYYY}/R{r}/C{c}; None, wenn keine Video-Adresse dabei ist."""
+    global REPLAY_ERREICHT
     d, r, c = _race_teile(rid)
     s = session or requests.Session()
+    REPLAY_ERREICHT = False
     for u in REPLAY_URLS:
         data = _papi(s, u.format(d=d, r=r, c=c))
-        urls = video_urls(data) if data is not None else []
+        if data is None:
+            continue
+        REPLAY_ERREICHT = True
+        urls = video_urls(data)
         if urls:
             return urls[0][1]
     return None
@@ -441,7 +452,7 @@ def replay_diagnose(rid: str, session: requests.Session | None = None) -> None:
     for u in REPLAY_URLS:
         url = u.format(d=d, r=r, c=c)
         try:
-            resp = s.get(url, headers=BROWSER_HEADERS, timeout=30)
+            resp = s.get(url, headers=BROWSER_HEADERS, timeout=15)
         except requests.RequestException as e:
             print(url, "->", type(e).__name__)
             continue
