@@ -151,7 +151,7 @@ Je Starter:
   vorderen Drittel des Einlaufs (fehlende Ratings wie im Notebook ergänzt). Gegen das Notebook geprüft:
   ARR und Ergänzung identisch, RTR identisch bei gleicher Reihenfolge der Starter (hier: Einlauf). Bereinigt
   nach Gewicht: `x_adj = x − Gewicht + 55` – in der Übersicht mit dem heutigen Gewicht (RTR aktuell, ARR bestes
-  der letzten 7 Läufe, Rang im Feld), in den Formzeilen mit dem Gewicht jenes Laufs; klein daneben der Rohwert.
+  der letzten 7 Läufe, Rang im Feld), in den Formzeilen ebenfalls mit dem heutigen Gewicht (ARR 36, heute 52 kg -> 39); klein daneben der Rohwert.
 * **A/E** für Trainer, Jockey und Vater über 30, 90 und 365 Tage.
 * **Vorlieben**: Pferd mit allen Böden und Distanzen der gesamten Historie (heute markiert),
   Trainer und Jockey der letzten zwei Jahre, Vater über die gesamte Historie.
