@@ -1,24 +1,33 @@
 """
-ΔL600 und ΔB200: Tempo der Schlussphase gegenüber der Erwartung – Pferde werden nur mit den Startern
-verglichen, die am selben Tag auf derselben Bahn liefen.
+ΔL600 A und ΔB200 A: Tempo der Schlussphase gegenüber der Erwartung – verglichen mit den Startern, die am
+selben Tag auf demselben Kurs bei gleichem Boden liefen, und korrigiert um die Klasse dieser Gruppe.
 
     L600  = Tempo der letzten 600 m (km/h)
     B200  = schnellstes 200-m-Segment in den letzten 800 m (km/h)
 
-Für beide Zielgrößen wird eine Regression mit festen Effekten geschätzt:
+1. Gruppe = Tag × Kurs × Going (offizieller PMU-Bodenbegriff, z. B. BON SOUPLE – nicht der Penetrometerwert;
+   auf demselben Kurs kann sich der Boden an einem Tag ändern). Regression mit festen Effekten:
 
-    Tempo = Renntag×Bahn + Bahn×Distanz + Pace-Ratio (linear + quadratisch je Distanzgruppe)   [A]
-                                        + Klasse: log(Preisgeld), conditions_age               [B]
+       Tempo = Gruppe + Kurs×Distanz + Pace-Ratio (linear + quadratisch je Distanzgruppe) + Klasse·β + Rest
 
-Der feste Effekt Renntag×Bahn ("meeting") nimmt alles heraus, was an diesem Tag auf dieser Bahn für alle
-gleich war (Boden, Wind, Bahnzustand): das Pferd wird nur mit den Startern desselben Renntags verglichen.
-Bahn×Distanz ("cell") nimmt die Eigenheiten des Kurses heraus. Das Residuum ist das Δ in km/h:
-positiv = schneller als für dieses Rennen (Tempo, bei B auch Klasse) an diesem Tag zu erwarten.
+   Der feste Effekt der Gruppe nimmt heraus, was an diesem Tag auf diesem Kurs bei diesem Boden für alle
+   gleich war. Das Residuum ohne Klasse ist das rohe Δ.
 
-Rennen gehen nur ein, wenn die Pace-Ratio im 1.–99. Perzentil liegt und die Kombination Bahn×Distanz
-mindestens MIN_RACES_CELL Rennen hat. Seltene Altersklassen (< MIN_RACES_AGE Rennen) werden "SONSTIGE".
-Nach der Vorlage im Notebook (Compiègne-Auswertung); die festen Effekte werden hier mit numpy statt
-groupby herausgerechnet (gleiches Verfahren, alternierende Projektionen, deutlich schneller).
+2. Klassenkorrektur. Der Gruppen-Mittelwert enthält aber auch die Klasse der Pferde an diesem Tag: Läuft
+   nur schwache Klasse, ist er niedrig, und die Pferde sähen zu gut aus. β (Altersklasse, log. Preisgeld) wird
+   über alle Rennen der Historie aus den um Pace und Distanz korrigierten Werten geschätzt – innerhalb der
+   Gruppen, damit Boden und Wetter nicht in den Klassenfaktor geraten. Je Gruppe:
+
+       Klassenkorrektur = β · (Ø Klasse der Gruppe − Ø Klasse aller Läufe)
+       Δ A              = rohes Δ + Klassenkorrektur
+
+   Eine Gruppe mit schwacher Klasse wird abgewertet, eine mit starker aufgewertet; Klassenunterschiede
+   innerhalb der Gruppe bleiben im Δ erhalten.
+
+Rennen gehen nur ein, wenn die Pace-Ratio im 1.–99. Perzentil liegt und Kurs×Distanz mindestens
+MIN_RACES_CELL Rennen hat. Seltene Altersklassen (< MIN_RACES_AGE Rennen) werden "SONSTIGE".
+Die zwei festen Effekte werden exakt herausgerechnet (Frisch-Waugh-Lovell), gleiches Ergebnis wie die
+iterative Variante im Notebook.
 """
 from __future__ import annotations
 
@@ -39,7 +48,8 @@ L600_KMH = (40, 75)
 DEMEAN_ITERS, DEMEAN_TOL = 200, 1e-7
 
 ZIELE = {"L600": "speed_last600_kmh", "B200": "best200_kmh"}
-SPALTEN = ["d_L600_A", "d_L600_B", "d_B200_A", "d_B200_B"]
+SPALTEN = ["d_L600_A", "d_B200_A"]
+EXTRA = ["d_L600_roh", "k_L600", "d_B200_roh", "k_B200"]   # Δ vor der Klassenkorrektur und die Korrektur selbst
 LETZTE_INFO: dict = {}      # Koeffizienten und Umfang der letzten Schätzung (für die Ausgabe in racecard.run)
 
 
@@ -137,13 +147,13 @@ def _fit_fe_ab(d: pd.DataFrame, target: str, cols_a: list[str], cols_b: list[str
 
 
 def berechnen(h: pd.DataFrame, sections: pd.DataFrame | None = None) -> pd.DataFrame:
-    """ΔL600 / ΔB200 nach Modell A und B je Lauf (Spalten SPALTEN, dazu best200_kmh, best200_seg).
+    """ΔL600 A / ΔB200 A je Lauf (Spalten SPALTEN, dazu EXTRA, best200_kmh, best200_seg).
 
-    Erwartet je Starter: race_id, saddle_no, date, course_key (Bahn), distance_m, pace_ratio, prize_eur,
-    conditions_age, speed_last600_kmh."""
+    Erwartet je Starter: race_id, saddle_no, date, course_key (Kurs), going_pmu (offizieller Bodenbegriff),
+    distance_m, pace_ratio, prize_eur, conditions_age, speed_last600_kmh."""
     global LETZTE_INFO
     h = h.copy()
-    for c in SPALTEN + ["best200_kmh"]:
+    for c in SPALTEN + EXTRA + ["best200_kmh"]:
         h[c] = np.nan
     h["best200_seg"] = None
     if h.empty:
@@ -153,9 +163,11 @@ def berechnen(h: pd.DataFrame, sections: pd.DataFrame | None = None) -> pd.DataF
         b["saddle_no"] = pd.to_numeric(b["saddle_no"], errors="coerce")
         h = h.drop(columns=["best200_kmh", "best200_seg"]).merge(b, on=["race_id", "saddle_no"], how="left")
         h.index = pd.RangeIndex(len(h))
+    if "going_pmu" not in h:
+        h["going_pmu"] = None
 
-    # 1) Rennen: Pace-Ratio im 1.–99. Perzentil, Bahn × Distanz mit genug Rennen
-    rc = h.drop_duplicates("race_id")[["race_id", "date", "course_key", "distance_m", "pace_ratio",
+    # 1) Rennen: Pace-Ratio im 1.–99. Perzentil, Kurs × Distanz mit genug Rennen
+    rc = h.drop_duplicates("race_id")[["race_id", "date", "course_key", "going_pmu", "distance_m", "pace_ratio",
                                        "prize_eur", "conditions_age"]].copy()
     rc["pace_ratio"] = pd.to_numeric(rc["pace_ratio"], errors="coerce")
     rc = rc[rc["pace_ratio"].notna() & rc["distance_m"].notna() & rc["course_key"].notna() & rc["date"].notna()]
@@ -165,8 +177,10 @@ def berechnen(h: pd.DataFrame, sections: pd.DataFrame | None = None) -> pd.DataF
     lo, hi = rc["pace_ratio"].quantile(list(PACE_Q))
     rc = rc[rc["pace_ratio"].between(lo, hi)]
     rc["trk"] = rc["course_key"].astype(str).map(norm)
+    rc["going"] = rc["going_pmu"].map(lambda g: norm(g) if pd.notna(g) and str(g).strip() else "UNBEKANNT")
     rc["cell"] = rc["trk"] + "_" + rc["distance_m"].astype(int).astype(str)
-    rc["meeting"] = rc["trk"] + "_" + pd.to_datetime(rc["date"]).dt.strftime("%Y-%m-%d")
+    # Gruppe: Tag × Kurs × Going
+    rc["meeting"] = rc["trk"] + "_" + pd.to_datetime(rc["date"]).dt.strftime("%Y-%m-%d") + "_" + rc["going"]
     n_cell = rc.groupby("cell")["race_id"].nunique()
     rc = rc[rc["cell"].isin(n_cell[n_cell >= MIN_RACES_CELL].index)].copy()
     if rc.empty:
@@ -192,7 +206,7 @@ def berechnen(h: pd.DataFrame, sections: pd.DataFrame | None = None) -> pd.DataF
     d["speed_last600_kmh"] = pd.to_numeric(d["speed_last600_kmh"], errors="coerce").where(
         lambda v: v.between(*L600_KMH))
 
-    # 4) Regressoren: A = Tempo je Distanzgruppe, B = A + Klasse
+    # 4) Regressoren: Tempo je Distanzgruppe; Klasse (nur für β und die Klassenkorrektur)
     pace_cols = []
     for bl in BAND_LABELS:
         m = (d["band"] == bl).astype(float)
@@ -208,29 +222,42 @@ def berechnen(h: pd.DataFrame, sections: pd.DataFrame | None = None) -> pd.DataF
     class_cols = ["log_prize_c", "prize_missing"] + age_cols
 
     info = {"rennen": int(d["race_id"].nunique()), "starts": int(len(d)), "bahnen": int(d["trk"].nunique()),
-            "ref_age": ref_age, "ziele": {}}
+            "gruppen": int(d["meeting"].nunique()), "ref_age": ref_age, "ziele": {}}
     for name, col in ZIELE.items():
-        rA, rB, bB = _fit_fe_ab(d, col, pace_cols, pace_cols + class_cols)
-        h.loc[rA.index, f"d_{name}_A"] = rA
-        h.loc[rB.index, f"d_{name}_B"] = rB
-        ok = d[col].notna().any()
-        info["ziele"][name] = {"n": int(d[col].notna().sum()),
-                               "preis_x2": float(bB["log_prize_c"] * np.log(2)) if ok else None,
-                               "alter": {c[4:]: float(bB[c]) for c in age_cols} if ok else {}}
+        # rohes Δ (Gruppe + Kurs×Distanz + Pace) und β der Klasse auf den um Pace/Distanz korrigierten Werten
+        roh, _, bB = _fit_fe_ab(d, col, pace_cols, pace_cols + class_cols)
+        if roh.empty:
+            info["ziele"][name] = {"n": 0, "preis_x2": None, "alter": {}, "k_p10": None, "k_p90": None}
+            continue
+        sub = d.loc[roh.index]
+        beta = bB[class_cols].to_numpy(float)
+        X = sub[class_cols].to_numpy(float)
+        x_gruppe = sub.groupby("meeting")[class_cols].transform("mean").to_numpy(float)
+        k = pd.Series((x_gruppe - X.mean(axis=0)) @ beta, index=roh.index)
+        h.loc[roh.index, f"d_{name}_roh"] = roh
+        h.loc[roh.index, f"k_{name}"] = k
+        h.loc[roh.index, f"d_{name}_A"] = roh + k
+        kg = k.groupby(sub["meeting"]).first()
+        info["ziele"][name] = {"n": int(len(roh)), "preis_x2": float(bB["log_prize_c"] * np.log(2)),
+                               "alter": {c[4:]: float(bB[c]) for c in age_cols},
+                               "k_p10": float(kg.quantile(0.1)), "k_p90": float(kg.quantile(0.9))}
     LETZTE_INFO = info
     return h
 
 
 def bericht(info: dict | None = None) -> str:
-    """Kurzbericht der Klasseneffekte (Modell B), wie im Notebook ausgegeben."""
+    """Kurzbericht: Umfang, Klassenfaktor β und Spanne der Klassenkorrektur je Gruppe."""
     info = info or LETZTE_INFO
     if not info or not info.get("rennen"):
         return "ΔL600/ΔB200: zu wenige Rennen mit Tracking und Pace-Ratio – keine Schätzung."
-    z = [f"ΔL600/ΔB200 geschätzt aus {info['starts']:,} Starts, {info['rennen']:,} Rennen, {info['bahnen']} Bahnen "
-         f"(Vergleich nur innerhalb Renntag × Bahn)"]
+    z = [f"ΔL600/ΔB200 A aus {info['starts']:,} Starts, {info['rennen']:,} Rennen, {info['bahnen']} Kursen, "
+         f"{info['gruppen']:,} Gruppen Tag × Kurs × Going"]
     for name, e in info["ziele"].items():
-        z.append(f"  {name}: {e['n']:,} Läufe · Preisgeld ×2 -> "
-                 + (f"{e['preis_x2']:+.2f} km/h" if e["preis_x2"] is not None else "–")
+        if not e["n"]:
+            z.append(f"  {name}: keine Läufe")
+            continue
+        z.append(f"  {name}: {e['n']:,} Läufe · Klassenfaktor: Preisgeld ×2 {e['preis_x2']:+.2f} km/h"
                  + "".join(f" · {a} {v:+.2f}" for a, v in e["alter"].items())
-                 + f"  (Altersklassen gegen {info['ref_age']})")
+                 + f" (gegen {info['ref_age']}) · Klassenkorrektur je Gruppe 10–90 %: "
+                 f"{e['k_p10']:+.2f} bis {e['k_p90']:+.2f} km/h")
     return "\n".join(z)

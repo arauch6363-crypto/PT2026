@@ -67,7 +67,7 @@ Tracking ist eine Eigenschaft von **Renntag und Rennen**, nicht von der Bahn:
 | `parse_tracking.py` | Tracking-PDF → Tabellen (Zwischenzeiten, Abschnitte, Kennzahlen) |
 | `pipeline.py` | Tagesablauf, Fortschritt, Parquet-Ausgabe, Auswertungshilfen |
 | `racecard.py` | Interaktive Race Card für die heutigen Rennen (HTML) |
-| `tempo_delta.py` | ΔL600 / ΔB200: Schlusstempo gegen die Erwartung, verglichen innerhalb Renntag × Bahn |
+| `tempo_delta.py` | ΔL600 A / ΔB200 A: Schlusstempo gegen die Erwartung, verglichen innerhalb Tag × Kurs × Going, mit Klassenkorrektur |
 | `rtr_arr.py` | Ratings aus PT_Vorarbeiten: RTR (Elo-artiges Rating nach dem Rennen) und ARR (Leistung im Rennen) |
 | `racecard_template.html` | Layout der Race Card; die Daten werden als JSON eingesetzt |
 | `selftest.py` | Selbsttest ohne Internet (`python selftest.py`) |
@@ -117,12 +117,12 @@ Je Starter:
 * **Übersicht**: Trikot (PMU `urlCasaque`, eingebettet), Musique, Karriere Starts-Siege-Plätze
   und Gewinn je Start, Jockey und Trainer mit A/E über 365 Tage (🔥 / 🧊, wenn die letzten 30 Tage
   deutlich besser/schlechter waren), Hinweise auf Trainerwechsel, Scheuklappen-Wechsel und
-  „erstmals Wallach“, der Kurs hervorgehoben, dazu Ø von ΔL600 A/B und ΔB200 A/B
+  „erstmals Wallach“, der Kurs hervorgehoben, dazu Ø von ΔL600 A und ΔB200 A
   der letzten 5 Läufe mit Tracking (gewichtet nach Distanzähnlichkeit zu heute, zum Nullpunkt
   geschrumpft, mit Streuung) samt Rang im heutigen Feld.
 * **Formzeilen** der letzten 7 Läufe mit Fünftel-Position 400 m vor dem Ziel, Pace-Ratio,
-  Finish-Index (roh und bereinigt), ±800, Weg gegenüber dem Median des Feldes, ΔL600 A/B und
-  ΔB200 A/B. Für die
+  Finish-Index (roh und bereinigt), ±800, Weg gegenüber dem Median des Feldes, ΔL600 A und
+  ΔB200 A. Für die
   letzten 5 Läufe lassen sich die Gegner aufklappen, die seitdem wieder liefen (die 3, die dem Pferd
   am nächsten waren), mit Platz im nächsten Start und ob der besser oder schlechter war als der Rang
   ihrer Quote.
@@ -133,12 +133,13 @@ Je Starter:
   Distanz) skaliert die Tempi, Finish-Index = Tempo letzte 400 m ÷ Tempo davor, und die berechneten
   letzten 600 m werden gegen die offizielle Angabe der Übersichtsseite geprüft (bei Abweichung
   > 0,5 s werden die Tempi dieses Laufs verworfen).
-* **ΔL600 / ΔB200** (`tempo_delta.py`, km/h): Tempo der letzten 600 m bzw. schnellstes 200-m-Segment der
-  letzten 800 m gegenüber der Erwartung. Regression mit festen Effekten Renntag × Bahn (verglichen wird nur
-  mit den Startern desselben Tages auf derselben Bahn) und Bahn × Distanz; **A** zusätzlich Pace-Ratio
-  (linear + quadratisch je Distanzgruppe), **B** dazu Klasse (log. Preisgeld, `conditions_age`). Rennen mit
-  Pace-Ratio im 1.–99. Perzentil und ≥ 5 Rennen je Bahn × Distanz. Beim Lauf werden die Klasseneffekte
-  ausgegeben (Preisgeld ×2, Altersklassen).
+* **ΔL600 A / ΔB200 A** (`tempo_delta.py`, km/h): Tempo der letzten 600 m bzw. schnellstes 200-m-Segment der
+  letzten 800 m gegenüber der Erwartung. Verglichen wird nur innerhalb **Tag × Kurs × Going** (offizieller
+  PMU-Bodenbegriff, nicht der Penetrometerwert), korrigiert um Kurs × Distanz und Pace-Ratio (linear + quadratisch
+  je Distanzgruppe). Dazu die **Klassenkorrektur** der Gruppe: β × (Ø Klasse der Gruppe − Ø Klasse aller Läufe),
+  β aus Altersklasse (`conditions_age`) und log. Preisgeld, geschätzt über die ganze Historie innerhalb der
+  Gruppen. So wird ein Tag mit nur schwachen Rennen nicht überbewertet. Rennen mit Pace-Ratio im 1.–99. Perzentil
+  und ≥ 5 Rennen je Kurs × Distanz. Beim Lauf werden β und die Spanne der Klassenkorrektur ausgegeben.
 * **Bereinigte Kennzahlen** (`speedfig.py`, in der Race Card nur noch für den Finish-Index): Rennanteil (Median der vorderen Hälfte) gegen einen Par
   aus Distanz, Boden, Bahn und frühem Tempo des Führenden (nicht der Pace-Ratio – deren Nenner
   ist das Schlusstempo selbst), geschätzt per Ridge-Regression mit Leave-one-out, plus

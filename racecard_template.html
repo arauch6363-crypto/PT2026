@@ -78,7 +78,7 @@ button,select{font:inherit;color:inherit}
 .badge.bf{background:var(--bad-soft)}
 .line2{font-size:12.5px;color:var(--ink-2);display:flex;flex-wrap:wrap;gap:2px 14px}
 .line2 em{font-style:normal;color:var(--ink-3)}
-.facts{display:grid;grid-template-columns:repeat(3,minmax(38px,auto)) repeat(6,minmax(46px,auto)) auto;gap:2px 12px;text-align:right;align-items:start}
+.facts{display:grid;grid-template-columns:repeat(3,minmax(38px,auto)) repeat(4,minmax(46px,auto)) auto;gap:2px 12px;text-align:right;align-items:start}
 .fact i{display:block;font-style:normal;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
 .fact span{font:500 14px var(--f-mono);font-variant-numeric:tabular-nums}
 .fact .odds{font-weight:500;color:var(--accent)}
@@ -262,9 +262,7 @@ function renderNav(){
 const SORTS = {
   no:    ["Startnummer", r => r.no ?? 99, 1],
   odds:  ["Kurs", r => r.odds ?? r.odds_morning ?? 999, 1],
-  dl600b:["ΔL600 B (Klasse, Ø)", r => r.summary.dl600_b ?? -99, -1],
   dl600a:["ΔL600 A (Ø)", r => r.summary.dl600_a ?? -99, -1],
-  db200b:["ΔB200 B (Klasse, Ø)", r => r.summary.db200_b ?? -99, -1],
   db200a:["ΔB200 A (Ø)", r => r.summary.db200_a ?? -99, -1],
   tae:   ["Trainer A/E 365 T", r => r.ae.trainer.d365.ae ?? -1, -1],
   jae:   ["Jockey A/E 365 T", r => r.ae.jockey.d365.ae ?? -1, -1],
@@ -366,7 +364,7 @@ function runnerHTML(x, race){
   const badges = x.badges.map(b => `<span class="badge ${b==="BF"?"bf":""}" title="${{C:"Sieger auf dieser Bahn",D:"Sieger über diese Distanz (±100 m)",CD:"Sieger auf Bahn und Distanz",BF:"Beim letzten Start Favorit und nicht gewonnen"}[b]}">${b}</span>`).join("");
   const changes = (x.changes || []).map(c => `<span class="badge chg" title="${esc(c.text)}">${esc(c.text)}</span>`).join("");
   const blink = x.blinkers && !/^SANS/i.test(x.blinkers) ? `<span class="badge" title="${esc(x.blinkers)}">${/AUSTRAL/i.test(x.blinkers) ? "p" : "b"}</span>` : "";
-  const S = x.summary, tip = (ziel, was) => `Δ${ziel} ${was} – km/h gegenüber der Erwartung, verglichen nur mit den Startern desselben Renntags auf derselben Bahn; Ø der letzten ${S.runs} Läufe mit Tracking (gewichtet nach Distanzähnlichkeit, zum Nullpunkt geschrumpft), + = schneller als erwartet; darunter Rang im heutigen Feld`;
+  const S = x.summary, tip = (ziel, was) => `Δ${ziel} A: ${was} in km/h gegenüber der Erwartung – verglichen mit den Startern desselben Tages auf demselben Kurs bei gleichem Boden, korrigiert um Distanz, Tempo und die Klasse dieser Gruppe; Ø der letzten ${S.runs} Läufe mit Tracking (gewichtet nach Distanzähnlichkeit, zum Nullpunkt geschrumpft), + = schneller als erwartet; darunter Rang im heutigen Feld`;
   const career = x.starts != null ? `${x.starts}-${x.wins ?? 0}-${x.places ?? 0}${x.earn_per_start ? ` · €${fmtEur(x.earn_per_start)}/Start` : ""}` : "";
   const odds = x.odds ?? x.odds_morning;
   return `<article class="runner ${x.nr ? "nr" : ""}">
@@ -388,7 +386,7 @@ function runnerHTML(x, race){
         <div class="fact"><i>Rating</i><span>${x.rating != null ? fx(x.rating, 1).replace(/\.0$/, "") : "–"}</span></div>
         <div class="fact"><i>Tage</i><span>${x.days ?? "–"}</span></div>
         ${rtFact("RTR", x.rtr.adj, x.rtr.raw, x.rtr, rtrTip(x))}${rtFact("ARR", x.arr.best_adj, x.arr.best, x.arr, arrTip(x))}
-        ${metric("ΔL600 A", S.dl600_a, S.dl600_a_rank, S.dl600_a_n, tip("L600", "A: bereinigt um Distanz und Tempo"), S.dl600_a_sd)}${metric("ΔL600 B", S.dl600_b, S.dl600_b_rank, S.dl600_b_n, tip("L600", "B: bereinigt um Distanz, Tempo und Klasse"), S.dl600_b_sd)}${metric("ΔB200 A", S.db200_a, S.db200_a_rank, S.db200_a_n, tip("B200", "A: bereinigt um Distanz und Tempo"), S.db200_a_sd)}${metric("ΔB200 B", S.db200_b, S.db200_b_rank, S.db200_b_n, tip("B200", "B: bereinigt um Distanz, Tempo und Klasse"), S.db200_b_sd)}
+        ${metric("ΔL600 A", S.dl600_a, S.dl600_a_rank, S.dl600_a_n, tip("L600", "Tempo letzte 600 m"), S.dl600_a_sd)}${metric("ΔB200 A", S.db200_a, S.db200_a_rank, S.db200_a_n, tip("B200", "schnellstes 200-m-Segment der letzten 800 m"), S.db200_a_sd)}
         <div class="oddsbox" title="${x.odds != null ? "Aktueller Kurs" : "Morgenkurs"}"><i>Kurs</i><b>${odds != null ? fx(odds, 1) : "–"}</b></div>
       </div>
     </div>
@@ -477,10 +475,10 @@ function rivalsHTML(list){
 const adjTip = (was, w, damals) => (w != null
   ? `groß: bereinigt auf das heutige Gewicht = ${was} − ${fx(w,1)} kg + ${DATA.params.weight_ref}; klein: roh`
   : `heutiges Gewicht unbekannt – nur der Rohwert`) + (damals != null ? ` (damals ${fx(damals,1)} kg getragen)` : "");
-function dCell(v, roh, ziel, modell, f){
+function dCell(v, roh, ziel, k, f){
   if (v == null) return `<td class="r num"><span class="muted">–</span></td>`;
   const was = ziel === "L600" ? "Tempo letzte 600 m" : "schnellstes 200-m-Segment der letzten 800 m" + (f.b200_seg ? ` (${f.b200_seg})` : "");
-  const t = `Δ${ziel} ${modell}: ${sgn(v,2)} km/h gegenüber der Erwartung (nur gegen Starter desselben Renntags auf derselben Bahn) · ${was}: ${fx(roh,1)} km/h`;
+  const t = `Δ${ziel} A: ${sgn(v,2)} km/h gegenüber der Erwartung (Tag × Kurs × Going)` + (k != null ? ` · darin Klassenkorrektur der Gruppe ${sgn(k,2)} km/h` : "") + ` · ${was}: ${fx(roh,1)} km/h`;
   return `<td class="r num" title="${esc(t)}"><span class="${v > 0 ? "up" : v < 0 ? "down" : ""}">${sgn(v,1)}</span></td>`;
 }
 function rtCell(raw, adj, tip){
@@ -512,9 +510,8 @@ function formTable(rows, no, wHeute){
       <td class="r num">${fx(f.finish_index,1)}${adjSpan(f.fi_adj, 1, "")}</td>
       <td class="r num">${f.pos_gain != null ? sgn(f.pos_gain, 0) : "–"}</td>
       <td class="r num" title="${f.weg_med != null ? `${fx(Math.abs(f.weg_med),1)} m ${f.weg_med >= 0 ? "mehr" : "weniger"} gelaufen als der Median des Feldes (≈ ${fx(Math.abs(f.weg_med)/2.4,1)} Längen)` : ""}">${f.weg_med != null ? sgn(f.weg_med, 1) : "–"}</td>
-      ${dCell(f.dl600_a, f.l600, "L600", "A: Distanz + Tempo", f)}${dCell(f.dl600_b, f.l600, "L600", "B: Distanz + Tempo + Klasse", f)}
-      ${dCell(f.db200_a, f.b200, "B200", "A: Distanz + Tempo", f)}${dCell(f.db200_b, f.b200, "B200", "B: Distanz + Tempo + Klasse", f)}
-    </tr>${offen ? `<tr class="rivrow"><td colspan="14">${rivalsHTML(f.rivals)}</td></tr>` : ""}`; }).join("");
+      ${dCell(f.dl600_a, f.l600, "L600", f.dl600_k, f)}${dCell(f.db200_a, f.b200, "B200", f.db200_k, f)}
+    </tr>${offen ? `<tr class="rivrow"><td colspan="12">${rivalsHTML(f.rivals)}</td></tr>` : ""}`; }).join("");
   return `<div class="scroll"><table class="formtab"><thead><tr>
     <th>Datum · Bahn</th><th>Dist · Boden · Preis · Typ</th><th>Pos · Gew. · Jockey · Kurs</th>
     <th class="r" title="RTR: Rating nach dem Rennen (Elo-artig, kg), groß bereinigt auf das heutige Gewicht = RTR − Gewicht heute + ${DATA.params.weight_ref}, klein roh">RTR</th>
@@ -522,8 +519,7 @@ function formTable(rows, no, wHeute){
     <th title="Position ${DATA.params.pos_before_m} m vor dem Ziel als Fünftel des Feldes">Pos. vor Finish</th>
     <th title="Tempo frühe Phase / Tempo Schlussphase × 100">Pace-Ratio</th>
     <th class="r" title="Endspeed (letzte 400 m) ÷ Tempo davor × 100; klein: bereinigt in Indexpunkten">Finish-Idx</th><th class="r" title="Plätze gut gemacht von 800 m bis Ziel">±800</th><th class="r" title="Gelaufene Meter mehr (+) oder weniger (−) als der Median aller Starter im Rennen">Weg m</th>
-    <th class="r" title="Tempo letzte 600 m gegenüber der Erwartung (km/h), bereinigt um Distanz und Tempo; verglichen nur innerhalb Renntag × Bahn">ΔL600 A</th><th class="r" title="wie A, zusätzlich um die Klasse (Preisgeld, Altersklasse) bereinigt">ΔL600 B<br><small>Klasse</small></th>
-    <th class="r" title="Schnellstes 200-m-Segment der letzten 800 m gegenüber der Erwartung (km/h), bereinigt um Distanz und Tempo; verglichen nur innerhalb Renntag × Bahn">ΔB200 A</th><th class="r" title="wie A, zusätzlich um die Klasse (Preisgeld, Altersklasse) bereinigt">ΔB200 B<br><small>Klasse</small></th>
+    <th class="r" title="Tempo letzte 600 m gegenüber der Erwartung (km/h): verglichen innerhalb Tag × Kurs × Going, korrigiert um Distanz, Tempo und die Klasse der Gruppe">ΔL600 A</th><th class="r" title="Schnellstes 200-m-Segment der letzten 800 m gegenüber der Erwartung (km/h): verglichen innerhalb Tag × Kurs × Going, korrigiert um Distanz, Tempo und die Klasse der Gruppe">ΔB200 A</th>
   </tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
@@ -531,7 +527,7 @@ function renderLegend(){
   const p = DATA.params;
   $("#legend").innerHTML = `
     <div><b>A/E</b> = Siege ÷ Σ(1/Endquote). Über 1 gewinnt die Person öfter, als der Markt erwartet. Grün ≥ 0,95, rot ≤ 0,75; blass bei weniger als 10 Starts (Vorlieben: 5). In der Übersicht: 365 Tage; 🔥 / 🧊 wenn die letzten 30 Tage um mindestens ${String(p.trend_diff).replace(".", ",")} darüber bzw. darunter lagen (ab ${p.trend_min} Starts).</div>
-    <div><b>ΔL600 / ΔB200</b> (km/h): Tempo der letzten 600 m bzw. schnellstes 200-m-Segment der letzten 800 m gegenüber der Erwartung, geschätzt per Regression mit festen Effekten für <b>Renntag × Bahn</b> (das Pferd wird nur mit den Startern desselben Tages auf derselben Bahn verglichen – Boden, Wind usw. fallen heraus) und <b>Bahn × Distanz</b>. <b>A</b> berücksichtigt zusätzlich das Tempo des Rennens (Pace-Ratio, linear und quadratisch je Distanzgruppe), <b>B</b> dazu die Klasse (log. Preisgeld, Altersklasse). + = schneller als erwartet. Rennen nur mit Pace-Ratio im 1.–99. Perzentil und mindestens 5 Rennen je Bahn × Distanz. Mehr als ${p.beaten_l} Längen Geschlagene gelten als ausgeritten und zählen nicht in den Schnitt. Übersicht: Ø der letzten ${p.avg_runs} Läufe mit Tracking, gewichtet nach Distanzähnlichkeit (halbes Gewicht bei ${p.avg_dist_m} m Unterschied) und zum Nullpunkt geschrumpft (wie ein zusätzlicher Lauf mit 0); ± = Streuung der Einzelläufe; darunter der Rang im heutigen Feld. <b>Finish-Index</b> = Tempo letzte 400 m ÷ Tempo davor × 100 (klein: bereinigt).</div>
+    <div><b>ΔL600 A / ΔB200 A</b> (km/h): Tempo der letzten 600 m bzw. schnellstes 200-m-Segment der letzten 800 m gegenüber der Erwartung. Verglichen wird nur mit den Startern desselben <b>Tages auf demselben Kurs bei gleichem Boden</b> (offizieller Bodenbegriff), korrigiert um Kurs × Distanz und das Tempo des Rennens (Pace-Ratio, linear und quadratisch je Distanzgruppe). Weil der Mittelwert einer solchen Gruppe auch ihre Klasse enthält, kommt eine <b>Klassenkorrektur</b> dazu: β × (Ø Klasse der Gruppe − Ø Klasse aller Läufe), β aus Altersklasse und log. Preisgeld über die ganze Historie – ein Tag mit nur schwachen Rennen wird abgewertet, ein starker aufgewertet (Wert im Tooltip). + = schneller als erwartet. Rennen nur mit Pace-Ratio im 1.–99. Perzentil und mindestens 5 Rennen je Kurs × Distanz. Mehr als ${p.beaten_l} Längen Geschlagene gelten als ausgeritten und zählen nicht in den Schnitt. Übersicht: Ø der letzten ${p.avg_runs} Läufe mit Tracking, gewichtet nach Distanzähnlichkeit (halbes Gewicht bei ${p.avg_dist_m} m Unterschied) und zum Nullpunkt geschrumpft; ± = Streuung der Einzelläufe; darunter der Rang im heutigen Feld. <b>Finish-Index</b> = Tempo letzte 400 m ÷ Tempo davor × 100 (klein: bereinigt).</div>
     <div><b>Pos. vor Finish</b>: Platz ${p.pos_before_m} m vor dem Ziel, eingeteilt in Fünftel des Feldes (hervorgehoben). <b>Pace-Ratio</b>: Tempo der frühen Phase ÷ Tempo der letzten ≥ 600 m × 100; unter 100 Schlusssprint, über 100 schnell angegangen. <b>Weg m</b>: gelaufene Meter gegenüber dem Median aller Starter im Rennen (≈ 2,4 m je Länge); + = weiter gelaufen, meist außen.</div>
     <div><b>RTR</b> (Rating nach dem Rennen, in kg): Elo-artig, Rennen für Rennen in zeitlicher Reihenfolge. Start mit dem offiziellen Rating (sonst 30); in jedem Rennen tritt jedes Pferd gegen jedes andere an – erwartet wird ein Abstand aus Rating − 0,625 × Gewicht, verglichen mit dem tatsächlichen Abstand in Längen × kg je Länge (nach Boden und Distanz), beides auf einer log. Stufe von 1 bis 5. Das Rating wandert um 0,5 × Ø Überraschung (+ kleiner Preisgeldbonus). <b>ARR</b> (Leistung im Rennen, in kg): gemessen an den Pferden im vorderen Drittel des Einlaufs – deren Rating plus Längenabstand × kg je Länge (große Abstände logarithmisch gedämpft) plus Gewichtsunterschied, Ø über diese Referenzen; fehlende Ratings der Referenzen werden aus vergleichbaren Pferden ergänzt. <b>Bereinigt</b> = Wert − Gewicht + ${p.weight_ref} – immer mit dem <b>heutigen</b> Gewicht, auch in den Formzeilen (ein früherer ARR von 36 wird bei heute 52 kg zu 39), klein daneben der Rohwert. Übersicht: RTR = aktuelles Rating, ARR = bestes der letzten ${p.form_runs} Läufe; darunter der Rang im heutigen Feld.</div>
     <div><b>▶ Replay</b>: PMU meldet ein Replay für dieses Rennen – der Link öffnet die Rennseite auf pmu.fr, dort läuft das Video (für die letzten ${p.form_runs} Läufe). <b>PMU ↗</b>: kein Replay gemeldet, Link zur Rennseite.</div>
