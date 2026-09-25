@@ -507,34 +507,47 @@ def racecard_pruefen() -> None:
     pruefe(z["Wiederholbarkeit bereinigt"] > z["Wiederholbarkeit roh"], "Validierung: bereinigt wiederholbarer als roh")
     pruefe(set(val["Kennzahl"]) >= {"Δ400", "Peak", "Best Seg"}, "Validierung deckt auch Δ400 und Peak ab")
 
-    # ΔL600 / ΔB200 (tempo_delta): Renntag×Bahn fällt heraus, Klasse wird wiedergefunden
-    rng = np.random.default_rng(4)
-    koennen = {f"P{i}": rng.normal(0, 0.8) for i in range(400)}
+    # ΔL600 A / ΔB200 A (tempo_delta): Gruppe Tag × Kurs × Going, Klassenkorrektur der Gruppe
+    rng = np.random.default_rng(7)
+    pferde = pd.Series(rng.normal(0, 1, 1600))
+    nach_koennen = pferde.sort_values().index.to_numpy()
     zeilen, secs = [], []
-    for tag_i in range(120):
-        for bahn, be in (("COMPIEGNE", 0.5), ("DEAUVILLE", 1.0)):
-            tageseffekt = rng.normal(0, 1.5)
-            for rn in range(1, 6):
-                rid_i = f"{(pd.Timestamp('2025-01-01') + timedelta(days=tag_i)):%Y%m%d}R{1 if bahn == 'DEAUVILLE' else 2}C{rn}"
-                dist_i, pace = int(rng.choice([1200, 1600, 2000])), rng.normal(100, 4)
-                prize_i = float(rng.choice([8000, 16000, 32000]))
-                basis = 62 + be + tageseffekt - 0.15 * (pace - 100) + 0.9 * np.log(prize_i / 16000)
-                for no, pf in enumerate(rng.choice(list(koennen), 8, replace=False), 1):
-                    v = basis + koennen[pf] + rng.normal(0, 0.4)
-                    zeilen.append(dict(race_id=rid_i, saddle_no=no, date=pd.Timestamp("2025-01-01") + timedelta(days=tag_i),
-                                       course_key=bahn, distance_m=dist_i, pace_ratio=pace, prize_eur=prize_i,
-                                       conditions_age="TROIS_ANS", speed_last600_kmh=v, wahr=koennen[pf]))
-                    for mtg, extra in ((1000, 3.0), (600, -1.0), (400, 0.6), (200, 0.2), (0, -0.8)):
-                        secs.append(dict(race_id=rid_i, saddle_no=no, m_to_go=mtg, seg_len_m=200, seg_from=f"{mtg + 200}m",
-                                         seg_to=f"{mtg}m" if mtg else "ARR", speed_kmh=v + extra))
+    for tag_i in range(150):
+        for bahn in ("COMPIEGNE", "DEAUVILLE"):
+            schwach = rng.random() < .3                           # an diesem Tag nur schwache Klasse
+            for going, n_r in (("BON", 4), ("SOUPLE", 2)):       # Boden wechselt am selben Tag auf demselben Kurs
+                boden = {"BON": 0.0, "SOUPLE": -2.0}[going] + rng.normal(0, 1)
+                for rn in range(n_r):
+                    stufe = 0 if schwach else int(rng.integers(0, 4))
+                    feld = rng.choice(nach_koennen[stufe * 400:stufe * 400 + 400], 8, replace=False)
+                    rid_i = f"{(pd.Timestamp('2025-01-01') + timedelta(days=tag_i)):%Y%m%d}{bahn[:2]}{going[0]}{rn}"
+                    dist_i, pace = int(rng.choice([1200, 1600, 2000])), rng.normal(100, 4)
+                    for no, pf in enumerate(feld, 1):
+                        v = 62 + boden - 0.15 * (pace - 100) - (dist_i - 1200) / 800 + pferde[pf] + rng.normal(0, .3)
+                        zeilen.append(dict(race_id=rid_i, saddle_no=no, date=pd.Timestamp("2025-01-01") + timedelta(days=tag_i),
+                                           course_key=bahn, going_pmu=going, distance_m=dist_i, pace_ratio=pace,
+                                           prize_eur=[8000, 16000, 32000, 64000][stufe], conditions_age="TROIS_ANS",
+                                           speed_last600_kmh=v, wahr=pferde[pf], schwach=schwach))
+                        for mtg, extra in ((1000, 3.0), (600, -1.0), (400, 0.6), (200, 0.2), (0, -0.8)):
+                            secs.append(dict(race_id=rid_i, saddle_no=no, m_to_go=mtg, seg_len_m=200, seg_from=f"{mtg + 200}m",
+                                             seg_to=f"{mtg}m" if mtg else "ARR", speed_kmh=v + extra))
     td = tempo_delta.berechnen(pd.DataFrame(zeilen), pd.DataFrame(secs))
-    pruefe(td.groupby(["course_key", "date"])["d_L600_B"].mean().abs().max() < 1e-6
-           and abs(tempo_delta.LETZTE_INFO["ziele"]["L600"]["preis_x2"] - 0.9 * np.log(2)) < 0.1,
-           f"ΔL600: Vergleich nur innerhalb Renntag × Bahn (Ø je Renntag 0), Preisgeld ×2 wiedergefunden "
-           f"({tempo_delta.LETZTE_INFO['ziele']['L600']['preis_x2']:+.2f} statt {0.9 * np.log(2):+.2f} km/h)")
-    pruefe(td["d_L600_B"].corr(td["wahr"]) > 0.8 and td["d_L600_B"].corr(td["wahr"]) > td["speed_last600_kmh"].corr(td["wahr"]) + 0.3
-           and td["d_L600_B"].corr(td["wahr"]) > td["d_L600_A"].corr(td["wahr"]),
-           f"ΔL600 B trifft das Können besser als A und roh (r = {td['d_L600_B'].corr(td['wahr']):.2f})")
+    err = td["d_L600_roh"] - td["wahr"]
+    boden_fehler = err[td["going_pmu"] == "SOUPLE"].mean() - err[td["going_pmu"] == "BON"].mean()
+    pruefe(td.groupby(["course_key", "date", "going_pmu"])["d_L600_roh"].mean().abs().max() < 1e-6
+           and abs(boden_fehler) < 0.3,
+           f"ΔL600: verglichen innerhalb Tag × Kurs × Going – SOUPLE-Rennen am selben Tag nicht um den "
+           f"Bodeneffekt (−2 km/h) benachteiligt ({boden_fehler:+.2f})")
+    f_ = td[td["schwach"]]
+    fehler = lambda c: (f_[c] - f_["wahr"]).mean() - (td[c] - td["wahr"]).mean()
+    pruefe(fehler("d_L600_roh") > 0.5 and abs(fehler("d_L600_A")) < 0.15
+           and td["d_L600_A"].corr(td["wahr"]) > td["d_L600_roh"].corr(td["wahr"]) + 0.15,
+           f"Klassenkorrektur: Tage mit nur schwacher Klasse nicht mehr überbewertet "
+           f"({fehler('d_L600_roh'):+.2f} -> {fehler('d_L600_A'):+.2f} km/h, r {td['d_L600_roh'].corr(td['wahr']):.2f} "
+           f"-> {td['d_L600_A'].corr(td['wahr']):.2f})")
+    pruefe(np.allclose(td["d_L600_A"], td["d_L600_roh"] + td["k_L600"], equal_nan=True)
+           and td.groupby(["course_key", "date", "going_pmu"])["k_L600"].nunique().max() == 1,
+           "Δ A = rohes Δ + Klassenkorrektur, eine Korrektur je Gruppe")
     pruefe((td["best200_seg"] == "600m→400m").all() and np.allclose(td["best200_kmh"], td["speed_last600_kmh"] + 0.6),
            "B200: schnellstes 200-m-Segment nur aus den letzten 800 m (das schnellere bei 1000 m zählt nicht)")
 

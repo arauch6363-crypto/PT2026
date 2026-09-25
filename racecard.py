@@ -21,10 +21,11 @@ Kennzahlen
     Position vor dem Finish
                    Platz im Feld am Messpunkt POS_VOR_FINISH_M vor dem Ziel, als Fünftel
                    des Feldes (1 = vorderstes Fünftel)
-    ΔL600 / ΔB200  Tempo letzte 600 m / schnellstes 200-m-Segment der letzten 800 m gegen die Erwartung
-                   (tempo_delta.py, km/h): feste Effekte Renntag × Bahn und Bahn × Distanz, A = + Pace-Ratio,
-                   B = + Klasse. Übersicht: distanzgewichteter, zum Nullpunkt geschrumpfter Ø der letzten
-                   SCHNITT_LAEUFE Läufe mit Tracking.
+    ΔL600 A/ΔB200 A Tempo letzte 600 m / schnellstes 200-m-Segment der letzten 800 m gegen die Erwartung
+                   (tempo_delta.py, km/h): verglichen innerhalb Tag × Kurs × Going (offizieller Bodenbegriff),
+                   korrigiert um Kurs × Distanz und Pace-Ratio, dazu die Klassenkorrektur der Gruppe
+                   (β · (Ø Klasse der Gruppe − Ø Klasse gesamt), β aus Altersklasse und Preisgeld). Übersicht:
+                   distanzgewichteter, zum Nullpunkt geschrumpfter Ø der letzten SCHNITT_LAEUFE Läufe mit Tracking.
     Finish-Index   bereinigt nach dem Modell in speedfig.py (Rennanteil gegen Par, plus Pferdeanteil)
     RTR / ARR      Ratings aus PT_Vorarbeiten (rtr_arr.py), in kg: RTR = Elo-artiges Rating nach dem Rennen,
                    ARR = Leistung im Rennen, gemessen an den Pferden im vorderen Drittel. Bereinigt nach
@@ -67,7 +68,7 @@ SCHNITT_LAEUFE = 5              # Ø der bereinigten Kennzahlen über so viele L
 SCHNITT_PRIOR = 1.0             # Schrumpfung zum Nullpunkt: wirkt wie ein zusätzlicher Lauf mit Wert 0
 SCHNITT_DIST_M = 400            # Gewicht eines Laufs = 1 / (1 + |Distanz − heute| / SCHNITT_DIST_M)
 # Übersicht: Ø dieser Δ-Kennzahlen (tempo_delta, km/h) über die letzten SCHNITT_LAEUFE Läufe mit Tracking
-DELTA_SPALTEN = {"dl600_a": "d_L600_A", "dl600_b": "d_L600_B", "db200_a": "d_B200_A", "db200_b": "d_B200_B"}
+DELTA_SPALTEN = {"dl600_a": "d_L600_A", "db200_a": "d_B200_A"}
 GEWICHT_REF = 55                # x_adj = x − Gewicht (kg) + GEWICHT_REF
 MIN_GRUPPE = 30                 # so viele Läufe braucht eine Gruppe, bevor ihr Effekt zählt
 
@@ -305,7 +306,7 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     # Weg: gelaufene Meter gegenüber dem Median aller Starter im Rennen (nicht gegenüber dem Sieger)
     h["weg_med"] = h["dist_vs_winner_m"] - h.groupby("race_id")["dist_vs_winner_m"].transform("median")
     h = speedfig.berechnen(h, trk_sections)
-    # ΔL600 / ΔB200 (A: Tempo, B: + Klasse), verglichen nur innerhalb Renntag × Bahn
+    # ΔL600 A / ΔB200 A: verglichen innerhalb Tag × Kurs × Going, Pace/Distanz und Klasse der Gruppe korrigiert
     h = tempo_delta.berechnen(h, trk_sections)
     h = h.merge(ratings_je_lauf(races, runners), on=["race_id", "horse_id"], how="left")
     return h.sort_values(["date", "race_id", "finish_pos"]).reset_index(drop=True)
@@ -547,8 +548,8 @@ def _formzeile(z, replays: dict | None = None, gewicht_heute=None) -> dict:
         "weg_med": _num(z.get("weg_med"), 1), "pos_gain": _num(z["pos_gain_800_finish"], 0),
         "l600": _num(z["speed_last600_kmh"], 2), "b200": _num(z.get("best200_kmh"), 2),
         "b200_seg": _txt(z.get("best200_seg")),
-        "dl600_a": _num(z.get("d_L600_A"), 2), "dl600_b": _num(z.get("d_L600_B"), 2),
-        "db200_a": _num(z.get("d_B200_A"), 2), "db200_b": _num(z.get("d_B200_B"), 2),
+        "dl600_a": _num(z.get("d_L600_A"), 2), "dl600_k": _num(z.get("k_L600"), 2),
+        "db200_a": _num(z.get("d_B200_A"), 2), "db200_k": _num(z.get("k_B200"), 2),
         "path_factor": _num(z.get("path_factor"), 3),
         "sec_mismatch": bool(z.get("last600_mismatch") is True),
         "rtr": _num(z.get("rtr"), 1), "rtr_adj": _adj(z.get("rtr"), gewicht_heute),
