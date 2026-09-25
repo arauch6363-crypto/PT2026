@@ -21,12 +21,11 @@ Kennzahlen
     Position vor dem Finish
                    Platz im Feld am Messpunkt POS_VOR_FINISH_M vor dem Ziel, als Fünftel
                    des Feldes (1 = vorderstes Fünftel)
-    bereinigt      L600, L400, Best Seg (letzte 800 m), Δ400 (L400 − Tempo 600–400 m), Peak
-                   (Best Seg − L600) und Finish-Index nach dem Vier-Stufen-Modell in speedfig.py:
-                   Rennanteil gegen einen Par aus Distanz, Boden, Bahn und frühem Tempo (Leave-one-out),
-                   plus Pferdeanteil gegenüber dem Feld. L600/L400 in Längen, Best Seg/Δ400/Peak in
-                   km/h, positiv = schneller bzw. stärker. Übersicht: distanzgewichteter, zum Nullpunkt
-                   geschrumpfter Ø der letzten SCHNITT_LAEUFE Läufe mit Tracking.
+    ΔL600 / ΔB200  Tempo letzte 600 m / schnellstes 200-m-Segment der letzten 800 m gegen die Erwartung
+                   (tempo_delta.py, km/h): feste Effekte Renntag × Bahn und Bahn × Distanz, A = + Pace-Ratio,
+                   B = + Klasse. Übersicht: distanzgewichteter, zum Nullpunkt geschrumpfter Ø der letzten
+                   SCHNITT_LAEUFE Läufe mit Tracking.
+    Finish-Index   bereinigt nach dem Modell in speedfig.py (Rennanteil gegen Par, plus Pferdeanteil)
     RTR / ARR      Ratings aus PT_Vorarbeiten (rtr_arr.py), in kg: RTR = Elo-artiges Rating nach dem Rennen,
                    ARR = Leistung im Rennen, gemessen an den Pferden im vorderen Drittel. Bereinigt nach
                    Gewicht: x_adj = x − heutiges Gewicht + GEWICHT_REF – in der Übersicht und in den
@@ -50,6 +49,7 @@ import requests
 import pmu
 import rtr_arr
 import speedfig
+import tempo_delta
 
 TEMPLATE = Path(__file__).with_name("racecard_template.html")
 
@@ -66,6 +66,8 @@ GEGNER_MAX = 3                  # so viele Gegner je Lauf (die am nächsten am P
 SCHNITT_LAEUFE = 5              # Ø der bereinigten Kennzahlen über so viele Läufe mit Tracking
 SCHNITT_PRIOR = 1.0             # Schrumpfung zum Nullpunkt: wirkt wie ein zusätzlicher Lauf mit Wert 0
 SCHNITT_DIST_M = 400            # Gewicht eines Laufs = 1 / (1 + |Distanz − heute| / SCHNITT_DIST_M)
+# Übersicht: Ø dieser Δ-Kennzahlen (tempo_delta, km/h) über die letzten SCHNITT_LAEUFE Läufe mit Tracking
+DELTA_SPALTEN = {"dl600_a": "d_L600_A", "dl600_b": "d_L600_B", "db200_a": "d_B200_A", "db200_b": "d_B200_B"}
 GEWICHT_REF = 55                # x_adj = x − Gewicht (kg) + GEWICHT_REF
 MIN_GRUPPE = 30                 # so viele Läufe braucht eine Gruppe, bevor ihr Effekt zählt
 
@@ -235,8 +237,10 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     inc = h["incident"].astype("string").str.upper().fillna("") if "incident" in h else ""
     h = h[(stat != "NON_PARTANT") & (inc != "NON_PARTANT")].copy()
 
+    if "conditions_age" not in r:
+        r["conditions_age"] = None
     h = h.merge(r[["race_id", "date", "hippodrome", "course_key", "distance_m", "going", "going_value",
-                   "going_pmu", "going_class", "dist_bucket", "prize_eur", "racetype"]],
+                   "going_pmu", "going_class", "dist_bucket", "prize_eur", "racetype", "conditions_age"]],
                 on="race_id", how="inner")
     h["n_runners"] = h.groupby("race_id")["saddle_no"].transform("count")
     h["won"] = (h["finish_pos"] == 1).astype(int)
@@ -301,6 +305,8 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     # Weg: gelaufene Meter gegenüber dem Median aller Starter im Rennen (nicht gegenüber dem Sieger)
     h["weg_med"] = h["dist_vs_winner_m"] - h.groupby("race_id")["dist_vs_winner_m"].transform("median")
     h = speedfig.berechnen(h, trk_sections)
+    # ΔL600 / ΔB200 (A: Tempo, B: + Klasse), verglichen nur innerhalb Renntag × Bahn
+    h = tempo_delta.berechnen(h, trk_sections)
     h = h.merge(ratings_je_lauf(races, runners), on=["race_id", "horse_id"], how="left")
     return h.sort_values(["date", "race_id", "finish_pos"]).reset_index(drop=True)
 
@@ -539,12 +545,10 @@ def _formzeile(z, replays: dict | None = None, gewicht_heute=None) -> dict:
         "fifth": _num(z["fifth"], 0), "pace_ratio": _num(z["pace_ratio"], 1),
         "finish_index": _num(z["finish_index"], 1), "fi_adj": _num(z.get("fi_adj"), 1),
         "weg_med": _num(z.get("weg_med"), 1), "pos_gain": _num(z["pos_gain_800_finish"], 0),
-        "best_seg_s": _num(z.get("best_seg_s"), 2), "best_seg_to_go": _num(z.get("best_seg_to_go_m"), 0),
-        "best_adj": _num(z.get("best_adj"), 1),
-        "v600": _num(z["speed_last600_kmh"], 2), "v600_adj": _num(z.get("v600_adj_l"), 2),
-        "v400": _num(z["speed_last400_kmh"], 2), "v400_adj": _num(z.get("v400_adj_l"), 2),
-        "accel": _num(z.get("accel_kmh"), 1), "accel_adj": _num(z.get("accel_adj"), 1),
-        "peak": _num(z.get("peak_kmh"), 1), "peak_adj": _num(z.get("peak_adj"), 1),
+        "l600": _num(z["speed_last600_kmh"], 2), "b200": _num(z.get("best200_kmh"), 2),
+        "b200_seg": _txt(z.get("best200_seg")),
+        "dl600_a": _num(z.get("d_L600_A"), 2), "dl600_b": _num(z.get("d_L600_B"), 2),
+        "db200_a": _num(z.get("d_B200_A"), 2), "db200_b": _num(z.get("d_B200_B"), 2),
         "path_factor": _num(z.get("path_factor"), 3),
         "sec_mismatch": bool(z.get("last600_mismatch") is True),
         "rtr": _num(z.get("rtr"), 1), "rtr_adj": _adj(z.get("rtr"), gewicht_heute),
@@ -786,11 +790,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                         "last": _num(vorher.iloc[0].get("arr"), 1) if len(vorher) else None,
                         "last_adj": _adj(vorher.iloc[0].get("arr"), w_heute) if len(vorher) else None,
                         "avg3": _num(ar.head(3).mean(), 1) if len(ar) else None, "runs": int(len(ar))},
-                "summary": {"v600": schnitt("v600_adj_l"), "v400": schnitt("v400_adj_l"),
-                            "best": schnitt("best_adj"), "fi": schnitt("fi_adj"),
-                            "accel": schnitt("accel_adj"), "peak": schnitt("peak_adj"),
-                            "v600_sd": schnitt("v600_adj_l", True), "accel_sd": schnitt("accel_adj", True),
-                            "best_sd": schnitt("best_adj", True),
+                "summary": {**{k: schnitt(c) for k, c in DELTA_SPALTEN.items()},
+                            **{k + "_sd": schnitt(c, True) for k, c in DELTA_SPALTEN.items()},
                             "runs": int(min(len(zuverl), SCHNITT_LAEUFE)) if len(zuverl) else 0},
                 "ae": ae_p,
                 "pref": {
@@ -805,7 +806,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "form_lines": form,
             })
         partanten = [x for x in starters if not x["nr"]]
-        for k in ("v600", "v400", "best", "fi", "accel", "peak"):  # Rang im heutigen Feld
+        for k in DELTA_SPALTEN:                                   # Rang im heutigen Feld
             werte = [x["summary"][k] for x in partanten]
             for x in starters:
                 x["summary"][k + "_rank"] = _rang(werte, x["summary"][k]) if not x["nr"] else None
@@ -969,8 +970,7 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
         pf = hist["path_factor"].dropna() if "path_factor" in hist else pd.Series(dtype=float)
         if len(pf):
             print(f"Wegfaktor bekannt für {len(pf)} Läufe, Median {pf.median():.3f}")
-        print("Validierung der bereinigten Kennzahlen (höher = besser; Prognose: negativer = besser):")
-        print(speedfig.validierung(hist).to_string(index=False))
+        print(tempo_delta.bericht())
     rennen = letzte_rennen(hist, runners_heute, tag)
     print(f"Replays für {len(rennen)} frühere Rennen der Starter …")
     rp = replays(rennen, base, tag=tag)
