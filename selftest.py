@@ -27,6 +27,7 @@ import parse_tracking as pt
 import pipeline as tp
 import pmu
 import rtr_arr
+import tempo_delta
 
 HEUTE = date.today()
 T1 = HEUTE - timedelta(days=1)          # gestern
@@ -505,6 +506,37 @@ def racecard_pruefen() -> None:
     z = val.set_index("Kennzahl").loc["L400"]
     pruefe(z["Wiederholbarkeit bereinigt"] > z["Wiederholbarkeit roh"], "Validierung: bereinigt wiederholbarer als roh")
     pruefe(set(val["Kennzahl"]) >= {"Δ400", "Peak", "Best Seg"}, "Validierung deckt auch Δ400 und Peak ab")
+
+    # ΔL600 / ΔB200 (tempo_delta): Renntag×Bahn fällt heraus, Klasse wird wiedergefunden
+    rng = np.random.default_rng(4)
+    koennen = {f"P{i}": rng.normal(0, 0.8) for i in range(400)}
+    zeilen, secs = [], []
+    for tag_i in range(120):
+        for bahn, be in (("COMPIEGNE", 0.5), ("DEAUVILLE", 1.0)):
+            tageseffekt = rng.normal(0, 1.5)
+            for rn in range(1, 6):
+                rid_i = f"{(pd.Timestamp('2025-01-01') + timedelta(days=tag_i)):%Y%m%d}R{1 if bahn == 'DEAUVILLE' else 2}C{rn}"
+                dist_i, pace = int(rng.choice([1200, 1600, 2000])), rng.normal(100, 4)
+                prize_i = float(rng.choice([8000, 16000, 32000]))
+                basis = 62 + be + tageseffekt - 0.15 * (pace - 100) + 0.9 * np.log(prize_i / 16000)
+                for no, pf in enumerate(rng.choice(list(koennen), 8, replace=False), 1):
+                    v = basis + koennen[pf] + rng.normal(0, 0.4)
+                    zeilen.append(dict(race_id=rid_i, saddle_no=no, date=pd.Timestamp("2025-01-01") + timedelta(days=tag_i),
+                                       course_key=bahn, distance_m=dist_i, pace_ratio=pace, prize_eur=prize_i,
+                                       conditions_age="TROIS_ANS", speed_last600_kmh=v, wahr=koennen[pf]))
+                    for mtg, extra in ((1000, 3.0), (600, -1.0), (400, 0.6), (200, 0.2), (0, -0.8)):
+                        secs.append(dict(race_id=rid_i, saddle_no=no, m_to_go=mtg, seg_len_m=200, seg_from=f"{mtg + 200}m",
+                                         seg_to=f"{mtg}m" if mtg else "ARR", speed_kmh=v + extra))
+    td = tempo_delta.berechnen(pd.DataFrame(zeilen), pd.DataFrame(secs))
+    pruefe(td.groupby(["course_key", "date"])["d_L600_B"].mean().abs().max() < 1e-6
+           and abs(tempo_delta.LETZTE_INFO["ziele"]["L600"]["preis_x2"] - 0.9 * np.log(2)) < 0.1,
+           f"ΔL600: Vergleich nur innerhalb Renntag × Bahn (Ø je Renntag 0), Preisgeld ×2 wiedergefunden "
+           f"({tempo_delta.LETZTE_INFO['ziele']['L600']['preis_x2']:+.2f} statt {0.9 * np.log(2):+.2f} km/h)")
+    pruefe(td["d_L600_B"].corr(td["wahr"]) > 0.8 and td["d_L600_B"].corr(td["wahr"]) > td["speed_last600_kmh"].corr(td["wahr"]) + 0.3
+           and td["d_L600_B"].corr(td["wahr"]) > td["d_L600_A"].corr(td["wahr"]),
+           f"ΔL600 B trifft das Können besser als A und roh (r = {td['d_L600_B'].corr(td['wahr']):.2f})")
+    pruefe((td["best200_seg"] == "600m→400m").all() and np.allclose(td["best200_kmh"], td["speed_last600_kmh"] + 0.6),
+           "B200: schnellstes 200-m-Segment nur aus den letzten 800 m (das schnellere bei 1000 m zählt nicht)")
 
     # Rohwerte aus den Abschnitten: fehlender Split -> kein Tempo (statt zu hohem), 600–400 m bleibt
     secs = pd.DataFrame([{"race_id": "R", "saddle_no": 1, "m_to_go": m, "seg_len_m": 200, "split_s": t, "cum_s": None}
