@@ -435,6 +435,10 @@ def racecard_pruefen() -> None:
     pruefe(fz["arr_adj"] == 39.0 and fz["rtr_adj"] == 43.0 and fz["arr"] == 36.0
            and rc._formzeile(z, None, None)["arr_adj"] is None,
            "Formzeile: bereinigt mit dem heutigen Gewicht, nicht dem damaligen (ARR 36, heute 52 kg -> 39)")
+    z["tr"] = 100.0
+    pruefe(rc._formzeile(z, None, 52.0)["tr_heute"] == 107 and rc._formzeile(z, None, 60.0)["tr_heute"] == 89
+           and rc._formzeile(z, None, None)["tr_heute"] == 100,
+           "TR in der Formzeile auf das heutige Gewicht umgerechnet (100 lb bei 55 kg: heute 52 kg -> 107, 60 kg -> 89)")
     ra_df = pd.DataFrame({"race_id": "R", "date": pd.Timestamp("2026-01-01"), "horse": list("ABCD"),
                           "finish_pos": [1, 2, 3, 4], "lengths_back": [0, 1, 3, 7], "weight_kg": [58, 57, 56, 55],
                           "rating": [40, 38, 35, 30], "age": 4, "going_category": "FAST",
