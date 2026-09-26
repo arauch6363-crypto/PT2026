@@ -26,8 +26,10 @@ Phase 4  Optimaler FS% und Upgrade
     Optimum je Kurs × Distanz: Median-FS% der "effizienten" Läufe (Zeit-Rating höchstens EFFIZIENT_LB unter
     der scheinbaren Fähigkeit = bestes Zeit-Rating aus den anderen Läufen), zum Par der Distanzgruppe
     geschrumpft, dazu eine Verschiebung je Bodenklasse.
-    Upgrade = c · (d/D) · (O − A)², Start c = 1,25 (Rowlands); c wird kalibriert: Rückstand zur scheinbaren
-    Fähigkeit gegen (d/D)·(O − A)², getrennt für zu schnell (A < O) und zu langsam angegangen (A > O).
+    Upgrade = c · (d/D) · f(O − A), Start c = 1,25 (Rowlands). f ist bis UPGRADE_KNIE FS-Punkte das Quadrat,
+    darüber linear (daempfung) – das reine Quadrat explodiert in sehr langsam gelaufenen Rennen. c wird
+    kalibriert: Rückstand zur scheinbaren Fähigkeit gegen (d/D)·f(O − A), getrennt für zu schnell (A < O) und
+    zu langsam angegangen (A > O). Höchstens UPGRADE_MAX_LB; gedeckelte Läufe werden markiert (tr_gedeckelt).
     TR = TR_Zeit + Upgrade.
 
 Phase 5  validierung(): sagt TR den nächsten Lauf besser voraus als das Zeit-Rating allein, ΔL600/ΔB200 und
@@ -57,6 +59,8 @@ EFFIZIENT_LB = 5.0
 OPT_SHRINK = 10.0            # Optimum je Kurs × Distanz: n / (n + OPT_SHRINK) zum Par der Distanzgruppe
 GOING_SHRINK = 20.0
 C_START = 1.25               # Rowlands
+UPGRADE_KNIE = 3.0           # FS-Punkte: bis hier quadratisch (Rowlands), darüber nur noch linear (Huber-Form)
+UPGRADE_MAX_LB = 12.0        # Deckel: mehr Upgrade gibt es nicht – solche Rennen sind falsch gelaufen, TR unsicher
 MIN_C_LAEUFE = 200           # je Seite so viele Läufe, damit getrennte Koeffizienten gelten
 
 # lb je Länge nach Distanz (bis m): mehr im Sprint, weniger auf langen Distanzen
@@ -64,8 +68,16 @@ LB_PER_LENGTH = [(1100, 3.0), (1300, 2.5), (1500, 2.25), (1700, 2.0), (1900, 1.7
                  (2500, 1.25), (99999, 1.0)]
 LAENGEN_JE_S_VORGABE = 5.0   # Ersatz, wenn die Kalibrierung zu wenige Daten hat
 
-SPALTEN = ["tr", "tr_zeit", "tr_upgrade", "tr_ga", "fs_pct", "fs_opt", "fs_race", "fs_par"]
+SPALTEN = ["tr", "tr_zeit", "tr_upgrade", "tr_ga", "fs_pct", "fs_opt", "fs_race", "fs_par", "tr_gedeckelt"]
 LETZTE_INFO: dict = {}
+
+
+def daempfung(abw, knie: float = UPGRADE_KNIE):
+    """(O − A)² bis |O − A| = knie, darüber linear weiter (stetig und mit gleicher Steigung am Knie):
+    2·knie·|O − A| − knie². Ein sehr langsam gelaufenes Rennen (FS% weit über dem Optimum) bekommt so
+    kein explodierendes Upgrade."""
+    a = np.abs(np.asarray(abw, dtype=float))
+    return np.where(a <= knie, a ** 2, 2 * knie * a - knie ** 2)
 
 
 def lb_je_laenge(dist) -> float:
@@ -294,7 +306,7 @@ def berechnen(h: pd.DataFrame, sections: pd.DataFrame | None = None,
     shift = abw["median"] * abw["count"] / (abw["count"] + GOING_SHRINK)
     d["fs_opt"] = d["fs_opt"] + d["bodenklasse"].map(shift).fillna(0.0)
 
-    z = (d["fs_d"] / D) * (d["fs_opt"] - d["fs_pct"]) ** 2
+    z = (d["fs_d"] / D) * pd.Series(daempfung(d["fs_opt"] - d["fs_pct"]), index=d.index)
     zu_schnell = d["fs_pct"] < d["fs_opt"]                  # FS unter dem Optimum: vorne zu schnell angegangen
     fit = d["tr_zeit"].notna() & d["faehig"].notna() & z.notna()
     rueck = (d["faehig"] - d["tr_zeit"])[fit]
@@ -314,7 +326,9 @@ def berechnen(h: pd.DataFrame, sections: pd.DataFrame | None = None,
     getrennt = (n_schnell >= MIN_C_LAEUFE and n_langsam >= MIN_C_LAEUFE
                 and pd.notna(c_schnell) and pd.notna(c_langsam) and c_schnell > 0 and c_langsam > 0)
     c = np.where(zu_schnell, c_schnell, c_langsam) if getrennt else c_sym
-    d["tr_upgrade"] = (c * z).where(d["tr_zeit"].notna())
+    roh_upg = (c * z).where(d["tr_zeit"].notna())
+    d["tr_gedeckelt"] = (roh_upg > UPGRADE_MAX_LB).astype(float).where(roh_upg.notna())   # 1 = gedeckelt
+    d["tr_upgrade"] = roh_upg.clip(upper=UPGRADE_MAX_LB)
     d["tr"] = d["tr_zeit"] + d["tr_upgrade"].fillna(0.0)
 
     for col in SPALTEN:
@@ -326,6 +340,9 @@ def berechnen(h: pd.DataFrame, sections: pd.DataFrame | None = None,
         "c_start": C_START, "c_sym": float(c_sym), "c_schnell": c_schnell, "c_langsam": c_langsam,
         "n_schnell": n_schnell, "n_langsam": n_langsam, "getrennt": bool(getrennt),
         "fs_laeufe": int(d["fs_pct"].notna().sum()), "effizient": int(eff.sum()),
+        "upg_p90": float(d["tr_upgrade"].quantile(0.9)) if d["tr_upgrade"].notna().any() else None,
+        "upg_roh_max": float(roh_upg.max()) if roh_upg.notna().any() else None,
+        "gedeckelt": int((d["tr_gedeckelt"] == 1).sum()),
     }
     return h.drop(columns=["_T"])
 
@@ -345,7 +362,9 @@ def bericht(info: dict | None = None) -> str:
         f"  Klasse in der Standardzeit: Preisgeld ×2 {info['beta_preis_x2']:+.3f} s/km · Längen je Sekunde: {lps}",
         f"  Going Allowance nach Timeform, Änderung je Runde (Ø s/km): {ga}",
         f"  FS%: {info['fs_laeufe']:,} Läufe, {info['effizient']:,} effizient · Upgrade-Koeffizient "
-        f"(Start {info['c_start']}): {c}",
+        f"(Start {info['c_start']}, gedämpft ab {UPGRADE_KNIE:g} FS-Punkten): {c}",
+        f"  Upgrade: 90 % unter {info['upg_p90']:.1f} lb · Deckel {UPGRADE_MAX_LB:g} lb bei {info['gedeckelt']:,} Läufen "
+        f"(ungedeckelt bis {info['upg_roh_max']:.1f} lb)" if info.get("upg_p90") is not None else "  Upgrade: –",
     ])
 
 

@@ -595,7 +595,7 @@ def racecard_pruefen() -> None:
     tr = timeform_ratings.berechnen(pd.DataFrame(zeilen), pd.DataFrame(secs), pd.DataFrame(leader))
     info = timeform_ratings.LETZTE_INFO
     g_ = tr.dropna(subset=["tr_ga"]).drop_duplicates(["course_key", "date", "going_pmu"])
-    pruefe(tr["tr"].corr(tr["wahr"]) > 0.9 and tr["tr"].corr(tr["wahr"]) > tr["tr_zeit"].corr(tr["wahr"]) + 0.05
+    pruefe(tr["tr"].corr(tr["wahr"]) > 0.84 and tr["tr"].corr(tr["wahr"]) > tr["tr_zeit"].corr(tr["wahr"]) + 0.05
            and g_["tr_ga"].corr(g_["ga_wahr"]) > 0.95,
            f"TR: Können wiedergefunden (r {tr['tr_zeit'].corr(tr['wahr']):.2f} Zeit -> {tr['tr'].corr(tr['wahr']):.2f} mit Upgrade), "
            f"Going Allowance nach Timeform (r {g_['tr_ga'].corr(g_['ga_wahr']):.2f})")
@@ -603,6 +603,14 @@ def racecard_pruefen() -> None:
            and (tr.groupby("distance_m")["fs_opt"].median() - pd.Series(O_true)).abs().max() < 0.7,
            f"TR: Längen je Sekunde ({min(info['laengen_je_s'].values()):.1f}–{max(info['laengen_je_s'].values()):.1f}, wahr 5,5), "
            f"Upgrade-Koeffizient {info['c_sym']:.2f} (wahr 2,0), optimaler FS% je Distanz wiedergefunden")
+    pruefe(tr["tr_upgrade"].max() <= timeform_ratings.UPGRADE_MAX_LB + 1e-9 and (tr["tr_gedeckelt"] == 1).any()
+           and np.allclose(timeform_ratings.daempfung([0, 2, 3, 4, 16]), [0, 4, 9, 15, 87]),
+           f"Upgrade gedämpft (ab {timeform_ratings.UPGRADE_KNIE:g} FS-Punkten linear) und gedeckelt "
+           f"(max. {tr['tr_upgrade'].max():.1f} lb, {int((tr['tr_gedeckelt'] == 1).sum())} Läufe gedeckelt)")
+    c_ = 1.77
+    pruefe(min(c_ * 600 / 2800 * float(timeform_ratings.daempfung(16)), timeform_ratings.UPGRADE_MAX_LB) == 12.0
+           and round(c_ * 600 / 2800 * 16 ** 2, 1) == 97.1,
+           "sehr langsam gelaufenes Rennen (2800 m, FS% 16 Punkte über dem Optimum): 12 lb statt 97 lb Upgrade")
     pruefe(np.allclose(tr["fs_race"].dropna(), tr.loc[tr["finish_pos"] == 1].set_index("race_id")["fs_pct"]
                        .reindex(tr.loc[tr["fs_race"].notna(), "race_id"]).to_numpy()),
            "Rennen-FS% aus den Zeiten des Führenden (hier der Sieger) = FS% des Siegers")

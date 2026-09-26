@@ -150,7 +150,9 @@ Je Starter:
      gegen 55 kg. Ausgerittene ohne Rating.
   3. Finishing Speed: FS% = (T·d·100)/(D·t) über die letzten 400 m (bis 1600 m) bzw. 600 m, je Pferd und je Rennen
      (Führender, gegen den Par je Kurs × Distanz).
-  4. Upgrade = c · (d/D) · (Optimum − FS%)², Optimum = Median-FS% der effizienten Läufe (höchstens 5 lb unter der
+  4. Upgrade = c · (d/D) · f(Optimum − FS%), f = Quadrat bis 3 FS-Punkte, darüber linear (sonst explodiert es in sehr
+     langsam gelaufenen Rennen), höchstens 12 lb; gedeckelte Läufe sind in der Formzeile mit * markiert und zählen
+     nicht für das beste TR der Übersicht. Optimum = Median-FS% der effizienten Läufe (höchstens 5 lb unter der
      scheinbaren Fähigkeit) je Kurs × Distanz, zur Distanzgruppe geschrumpft, plus Verschiebung je Bodenklasse;
      c ab 1,25 auf den eigenen Daten kalibriert, getrennt für zu schnell / zu langsam angegangen. TR = Zeit + Upgrade.
   5. Backtest beim Lauf: Korrelation mit dem nächsten Ergebnis und Top-3-Quote des Bestbewerteten für TR,

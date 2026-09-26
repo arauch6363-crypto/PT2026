@@ -567,6 +567,7 @@ def _formzeile(z, replays: dict | None = None, gewicht_heute=None) -> dict:
         "b200_seg": _txt(z.get("best200_seg")),
         "tr": _num(z.get("tr"), 0), "tr_heute": _tr_heute(z.get("tr"), gewicht_heute) if pd.notna(z.get("tr")) else None,
         "tr_zeit": _num(z.get("tr_zeit"), 0), "tr_upg": _num(z.get("tr_upgrade"), 1),
+        "tr_cap": bool(z.get("tr_gedeckelt") == 1),
         "tr_ga": _num(z.get("tr_ga"), 2), "fs": _num(z.get("fs_pct"), 1), "fs_opt": _num(z.get("fs_opt"), 1),
         "fs_race": _num(z.get("fs_race"), 1), "fs_par": _num(z.get("fs_par"), 1),
         "dl600_a": _num(z.get("d_L600_A"), 2), "dl600_k": _num(z.get("k_L600"), 2),
@@ -756,8 +757,10 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             ar = (vorher["arr"].head(LETZTE_LAEUFE).dropna() if len(vorher) and "arr" in vorher
                   else pd.Series(dtype=float))
             w_heute = p.get("weight_kg")
-            trs = (vorher["tr"].head(LETZTE_LAEUFE).dropna() if len(vorher) and "tr" in vorher
-                   else pd.Series(dtype=float))
+            # bestes TR ohne Läufe mit gedeckeltem Upgrade (falsch gelaufene Rennen, TR unsicher)
+            trs = (vorher.head(LETZTE_LAEUFE).pipe(lambda v: v.loc[v["tr_gedeckelt"].fillna(0) != 1, "tr"]
+                                                   if "tr_gedeckelt" in v else v["tr"]).dropna()
+                   if len(vorher) and "tr" in vorher else pd.Series(dtype=float))
             early = float(fr.mean()) if len(fr) else None
             st_k, st_l = stil(early)
             # Ø der bereinigten Kennzahlen aus den letzten Läufen mit Tracking (ohne ausgerittene)
@@ -873,7 +876,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                    "trend_diff": TREND_DIFF, "trend_min": TREND_MIN_STARTS, "pref_jt_years": VORLIEBEN_JT_TAGE // 365,
                    "avg_runs": SCHNITT_LAEUFE, "rivals_runs": GEGNER_LAEUFE, "rivals_max": GEGNER_MAX,
                    "best_seg_m": speedfig.BEST_SEG_BEREICH_M, "beaten_l": speedfig.AUSGERITTEN_L,
-                   "avg_prior": SCHNITT_PRIOR, "avg_dist_m": SCHNITT_DIST_M, "weight_ref": GEWICHT_REF,
+                   "avg_prior": SCHNITT_PRIOR, "avg_dist_m": SCHNITT_DIST_M, "weight_ref": GEWICHT_REF, "tr_upg_max": timeform_ratings.UPGRADE_MAX_LB,
+                   "tr_upg_knie": timeform_ratings.UPGRADE_KNIE,
                    "styles": [{"key": k, "label": lab, "max": bis} for bis, k, lab in STIL]},
         "bias_all": bias["gesamt"],
         "meetings": sorted(meetings.values(), key=lambda m: m["reunion"]),
