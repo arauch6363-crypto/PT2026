@@ -146,6 +146,43 @@ def _fit_fe_ab(d: pd.DataFrame, target: str, cols_a: list[str], cols_b: list[str
             pd.Series(bB, index=cols_b))
 
 
+def gruppen(rc: pd.DataFrame) -> pd.DataFrame:
+    """Kurs (trk), Going, Kurs×Distanz (cell) und Gruppe Tag × Kurs × Going (meeting) je Rennen.
+    Erwartet course_key, going_pmu (offizieller Bodenbegriff), distance_m, date. Auch von timeform_ratings genutzt."""
+    rc = rc.copy()
+    rc["trk"] = rc["course_key"].astype(str).map(norm)
+    rc["going"] = rc["going_pmu"].map(lambda g: norm(g) if pd.notna(g) and str(g).strip() else "UNBEKANNT")
+    rc["cell"] = rc["trk"] + "_" + rc["distance_m"].astype(int).astype(str)
+    rc["meeting"] = rc["trk"] + "_" + pd.to_datetime(rc["date"]).dt.strftime("%Y-%m-%d") + "_" + rc["going"]
+    rc["band"] = pd.cut(rc["distance_m"], BANDS, labels=BAND_LABELS)
+    return rc
+
+
+def klasse(rc: pd.DataFrame) -> pd.DataFrame:
+    """Klassen-Näherung je Rennen: conditions_age (seltene -> SONSTIGE), log(Preisgeld) zentriert,
+    fehlend -> Median + Flag. Auch von timeform_ratings genutzt."""
+    rc = rc.copy()
+    rc["age_cond"] = rc["conditions_age"].map(lambda x: norm(x) if pd.notna(x) and str(x).strip() else "UNBEKANNT")
+    age_n = rc["age_cond"].value_counts()
+    rc.loc[rc["age_cond"].map(age_n) < MIN_RACES_AGE, "age_cond"] = "SONSTIGE"
+    prize = pd.to_numeric(rc["prize_eur"], errors="coerce")
+    rc["prize_missing"] = prize.isna().astype(float)
+    rc["log_prize"] = np.log1p(prize.fillna(prize.median() if prize.notna().any() else 0))
+    rc["log_prize_c"] = rc["log_prize"] - rc["log_prize"].median()
+    return rc
+
+
+def klassen_spalten(d: pd.DataFrame) -> tuple[list[str], str]:
+    """Dummies der Altersklasse (gegen die häufigste) in d anlegen; Rückgabe: Klassenspalten, Referenz."""
+    ref_age = d["age_cond"].value_counts().idxmax()
+    age_cols = []
+    for a in sorted(d["age_cond"].unique()):
+        if a != ref_age:
+            d[f"age|{a}"] = (d["age_cond"] == a).astype(float)
+            age_cols.append(f"age|{a}")
+    return ["log_prize_c", "prize_missing"] + age_cols, ref_age
+
+
 def berechnen(h: pd.DataFrame, sections: pd.DataFrame | None = None) -> pd.DataFrame:
     """ΔL600 A / ΔB200 A je Lauf (Spalten SPALTEN, dazu EXTRA, best200_kmh, best200_seg).
 
@@ -176,26 +213,15 @@ def berechnen(h: pd.DataFrame, sections: pd.DataFrame | None = None) -> pd.DataF
         return h
     lo, hi = rc["pace_ratio"].quantile(list(PACE_Q))
     rc = rc[rc["pace_ratio"].between(lo, hi)]
-    rc["trk"] = rc["course_key"].astype(str).map(norm)
-    rc["going"] = rc["going_pmu"].map(lambda g: norm(g) if pd.notna(g) and str(g).strip() else "UNBEKANNT")
-    rc["cell"] = rc["trk"] + "_" + rc["distance_m"].astype(int).astype(str)
-    # Gruppe: Tag × Kurs × Going
-    rc["meeting"] = rc["trk"] + "_" + pd.to_datetime(rc["date"]).dt.strftime("%Y-%m-%d") + "_" + rc["going"]
+    rc = gruppen(rc)                                   # Gruppe: Tag × Kurs × Going
     n_cell = rc.groupby("cell")["race_id"].nunique()
     rc = rc[rc["cell"].isin(n_cell[n_cell >= MIN_RACES_CELL].index)].copy()
     if rc.empty:
         LETZTE_INFO = {"rennen": 0}
         return h
-    rc["band"] = pd.cut(rc["distance_m"], BANDS, labels=BAND_LABELS)
 
     # 2) Klasse: conditions_age (seltene -> SONSTIGE), log(Preisgeld) zentriert, fehlend -> Median + Flag
-    rc["age_cond"] = rc["conditions_age"].map(lambda x: norm(x) if pd.notna(x) and str(x).strip() else "UNBEKANNT")
-    age_n = rc["age_cond"].value_counts()
-    rc.loc[rc["age_cond"].map(age_n) < MIN_RACES_AGE, "age_cond"] = "SONSTIGE"
-    prize = pd.to_numeric(rc["prize_eur"], errors="coerce")
-    rc["prize_missing"] = prize.isna().astype(float)
-    rc["log_prize"] = np.log1p(prize.fillna(prize.median() if prize.notna().any() else 0))
-    rc["log_prize_c"] = rc["log_prize"] - rc["log_prize"].median()
+    rc = klasse(rc)
     pace_med = rc["pace_ratio"].median()
 
     # 3) Starter dieser Rennen mit den Zielgrößen
@@ -213,13 +239,8 @@ def berechnen(h: pd.DataFrame, sections: pd.DataFrame | None = None) -> pd.DataF
         d[f"pr|{bl}"] = (d["pace_ratio"] - pace_med) * m
         d[f"pr2|{bl}"] = d[f"pr|{bl}"] ** 2
         pace_cols += [f"pr|{bl}", f"pr2|{bl}"]
-    ref_age = d["age_cond"].value_counts().idxmax()
-    age_cols = []
-    for a in sorted(d["age_cond"].unique()):
-        if a != ref_age:
-            d[f"age|{a}"] = (d["age_cond"] == a).astype(float)
-            age_cols.append(f"age|{a}")
-    class_cols = ["log_prize_c", "prize_missing"] + age_cols
+    class_cols, ref_age = klassen_spalten(d)
+    age_cols = [c for c in class_cols if c.startswith("age|")]
 
     info = {"rennen": int(d["race_id"].nunique()), "starts": int(len(d)), "bahnen": int(d["trk"].nunique()),
             "gruppen": int(d["meeting"].nunique()), "ref_age": ref_age, "ziele": {}}
