@@ -68,6 +68,7 @@ Tracking ist eine Eigenschaft von **Renntag und Rennen**, nicht von der Bahn:
 | `pipeline.py` | Tagesablauf, Fortschritt, Parquet-Ausgabe, Auswertungshilfen |
 | `racecard.py` | Interaktive Race Card für die heutigen Rennen (HTML) |
 | `tempo_delta.py` | ΔL600 A / ΔB200 A: Schlusstempo gegen die Erwartung, verglichen innerhalb Tag × Kurs × Going, mit Klassenkorrektur |
+| `timeform_ratings.py` | TR: Zeit-Rating nach Timeform-Art (Standardzeiten, Going Allowance) mit Finishing-Speed-Upgrade, Backtest |
 | `rtr_arr.py` | Ratings aus PT_Vorarbeiten: RTR (Elo-artiges Rating nach dem Rennen) und ARR (Leistung im Rennen) |
 | `racecard_template.html` | Layout der Race Card; die Daten werden als JSON eingesetzt |
 | `selftest.py` | Selbsttest ohne Internet (`python selftest.py`) |
@@ -140,6 +141,22 @@ Je Starter:
   β aus Altersklasse (`conditions_age`) und log. Preisgeld, geschätzt über die ganze Historie innerhalb der
   Gruppen. So wird ein Tag mit nur schwachen Rennen nicht überbewertet. Rennen mit Pace-Ratio im 1.–99. Perzentil
   und ≥ 5 Rennen je Kurs × Distanz. Beim Lauf werden β und die Spanne der Klassenkorrektur ausgegeben.
+* **TR** (`timeform_ratings.py`, lb, bezogen auf 55 kg), nach `tempo_delta` berechnet:
+  1. Standardzeit je Kurs × Distanz (s/km) = Median der Siegerzeiten guter Klasse, auf eine Referenzklasse
+     umgerechnet (β aus Altersklasse und log. Preisgeld); Going Allowance je Tag × Kurs × Going zuerst aus den
+     Siegerzeiten, dann nach Timeform aus den Zeiten der Pferde gegen ihre Ratings aus anderen Rennen (3 Runden).
+  2. Zeit-Rating: eigene Zeit (Siegerzeit + `behind_winner_s`) minus Allowance gegen den Standard, Wegverlust
+     gutgeschrieben, Sekunden → Längen (auf den eigenen Daten kalibriert) → lb (lb je Länge nach Distanz), Gewicht
+     gegen 55 kg. Ausgerittene ohne Rating.
+  3. Finishing Speed: FS% = (T·d·100)/(D·t) über die letzten 400 m (bis 1600 m) bzw. 600 m, je Pferd und je Rennen
+     (Führender, gegen den Par je Kurs × Distanz).
+  4. Upgrade = c · (d/D) · (Optimum − FS%)², Optimum = Median-FS% der effizienten Läufe (höchstens 5 lb unter der
+     scheinbaren Fähigkeit) je Kurs × Distanz, zur Distanzgruppe geschrumpft, plus Verschiebung je Bodenklasse;
+     c ab 1,25 auf den eigenen Daten kalibriert, getrennt für zu schnell / zu langsam angegangen. TR = Zeit + Upgrade.
+  5. Backtest beim Lauf: Korrelation mit dem nächsten Ergebnis und Top-3-Quote des Bestbewerteten für TR,
+     Zeit-Rating, ΔL600 A, ΔB200 A und ARR.
+  Race Card: Übersicht bestes TR der letzten 7 Läufe auf das heutige Gewicht umgerechnet; Formzeile TR (klein Zeit-
+  Rating und Upgrade), FS% gegen Optimum, Rennen-FS% gegen Par.
 * **Bereinigte Kennzahlen** (`speedfig.py`, in der Race Card nur noch für den Finish-Index): Rennanteil (Median der vorderen Hälfte) gegen einen Par
   aus Distanz, Boden, Bahn und frühem Tempo des Führenden (nicht der Pace-Ratio – deren Nenner
   ist das Schlusstempo selbst), geschätzt per Ridge-Regression mit Leave-one-out, plus

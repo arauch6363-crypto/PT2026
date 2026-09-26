@@ -26,6 +26,9 @@ Kennzahlen
                    korrigiert um Kurs × Distanz und Pace-Ratio, dazu die Klassenkorrektur der Gruppe
                    (β · (Ø Klasse der Gruppe − Ø Klasse gesamt), β aus Altersklasse und Preisgeld). Übersicht:
                    distanzgewichteter, zum Nullpunkt geschrumpfter Ø der letzten SCHNITT_LAEUFE Läufe mit Tracking.
+    TR             Zeit-Rating nach Timeform-Art (timeform_ratings.py, lb, bezogen auf 55 kg) plus Upgrade aus
+                   dem Finishing Speed. Übersicht: bestes TR der letzten LETZTE_LAEUFE Läufe, auf das heutige
+                   Gewicht umgerechnet
     Finish-Index   bereinigt nach dem Modell in speedfig.py (Rennanteil gegen Par, plus Pferdeanteil)
     RTR / ARR      Ratings aus PT_Vorarbeiten (rtr_arr.py), in kg: RTR = Elo-artiges Rating nach dem Rennen,
                    ARR = Leistung im Rennen, gemessen an den Pferden im vorderen Drittel. Bereinigt nach
@@ -51,6 +54,7 @@ import pmu
 import rtr_arr
 import speedfig
 import tempo_delta
+import timeform_ratings
 
 TEMPLATE = Path(__file__).with_name("racecard_template.html")
 
@@ -263,7 +267,8 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
         t = trk_runners.copy()
         t["saddle_no"] = pd.to_numeric(t["saddle_no"], errors="coerce")
         cols = [c for c in ["finish_index", "pos_gain_800_finish", "speed_last600_kmh",
-                            "speed_last400_kmh", "dist_vs_winner_m", "distance_covered_m", "last600_s"] if c in t]
+                            "speed_last400_kmh", "dist_vs_winner_m", "distance_covered_m", "last600_s",
+                            "official_time_s", "behind_winner_s"] if c in t]
         for c in cols:
             t[c] = pd.to_numeric(t[c], errors="coerce")
         t = t.drop_duplicates(["race_id", "saddle_no"], keep="last")[["race_id", "saddle_no", *cols]]
@@ -308,6 +313,8 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     h = speedfig.berechnen(h, trk_sections)
     # ΔL600 A / ΔB200 A: verglichen innerhalb Tag × Kurs × Going, Pace/Distanz und Klasse der Gruppe korrigiert
     h = tempo_delta.berechnen(h, trk_sections)
+    # TR: Zeit-Rating nach Timeform-Art mit Upgrade aus dem Finishing Speed
+    h = timeform_ratings.berechnen(h, trk_sections, trk_leader)
     h = h.merge(ratings_je_lauf(races, runners), on=["race_id", "horse_id"], how="left")
     return h.sort_values(["date", "race_id", "finish_pos"]).reset_index(drop=True)
 
@@ -352,6 +359,16 @@ def ratings_je_lauf(races: pd.DataFrame, runners: pd.DataFrame, **kw) -> pd.Data
                              "going_category", "distance_group", "prize", "categorie", "horse_run"]], **kw)
     return (d.rename(columns={"horse": "horse_id"})[["race_id", "horse_id", "rtr", "arr", "rating_filled"]]
              .astype({"race_id": runners["race_id"].dtype}, errors="ignore"))
+
+
+def _tr_heute(tr, gewicht):
+    """TR (lb, auf REF_WEIGHT_KG bezogen) auf das heutige Gewicht umgerechnet: TR − (Gewicht − 55 kg) in lb."""
+    t, g = _num(tr, 2), _num(gewicht, 2)
+    if t is None:
+        return None
+    if g is None:
+        return round(t)
+    return round(t - (g - timeform_ratings.REF_WEIGHT_KG) * timeform_ratings.LB_PER_KG)
 
 
 def _adj(wert, gewicht):
@@ -548,6 +565,9 @@ def _formzeile(z, replays: dict | None = None, gewicht_heute=None) -> dict:
         "weg_med": _num(z.get("weg_med"), 1), "pos_gain": _num(z["pos_gain_800_finish"], 0),
         "l600": _num(z["speed_last600_kmh"], 2), "b200": _num(z.get("best200_kmh"), 2),
         "b200_seg": _txt(z.get("best200_seg")),
+        "tr": _num(z.get("tr"), 0), "tr_zeit": _num(z.get("tr_zeit"), 0), "tr_upg": _num(z.get("tr_upgrade"), 1),
+        "tr_ga": _num(z.get("tr_ga"), 2), "fs": _num(z.get("fs_pct"), 1), "fs_opt": _num(z.get("fs_opt"), 1),
+        "fs_race": _num(z.get("fs_race"), 1), "fs_par": _num(z.get("fs_par"), 1),
         "dl600_a": _num(z.get("d_L600_A"), 2), "dl600_k": _num(z.get("k_L600"), 2),
         "db200_a": _num(z.get("d_B200_A"), 2), "db200_k": _num(z.get("k_B200"), 2),
         "path_factor": _num(z.get("path_factor"), 3),
@@ -735,6 +755,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             ar = (vorher["arr"].head(LETZTE_LAEUFE).dropna() if len(vorher) and "arr" in vorher
                   else pd.Series(dtype=float))
             w_heute = p.get("weight_kg")
+            trs = (vorher["tr"].head(LETZTE_LAEUFE).dropna() if len(vorher) and "tr" in vorher
+                   else pd.Series(dtype=float))
             early = float(fr.mean()) if len(fr) else None
             st_k, st_l = stil(early)
             # Ø der bereinigten Kennzahlen aus den letzten Läufen mit Tracking (ohne ausgerittene)
@@ -791,6 +813,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                         "last": _num(vorher.iloc[0].get("arr"), 1) if len(vorher) else None,
                         "last_adj": _adj(vorher.iloc[0].get("arr"), w_heute) if len(vorher) else None,
                         "avg3": _num(ar.head(3).mean(), 1) if len(ar) else None, "runs": int(len(ar))},
+                "tr": {"best": _num(trs.max(), 0) if len(trs) else None,
+                       "heute": _tr_heute(trs.max(), w_heute) if len(trs) else None,
+                       "last": _num(vorher.iloc[0].get("tr"), 0) if len(vorher) else None, "runs": int(len(trs))},
                 "summary": {**{k: schnitt(c) for k, c in DELTA_SPALTEN.items()},
                             **{k + "_sd": schnitt(c, True) for k, c in DELTA_SPALTEN.items()},
                             "runs": int(min(len(zuverl), SCHNITT_LAEUFE)) if len(zuverl) else 0},
@@ -812,7 +837,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             for x in starters:
                 x["summary"][k + "_rank"] = _rang(werte, x["summary"][k]) if not x["nr"] else None
                 x["summary"][k + "_n"] = sum(w is not None for w in werte)
-        for k, feld in (("rtr", "adj"), ("arr", "best_adj")):      # Rang im heutigen Feld (bereinigt)
+        for k, feld in (("rtr", "adj"), ("arr", "best_adj"), ("tr", "heute")):      # Rang im heutigen Feld (bereinigt)
             werte = [x[k][feld] for x in partanten]
             for x in starters:
                 x[k]["rank"] = _rang(werte, x[k][feld]) if not x["nr"] else None
@@ -972,6 +997,11 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
         if len(pf):
             print(f"Wegfaktor bekannt für {len(pf)} Läufe, Median {pf.median():.3f}")
         print(tempo_delta.bericht())
+        print(timeform_ratings.bericht())
+        v = timeform_ratings.validierung(hist)
+        if len(v):
+            print("Backtest – Vorhersage des nächsten Laufs (r mit dem Platzanteil; Top-3-Quote des Bestbewerteten):")
+            print(v.to_string(index=False))
     rennen = letzte_rennen(hist, runners_heute, tag)
     print(f"Replays für {len(rennen)} frühere Rennen der Starter …")
     rp = replays(rennen, base, tag=tag)

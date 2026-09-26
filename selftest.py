@@ -28,6 +28,7 @@ import pipeline as tp
 import pmu
 import rtr_arr
 import tempo_delta
+import timeform_ratings
 
 HEUTE = date.today()
 T1 = HEUTE - timedelta(days=1)          # gestern
@@ -550,6 +551,57 @@ def racecard_pruefen() -> None:
            "Δ A = rohes Δ + Klassenkorrektur, eine Korrektur je Gruppe")
     pruefe((td["best200_seg"] == "600m→400m").all() and np.allclose(td["best200_kmh"], td["speed_last600_kmh"] + 0.6),
            "B200: schnellstes 200-m-Segment nur aus den letzten 800 m (das schnellere bei 1000 m zählt nicht)")
+
+    # TR (timeform_ratings): Können, Going Allowance, Längen je Sekunde und Upgrade-Koeffizient wiederfinden
+    rng = np.random.default_rng(11)
+    LPS, C_TRUE = 5.5, 2.0
+    koennen = pd.Series(rng.normal(85, 8, 1500), index=[f"P{i}" for i in range(1500)])
+    sortiert = koennen.sort_values().index.to_numpy()
+    std_v = {1200: 16.9, 1600: 16.5, 2000: 16.1}
+    O_true = {1200: 96.0, 1600: 101.0, 2000: 104.0}
+    zeilen, secs, leader = [], [], []
+    for tag_i in range(220):
+        for bahn in ("COMPIEGNE", "DEAUVILLE"):
+            for going, n_r in (("BON", 4), ("SOUPLE", 2)):
+                ga = rng.normal(0, 1.2) + (2.0 if going == "SOUPLE" else 0)
+                for rn in range(n_r):
+                    stufe = int(rng.integers(0, 3))
+                    feld = rng.choice(sortiert[stufe * 500:stufe * 500 + 500], 8, replace=False)
+                    D = int(rng.choice(list(std_v))); km = D / 1000; dd = 400 if D <= 1600 else 600
+                    pace, lb_s = rng.normal(0, 3.5), timeform_ratings.lb_je_laenge(D) * LPS
+                    rid_i = f"{tag_i:04d}{bahn[:2]}{going[0]}{rn}"
+                    runs = []
+                    for no, pf_ in enumerate(feld, 1):
+                        w = round(rng.uniform(52, 60), 1)
+                        fs = O_true[D] + pace + rng.normal(0, 2.0)
+                        P = koennen[pf_] - C_TRUE * (dd / D) * (O_true[D] - fs) ** 2 + rng.normal(0, 1.5)
+                        T = km * (1000 / std_v[D] + ga) + (100 - P + (w - 55) * 2.2046) / lb_s
+                        runs.append((no, pf_, w, fs, T))
+                    Tw = min(r[4] for r in runs)
+                    for pos, (no, pf_, w, fs, T) in enumerate(sorted(runs, key=lambda r: r[4]), 1):
+                        zeilen.append(dict(race_id=rid_i, saddle_no=no, horse_id=pf_, date=pd.Timestamp("2024-01-01") + timedelta(days=tag_i),
+                                           course_key=bahn, going_pmu=going, distance_m=D, prize_eur=[8000, 16000, 32000][stufe],
+                                           conditions_age="TROIS_ANS", finish_pos=pos, lengths_behind=(T - Tw) * LPS,
+                                           weight_kg=w, official_time_s=T, behind_winner_s=T - Tw, path_factor=1.0,
+                                           wahr=koennen[pf_], ga_wahr=ga))
+                        t = T * dd / (D * fs / 100)
+                        secs += [dict(race_id=rid_i, saddle_no=no, m_to_go=m, seg_len_m=200, split_s=t / (dd / 200)) for m in range(0, dd, 200)]
+                        if pos == 1:
+                            leader += [dict(race_id=rid_i, to="ARR", leader_cum_s=T), dict(race_id=rid_i, to=f"{dd}m", leader_cum_s=T - t)]
+    tr = timeform_ratings.berechnen(pd.DataFrame(zeilen), pd.DataFrame(secs), pd.DataFrame(leader))
+    info = timeform_ratings.LETZTE_INFO
+    g_ = tr.dropna(subset=["tr_ga"]).drop_duplicates(["course_key", "date", "going_pmu"])
+    pruefe(tr["tr"].corr(tr["wahr"]) > 0.9 and tr["tr"].corr(tr["wahr"]) > tr["tr_zeit"].corr(tr["wahr"]) + 0.05
+           and g_["tr_ga"].corr(g_["ga_wahr"]) > 0.95,
+           f"TR: Können wiedergefunden (r {tr['tr_zeit'].corr(tr['wahr']):.2f} Zeit -> {tr['tr'].corr(tr['wahr']):.2f} mit Upgrade), "
+           f"Going Allowance nach Timeform (r {g_['tr_ga'].corr(g_['ga_wahr']):.2f})")
+    pruefe(all(abs(v - LPS) < 0.3 for v in info["laengen_je_s"].values()) and 1.2 < info["c_sym"] < 2.6
+           and (tr.groupby("distance_m")["fs_opt"].median() - pd.Series(O_true)).abs().max() < 0.7,
+           f"TR: Längen je Sekunde ({min(info['laengen_je_s'].values()):.1f}–{max(info['laengen_je_s'].values()):.1f}, wahr 5,5), "
+           f"Upgrade-Koeffizient {info['c_sym']:.2f} (wahr 2,0), optimaler FS% je Distanz wiedergefunden")
+    pruefe(np.allclose(tr["fs_race"].dropna(), tr.loc[tr["finish_pos"] == 1].set_index("race_id")["fs_pct"]
+                       .reindex(tr.loc[tr["fs_race"].notna(), "race_id"]).to_numpy()),
+           "Rennen-FS% aus den Zeiten des Führenden (hier der Sieger) = FS% des Siegers")
 
     # Rohwerte aus den Abschnitten: fehlender Split -> kein Tempo (statt zu hohem), 600–400 m bleibt
     secs = pd.DataFrame([{"race_id": "R", "saddle_no": 1, "m_to_go": m, "seg_len_m": 200, "split_s": t, "cum_s": None}
