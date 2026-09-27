@@ -25,7 +25,8 @@ Kennzahlen
                    (tempo_delta.py, km/h): verglichen innerhalb Tag × Kurs × Going (offizieller Bodenbegriff),
                    korrigiert um Kurs × Distanz und Pace-Ratio, dazu die Klassenkorrektur der Gruppe
                    (β · (Ø Klasse der Gruppe − Ø Klasse gesamt), β aus Altersklasse und Preisgeld). Übersicht:
-                   distanzgewichteter, zum Nullpunkt geschrumpfter Ø der letzten SCHNITT_LAEUFE Läufe mit Tracking.
+                   nach Distanz und Going gewichteter, zum Nullpunkt geschrumpfter Ø der letzten
+                   SCHNITT_LAEUFE Läufe mit Tracking.
     TR             Zeit-Rating nach Timeform-Art (timeform_ratings.py, lb, bezogen auf 55 kg) plus Upgrade aus
                    dem Finishing Speed. Übersicht: nach Distanz- und Going-Ähnlichkeit gewichteter Ø der letzten
                    SCHNITT_LAEUFE Läufe mit TR (ohne gedeckelte), auf das heutige Gewicht umgerechnet
@@ -379,18 +380,24 @@ def going_gewicht(lauf, heute) -> float:
     return 1.0 / (1.0 + abs(sa - sb) / SCHNITT_GOING_STUFEN)
 
 
+def lauf_gewichte(w: pd.DataFrame, dist_heute, going_heute) -> pd.Series:
+    """Gewicht je früherem Lauf für die Kacheln (TR, ΔL600 A, ΔB200 A): Distanzähnlichkeit × Going-Ähnlichkeit.
+    Distanz: 1 / (1 + |Distanz − heute| / SCHNITT_DIST_M); Going: going_gewicht (offizieller Bodenbegriff)."""
+    d_heute = _num(dist_heute)
+    g_dist = ((1 / (1 + (w["distance_m"] - d_heute).abs() / SCHNITT_DIST_M)).fillna(1.0) if d_heute is not None
+              else pd.Series(1.0, index=w.index))
+    g_going = (w["going_pmu"].map(lambda g: going_gewicht(g, going_heute)) if "going_pmu" in w
+               else pd.Series(1.0, index=w.index))
+    return (g_dist * g_going).astype(float)
+
+
 def tr_schnitt(laeufe: pd.DataFrame, dist_heute, going_heute) -> dict:
     """TR-Kachel: gewichteter Ø der TR (lb, bei 55 kg) aus `laeufe` (neueste zuerst, bereits ohne gedeckelte),
     Gewicht = Distanzähnlichkeit × Going-Ähnlichkeit. Keine Schrumpfung (TR liegt um 100, nicht um 0)."""
     w = laeufe.dropna(subset=["tr"]).head(SCHNITT_LAEUFE)
     if not len(w):
         return {"avg": None, "sd": None, "runs": 0, "gewichte": []}
-    d_heute = _num(dist_heute)
-    g_dist = (1 / (1 + (w["distance_m"] - d_heute).abs() / SCHNITT_DIST_M)).fillna(1.0) if d_heute is not None \
-        else pd.Series(1.0, index=w.index)
-    g_going = w["going_pmu"].map(lambda g: going_gewicht(g, going_heute)) if "going_pmu" in w \
-        else pd.Series(1.0, index=w.index)
-    gew = g_dist * g_going
+    gew = lauf_gewichte(w, dist_heute, going_heute)
     avg = float((gew * w["tr"]).sum() / gew.sum())
     return {"avg": avg, "sd": float(w["tr"].std()) if len(w) >= 2 else None, "runs": int(len(w)),
             "gewichte": [round(float(x), 2) for x in gew]}
@@ -801,18 +808,17 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
 
             def schnitt(spalte, streuung=False):
                 """Gewichteter Ø der letzten Läufe, zum Nullpunkt geschrumpft:
-                Gewicht nach Distanzähnlichkeit zu heute, SCHNITT_PRIOR wirkt wie ein Lauf mit 0.
-                Ein Lauf bei +2,0 landet so unter drei Läufen bei +1,5."""
+                Gewicht nach Distanz- und Going-Ähnlichkeit zu heute (lauf_gewichte), SCHNITT_PRIOR wirkt wie
+                ein Lauf mit 0. Ein Lauf bei +2,0 landet so unter drei Läufen bei +1,5."""
                 if not len(zuverl) or spalte not in zuverl:
                     return None
-                w = zuverl[[spalte, "distance_m"]].dropna(subset=[spalte]).head(SCHNITT_LAEUFE)
+                w = zuverl[[c for c in (spalte, "distance_m", "going_pmu") if c in zuverl]] \
+                    .dropna(subset=[spalte]).head(SCHNITT_LAEUFE)
                 if not len(w):
                     return None
                 if streuung:
                     return _num(w[spalte].std(), 2) if len(w) >= 2 else None
-                d_heute = _num(r.get("distance_m"))
-                gew = (1 / (1 + (w["distance_m"] - d_heute).abs() / SCHNITT_DIST_M)
-                       if d_heute is not None else pd.Series(1.0, index=w.index)).fillna(1.0)
+                gew = lauf_gewichte(w, r.get("distance_m"), gb)
                 return _num(float((gew * w[spalte]).sum() / (gew.sum() + SCHNITT_PRIOR)), 2)
 
             def q(tab, key):

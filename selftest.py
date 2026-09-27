@@ -448,6 +448,9 @@ def racecard_pruefen() -> None:
            and rc.going_gewicht(None, "BON") == 1.0 and rc.going_gewicht("BON SOUPLE", "BON") == 1 / 1.5,
            f"TR-Kachel: Ø gewichtet nach Distanz × Going (2400 m Lourd bei heute 1600 m Bon: {gw[1]:.3f}, "
            f"PSF: 0,25) = {k_['avg']:.1f}")
+    lw = rc.lauf_gewichte(pd.DataFrame({"distance_m": [1600, 2000, 1600], "going_pmu": ["SOUPLE", "BON", None]}), 1600, "BON")
+    pruefe(np.allclose(lw, [1 / (1 + 2 / 2), 1 / (1 + 400 / 400), 1.0]),
+           "Kacheln ΔL600 A / ΔB200 A / TR: gleiche Gewichte nach Distanz × Going (Souple bei heute Bon: 0,5)")
     ra_df = pd.DataFrame({"race_id": "R", "date": pd.Timestamp("2026-01-01"), "horse": list("ABCD"),
                           "finish_pos": [1, 2, 3, 4], "lengths_back": [0, 1, 3, 7], "weight_kg": [58, 57, 56, 55],
                           "rating": [40, 38, 35, 30], "age": 4, "going_category": "FAST",
