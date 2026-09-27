@@ -158,7 +158,9 @@ Je Starter:
   5. Backtest beim Lauf: Korrelation mit dem nächsten Ergebnis und Top-3-Quote des Bestbewerteten für TR,
      Zeit-Rating, ΔL600 A, ΔB200 A und ARR.
   Race Card: TR immer auf das **heutige Gewicht** umgerechnet (TR − (heutiges Gewicht − 55 kg) × 2,2), damit die
-  Pferde eines Rennens vergleichbar sind – in der Übersicht (bestes TR der letzten 7 Läufe, Rang im Feld) und in den
+  Pferde eines Rennens vergleichbar sind – in der Übersicht (gewichteter Ø der letzten 5 Läufe mit TR, Gewicht =
+  Distanzähnlichkeit × Going-Ähnlichkeit auf der Leiter Très léger … Lourd, PSF gegen Gras 0,25, ohne gedeckelte
+  Läufe; Rang im Feld) und in den
   Formzeilen (klein TR bei 55 kg, Zeit-Rating und Upgrade); dazu FS% gegen Optimum, Rennen-FS% gegen Par.
 * **Bereinigte Kennzahlen** (`speedfig.py`, in der Race Card nur noch für den Finish-Index): Rennanteil (Median der vorderen Hälfte) gegen einen Par
   aus Distanz, Boden, Bahn und frühem Tempo des Führenden (nicht der Pace-Ratio – deren Nenner
