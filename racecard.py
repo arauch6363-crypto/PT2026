@@ -25,10 +25,11 @@ Kennzahlen
                    (tempo_delta.py, km/h): verglichen innerhalb Tag × Kurs × Going (offizieller Bodenbegriff),
                    korrigiert um Kurs × Distanz und Pace-Ratio, dazu die Klassenkorrektur der Gruppe
                    (β · (Ø Klasse der Gruppe − Ø Klasse gesamt), β aus Altersklasse und Preisgeld). Übersicht:
-                   distanzgewichteter, zum Nullpunkt geschrumpfter Ø der letzten SCHNITT_LAEUFE Läufe mit Tracking.
+                   nach Distanz und Going gewichteter, zum Nullpunkt geschrumpfter Ø der letzten
+                   SCHNITT_LAEUFE Läufe mit Tracking.
     TR             Zeit-Rating nach Timeform-Art (timeform_ratings.py, lb, bezogen auf 55 kg) plus Upgrade aus
-                   dem Finishing Speed. Übersicht: bestes TR der letzten LETZTE_LAEUFE Läufe, auf das heutige
-                   Gewicht umgerechnet
+                   dem Finishing Speed. Übersicht: nach Distanz- und Going-Ähnlichkeit gewichteter Ø der letzten
+                   SCHNITT_LAEUFE Läufe mit TR (ohne gedeckelte), auf das heutige Gewicht umgerechnet
     Finish-Index   bereinigt nach dem Modell in speedfig.py (Rennanteil gegen Par, plus Pferdeanteil)
     RTR / ARR      Ratings aus PT_Vorarbeiten (rtr_arr.py), in kg: RTR = Elo-artiges Rating nach dem Rennen,
                    ARR = Leistung im Rennen, gemessen an den Pferden im vorderen Drittel. Bereinigt nach
@@ -68,6 +69,11 @@ GEGNER_MAX = 3                  # so viele Gegner je Lauf (die am nächsten am P
 SCHNITT_LAEUFE = 5              # Ø der bereinigten Kennzahlen über so viele Läufe mit Tracking
 SCHNITT_PRIOR = 1.0             # Schrumpfung zum Nullpunkt: wirkt wie ein zusätzlicher Lauf mit Wert 0
 SCHNITT_DIST_M = 400            # Gewicht eines Laufs = 1 / (1 + |Distanz − heute| / SCHNITT_DIST_M)
+# TR-Kachel: gewichteter Ø der letzten SCHNITT_LAEUFE Läufe mit TR, Gewicht = Distanz × Going
+GOING_STUFE = {"TRES LEGER": 0, "LEGER": 1, "BON LEGER": 2, "BON": 3, "BON SOUPLE": 4, "SOUPLE": 5,
+               "TRES SOUPLE": 6, "COLLANT": 7, "LOURD": 8, "TRES LOURD": 9}
+SCHNITT_GOING_STUFEN = 2        # Going-Gewicht = 1 / (1 + |Stufen Abstand| / SCHNITT_GOING_STUFEN)
+GOING_PSF_GRAS = 0.25           # Going-Gewicht zwischen PSF und Gras
 # Übersicht: Ø dieser Δ-Kennzahlen (tempo_delta, km/h) über die letzten SCHNITT_LAEUFE Läufe mit Tracking
 DELTA_SPALTEN = {"dl600_a": "d_L600_A", "db200_a": "d_B200_A"}
 GEWICHT_REF = 55                # x_adj = x − Gewicht (kg) + GEWICHT_REF
@@ -356,6 +362,45 @@ def ratings_je_lauf(races: pd.DataFrame, runners: pd.DataFrame, **kw) -> pd.Data
                              "going_category", "distance_group", "prize", "categorie", "horse_run"]], **kw)
     return (d.rename(columns={"horse": "horse_id"})[["race_id", "horse_id", "rtr", "arr", "rating_filled"]]
              .astype({"race_id": runners["race_id"].dtype}, errors="ignore"))
+
+
+def going_gewicht(lauf, heute) -> float:
+    """Ähnlichkeit zweier offizieller Bodenbegriffe (going_klasse) als Gewicht: 1 bei gleichem Boden, halbes
+    Gewicht bei SCHNITT_GOING_STUFEN Stufen Abstand; PSF gegen Gras GOING_PSF_GRAS; unbekannt -> 1 (neutral)."""
+    a, b = _txt(lauf), _txt(heute)
+    if a is None or b is None:
+        return 1.0
+    if (a == "PSF") != (b == "PSF"):
+        return GOING_PSF_GRAS
+    if a == "PSF":
+        return 1.0
+    sa, sb = GOING_STUFE.get(a), GOING_STUFE.get(b)
+    if sa is None or sb is None:
+        return 1.0
+    return 1.0 / (1.0 + abs(sa - sb) / SCHNITT_GOING_STUFEN)
+
+
+def lauf_gewichte(w: pd.DataFrame, dist_heute, going_heute) -> pd.Series:
+    """Gewicht je früherem Lauf für die Kacheln (TR, ΔL600 A, ΔB200 A): Distanzähnlichkeit × Going-Ähnlichkeit.
+    Distanz: 1 / (1 + |Distanz − heute| / SCHNITT_DIST_M); Going: going_gewicht (offizieller Bodenbegriff)."""
+    d_heute = _num(dist_heute)
+    g_dist = ((1 / (1 + (w["distance_m"] - d_heute).abs() / SCHNITT_DIST_M)).fillna(1.0) if d_heute is not None
+              else pd.Series(1.0, index=w.index))
+    g_going = (w["going_pmu"].map(lambda g: going_gewicht(g, going_heute)) if "going_pmu" in w
+               else pd.Series(1.0, index=w.index))
+    return (g_dist * g_going).astype(float)
+
+
+def tr_schnitt(laeufe: pd.DataFrame, dist_heute, going_heute) -> dict:
+    """TR-Kachel: gewichteter Ø der TR (lb, bei 55 kg) aus `laeufe` (neueste zuerst, bereits ohne gedeckelte),
+    Gewicht = Distanzähnlichkeit × Going-Ähnlichkeit. Keine Schrumpfung (TR liegt um 100, nicht um 0)."""
+    w = laeufe.dropna(subset=["tr"]).head(SCHNITT_LAEUFE)
+    if not len(w):
+        return {"avg": None, "sd": None, "runs": 0, "gewichte": []}
+    gew = lauf_gewichte(w, dist_heute, going_heute)
+    avg = float((gew * w["tr"]).sum() / gew.sum())
+    return {"avg": avg, "sd": float(w["tr"].std()) if len(w) >= 2 else None, "runs": int(len(w)),
+            "gewichte": [round(float(x), 2) for x in gew]}
 
 
 def _tr_heute(tr, gewicht):
@@ -751,10 +796,11 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             ar = (vorher["arr"].head(LETZTE_LAEUFE).dropna() if len(vorher) and "arr" in vorher
                   else pd.Series(dtype=float))
             w_heute = p.get("weight_kg")
-            # bestes TR ohne Läufe mit gedeckeltem Upgrade (falsch gelaufene Rennen, TR unsicher)
-            trs = (vorher.head(LETZTE_LAEUFE).pipe(lambda v: v.loc[v["tr_gedeckelt"].fillna(0) != 1, "tr"]
-                                                   if "tr_gedeckelt" in v else v["tr"]).dropna()
-                   if len(vorher) and "tr" in vorher else pd.Series(dtype=float))
+            # TR-Kachel: ohne Läufe mit gedeckeltem Upgrade (falsch gelaufene Rennen, TR unsicher)
+            tr_laeufe = (vorher[vorher["tr"].notna() & (vorher["tr_gedeckelt"].fillna(0) != 1
+                                                        if "tr_gedeckelt" in vorher else True)]
+                         if len(vorher) and "tr" in vorher else pd.DataFrame(columns=["tr", "distance_m"]))
+            trk = tr_schnitt(tr_laeufe, r.get("distance_m"), gb)
             early = float(fr.mean()) if len(fr) else None
             st_k, st_l = stil(early)
             # Ø der bereinigten Kennzahlen aus den letzten Läufen mit Tracking (ohne ausgerittene)
@@ -762,18 +808,17 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
 
             def schnitt(spalte, streuung=False):
                 """Gewichteter Ø der letzten Läufe, zum Nullpunkt geschrumpft:
-                Gewicht nach Distanzähnlichkeit zu heute, SCHNITT_PRIOR wirkt wie ein Lauf mit 0.
-                Ein Lauf bei +2,0 landet so unter drei Läufen bei +1,5."""
+                Gewicht nach Distanz- und Going-Ähnlichkeit zu heute (lauf_gewichte), SCHNITT_PRIOR wirkt wie
+                ein Lauf mit 0. Ein Lauf bei +2,0 landet so unter drei Läufen bei +1,5."""
                 if not len(zuverl) or spalte not in zuverl:
                     return None
-                w = zuverl[[spalte, "distance_m"]].dropna(subset=[spalte]).head(SCHNITT_LAEUFE)
+                w = zuverl[[c for c in (spalte, "distance_m", "going_pmu") if c in zuverl]] \
+                    .dropna(subset=[spalte]).head(SCHNITT_LAEUFE)
                 if not len(w):
                     return None
                 if streuung:
                     return _num(w[spalte].std(), 2) if len(w) >= 2 else None
-                d_heute = _num(r.get("distance_m"))
-                gew = (1 / (1 + (w["distance_m"] - d_heute).abs() / SCHNITT_DIST_M)
-                       if d_heute is not None else pd.Series(1.0, index=w.index)).fillna(1.0)
+                gew = lauf_gewichte(w, r.get("distance_m"), gb)
                 return _num(float((gew * w[spalte]).sum() / (gew.sum() + SCHNITT_PRIOR)), 2)
 
             def q(tab, key):
@@ -811,9 +856,10 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                         "last": _num(vorher.iloc[0].get("arr"), 1) if len(vorher) else None,
                         "last_adj": _adj(vorher.iloc[0].get("arr"), w_heute) if len(vorher) else None,
                         "avg3": _num(ar.head(3).mean(), 1) if len(ar) else None, "runs": int(len(ar))},
-                "tr": {"best": _num(trs.max(), 0) if len(trs) else None,
-                       "heute": _tr_heute(trs.max(), w_heute) if len(trs) else None,
-                       "last": _num(vorher.iloc[0].get("tr"), 0) if len(vorher) else None, "runs": int(len(trs))},
+                "tr": {"avg": _num(trk["avg"], 0), "heute": _tr_heute(trk["avg"], w_heute),
+                       "sd": _num(trk["sd"], 1), "runs": trk["runs"],
+                       "best": _num(tr_laeufe["tr"].head(SCHNITT_LAEUFE).max(), 0) if trk["runs"] else None,
+                       "last": _num(vorher.iloc[0].get("tr"), 0) if len(vorher) else None},
                 "summary": {**{k: schnitt(c) for k, c in DELTA_SPALTEN.items()},
                             **{k + "_sd": schnitt(c, True) for k, c in DELTA_SPALTEN.items()},
                             "runs": int(min(len(zuverl), SCHNITT_LAEUFE)) if len(zuverl) else 0},
@@ -870,7 +916,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                    "trend_diff": TREND_DIFF, "trend_min": TREND_MIN_STARTS, "pref_jt_years": VORLIEBEN_JT_TAGE // 365,
                    "avg_runs": SCHNITT_LAEUFE, "rivals_runs": GEGNER_LAEUFE, "rivals_max": GEGNER_MAX,
                    "best_seg_m": speedfig.BEST_SEG_BEREICH_M, "beaten_l": speedfig.AUSGERITTEN_L,
-                   "avg_prior": SCHNITT_PRIOR, "avg_dist_m": SCHNITT_DIST_M, "weight_ref": GEWICHT_REF, "tr_upg_max": timeform_ratings.UPGRADE_MAX_LB,
+                   "avg_prior": SCHNITT_PRIOR, "avg_dist_m": SCHNITT_DIST_M, "weight_ref": GEWICHT_REF, "going_stufen": SCHNITT_GOING_STUFEN, "going_psf": GOING_PSF_GRAS, "tr_upg_max": timeform_ratings.UPGRADE_MAX_LB,
                    "tr_upg_knie": timeform_ratings.UPGRADE_KNIE,
                    "styles": [{"key": k, "label": lab, "max": bis} for bis, k, lab in STIL]},
         "bias_all": bias["gesamt"],

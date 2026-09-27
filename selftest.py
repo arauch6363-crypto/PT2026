@@ -439,6 +439,18 @@ def racecard_pruefen() -> None:
     pruefe(rc._formzeile(z, 52.0)["tr_heute"] == 107 and rc._formzeile(z, 60.0)["tr_heute"] == 89
            and rc._formzeile(z, None)["tr_heute"] == 100,
            "TR in der Formzeile auf das heutige Gewicht umgerechnet (100 lb bei 55 kg: heute 52 kg -> 107, 60 kg -> 89)")
+    lf = pd.DataFrame({"tr": [100.0, 90.0, 80.0], "distance_m": [1600, 2400, 1600],
+                       "going_pmu": ["BON", "LOURD", "PSF"]})
+    k_ = rc.tr_schnitt(lf, 1600, "BON")
+    gw = [1.0, 1 / 3 * 1 / (1 + 5 / 2), 0.25]
+    pruefe(np.allclose(k_["gewichte"], gw, atol=0.005)
+           and abs(k_["avg"] - (100 + 90 * gw[1] + 80 * gw[2]) / sum(gw)) < 1e-9 and k_["runs"] == 3
+           and rc.going_gewicht(None, "BON") == 1.0 and rc.going_gewicht("BON SOUPLE", "BON") == 1 / 1.5,
+           f"TR-Kachel: Ø gewichtet nach Distanz × Going (2400 m Lourd bei heute 1600 m Bon: {gw[1]:.3f}, "
+           f"PSF: 0,25) = {k_['avg']:.1f}")
+    lw = rc.lauf_gewichte(pd.DataFrame({"distance_m": [1600, 2000, 1600], "going_pmu": ["SOUPLE", "BON", None]}), 1600, "BON")
+    pruefe(np.allclose(lw, [1 / (1 + 2 / 2), 1 / (1 + 400 / 400), 1.0]),
+           "Kacheln ΔL600 A / ΔB200 A / TR: gleiche Gewichte nach Distanz × Going (Souple bei heute Bon: 0,5)")
     ra_df = pd.DataFrame({"race_id": "R", "date": pd.Timestamp("2026-01-01"), "horse": list("ABCD"),
                           "finish_pos": [1, 2, 3, 4], "lengths_back": [0, 1, 3, 7], "weight_kg": [58, 57, 56, 55],
                           "rating": [40, 38, 35, 30], "age": 4, "going_category": "FAST",
