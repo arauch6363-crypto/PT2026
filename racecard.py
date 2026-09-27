@@ -41,7 +41,6 @@ import argparse
 import json
 import math
 import re
-import time
 import unicodedata
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -59,9 +58,7 @@ import timeform_ratings
 TEMPLATE = Path(__file__).with_name("racecard_template.html")
 
 POS_VOR_FINISH_M = 400          # Messpunkt für "Position vor dem Finish"
-LETZTE_LAEUFE = 7               # so viele Formzeilen je Pferd (jede mit Replay-Link)
-REPLAY_NACHFRAGE_TAGE = 14      # fehlt ein Replay, wird so lange nach dem Rennen erneut gefragt
-REPLAY_STUMM_MAX = 5            # so viele Rennen in Folge ohne jede Antwort -> Abfrage abbrechen
+LETZTE_LAEUFE = 7               # so viele Formzeilen je Pferd
 AE_FENSTER = (30, 90, 365)      # Tage
 TREND_DIFF = 0.4                # A/E 30 Tage so viel über/unter 365 Tagen -> Feuer/Eis
 TREND_MIN_STARTS = 5            # so viele Starts in 30 Tagen braucht der Trend
@@ -542,13 +539,10 @@ def programm(tag: date, session: requests.Session | None = None, *, nur_flach: b
 # --------------------------------------------------------------------------
 # Race Card bauen
 # --------------------------------------------------------------------------
-def _formzeile(z, replays: dict | None = None, gewicht_heute=None) -> dict:
+def _formzeile(z, gewicht_heute=None) -> dict:
     """Eine Formzeile. RTR/ARR bereinigt mit dem heutigen Gewicht (gewicht_heute), nicht mit dem damaligen."""
     return {
         "date": z["date"].strftime("%Y-%m-%d"), "race_id": z["race_id"],
-        "replay": ((replays or {}).get(z["race_id"]) or {}).get("url"),
-        "replay_ok": bool(((replays or {}).get(z["race_id"]) or {}).get("available")),
-        "page": pmu.pmu_seite(z["race_id"]),
         "course": _txt(z["hippodrome"]), "dist": _num(z["distance_m"], 0),
         "going": _txt(z["going"]), "going_value": _num(z["going_value"], 1),
         "prize": _num(z["prize_eur"], 0), "type": _txt(z["racetype"]),
@@ -681,7 +675,7 @@ def _rang(werte: list, wert) -> int | None:
 
 
 def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.DataFrame,
-               tag: date, silks: dict | None = None, replays: dict | None = None) -> dict:
+               tag: date, silks: dict | None = None) -> dict:
     heute = pd.Timestamp(tag)
     silks = silks or {}
     h = hist[hist["date"] < heute].copy() if not hist.empty else hist
@@ -741,7 +735,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             vorher = per_pferd.get(hid, pd.DataFrame())
             form = []
             for n, (_, z) in enumerate(vorher.head(LETZTE_LAEUFE).iterrows()):
-                f = _formzeile(z, replays, p.get("weight_kg"))
+                f = _formzeile(z, p.get("weight_kg"))
                 f["rivals"] = _gegner(z, h_rennen, h_pferde, heute) if n < GEGNER_LAEUFE else None
                 form.append(f)
             siege = vorher[vorher["won"] == 1] if len(vorher) else vorher
@@ -885,72 +879,6 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     }
 
 
-def letzte_rennen(hist: pd.DataFrame, runners_heute: pd.DataFrame, tag: date, n: int = LETZTE_LAEUFE) -> list[str]:
-    """race_ids der letzten `n` Läufe aller heutigen Starter (die Formzeilen der Race Card)."""
-    if hist.empty or runners_heute.empty:
-        return []
-    ru = runners_heute.copy()
-    for c in ["horse", "sire"]:
-        ru[c + "_key"] = norm_name(ru[c]) if c in ru else pd.Series(pd.NA, index=ru.index, dtype="string")
-    ids = set(ru["horse_key"].fillna("?") + "|" + ru["sire_key"].fillna("?"))
-    h = hist[(hist["date"] < pd.Timestamp(tag)) & hist["horse_id"].isin(ids)].sort_values("date", ascending=False)
-    return sorted(set(h.groupby("horse_id").head(n)["race_id"]))
-
-
-def replays(race_ids, base: Path | None = None, session: requests.Session | None = None, *,
-            tag: date | None = None, pause: float = 0.3) -> dict:
-    """Replay je Rennen (pmu.replay): {race_id: {"available": bool, "url": Video-Adresse oder None}},
-    zwischengespeichert in <base>/replays.json. Ein vorhandenes Replay wird nie neu abgefragt; fehlt es,
-    nur bei Rennen der letzten REPLAY_NACHFRAGE_TAGE Tage erneut (höchstens einmal am Tag) – PMU stellt
-    Replays teils später ein. Antwortet die Schnittstelle nicht, wird nichts gespeichert."""
-    tag = tag or pmu.heute()
-    datei = Path(base) / "replays.json" if base else None
-    cache = {}
-    if datei and datei.exists():
-        try:
-            cache = json.loads(datei.read_text(encoding="utf-8"))
-        except ValueError:
-            cache = {}
-    s = session or requests.Session()
-    heute_s = tag.strftime("%Y-%m-%d")
-    offen = []
-    for rid in race_ids:
-        e = cache.get(rid)
-        if e and (e.get("available") or e.get("url")):
-            continue
-        try:
-            alter = (tag - datetime.strptime(str(rid)[:8], "%Y%m%d").date()).days
-        except ValueError:
-            continue
-        # Einträge ohne "available" stammen aus der früheren Abfrage (nur Video-Adresse) -> neu fragen
-        if e is None or "available" not in e or (e.get("checked") != heute_s and alter <= REPLAY_NACHFRAGE_TAGE):
-            offen.append(rid)
-    stumm, geaendert = 0, False
-    for i, rid in enumerate(offen, 1):
-        try:
-            erg = pmu.replay(rid, s)
-        except (ValueError, requests.RequestException):
-            erg = None
-        if erg is None:
-            # keine Antwort: nicht als "kein Replay" merken, und nach REPLAY_STUMM_MAX Rennen in Folge
-            # aufhören, statt jedes Rennen einzeln ins Leere laufen zu lassen
-            stumm += 1
-            if stumm >= REPLAY_STUMM_MAX:
-                print(f"  Replays: PMU antwortet nicht ({stumm} Rennen in Folge) – Abfrage abgebrochen. "
-                      "Prüfen mit pmu.replay_diagnose(race_id).")
-                break
-            continue
-        stumm, geaendert = 0, True
-        cache[rid] = {**erg, "checked": heute_s}
-        if i % 50 == 0:
-            print(f"  Replays: {i}/{len(offen)} abgefragt")
-        time.sleep(pause)
-    if datei and geaendert:
-        datei.write_text(json.dumps(cache, ensure_ascii=False, indent=0), encoding="utf-8")
-    return {rid: {"available": bool(cache[rid].get("available")), "url": cache[rid].get("url")}
-            for rid in race_ids if rid in cache and "available" in cache[rid]}
-
-
 def trikots(urls, session: requests.Session | None = None) -> dict:
     """Trikot-Bilder (PMU 'urlCasaque') laden und als data:-URI einbetten, damit die Race Card
     ohne Internet funktioniert. Fehlende oder fehlerhafte Bilder werden übergangen."""
@@ -1007,11 +935,7 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
         if len(v):
             print("Backtest – Vorhersage des nächsten Laufs (r mit dem Platzanteil; Top-3-Quote des Bestbewerteten):")
             print(v.to_string(index=False))
-    rennen = letzte_rennen(hist, runners_heute, tag)
-    print(f"Replays für {len(rennen)} frühere Rennen der Starter …")
-    rp = replays(rennen, base, tag=tag)
-    print(f"{sum(e['available'] for e in rp.values())} von {len(rennen)} Rennen mit Replay auf pmu.fr.")
-    daten = baue_daten(hist, races_heute, runners_heute, tag, silks, rp)
+    daten = baue_daten(hist, races_heute, runners_heute, tag, silks)
     out = Path(out) if out else base / "racecards" / f"racecard_{tag:%Y%m%d}.html"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html(daten), encoding="utf-8")

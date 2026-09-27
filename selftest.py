@@ -431,13 +431,13 @@ def racecard_pruefen() -> None:
            "RTR bereinigt = RTR − Gewicht (57) + 55, Rang im Feld")
     z = hist.iloc[0].copy()
     z["arr"], z["rtr"], z["weight_kg"] = 36.0, 40.0, 58.0          # damals 58 kg getragen
-    fz = rc._formzeile(z, None, 52.0)                              # heute 52 kg
+    fz = rc._formzeile(z, 52.0)                              # heute 52 kg
     pruefe(fz["arr_adj"] == 39.0 and fz["rtr_adj"] == 43.0 and fz["arr"] == 36.0
-           and rc._formzeile(z, None, None)["arr_adj"] is None,
+           and rc._formzeile(z, None)["arr_adj"] is None,
            "Formzeile: bereinigt mit dem heutigen Gewicht, nicht dem damaligen (ARR 36, heute 52 kg -> 39)")
     z["tr"] = 100.0
-    pruefe(rc._formzeile(z, None, 52.0)["tr_heute"] == 107 and rc._formzeile(z, None, 60.0)["tr_heute"] == 89
-           and rc._formzeile(z, None, None)["tr_heute"] == 100,
+    pruefe(rc._formzeile(z, 52.0)["tr_heute"] == 107 and rc._formzeile(z, 60.0)["tr_heute"] == 89
+           and rc._formzeile(z, None)["tr_heute"] == 100,
            "TR in der Formzeile auf das heutige Gewicht umgerechnet (100 lb bei 55 kg: heute 52 kg -> 107, 60 kg -> 89)")
     ra_df = pd.DataFrame({"race_id": "R", "date": pd.Timestamp("2026-01-01"), "horse": list("ABCD"),
                           "finish_pos": [1, 2, 3, 4], "lengths_back": [0, 1, 3, 7], "weight_kg": [58, 57, 56, 55],
@@ -635,58 +635,7 @@ def racecard_pruefen() -> None:
     pruefe(pmu.runner_row("R", {"urlCasaque": "https://x/c.png"})["silks_url"] == "https://x/c.png",
            "PMU-Starterzeile übernimmt die Trikot-Adresse (urlCasaque)")
 
-    # Replays: die Rennseite der Schnittstelle meldet replayDisponible (so wie am 23.09.2026 beobachtet)
-    import json as _json
-    class ReplaySession:
-        def __init__(self, tot=False):
-            self.urls, self.tot = [], tot
-        def get(self, url, headers=None, timeout=None):
-            self.urls.append(url)
-            if self.tot:
-                raise pmu.requests.ConnectionError("keine Verbindung")
-            foto = {"url": "https://assets.racingdata.pmu.fr/photo-finish/20260923/CHA/20260923-CHA-3.jpg"}
-            if url.endswith("/19092026/R3/C5"):
-                return FakeResponse(status=200, text=_json.dumps({"libelle": "PRIX DE MOURS", "replayDisponible": True,
-                                                                  "photosArrivee": [foto]}))
-            if url.endswith("/19092026/R3/C6"):
-                return FakeResponse(status=200, text=_json.dumps({"replayDisponible": True,
-                                                                  "replay": {"lien": "https://cdn.pmu/r/c6.m3u8"}}))
-            if url.endswith("/19092026/R3/C7"):
-                return FakeResponse(status=200, text=_json.dumps({"replayDisponible": False, "photosArrivee": [foto]}))
-            return FakeResponse(status=404, text="nicht da")
-    rs = ReplaySession()
-    pruefe(pmu.replay("20260919R3C5", rs) == {"available": True, "url": None}
-           and rs.urls == ["https://online.turfinfo.api.pmu.fr/rest/client/61/programme/19092026/R3/C5"],
-           "Replay: replayDisponible aus der Rennseite, das Zielfoto ist keine Video-Adresse")
-    pruefe(pmu.replay("20260919R3C6", rs) == {"available": True, "url": "https://cdn.pmu/r/c6.m3u8"}
-           and pmu.replay("20260919R3C7", rs) == {"available": False, "url": None}
-           and pmu.replay("20260919R3C8", rs) is None,
-           "Replay: Video-Adresse, falls vorhanden; kein Replay; keine Antwort -> None")
-    with tempfile.TemporaryDirectory() as tmp:
-        (Path(tmp) / "replays.json").write_text(_json.dumps({"20260919R3C5": {"url": None, "checked": "2026-09-23"}}))
-        rs = ReplaySession()
-        ids = ["20260919R3C5", "20260919R3C7"]
-        rp = rc.replays(ids, Path(tmp), rs, tag=date(2026, 9, 23), pause=0)
-        n = len(rs.urls)
-        rp2 = rc.replays(ids, Path(tmp), rs, tag=date(2026, 9, 23), pause=0)
-        pruefe(rp == rp2 == {"20260919R3C5": {"available": True, "url": None}, "20260919R3C7": {"available": False, "url": None}}
-               and n == 2 and len(rs.urls) == n,
-               "Replays zwischengespeichert; alter Eintrag (nur url) wird neu gefragt, am selben Tag nichts erneut")
-        rc.replays(ids, Path(tmp), rs, tag=date(2026, 9, 24), pause=0)
-        pruefe(rs.urls[n:] == ["https://online.turfinfo.api.pmu.fr/rest/client/61/programme/19092026/R3/C7"],
-               "am nächsten Tag nur das Rennen ohne Replay erneut gefragt")
-    with tempfile.TemporaryDirectory() as tmp:
-        tot = ReplaySession(tot=True)
-        ids = [f"20260919R3C{k}" for k in range(1, 20)]
-        rp = rc.replays(ids, Path(tmp), tot, tag=date(2026, 9, 23), pause=0)
-        pruefe(rp == {} and len(tot.urls) == rc.REPLAY_STUMM_MAX * len(pmu.REPLAY_URLS)
-               and not (Path(tmp) / "replays.json").exists(),
-               "PMU nicht erreichbar: Abbruch nach 5 Rennen, nichts als 'kein Replay' gespeichert")
-    fz = rc._formzeile(hist.iloc[0], {hist.iloc[0]["race_id"]: {"available": True, "url": None}})
-    pruefe(fz["replay_ok"] and fz["replay"] is None and fz["page"].startswith("https://www.pmu.fr/turf/"),
-           "Formzeile: Replay verfügbar -> Link auf die Rennseite")
-    pruefe(len(x["form_lines"]) <= rc.LETZTE_LAEUFE == 7 and x["form_lines"][0]["page"] == pmu.pmu_seite(x["form_lines"][0]["race_id"]),
-           "höchstens 7 Formzeilen, jede mit Link (Replay oder PMU-Rennseite)")
+    pruefe(len(x["form_lines"]) <= rc.LETZTE_LAEUFE == 7, "höchstens 7 Formzeilen")
 
     seite = rc.html(d)
     pruefe(seite.startswith("<!doctype html>") and "/*__DATA__*/null" not in seite, "HTML mit eingesetzten Daten")

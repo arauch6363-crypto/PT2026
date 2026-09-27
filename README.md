@@ -167,12 +167,6 @@ Je Starter:
   `pace_early_kmh` in älteren `tracking_races`, wird das frühe Tempo aus `tracking_leader` gebildet.
   Beim Lauf wird eine Validierung ausgegeben (Wiederholbarkeit, Prognosekraft; bereinigt gegen roh)
   sowie die Gegenprobe der letzten 600 m.
-* **Replay** je Formzeile: `pmu.replay` liest aus der Rennseite der PMU-Schnittstelle
-  (`…/rest/client/61/programme/{TTMMJJJJ}/R{r}/C{c}`) das Feld `replayDisponible` – eine Video-Adresse liefert
-  die Schnittstelle nicht. Ist ein Replay gemeldet, öffnet **▶ Replay** die Rennseite auf pmu.fr, dort läuft das
-  Video; sonst **PMU ↗**. Zwischengespeichert in `<BASE>/replays.json`; ohne Replay wird 14 Tage lang höchstens
-  einmal am Tag erneut gefragt, antwortet PMU nicht, bricht die Abfrage nach 5 Rennen ab.
-  Prüfen: `pmu.replay_diagnose("20260923R3C3")`.
 * **RTR und ARR** (`rtr_arr.py`, wie in PT_Vorarbeiten, in kg) für jeden gespeicherten Lauf:
   RTR = Elo-artiges Rating nach dem Rennen (jeder gegen jeden, erwarteter Abstand aus Rating − 0,625 × Gewicht
   gegen tatsächliche Längen × kg je Länge, K = 0,5), ARR = Leistung im Rennen gemessen an den Pferden im
