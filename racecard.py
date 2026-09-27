@@ -33,7 +33,8 @@ Kennzahlen
     Finish-Index   bereinigt nach dem Modell in speedfig.py (Rennanteil gegen Par, plus Pferdeanteil)
     RTR / ARR      Ratings aus PT_Vorarbeiten (rtr_arr.py), in kg: RTR = Elo-artiges Rating nach dem Rennen,
                    ARR = Leistung im Rennen, gemessen an den Pferden im vorderen Drittel. Bereinigt nach
-                   Gewicht: x_adj = x − heutiges Gewicht + GEWICHT_REF – in der Übersicht und in den
+                   Gewicht: x_adj = x − heutiges Gewicht + GEWICHT_REF – in der Übersicht (ARR: nach Distanz
+                   und Going gewichteter Ø der letzten SCHNITT_LAEUFE Läufe, RTR: aktuell) und in den
                    Formzeilen (ein früherer ARR von 36 bei heute 52 kg -> 39)
 """
 from __future__ import annotations
@@ -391,16 +392,24 @@ def lauf_gewichte(w: pd.DataFrame, dist_heute, going_heute) -> pd.Series:
     return (g_dist * g_going).astype(float)
 
 
-def tr_schnitt(laeufe: pd.DataFrame, dist_heute, going_heute) -> dict:
-    """TR-Kachel: gewichteter Ø der TR (lb, bei 55 kg) aus `laeufe` (neueste zuerst, bereits ohne gedeckelte),
-    Gewicht = Distanzähnlichkeit × Going-Ähnlichkeit. Keine Schrumpfung (TR liegt um 100, nicht um 0)."""
-    w = laeufe.dropna(subset=["tr"]).head(SCHNITT_LAEUFE)
+def gewichteter_schnitt(laeufe: pd.DataFrame, spalte: str, dist_heute, going_heute) -> dict:
+    """Kachel TR bzw. ARR: gewichteter Ø von `spalte` über die letzten SCHNITT_LAEUFE Läufe mit Wert
+    (`laeufe` neueste zuerst), Gewicht = lauf_gewichte (Distanz × Going). Keine Schrumpfung – TR und ARR sind
+    absolute Niveaus (TR um 100, ARR in kg), nicht Abweichungen um 0."""
+    if spalte not in laeufe:
+        return {"avg": None, "sd": None, "runs": 0, "gewichte": [], "best": None}
+    w = laeufe.dropna(subset=[spalte]).head(SCHNITT_LAEUFE)
     if not len(w):
-        return {"avg": None, "sd": None, "runs": 0, "gewichte": []}
+        return {"avg": None, "sd": None, "runs": 0, "gewichte": [], "best": None}
     gew = lauf_gewichte(w, dist_heute, going_heute)
-    avg = float((gew * w["tr"]).sum() / gew.sum())
-    return {"avg": avg, "sd": float(w["tr"].std()) if len(w) >= 2 else None, "runs": int(len(w)),
-            "gewichte": [round(float(x), 2) for x in gew]}
+    return {"avg": float((gew * w[spalte]).sum() / gew.sum()),
+            "sd": float(w[spalte].std()) if len(w) >= 2 else None, "runs": int(len(w)),
+            "gewichte": [round(float(x), 2) for x in gew], "best": float(w[spalte].max())}
+
+
+def tr_schnitt(laeufe: pd.DataFrame, dist_heute, going_heute) -> dict:
+    """TR-Kachel: gewichteter Ø der TR (lb, bei 55 kg); `laeufe` bereits ohne gedeckelte Läufe."""
+    return gewichteter_schnitt(laeufe, "tr", dist_heute, going_heute)
 
 
 def _tr_heute(tr, gewicht):
@@ -793,8 +802,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 badges.append("BF")
             fr = vorher["early_pct"].dropna().head(STIL_LAEUFE) if len(vorher) else pd.Series(dtype=float)
             rtr_s = vorher["rtr"].dropna() if len(vorher) and "rtr" in vorher else pd.Series(dtype=float)
-            ar = (vorher["arr"].head(LETZTE_LAEUFE).dropna() if len(vorher) and "arr" in vorher
-                  else pd.Series(dtype=float))
+            ark = gewichteter_schnitt(vorher, "arr", r.get("distance_m"), gb) if len(vorher) else \
+                gewichteter_schnitt(pd.DataFrame(), "arr", None, None)
             w_heute = p.get("weight_kg")
             # TR-Kachel: ohne Läufe mit gedeckeltem Upgrade (falsch gelaufene Rennen, TR unsicher)
             tr_laeufe = (vorher[vorher["tr"].notna() & (vorher["tr_gedeckelt"].fillna(0) != 1
@@ -851,11 +860,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "rtr": {"raw": _num(rtr_s.iloc[0], 1) if len(rtr_s) else None,
                         "adj": _adj(rtr_s.iloc[0], w_heute) if len(rtr_s) else None,
                         "prev": _num(rtr_s.iloc[1], 1) if len(rtr_s) > 1 else None, "runs": int(len(rtr_s))},
-                "arr": {"best": _num(ar.max(), 1) if len(ar) else None,
-                        "best_adj": _adj(ar.max(), w_heute) if len(ar) else None,
-                        "last": _num(vorher.iloc[0].get("arr"), 1) if len(vorher) else None,
-                        "last_adj": _adj(vorher.iloc[0].get("arr"), w_heute) if len(vorher) else None,
-                        "avg3": _num(ar.head(3).mean(), 1) if len(ar) else None, "runs": int(len(ar))},
+                "arr": {"avg": _num(ark["avg"], 1), "adj": _adj(ark["avg"], w_heute),
+                        "sd": _num(ark["sd"], 1), "runs": ark["runs"], "best": _num(ark["best"], 1),
+                        "last": _num(vorher.iloc[0].get("arr"), 1) if len(vorher) else None},
                 "tr": {"avg": _num(trk["avg"], 0), "heute": _tr_heute(trk["avg"], w_heute),
                        "sd": _num(trk["sd"], 1), "runs": trk["runs"],
                        "best": _num(tr_laeufe["tr"].head(SCHNITT_LAEUFE).max(), 0) if trk["runs"] else None,
@@ -881,7 +888,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             for x in starters:
                 x["summary"][k + "_rank"] = _rang(werte, x["summary"][k]) if not x["nr"] else None
                 x["summary"][k + "_n"] = sum(w is not None for w in werte)
-        for k, feld in (("rtr", "adj"), ("arr", "best_adj"), ("tr", "heute")):      # Rang im heutigen Feld (bereinigt)
+        for k, feld in (("rtr", "adj"), ("arr", "adj"), ("tr", "heute")):      # Rang im heutigen Feld (bereinigt)
             werte = [x[k][feld] for x in partanten]
             for x in starters:
                 x[k]["rank"] = _rang(werte, x[k][feld]) if not x["nr"] else None
