@@ -137,7 +137,11 @@ def lade(tabelle: str, base: Path) -> pd.DataFrame:
     files = sorted(folder.glob("*.parquet")) if folder.exists() else []
     if not files:
         return pd.DataFrame()
-    return pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
+    import warnings
+    with warnings.catch_warnings():
+        # Tage mit unterschiedlichen, teils leeren Spalten (z. B. Zusatzspalten aus pmu_basis) – gewollt
+        warnings.simplefilter("ignore", FutureWarning)
+        return pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
 
 
 def _bool(spalte: pd.Series) -> pd.Series:

@@ -466,6 +466,12 @@ def pmu_basis_pruefen() -> None:
         n = len(s_.urls)
         pb.run(base, "2026-09-22", "2026-09-22", session=s_, pause=0)
         pruefe(len(s_.urls) == n, "PMU-Basis: erledigte Tage werden nicht erneut abgefragt")
+        teiln = [u for u in s_.urls if u.endswith("/participants")]
+        s2 = Sess()
+        pb.run(base, "2026-09-22", "2026-09-22", session=s2, pause=0, neu=True)
+        teiln2 = [u for u in s2.urls if u.endswith("/participants")]
+        pruefe(len(teiln) == 3 and len(teiln2) == 1 and "/client/1/" in teiln2[0],
+               "PMU-Basis: Kommentar-Client gemerkt – danach nur noch eine Anfrage für die Starterliste")
         tp._write_behalten(base, "pmu_runners", "20260922",
                            [{"race_id": "20260922R1C1", "saddle_no": k, "horse": f"NEU {k}"} for k in (1, 2, 3)],
                            ["race_id", "saddle_no"])
