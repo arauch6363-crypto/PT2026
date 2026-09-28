@@ -200,8 +200,9 @@ def _zeiten_schaetzen(ru: pd.DataFrame, races: pd.DataFrame) -> pd.DataFrame:
     D = pd.to_numeric(ru["race_id"].map(info["distance_m"]), errors="coerce") if len(info) else np.nan
     s_je_laenge = speedfig.LAENGE_M / (D / T)
     geschaetzt = T + pd.to_numeric(ru["lengths_behind"], errors="coerce") * s_je_laenge
-    ru["time_est"] = ru["time_s"].isna() & geschaetzt.notna()
-    ru["time_s"] = ru["time_s"].fillna(geschaetzt.round(2))
+    eigen = pd.to_numeric(ru["time_s"], errors="coerce")
+    ru["time_est"] = eigen.isna() & geschaetzt.notna()
+    ru["time_s"] = eigen.fillna(geschaetzt.round(2))
     return ru
 
 
