@@ -113,6 +113,24 @@ def _write(base: Path, tabelle: str, ymd: str, rows) -> int:
     return len(df)
 
 
+def _write_behalten(base: Path, tabelle: str, ymd: str, rows, keys: list[str]) -> int:
+    """Wie _write, aber Spalten, die nur in der vorhandenen Tagesdatei stehen (z. B. von pmu_basis: Zeiten,
+    Kommentare, c_/p_-Felder), bleiben erhalten – je Zeile über `keys` zugeordnet."""
+    f = Path(base) / "parquet" / tabelle / f"{ymd}.parquet"
+    df = pd.DataFrame(rows)
+    if f.exists() and not df.empty and all(k in df for k in keys):
+        try:
+            alt = pd.read_parquet(f)
+        except Exception:
+            alt = pd.DataFrame()
+        extra = [c for c in alt.columns if c not in df.columns]
+        if extra and all(k in alt for k in keys):
+            schluessel = lambda x: x[keys].astype(str).agg("|".join, axis=1)
+            zus = alt[extra].assign(_k=schluessel(alt)).drop_duplicates("_k")
+            df = df.assign(_k=schluessel(df)).merge(zus, on="_k", how="left").drop(columns="_k")
+    return _write(base, tabelle, ymd, df.to_dict("records"))
+
+
 def lade(tabelle: str, base: Path) -> pd.DataFrame:
     """Alle Tagesdateien einer Tabelle zu einem DataFrame zusammenfassen."""
     folder = Path(base) / "parquet" / tabelle
@@ -223,8 +241,10 @@ def tag_verarbeiten(tag: date, base: Path, pdf_dir: Path, *, nur_flach: bool = T
 
     # 2) Rennen + Starter aus dem PMU-Programm
     races, runners = pmu.starter(tag, s, meets, pause=pause)
-    n_races = _write(base, "pmu_races", ymd, races)
-    n_runners = _write(base, "pmu_runners", ymd, pmu.add_lengths(pd.DataFrame(runners)).to_dict("records"))
+    # Zusatzspalten aus pmu_basis (Zeiten, Kommentare, c_/p_-Felder) nicht überschreiben
+    n_races = _write_behalten(base, "pmu_races", ymd, races, ["race_id"])
+    n_runners = _write_behalten(base, "pmu_runners", ymd, pmu.add_lengths(pd.DataFrame(runners)).to_dict("records"),
+                                ["race_id", "saddle_no"])
 
     # 3) je Rennen bei France Galop nach dem Tracking-PDF sehen
     store = fg.CodeStore(base)
