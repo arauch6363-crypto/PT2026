@@ -21,7 +21,8 @@ Existiert eine Tagesdatei schon, wird sie überschrieben (die Spalten der Pipeli
 nur welche dazu); fehlt ein Ordner, wird er angelegt. Tracking-Tabellen bleiben unberührt.
 Fortschritt in <BASE>/pmu_basis_fortschritt.json – erledigte Tage werden nicht erneut abgefragt (neu holen:
 neu=True). Antwortet PMU an MAX_STUMM Tagen in Folge nicht, bricht der Lauf ab (keine Dauerschleife gegen
-eine Sperre). Die Schnittstelle ist inoffiziell: PAUSE_S zwischen den Anfragen, sparsam bleiben.
+eine Sperre). Die Schnittstelle ist inoffiziell: PAUSE_S zwischen den Anfragen, sparsam bleiben. Der Client,
+der zuletzt Kommentare geliefert hat (KOMMENTAR_HOST), wird für die Starterliste zuerst gefragt.
 """
 from __future__ import annotations
 
@@ -42,12 +43,13 @@ HOSTS = ["https://online.turfinfo.api.pmu.fr/rest/client/61",
          "https://offline.turfinfo.api.pmu.fr/rest/client/7",
          "https://online.turfinfo.api.pmu.fr/rest/client/1"]
 RACE_PFAD = "programme/{d}/R{r}/C{c}"
-PAUSE_S = 0.4
+PAUSE_S = 0.2              # zwischen den Anfragen – bei neuen 403-Sperren wieder erhöhen
 MAX_STUMM = 3
 NACHZUEGLER_TAGE = 2        # so nah an heute nicht als erledigt markieren (Dividenden/Kommentare kommen später)
 FORTSCHRITT = "pmu_basis_fortschritt.json"
 TABELLEN = ["pmu_races", "pmu_runners", "pmu_dividends"]
 LETZTER_STATUS: dict = {}
+KOMMENTAR_HOST: str | None = None   # Client, der zuletzt Kommentare geliefert hat – wird zuerst gefragt
 
 
 # --------------------------------------------------------------------------
@@ -55,6 +57,11 @@ LETZTER_STATUS: dict = {}
 # --------------------------------------------------------------------------
 def _hole(s: requests.Session, pfad: str, hosts=HOSTS):
     """Erste Antwort mit JSON über die Hosts; None, wenn keiner liefert. LETZTER_STATUS merkt sich den Grund."""
+    return _hole_mit_host(s, pfad, hosts)[0]
+
+
+def _hole_mit_host(s: requests.Session, pfad: str, hosts=HOSTS):
+    """Wie _hole, dazu der Host, der geantwortet hat: (json, host) bzw. (None, None)."""
     for h in hosts:
         url = f"{h}/{pfad}"
         try:
@@ -63,9 +70,9 @@ def _hole(s: requests.Session, pfad: str, hosts=HOSTS):
             LETZTER_STATUS[pfad] = type(e).__name__
             continue
         if r.ok and r.text.lstrip()[:1] in "{[":
-            return r.json()
+            return r.json(), h
         LETZTER_STATUS[pfad] = r.status_code
-    return None
+    return None, None
 
 
 def _skalar(d: dict, praefix: str, ohne: set) -> dict:
@@ -159,12 +166,17 @@ def tag_holen(tag: date, s: requests.Session, *, pause: float = PAUSE_S, dividen
             })
             races.append(z)
 
-            # Starter; fehlen die Kommentare, einmal die Starterliste eines anderen Clients versuchen
-            data = _hole(s, f"{pfad}/participants") or {}
+            # Starter: zuerst beim Client, der zuletzt Kommentare hatte (eine Anfrage statt zwei bis drei);
+            # fehlen die Kommentare, die übrigen Clients nach Kommentaren fragen und den Client merken
+            global KOMMENTAR_HOST
+            reihe = ([KOMMENTAR_HOST] if KOMMENTAR_HOST else []) + [h for h in HOSTS if h != KOMMENTAR_HOST]
+            data, host = _hole_mit_host(s, f"{pfad}/participants", reihe)
             time.sleep(pause)
             teilnehmer = data.get("participants", []) if isinstance(data, dict) else []
-            if kommentare_nachladen and teilnehmer and not any(_kommentar_teilnehmer(p) for p in teilnehmer):
-                for h in HOSTS[1:]:
+            if teilnehmer and any(_kommentar_teilnehmer(p) for p in teilnehmer):
+                KOMMENTAR_HOST = host
+            elif kommentare_nachladen and teilnehmer:
+                for h in [x for x in reihe if x != host]:
                     alt = _hole(s, f"{pfad}/participants", hosts=[h]) or {}
                     time.sleep(pause)
                     alt_t = alt.get("participants", []) if isinstance(alt, dict) else []
@@ -173,6 +185,7 @@ def tag_holen(tag: date, s: requests.Session, *, pause: float = PAUSE_S, dividen
                         for p in teilnehmer:
                             if kom.get(p.get("numPmu")):
                                 p["commentaireApresCourse"] = {"texte": kom[p.get("numPmu")]}
+                        KOMMENTAR_HOST = h
                         break
             for p in teilnehmer:
                 zr = pmu.runner_row(rid, p)
