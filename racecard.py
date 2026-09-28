@@ -54,6 +54,7 @@ import requests
 import pmu
 import rtr_arr
 import speedfig
+import standardzeiten
 import tempo_delta
 import timeform_ratings
 
@@ -213,7 +214,8 @@ def age_bucket(a) -> str | None:
 # --------------------------------------------------------------------------
 def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFrame | None = None,
                 trk_runners: pd.DataFrame | None = None, trk_sections: pd.DataFrame | None = None,
-                trk_leader: pd.DataFrame | None = None) -> pd.DataFrame:
+                trk_leader: pd.DataFrame | None = None,
+                standards: pd.DataFrame | None = None) -> pd.DataFrame:
     """Eine Zeile je Starter und Rennen, mit Renndaten und Tracking-Kennzahlen.
     Die Tempi der Schlussphase und der Finish-Index werden aus tracking_sections neu gebildet
     (speedfig.rohwerte_aus_abschnitten); die geparsten Spalten dienen nur als Ersatz."""
@@ -318,7 +320,7 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     # ΔL600 A / ΔB200 A: verglichen innerhalb Tag × Kurs × Going, Pace/Distanz und Klasse der Gruppe korrigiert
     h = tempo_delta.berechnen(h, trk_sections)
     # TR: Zeit-Rating nach Timeform-Art mit Upgrade aus dem Finishing Speed
-    h = timeform_ratings.berechnen(h, trk_sections, trk_leader)
+    h = timeform_ratings.berechnen(h, trk_sections, trk_leader, standards)
     h = h.merge(ratings_je_lauf(races, runners), on=["race_id", "horse_id"], how="left")
     return h.sort_values(["date", "race_id", "finish_pos"]).reset_index(drop=True)
 
@@ -967,9 +969,13 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     if races_heute.empty:
         raise RuntimeError(f"Keine französischen {'Flach' if nur_flach else 'Galopp'}rennen am {tag}.")
     print(f"{len(races_heute)} Rennen, {len(runners_heute)} Starter. Historie laden …")
+    std_rennen = standardzeiten.je_rennen(base)
+    print(f"Standardzeiten je Konfiguration: {len(std_rennen):,} Rennen zugeordnet"
+          + ("" if len(std_rennen) else " – keine Sammlung gefunden (standardzeiten.run), TR schätzt sie selbst"))
     hist = vorbereiten(tp.lade("pmu_races", base), tp.lade("pmu_runners", base),
                        tp.lade("tracking_races", base), tp.lade("tracking_runners", base),
-                       tp.lade("tracking_sections", base), tp.lade("tracking_leader", base))
+                       tp.lade("tracking_sections", base), tp.lade("tracking_leader", base),
+                       standards=std_rennen)
     silks = trikots(runners_heute.get("silks_url", pd.Series(dtype=str)).dropna())
     print(f"{len(silks)} Trikots geladen.")
     if not hist.empty:

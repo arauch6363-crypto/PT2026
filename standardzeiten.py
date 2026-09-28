@@ -358,6 +358,34 @@ def run(base: Path, von, bis=None, *, max_tage: int | None = None, sammeln_ok: b
     return standards
 
 
+def je_rennen(base: Path) -> pd.DataFrame:
+    """Je gesammeltem Rennen die Standardzeit seiner Konfiguration des Tages und die Going Allowance seines
+    Renntags (Tag × Bahn × Boden): race_id, konfiguration, std_skm, ga_skm, belastbar. Grundlage für TR.
+    Leer, wenn noch nichts gesammelt oder berechnet wurde (sz.run)."""
+    base = Path(base)
+    rennen, std = laden(base), laden_standards(base)
+    if rennen.empty or std.empty:
+        return pd.DataFrame(columns=["race_id", "konfiguration", "std_skm", "ga_skm", "belastbar"])
+    r = rennen.copy()
+    r["distance_m"] = pd.to_numeric(r["distance_m"], errors="coerce")
+    r = r[r["distance_m"] > 0]
+    r["konfiguration"] = konfiguration(r)
+    s = std.set_index("konfiguration")
+    out = r[["race_id", "konfiguration"]].copy()
+    out["std_skm"] = out["konfiguration"].map(s["std_skm"])
+    out["belastbar"] = out["konfiguration"].map(s["belastbar"]).fillna(False).astype(bool)
+    f = ordner(base) / "going_allowances.parquet"
+    if f.exists():
+        ga = pd.read_parquet(f)
+        schluessel = lambda b, d, g: b.astype(str) + "_" + pd.to_datetime(d.astype(str), format="mixed").dt.strftime("%Y-%m-%d") + "_" + g
+        ga_map = pd.Series(ga["ga_skm"].to_numpy(), index=schluessel(ga["bahn"], ga["date"], ga["boden"].astype(str)))
+        k = schluessel(r["bahn"], r["date"], r["going_klasse"].fillna("UNBEKANNT").astype(str))
+        out["ga_skm"] = k.map(ga_map).to_numpy()
+    else:
+        out["ga_skm"] = np.nan
+    return out.dropna(subset=["std_skm"]).reset_index(drop=True)
+
+
 def laden_standards(base: Path) -> pd.DataFrame:
     f = ordner(Path(base)) / "standards.parquet"
     return pd.read_parquet(f) if f.exists() else pd.DataFrame()

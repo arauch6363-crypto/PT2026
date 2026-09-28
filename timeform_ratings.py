@@ -168,7 +168,7 @@ def _bestes_anderes(werte: pd.Series, pferd: pd.Series) -> pd.Series:
 
 
 def berechnen(h: pd.DataFrame, sections: pd.DataFrame | None = None,
-              leader: pd.DataFrame | None = None) -> pd.DataFrame:
+              leader: pd.DataFrame | None = None, standards: pd.DataFrame | None = None) -> pd.DataFrame:
     """TR je Lauf (Spalten SPALTEN). Erwartet je Starter: race_id, saddle_no, horse_id, date, course_key,
     going_pmu, distance_m, prize_eur, conditions_age, finish_pos, lengths_behind, weight_kg,
     official_time_s, behind_winner_s, path_factor (optional)."""
@@ -221,13 +221,28 @@ def berechnen(h: pd.DataFrame, sections: pd.DataFrame | None = None,
     std = std_gut["median"].where(std_gut["count"] >= MIN_STD_RENNEN)
     std = std.reindex(std_alle.index).combine_first(std_alle["median"].where(std_alle["count"] >= MIN_STD_RENNEN))
     rc["std"] = rc["cell"].map(std)
+    # Standardzeiten aus standardzeiten.py (Konfiguration des Tages, lange Historie) haben Vorrang;
+    # die eigene Schätzung aus den Tracking-Rennen bleibt als Ersatz
+    rc["std_quelle"] = np.where(rc["std"].notna(), "tracking", None)
+    ext = None
+    if standards is not None and len(standards):
+        ext = standards.drop_duplicates("race_id").set_index("race_id")
+        s_ext = rc.index.to_series().map(ext["std_skm"])
+        rc.loc[s_ext.notna(), "std_quelle"] = "konfiguration"
+        rc["std"] = s_ext.combine_first(rc["std"])
     rc = rc[rc["std"].notna()]
     if rc.empty:
         return h
 
-    # Phase 1c: Bootstrap-Allowance je Gruppe aus den Siegerzeiten (Klasse herausgerechnet)
+    # Phase 1c: Bootstrap-Allowance je Gruppe – aus standardzeiten.py (alle Rennen des Renntags), sonst aus den
+    # eigenen Siegerzeiten (Klasse herausgerechnet)
     ga0 = (rc["skm_ref"] - rc["std"]).groupby(rc["meeting"]).agg(["median", "count"])
     ga_boot = ga0["median"] * ga0["count"] / (ga0["count"] + GA_SHRINK)
+    n_ga_ext = 0
+    if ext is not None and "ga_skm" in ext:
+        ga_e = rc.index.to_series().map(ext["ga_skm"]).groupby(rc["meeting"]).median().dropna()
+        n_ga_ext = int(len(ga_e))
+        ga_boot = ga_e.combine_first(ga_boot)
 
     # Läufe mit allen Angaben
     d = h[h["race_id"].isin(rc.index) & h["_T"].notna()].copy()
@@ -335,6 +350,7 @@ def berechnen(h: pd.DataFrame, sections: pd.DataFrame | None = None,
         h.loc[d.index, col] = d[col]
     LETZTE_INFO = {
         "laeufe": int(d["tr_zeit"].notna().sum()), "rennen": int(len(rc)), "standards": int(std.notna().sum()),
+        "std_konfig": int((rc["std_quelle"] == "konfiguration").sum()), "ga_extern": n_ga_ext,
         "gruppen": int(len(ga)), "ga_verlauf": verlauf, "laengen_je_s": lps,
         "beta_preis_x2": float(beta.get("log_prize_c", np.nan) * np.log(2)), "ref_age": ref_age,
         "c_start": C_START, "c_sym": float(c_sym), "c_schnell": c_schnell, "c_langsam": c_langsam,
@@ -359,6 +375,9 @@ def bericht(info: dict | None = None) -> str:
     return "\n".join([
         f"TR aus {info['laeufe']:,} Läufen, {info['rennen']:,} Rennen, {info['standards']} Standardzeiten, "
         f"{info['gruppen']:,} Going Allowances (Tag × Kurs × Going)",
+        f"  Standardzeiten: {info.get('std_konfig', 0):,} von {info['rennen']:,} Rennen aus der Konfiguration des Tages "
+        f"(standardzeiten.py), Rest aus den Tracking-Rennen geschätzt · Start-Allowance aus der Sammlung für "
+        f"{info.get('ga_extern', 0):,} Renntage",
         f"  Klasse in der Standardzeit: Preisgeld ×2 {info['beta_preis_x2']:+.3f} s/km · Längen je Sekunde: {lps}",
         f"  Going Allowance nach Timeform, Änderung je Runde (Ø s/km): {ga}",
         f"  FS%: {info['fs_laeufe']:,} Läufe, {info['effizient']:,} effizient · Upgrade-Koeffizient "
