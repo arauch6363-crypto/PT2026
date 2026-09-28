@@ -68,6 +68,7 @@ Tracking ist eine Eigenschaft von **Renntag und Rennen**, nicht von der Bahn:
 | `pipeline.py` | Tagesablauf, Fortschritt, Parquet-Ausgabe, Auswertungshilfen |
 | `racecard.py` | Interaktive Race Card für die heutigen Rennen (HTML) |
 | `tempo_delta.py` | ΔL600 A / ΔB200 A: Schlusstempo gegen die Erwartung, verglichen innerhalb Tag × Kurs × Going, mit Klassenkorrektur |
+| `standardzeiten.py` | Siegerzeiten aus dem PMU-Programm über lange Historie sammeln, Standardzeiten je Konfiguration des Tages |
 | `timeform_ratings.py` | TR: Zeit-Rating nach Timeform-Art (Standardzeiten, Going Allowance) mit Finishing-Speed-Upgrade, Backtest |
 | `rtr_arr.py` | Ratings aus PT_Vorarbeiten: RTR (Elo-artiges Rating nach dem Rennen) und ARR (Leistung im Rennen) |
 | `racecard_template.html` | Layout der Race Card; die Daten werden als JSON eingesetzt |
@@ -101,6 +102,28 @@ base = Path('daten')
 tp.run('2022-01-01', base=base, pdf_dir=base/'pdfs', max_tage=5)
 "
 ```
+
+## Standardzeiten je Konfiguration
+
+```python
+import standardzeiten as sz
+sz.run(BASE, "2019-01-01", max_tage=200)   # in Etappen: je Aufruf höchstens 200 Tage, erneut aufrufen
+std = sz.laden_standards(BASE)              # <BASE>/standardzeiten/standards.parquet (auch .csv)
+sz.standard_fuer(std, "CHANTILLY", 1600, piste="GAZON", parcours="Grande piste")
+```
+
+Eine Standardzeit gilt für die **Konfiguration des Tages**: Bahn, Distanz, Piste (Gras/PSF), Parcours
+(z. B. Grande piste, Piste ronde, Ligne droite) und Corde. Gesammelt wird je Tag das PMU-Programm
+(französische, gelaufene Flachrennen) mit der Siegerzeit `dureeCourse` (Einheit wird am Tempo erkannt; fehlt sie,
+einmal die Rennseite), Boden, Preisgeld und Altersklasse – Ablage in `<BASE>/standardzeiten/rennen/<JJJJMM>.parquet`,
+erledigte Tage in `fortschritt.json`. Antwortet PMU an 3 Tagen in Folge nicht, bricht die Sammlung ab.
+
+Berechnung: Siegerzeit in s/km auf eine Referenzklasse umgerechnet (β aus Altersklasse und log. Preisgeld, innerhalb
+Tag × Bahn × Boden), dann abwechselnd per Median Standardzeit je Konfiguration und Going Allowance je
+Tag × Bahn × Boden. Nullpunkt der Allowance je Bahn und Belag – Gras: guter Boden (Bon, Bon souple, Bon léger),
+PSF: eigener Median –, die Standardzeit gilt also für guten Boden. Konfigurationen mit wenigen Rennen werden zur
+Standardzeit derselben Bahn und Distanz gezogen (n / (n + 5)); `belastbar` ab 5 Rennen. Dazu
+`going_allowances.parquet` je Renntag.
 
 ## Race Card für heute
 
