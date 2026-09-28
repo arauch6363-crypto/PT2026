@@ -69,9 +69,13 @@ def _hole_mit_host(s: requests.Session, pfad: str, hosts=HOSTS):
         except requests.RequestException as e:
             LETZTER_STATUS[pfad] = type(e).__name__
             continue
-        if r.ok and r.text.lstrip()[:1] in "{[":
-            return r.json(), h
-        LETZTER_STATUS[pfad] = r.status_code
+        if r.ok and r.text.lstrip()[:1] in ("{", "["):   # leerer Text ("") zählt nicht als JSON
+            try:
+                return r.json(), h
+            except ValueError:
+                LETZTER_STATUS[pfad] = "kaputtes JSON"
+                continue
+        LETZTER_STATUS[pfad] = "leer" if r.ok else r.status_code
     return None, None
 
 

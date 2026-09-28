@@ -116,7 +116,7 @@ def _json(session: requests.Session, urls: list[str], *, runden: int = 2, **fmt)
             kurz = u.split("//")[1].split(".")[0] + "/" + u.split("/client/")[1].split("/")[0]
             try:
                 r = session.get(u.format(**fmt), headers=HEADERS, timeout=30)
-                if r.ok and r.text.lstrip()[:1] in "{[":
+                if r.ok and r.text.lstrip()[:1] in ("{", "["):
                     LETZTER_FEHLER = ""
                     return r.json()
                 fehler.append(f"{kurz}: HTTP {r.status_code}")
