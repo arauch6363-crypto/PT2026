@@ -325,12 +325,85 @@ def main() -> int:
 
     print("\n7) Race Card: A/E, Vorlieben, Formzeilen")
     racecard_pruefen()
+    print("\n9) Standardzeiten je Konfiguration")
+    standardzeiten_pruefen()
 
     pt.read_pages = requests_session_orig
     print("\n" + ("Alle Prüfungen bestanden." if not fehler else f"{len(fehler)} Prüfung(en) fehlgeschlagen:"))
     for f in fehler:
         print("  -", f)
     return 1 if fehler else 0
+
+
+def standardzeiten_pruefen() -> None:
+    """standardzeiten.py: Sammeln gegen eine nachgebaute Schnittstelle, Standardzeiten je Konfiguration."""
+    import json as _json
+    import numpy as np
+    import standardzeiten as sz
+
+    def kurs(no, dist, parcours, piste, dauer, going="Bon souple"):
+        c = {"numOrdre": no, "libelle": f"PRIX {no}", "specialite": "PLAT", "discipline": "PLAT", "statut": "FIN_COURSE",
+             "distance": dist, "parcours": parcours, "corde": "CORDE_DROITE", "typePiste": piste, "montantPrix": 20000,
+             "conditionAge": "TROIS_ANS", "penetrometre": {"intitule": going, "valeurMesure": "3,4"},
+             "heureDepart": int(datetime(2026, 1, 1, 13).timestamp() * 1000), "ordreArrivee": [[1], [2]]}
+        if dauer is not None:
+            c["dureeCourse"] = dauer
+        return c
+
+    class Sess:
+        def __init__(self):
+            self.urls = []
+
+        def get(self, url, headers=None, timeout=None):
+            self.urls.append(url)
+            if url.endswith("/R1/C3"):
+                return FakeResponse(text=_json.dumps({"dureeCourse": 101230}))
+            return FakeResponse(text=_json.dumps({"programme": {"reunions": [_reunion(1, "HIPPODROME DE CHANTILLY", "CHY", [
+                kurs(1, 1600, "1600 M. (GRANDE PISTE)", "GAZON", 95400),
+                kurs(2, 1600, "1600 M. (PISTE RONDE)", "GAZON", 96800),
+                kurs(3, 1900, "PISTE EN SABLE FIBRE", "PSF", None, "PSF Standard")])]}}))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        s_ = Sess()
+        st = sz.sammeln(Path(tmp), "2026-09-20", "2026-09-22", session=s_, pause=0)
+        r = sz.laden(Path(tmp)).set_index("race_id")
+        n = len(s_.urls)
+        st2 = sz.sammeln(Path(tmp), "2026-09-20", "2026-09-22", session=s_, pause=0)
+        pruefe(st["rennen"] == 9 and st["mit_zeit"] == 9 and r.at["20260922R1C1", "zeit_s"] == 95.4
+               and r.at["20260922R1C3", "zeit_s"] == 101.23 and st2["tage"] == 0 and len(s_.urls) == n,
+               "Standardzeiten sammeln: Zeit in ms erkannt, fehlende Zeit von der Rennseite, erledigte Tage nicht erneut")
+        pruefe(r.at["20260922R1C1", "parcours_n"] == "GRANDE PISTE" and r.at["20260922R1C2", "parcours_n"] == "PISTE RONDE"
+               and r.at["20260922R1C3", "piste"] == "PSF" and r.at["20260922R1C1", "going_klasse"] == "BON SOUPLE",
+               "Konfiguration des Tages: Piste, Parcours, Corde und offizieller Boden je Rennen")
+
+    rng = np.random.default_rng(5)
+    konf = {("CHANTILLY", 1600, "GAZON", "GRANDE PISTE"): 59.5, ("CHANTILLY", 1600, "GAZON", "PISTE RONDE"): 60.6,
+            ("CHANTILLY", 1900, "PSF", "PISTE EN SABLE FIBRE"): 61.0, ("DEAUVILLE", 1200, "GAZON", "LIGNE DROITE"): 58.2}
+    zeilen = []
+    for tag_i in range(300):
+        for bahn in ("CHANTILLY", "DEAUVILLE"):
+            if rng.random() < .5:
+                continue
+            boden = rng.choice(["BON", "BON SOUPLE", "SOUPLE", "LOURD"], p=[.35, .3, .2, .15])
+            ga = {"BON": 0, "BON SOUPLE": .6, "SOUPLE": 1.8, "LOURD": 3.5}[boden] + rng.normal(0, .5)
+            for rn in range(1, 6):
+                k = [x for x in konf if x[0] == bahn][rng.integers(0, 3 if bahn == "CHANTILLY" else 1)]
+                prize = [8000, 16000, 32000, 64000][int(rng.integers(0, 4))]
+                skm = konf[k] + ga * (k[2] == "GAZON") - 0.35 * np.log2(prize / 16000) + rng.normal(0, .4)
+                zeilen.append(dict(race_id=f"{tag_i}{bahn[:2]}{rn}", date=(date(2024, 1, 1) + timedelta(days=tag_i)).strftime("%Y%m%d"),
+                                   bahn=bahn, pmu_code=bahn[:3], distance_m=k[1], piste=k[2], parcours_n=k[3],
+                                   corde="CORDE_DROITE", going_klasse=boden if k[2] == "GAZON" else "PSF",
+                                   zeit_s=skm * k[1] / 1000, prize_eur=prize, conditions_age="TROIS_ANS"))
+    std, ga_df, info = sz.berechnen(pd.DataFrame(zeilen))
+    w = lambda b, d, pa: float(std[(std.bahn == b) & (std.distance_m == d) & (std.parcours == pa)]["std_skm"].iloc[0])
+    diff = w("CHANTILLY", 1600, "PISTE RONDE") - w("CHANTILLY", 1600, "GRANDE PISTE")
+    pruefe(len(std) == 4 and abs(diff - 1.1) < 0.2 and abs(w("DEAUVILLE", 1200, "LIGNE DROITE") - 58.2) < 0.3
+           and abs(info["preis_x2_skm"] + 0.35) < 0.08,
+           f"Standardzeit je Konfiguration: gleiche Distanz, anderer Parcours getrennt ({diff:+.2f} s/km, wahr +1,10), "
+           f"Klasse Preisgeld ×2 {info['preis_x2_skm']:+.2f} s/km (wahr −0,35)")
+    gg = ga_df.groupby("boden")["ga_skm"].median()
+    pruefe(gg["LOURD"] > gg["SOUPLE"] > gg["BON SOUPLE"] - 0.3 and abs(gg.get("PSF", 0.0)) < 0.2,
+           f"Going Allowance nach Boden (Lourd {gg['LOURD']:+.2f}, Souple {gg['SOUPLE']:+.2f} s/km), PSF eigener Nullpunkt")
 
 
 def racecard_pruefen() -> None:
