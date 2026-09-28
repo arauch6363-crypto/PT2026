@@ -125,6 +125,11 @@ PSF: eigener Median –, die Standardzeit gilt also für guten Boden. Konfigurat
 Standardzeit derselben Bahn und Distanz gezogen (n / (n + 5)); `belastbar` ab 5 Rennen. Dazu
 `going_allowances.parquet` je Renntag.
 
+**Verwendung in TR:** `racecard.run` lädt `standardzeiten.je_rennen(BASE)` – je gesammeltem Rennen die Standardzeit
+seiner Konfiguration des Tages und die Going Allowance seines Renntags (aus allen Rennen des Tages). TR nutzt diese
+Standardzeiten vorrangig und startet die Timeform-Allowance von dort; Rennen ohne Eintrag behalten die Schätzung aus
+den Tracking-Rennen. Nach neuen Sammel-Etappen `sz.run(BASE, "2019-01-01", sammeln_ok=False)` neu berechnen.
+
 ## Race Card für heute
 
 ```python

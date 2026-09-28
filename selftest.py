@@ -372,6 +372,11 @@ def standardzeiten_pruefen() -> None:
         pruefe(st["rennen"] == 9 and st["mit_zeit"] == 9 and r.at["20260922R1C1", "zeit_s"] == 95.4
                and r.at["20260922R1C3", "zeit_s"] == 101.23 and st2["tage"] == 0 and len(s_.urls) == n,
                "Standardzeiten sammeln: Zeit in ms erkannt, fehlende Zeit von der Rennseite, erledigte Tage nicht erneut")
+        sz.run(Path(tmp), "2026-09-20", "2026-09-22", sammeln_ok=False)
+        je = sz.je_rennen(Path(tmp)).set_index("race_id")
+        pruefe(len(je) == 9 and je.loc["20260922R1C1", "konfiguration"] != je.loc["20260922R1C2", "konfiguration"]
+               and je["ga_skm"].notna().all(),
+               "je_rennen: jedes gesammelte Rennen mit der Standardzeit seiner Konfiguration und der Allowance des Tages")
         pruefe(r.at["20260922R1C1", "parcours_n"] == "GRANDE PISTE" and r.at["20260922R1C2", "parcours_n"] == "PISTE RONDE"
                and r.at["20260922R1C3", "piste"] == "PSF" and r.at["20260922R1C1", "going_klasse"] == "BON SOUPLE",
                "Konfiguration des Tages: Piste, Parcours, Corde und offizieller Boden je Rennen")
@@ -684,6 +689,18 @@ def racecard_pruefen() -> None:
     tr = timeform_ratings.berechnen(pd.DataFrame(zeilen), pd.DataFrame(secs), pd.DataFrame(leader))
     info = timeform_ratings.LETZTE_INFO
     g_ = tr.dropna(subset=["tr_ga"]).drop_duplicates(["course_key", "date", "going_pmu"])
+    z_df = pd.DataFrame(zeilen)
+    std_ext = (z_df.drop_duplicates("race_id")
+                   .assign(std_skm=lambda x: 1000 / x["distance_m"].map(std_v), ga_skm=lambda x: x["ga_wahr"])
+                   [["race_id", "std_skm", "ga_skm"]])
+    tr_ext = timeform_ratings.berechnen(z_df, pd.DataFrame(secs), pd.DataFrame(leader), std_ext)
+    info_ext = timeform_ratings.LETZTE_INFO
+    pruefe(info_ext["std_konfig"] == info_ext["rennen"] and info_ext["ga_extern"] > 0
+           and tr_ext["tr_zeit"].corr(tr_ext["wahr"]) >= tr["tr_zeit"].corr(tr["wahr"]) - 0.01
+           and abs((tr_ext["tr"] - tr_ext["wahr"]).mean()) < abs((tr["tr"] - tr["wahr"]).mean()),
+           f"TR mit Standardzeiten je Konfiguration (standardzeiten.py): alle {info_ext['rennen']} Rennen zugeordnet, "
+           f"r(Zeit-Rating, Können) {tr['tr_zeit'].corr(tr['wahr']):.3f} -> {tr_ext['tr_zeit'].corr(tr_ext['wahr']):.3f}, "
+           f"Niveau TR − Können {(tr['tr'] - tr['wahr']).mean():+.1f} -> {(tr_ext['tr'] - tr_ext['wahr']).mean():+.1f} lb")
     pruefe(tr["tr"].corr(tr["wahr"]) > 0.84 and tr["tr"].corr(tr["wahr"]) > tr["tr_zeit"].corr(tr["wahr"]) + 0.05
            and g_["tr_ga"].corr(g_["ga_wahr"]) > 0.95,
            f"TR: Können wiedergefunden (r {tr['tr_zeit'].corr(tr['wahr']):.2f} Zeit -> {tr['tr'].corr(tr['wahr']):.2f} mit Upgrade), "
