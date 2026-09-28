@@ -327,6 +327,8 @@ def main() -> int:
     racecard_pruefen()
     print("\n9) Standardzeiten je Konfiguration")
     standardzeiten_pruefen()
+    print("\n10) PMU-Basis: Rennen, Starter, Dividenden, Zeiten")
+    pmu_basis_pruefen()
 
     pt.read_pages = requests_session_orig
     print("\n" + ("Alle Prüfungen bestanden." if not fehler else f"{len(fehler)} Prüfung(en) fehlgeschlagen:"))
@@ -409,6 +411,67 @@ def standardzeiten_pruefen() -> None:
     gg = ga_df.groupby("boden")["ga_skm"].median()
     pruefe(gg["LOURD"] > gg["SOUPLE"] > gg["BON SOUPLE"] - 0.3 and abs(gg.get("PSF", 0.0)) < 0.2,
            f"Going Allowance nach Boden (Lourd {gg['LOURD']:+.2f}, Souple {gg['SOUPLE']:+.2f} s/km), PSF eigener Nullpunkt")
+
+
+def pmu_basis_pruefen() -> None:
+    """pmu_basis.py: Rennen, Starter (Kommentar, Zeit), Dividenden je Tag schreiben; Pipeline behält Zusatzspalten."""
+    import json as _json
+    import pmu_basis as pb
+    kurs = {"numOrdre": 1, "libelle": "PRIX TEST", "specialite": "PLAT", "discipline": "PLAT", "statut": "FIN_COURSE",
+            "distance": 1600, "parcours": "1600 M. (GRANDE PISTE)", "corde": "CORDE_DROITE", "typePiste": "GAZON",
+            "montantPrix": 20000, "conditionAge": "TROIS_ANS", "penetrometre": {"intitule": "Bon souple"},
+            "heureDepart": int(datetime(2026, 1, 1, 13).timestamp() * 1000), "ordreArrivee": [[2], [1], [3]]}
+
+    class Sess:
+        def __init__(self):
+            self.urls = []
+
+        def get(self, url, headers=None, timeout=None):
+            self.urls.append(url)
+            if url.endswith("/R1/C1"):
+                return FakeResponse(text=_json.dumps({**kurs, "dureeCourse": 96120,
+                                                      "commentaireApresCourse": {"texte": "Course menée par 3."}}))
+            if url.endswith("/R1/C1/participants"):
+                mit = "/client/1/" in url
+                return FakeResponse(text=_json.dumps({"participants": [
+                    {"numPmu": n, "nom": f"PFERD {n}", "statut": "PARTANT", "age": 4, "sexe": "MALES", "handicapPoids": 570,
+                     "ordreArrivee": pos, "distanceChevalPrecedent": {"libelleCourt": lab}, "nomPere": "PAPA",
+                     **({"commentaireApresCourse": {"texte": f"A bien fini ({n})."}} if mit else {})}
+                    for n, pos, lab in ((2, 1, None), (1, 2, "1 L"), (3, 3, "2 L"))]}))
+            if url.endswith("/rapports-definitifs"):
+                return FakeResponse(text=_json.dumps([
+                    {"typePari": "SIMPLE_GAGNANT", "miseBase": 200,
+                     "rapports": [{"libelle": "Gagnant", "combinaison": ["2"], "dividende": 920, "dividendePourUnEuro": 460}]},
+                    {"typePari": "COUPLE_GAGNANT", "miseBase": 200, "rapports": [{"combinaison": ["2", "1"], "dividendePourUnEuro": 1530}]}]))
+            if url.rstrip("/").split("/")[-1].isdigit():
+                return FakeResponse(text=_json.dumps({"programme": {"reunions": [
+                    _reunion(1, "HIPPODROME DE CHANTILLY", "CHY", [kurs])]}}))
+            return FakeResponse(status=404)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        tp._write(base, "pmu_races", "20260922", [{"race_id": "20260922R1C1", "alt": 1}])
+        s_ = Sess()
+        pb.run(base, "2026-09-22", "2026-09-22", session=s_, pause=0)
+        r, ru, dv = (tp.lade(t, base) for t in ("pmu_races", "pmu_runners", "pmu_dividends"))
+        ru = ru.set_index("saddle_no")
+        pruefe("alt" not in r and r.at[0, "race_time_s"] == 96.12 and r.at[0, "race_comment"] == "Course menée par 3."
+               and r.at[0, "track_type"] == "GAZON",
+               "PMU-Basis: Tagesdatei überschrieben, Siegerzeit, Rennkommentar und Piste im Rennen")
+        pruefe(ru.loc[1, "comment"] == "A bien fini (1)." and ru["comment"].notna().all()
+               and abs(ru.loc[1, "time_s"] - (96.12 + 2.4 / (1600 / 96.12))) < 0.01 and bool(ru.loc[1, "time_est"]),
+               "PMU-Basis: Kommentar je Pferd (von einem anderen Client nachgeladen), Zeit aus Siegerzeit + Längen geschätzt")
+        pruefe(len(dv) == 2 and set(dv["combination"]) == {"2", "2-1"} and dv["dividend_eur_per_1eur"].tolist() == [4.6, 15.3],
+               "PMU-Basis: Dividenden je Wette und Kombination in pmu_dividends")
+        n = len(s_.urls)
+        pb.run(base, "2026-09-22", "2026-09-22", session=s_, pause=0)
+        pruefe(len(s_.urls) == n, "PMU-Basis: erledigte Tage werden nicht erneut abgefragt")
+        tp._write_behalten(base, "pmu_runners", "20260922",
+                           [{"race_id": "20260922R1C1", "saddle_no": k, "horse": f"NEU {k}"} for k in (1, 2, 3)],
+                           ["race_id", "saddle_no"])
+        ru2 = tp.lade("pmu_runners", base).set_index("saddle_no")
+        pruefe(ru2.loc[1, "horse"] == "NEU 1" and ru2.loc[1, "comment"] == "A bien fini (1)." and "time_s" in ru2,
+               "Pipeline überschreibt die Starter, behält aber Kommentar und Zeiten aus pmu_basis")
 
 
 def racecard_pruefen() -> None:

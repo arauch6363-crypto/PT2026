@@ -68,6 +68,7 @@ Tracking ist eine Eigenschaft von **Renntag und Rennen**, nicht von der Bahn:
 | `pipeline.py` | Tagesablauf, Fortschritt, Parquet-Ausgabe, Auswertungshilfen |
 | `racecard.py` | Interaktive Race Card für die heutigen Rennen (HTML) |
 | `tempo_delta.py` | ΔL600 A / ΔB200 A: Schlusstempo gegen die Erwartung, verglichen innerhalb Tag × Kurs × Going, mit Klassenkorrektur |
+| `pmu_basis.py` | Wissensbasis aus der PMU-Schnittstelle: Rennen (mit Siegerzeit, Kommentar), Starter (mit Kommentar, Zeit), Dividenden |
 | `standardzeiten.py` | Siegerzeiten aus dem PMU-Programm über lange Historie sammeln, Standardzeiten je Konfiguration des Tages |
 | `timeform_ratings.py` | TR: Zeit-Rating nach Timeform-Art (Standardzeiten, Going Allowance) mit Finishing-Speed-Upgrade, Backtest |
 | `rtr_arr.py` | Ratings aus PT_Vorarbeiten: RTR (Elo-artiges Rating nach dem Rennen) und ARR (Leistung im Rennen) |
@@ -102,6 +103,22 @@ base = Path('daten')
 tp.run('2022-01-01', base=base, pdf_dir=base/'pdfs', max_tage=5)
 "
 ```
+
+## Wissensbasis aus der PMU-Schnittstelle
+
+```python
+import pmu_basis as pb
+pb.run(BASE, "2019-01-01", max_tage=100)   # in Etappen, erneut aufrufen setzt fort
+pb.abdeckung(BASE)                          # je Monat: Rennen, Starter, Anteil mit Zeit, Kommentar, Dividenden
+```
+
+Je Tag (französische, gelaufene Flachrennen) eine Datei in `parquet/pmu_races`, `parquet/pmu_runners` und neu
+`parquet/pmu_dividends`. Vorhandene Tagesdateien werden überschrieben, fehlende Ordner angelegt. Zusätzlich zu den
+bisherigen Spalten: Siegerzeit `race_time_s`, Piste, Parcours, Rennkommentar und alle einfachen Felder der Rennseite
+(`c_…`); je Starter der Kommentar nach dem Rennen (`comment`, fehlt er bei Client 61, wird ein anderer Client
+gefragt), die Zeit `time_s` (von PMU, sonst Siegerzeit + Längen, `time_est = True`) und alle einfachen Felder (`p_…`);
+Dividenden aus `rapports-definitifs` je Wette und Kombination. Fortschritt in `pmu_basis_fortschritt.json`,
+Abbruch nach 3 stummen Tagen. Die tägliche Pipeline behält diese Zusatzspalten beim erneuten Schreiben eines Tages.
 
 ## Standardzeiten je Konfiguration
 
