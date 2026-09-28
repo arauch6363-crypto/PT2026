@@ -256,7 +256,11 @@ def run(base: Path, von, bis=None, *, max_tage: int | None = None, neu: bool = F
     stat = {"tage": 0, "rennen": 0, "starter": 0, "mit_kommentar": 0, "mit_zeit": 0, "zeit_geschaetzt": 0,
             "dividenden": 0, "abgebrochen": False}
     stumm = 0
-    print(f"PMU-Basis: {len(tage)} Tage zu holen ({tage[0] if tage else '–'} … {tage[-1] if tage else '–'})")
+    frisch = [t for t in tage if (heute - t).days <= NACHZUEGLER_TAGE]
+    alt = [t for t in tage if (heute - t).days > NACHZUEGLER_TAGE]
+    print(f"PMU-Basis: {len(tage)} Tage zu holen – {len(st['erledigt'])} schon erledigt"
+          + (f"; {len(frisch)} jüngste Tage werden immer neu geholt ({', '.join(map(str, frisch))})" if frisch else "")
+          + (f"; Historie weiter ab {alt[0]} rückwärts bis {alt[-1]}" if alt else ""))
     for i, tag in enumerate(tage, 1):
         daten = tag_holen(tag, s, pause=pause, dividenden=dividenden, kommentare_nachladen=kommentare_nachladen)
         if daten is None:
