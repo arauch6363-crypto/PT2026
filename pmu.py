@@ -261,7 +261,7 @@ def runner_row(rid: str, p: dict) -> dict:
         "form": p.get("musique"),
         "starts": p.get("nombreCourses"), "wins": p.get("nombreVictoires"), "places": p.get("nombrePlaces"),
         "earnings_eur": (_g(p, "gainsParticipant", "gainsCarriere") or 0) / 100 or None,
-        "sire": p.get("nomPere"), "dam": p.get("nomMere"),
+        "sire": p.get("nomPere"), "dam": p.get("nomMere"), "dam_sire": p.get("nomPereMere"),
         "odds_final": _g(p, "dernierRapportDirect", "rapport"),
         "odds_morning": _g(p, "dernierRapportReference", "rapport"),
         "finish_pos": p.get("ordreArrivee"),
