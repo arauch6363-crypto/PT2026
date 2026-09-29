@@ -540,8 +540,9 @@ def racecard_pruefen() -> None:
                              "finish_pos": None}])
     d = rc.baue_daten(hist, heute_r, heute_s, tag)
     x, y = d["races"][f"{tag:%Y%m%d}R1C1"]["runners"]
-    pruefe(x["ae"]["trainer"]["d90"] == {"runs": 2, "wins": 1, "places": 2, "exp": 0.75, "ae": 1.33},
-           "Trainer-A/E 90 Tage = 1 Sieg / (1/4 + 1/2) = 1,33")
+    pruefe(x["ae"]["trainer"]["d90"] == {"runs": 2, "wins": 1, "places": 2, "exp": 0.75, "ae": 1.33,
+                                         "epr": round((13500 + 5130) / 2)},
+           "Trainer-A/E 90 Tage = 1 Sieg / (1/4 + 1/2) = 1,33; Gewinn je Lauf (13500 + 5130) / 2")
     pruefe(x["ae"]["trainer"]["d365"]["runs"] == 3 and x["ae"]["trainer"]["d365"]["ae"] == 1.05,
            "Trainer-A/E 365 Tage schließt den Lauf vor 100 Tagen ein (1 / 0,95 = 1,05)")
     pruefe(rc._ae_trend({"runs": 6, "ae": 1.6}, {"runs": 90, "ae": 1.0}) == "hot"
@@ -591,6 +592,14 @@ def racecard_pruefen() -> None:
            and pr["jockey"]["horse"]["runs"] == 2 and pr["dam_sire"]["going"]["runs"] == 1
            and pr["horse"]["course"][0]["label"] == "Deauville" and pr["horse"]["course"][0]["today"],
            "Vorlieben: Trainer nach Altersgruppe, Jockey auf dem Pferd, Muttervater nach Boden, Pferd nach Kurs")
+    pruefe(pr["sire"]["age"]["runs"] == 5 and pr["dam_sire"]["age"]["runs"] == 2
+           and x["ae"]["pedigree"]["sire"]["epr"] == round((13500 + 5130 + 7500 + 2850 + 2850) / 5),
+           "Vorlieben Vater/Muttervater nach Altersgruppe (4j+), Gewinn je Lauf des Vaters (totes Rennen: beide 2.)")
+    kx, ky = x["career"]["all"], y["career"]["all"]
+    pruefe(kx["rank"] == 1 and ky["rank"] == 2 and kx["rel"] == round(8175 / ((8175 + 6315) / 2), 2),
+           "Gewinn je Lauf im Vergleich zum Feld: Rang und Verhältnis zum Median")
+    pruefe(f["cls_epr_pct"] == 100 and kl["epr_pct"] == 100,
+           "Klasse eingeordnet als Perzentil aller früheren Rennen")
     du = x["duels"]
     pruefe(len(du) == 2 and du[0]["rival"] == "Y" and du[0]["diff_l"] == 2.0 and du[0]["shift"] == 0.0
            and du[0]["rival_no"] == 2 and du[1]["pos"] == 2 and du[1]["rival_pos"] == 1,
