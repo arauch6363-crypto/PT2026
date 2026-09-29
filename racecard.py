@@ -42,8 +42,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import re
-import unicodedata
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -76,9 +74,8 @@ SCHNITT_LAEUFE = 5              # Ø der bereinigten Kennzahlen über so viele L
 SCHNITT_PRIOR = 1.0             # Schrumpfung zum Nullpunkt: wirkt wie ein zusätzlicher Lauf mit Wert 0
 SCHNITT_DIST_M = 400            # Gewicht eines Laufs = 1 / (1 + |Distanz − heute| / SCHNITT_DIST_M)
 # TR-Kachel: gewichteter Ø der letzten SCHNITT_LAEUFE Läufe mit TR, Gewicht = Distanz × Going
-GOING_STUFE = {"TRES LEGER": 0, "LEGER": 1, "BON LEGER": 2, "BON": 3, "BON SOUPLE": 4, "SOUPLE": 5,
-               "TRES SOUPLE": 6, "COLLANT": 7, "LOURD": 8, "TRES LOURD": 9}
-SCHNITT_GOING_STUFEN = 2        # Going-Gewicht = 1 / (1 + |Stufen Abstand| / SCHNITT_GOING_STUFEN)
+GOING_STUFE = {"VERY FAST": 0, "FAST": 1, "SLOW": 2, "VERY SLOW": 3}     # Bodengruppen (rtr_arr.GOING_MAP)
+SCHNITT_GOING_STUFEN = 1        # Going-Gewicht = 1 / (1 + |Gruppen Abstand| / SCHNITT_GOING_STUFEN)
 GOING_PSF_GRAS = 0.25           # Going-Gewicht zwischen PSF und Gras
 # Übersicht: Ø dieser Δ-Kennzahlen (tempo_delta, km/h) über die letzten SCHNITT_LAEUFE Läufe mit Tracking
 DELTA_SPALTEN = {"dl600_a": "d_L600_A", "db200_a": "d_B200_A"}
@@ -104,12 +101,6 @@ PLAUSIBEL = {"speed_last600_kmh": (40.0, 75.0), "speed_600_400_kmh": (40.0, 75.0
              "pos_gain_800_finish": (-20, 20), "pace_ratio": (60.0, 160.0), "pace_early_kmh": (40.0, 75.0),
              "dist_vs_winner_m": (-60.0, 100.0)}
 
-# PMU-Bodenbegriffe, längste zuerst ("TRES SOUPLE" vor "SOUPLE")
-GOING_KLASSEN = ["TRES LEGER", "BON LEGER", "BON SOUPLE", "TRES SOUPLE", "COLLANT", "LOURD",
-                 "LEGER", "SOUPLE", "BON"]
-# Ersatz, wenn nur der Penetrometer-Wert bekannt ist: (bis Wert, Klasse)
-GOING_NACH_WERT = [(2.8, "BON LEGER"), (3.3, "BON"), (3.6, "BON SOUPLE"), (3.9, "SOUPLE"),
-                   (4.4, "TRES SOUPLE"), (99, "LOURD")]
 # Laufstil: mittlere frühe Position als Anteil des Feldes (0 = an der Spitze, 1 = Letzter)
 STIL_LAEUFE = 5                 # so viele Läufe mit Tracking bestimmen den Laufstil
 STIL = [(0.20, "F", "Führend"), (0.40, "V", "Vorne dabei"), (0.65, "M", "Mittelfeld"), (1.01, "H", "Hinten")]
@@ -165,27 +156,17 @@ def kategorie(c) -> str | None:
     return KATEGORIE.get(c) or c.replace("_", " ").title()
 
 
-def going_klasse(going, going_value) -> str | None:
-    """Bodenbegriff wie bei PMU ('BON SOUPLE', 'TRES SOUPLE', …), PSF getrennt.
-    Fehlt der Begriff, wird er aus dem Penetrometer-Wert abgeleitet."""
-    t = unicodedata.normalize("NFKD", str(going or "")).encode("ascii", "ignore").decode().upper()
-    t = re.sub(r"[^A-Z]+", " ", t).strip()
-    if "PSF" in t:
-        return "PSF"
-    for k in GOING_KLASSEN:
-        if re.search(rf"\b{k}\b", t):
-            return k
-    v = _num(going_value)
-    if v is None:
-        return None
-    return next(k for bis, k in GOING_NACH_WERT if v <= bis)
+def going_klasse(going, going_value=None) -> str | None:
+    """Bodengruppe nach rtr_arr.GOING_MAP (VERY FAST, FAST, SLOW, VERY SLOW, PSF) aus dem offiziellen
+    Bodenbegriff. Der Penetrometer-Wert (going_value) fließt nicht ein – alle Berechnungen nutzen nur die Gruppe."""
+    return rtr_arr.boden_gruppe(going)
 
 
 def going_anzeige(k: str | None) -> str | None:
-    """'TRES SOUPLE' -> 'Très souple'"""
+    """'VERY SLOW' -> 'Very slow'"""
     if not k:
         return None
-    return "PSF" if k == "PSF" else k.capitalize().replace("Tres ", "Très ").replace("leger", "léger").replace("Leger", "Léger")
+    return "PSF" if k == "PSF" else k.capitalize()
 
 
 def pace_klasse(p) -> str | None:
@@ -281,10 +262,11 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     r["distance_m"] = pd.to_numeric(r["distance_m"], errors="coerce")
     r["prize_eur"] = pd.to_numeric(r.get("prize_eur"), errors="coerce")
     r["going_value"] = to_float(r["going_value"]) if "going_value" in r else np.nan
-    # Vorlieben: nur der Bodenbegriff aus dem PMU-Programm (going), nicht der Penetrometer-Wert
-    r["going_pmu"] = [going_klasse(g, None) for g in r.get("going", pd.Series(None, index=r.index))]
-    r["going_class"] = [going_klasse(g, v) for g, v in zip(r.get("going"), r["going_value"])]
+    # Boden: nur die Bodengruppe des offiziellen Begriffs (rtr_arr.GOING_MAP), nicht der Penetrometer-Wert
+    r["going_pmu"] = [going_klasse(g) for g in r.get("going", pd.Series(None, index=r.index))]
+    r["going_class"] = r["going_pmu"]
     r["dist_bucket"] = r["distance_m"].map(dist_bucket)
+    r["dist_group"] = r["distance_m"].map(rtr_arr.distance_group)     # Distanzgruppe für die Vorlieben
     r["racetype"] = r["categorie"].map(kategorie) if "categorie" in r else None
     r["course_key"] = norm_name(r["hippodrome"])
     r = preisgeld_je_platz(r)
@@ -309,7 +291,7 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
         r["conditions_age"] = None
     pz = [f"pz{i}" for i in range(1, len(PREIS_ANTEILE) + 1)]
     h = h.merge(r[["race_id", "date", "hippodrome", "course_key", "distance_m", "going", "going_value",
-                   "going_pmu", "going_class", "dist_bucket", "prize_eur", "racetype", "conditions_age", *pz]],
+                   "going_pmu", "going_class", "dist_bucket", "dist_group", "prize_eur", "racetype", "conditions_age", *pz]],
                 on="race_id", how="inner")
     # Preisgeld, das das Pferd in diesem Rennen gewonnen hat (Platz 1 … 5)
     h["prize_won"] = 0.0
@@ -408,9 +390,7 @@ def ratings_je_lauf(races: pd.DataFrame, runners: pd.DataFrame, **kw) -> pd.Data
     r = races.drop_duplicates("race_id", keep="last").copy()
     r["date"] = pd.to_datetime(r["race_id"].astype(str).str[:8], format="%Y%m%d", errors="coerce")
     r["distance_m"] = pd.to_numeric(r["distance_m"], errors="coerce")
-    klasse = [going_klasse(g, v) for g, v in zip(r.get("going", pd.Series(None, index=r.index)),
-                                                 r.get("going_value", pd.Series(None, index=r.index)))]
-    r["going_category"] = [rtr_arr.GOING_KATEGORIE.get(k) for k in klasse]
+    r["going_category"] = [going_klasse(g) for g in r.get("going", pd.Series(None, index=r.index))]
     r["distance_group"] = r["distance_m"].map(rtr_arr.distance_group)
     r["prize"] = pd.to_numeric(r.get("prize_eur"), errors="coerce")
     if "categorie" not in r:
@@ -439,9 +419,10 @@ def ratings_je_lauf(races: pd.DataFrame, runners: pd.DataFrame, **kw) -> pd.Data
 
 
 def going_gewicht(lauf, heute) -> float:
-    """Ähnlichkeit zweier offizieller Bodenbegriffe (going_klasse) als Gewicht: 1 bei gleichem Boden, halbes
-    Gewicht bei SCHNITT_GOING_STUFEN Stufen Abstand; PSF gegen Gras GOING_PSF_GRAS; unbekannt -> 1 (neutral)."""
-    a, b = _txt(lauf), _txt(heute)
+    """Ähnlichkeit zweier Bodengruppen (VERY FAST … VERY SLOW, PSF) als Gewicht: 1 bei gleicher Gruppe, halbes
+    Gewicht bei SCHNITT_GOING_STUFEN Gruppen Abstand; PSF gegen Gras GOING_PSF_GRAS; unbekannt -> 1 (neutral).
+    Nimmt auch Bodenbegriffe ('Bon souple') und ordnet sie der Gruppe zu."""
+    a, b = going_klasse(lauf), going_klasse(heute)
     if a is None or b is None:
         return 1.0
     if (a == "PSF") != (b == "PSF"):
@@ -857,7 +838,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     h = hist[hist["date"] < heute].copy() if not hist.empty else hist
     if h.empty:
         h = pd.DataFrame(columns=["date", "horse_id", "trainer_key", "jockey_key", "sire_key", "dam_sire_key",
-                                  "cross_key", "course_key", "going_pmu", "dist_bucket", "racetype", "age_grp",
+                                  "cross_key", "course_key", "going_pmu", "dist_bucket", "dist_group", "racetype", "age_grp",
                                   "won", "placed", "odds_final", "distance_m", "finish_pos", "race_id",
                                   "lengths_behind", "odds_rank", "prize_won", "epr_prev", "weight_kg"])
 
@@ -880,9 +861,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         "trainer_type": gruppen(h_jt, ["trainer_key", "racetype"]),
         "trainer_age": gruppen(h_jt, ["trainer_key", "age_grp"]),
         "jockey_course": gruppen(h_jt, ["jockey_key", "course_key"]),
-        "sire_dist": gruppen(h, ["sire_key", "dist_bucket"]),
+        "sire_dist": gruppen(h, ["sire_key", "dist_group"]),
         "sire_going": gruppen(h, ["sire_key", "going_pmu"]),
-        "dam_sire_dist": gruppen(h, ["dam_sire_key", "dist_bucket"]),
+        "dam_sire_dist": gruppen(h, ["dam_sire_key", "dist_group"]),
         "dam_sire_going": gruppen(h, ["dam_sire_key", "going_pmu"]),
     }
 
@@ -906,8 +887,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     meetings: dict[int, dict] = {}
     races_out = {}
     for _, r in rh.sort_values(["reunion", "race_no"]).iterrows():
-        gb = going_klasse(r.get("going"), None)          # Bodenbegriff laut PMU
+        gb = going_klasse(r.get("going"))                # Bodengruppe laut PMU-Begriff
         db = dist_bucket(r.get("distance_m"))
+        dg = rtr_arr.distance_group(_num(r.get("distance_m")))   # Distanzgruppe der Vorlieben
         rt = kategorie(r.get("categorie"))
         course = norm_name(pd.Series([r.get("hippodrome")])).iloc[0]
         dist = _num(r.get("distance_m"), 0)
@@ -1032,8 +1014,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "ae": ae_p,
                 "pref": {
                     "horse": {"going": _tabelle(vorher, "going_pmu", gb, going_anzeige),
-                              "distance": _tabelle(vorher, "distance_m", r.get("distance_m"),
-                                                   lambda d: f"{int(d)} m"),
+                              "distance": _tabelle(vorher, "dist_group", dg, lambda d: f"{d} m"),
                               "course": _tabelle(vorher, "course_key", course, lambda c: str(c).title())},
                     "trainer": {"jockey": q("trainer_jockey", (tk, jk)), "course": q("trainer_course", (tk, course)),
                                 "racetype": q("trainer_type", (tk, rt)),
@@ -1041,8 +1022,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                                 "age_label": alter_gruppe(p.get("age"))},
                     "jockey": {"course": q("jockey_course", (jk, course)), "trainer": q("trainer_jockey", (tk, jk)),
                                "horse": jockey_pferd},
-                    "sire": {"distance": q("sire_dist", (sk, db)), "going": q("sire_going", (sk, gb))},
-                    "dam_sire": {"distance": q("dam_sire_dist", (dk, db)), "going": q("dam_sire_going", (dk, gb))},
+                    "sire": {"distance": q("sire_dist", (sk, dg)), "going": q("sire_going", (sk, gb))},
+                    "dam_sire": {"distance": q("dam_sire_dist", (dk, dg)), "going": q("dam_sire_going", (dk, gb))},
                 },
                 "form_lines": form,
                 "duels": duelle,
@@ -1068,7 +1049,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             "race_id": r["race_id"], "reunion": int(r["reunion"]), "race_no": int(r["race_no"]),
             "time": _txt(r.get("post_time")), "name": _txt(r.get("race_name")), "course": _txt(r.get("hippodrome")),
             "distance": dist, "going": _txt(r.get("going")), "going_value": _txt(r.get("going_value")),
-            "going_pmu": gb, "going_label": going_anzeige(gb), "dist_bucket": db,
+            "going_pmu": gb, "going_label": going_anzeige(gb), "dist_bucket": db, "dist_group": dg,
             "dist_label": DIST_LABEL.get(db), "prize": _num(r.get("prize_eur"), 0), "type": rt,
             "age": _txt(r.get("conditions_age")), "sex": _txt(r.get("conditions_sexe")),
             "corde": _txt(r.get("corde")), "declared": _num(r.get("runners_declared"), 0),

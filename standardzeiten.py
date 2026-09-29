@@ -42,6 +42,7 @@ import pandas as pd
 import requests
 
 import pmu
+import rtr_arr
 import tempo_delta
 
 ORDNER = "standardzeiten"
@@ -53,7 +54,7 @@ PAUSE_S = 0.5               # zwischen Anfragen – die Schnittstelle ist inoffi
 MAX_STUMM = 3               # so viele Tage in Folge ohne Antwort -> Sammlung abbrechen
 NACHZUEGLER_TAGE = 2        # Tage so nah an heute werden nicht als erledigt markiert (Zeiten kommen evtl. später)
 SPEED_KMH = (40.0, 75.0)    # plausibles Durchschnittstempo einer Siegerzeit
-GUTER_BODEN = {"BON", "BON SOUPLE", "BON LEGER"}
+GUTER_BODEN = {"FAST"}           # Bodengruppe (rtr_arr.GOING_MAP), auf die sich die Standardzeit bezieht
 MIN_RENNEN = 5              # ab so vielen Rennen gilt eine Standardzeit als belastbar
 SHRINK_K = 5.0              # Konfiguration zur Bahn×Distanz ziehen wie n / (n + K)
 GA_SHRINK = 1.0
@@ -260,7 +261,7 @@ def berechnen(rennen: pd.DataFrame, *, min_rennen: int = MIN_RENNEN, shrink_k: f
     d["date"] = pd.to_datetime(d["date"].astype(str), format="%Y%m%d", errors="coerce")
     d["konfig"] = konfiguration(d)
     d["bahn_dist"] = d["bahn"].astype(str) + "|" + d["distance_m"].astype("Int64").astype(str)
-    d["boden"] = d["going_klasse"].fillna("UNBEKANNT")
+    d["boden"] = d["going_klasse"].map(rtr_arr.boden_gruppe).fillna("UNBEKANNT")    # Bodengruppe
     d["gruppe"] = d["bahn"].astype(str) + "_" + d["date"].dt.strftime("%Y-%m-%d") + "_" + d["boden"]
     d["skm"] = d["zeit_s"] / (d["distance_m"] / 1000)
     d = d.set_index("race_id", drop=False)
@@ -378,8 +379,11 @@ def je_rennen(base: Path) -> pd.DataFrame:
     if f.exists():
         ga = pd.read_parquet(f)
         schluessel = lambda b, d, g: b.astype(str) + "_" + pd.to_datetime(d.astype(str), format="mixed").dt.strftime("%Y-%m-%d") + "_" + g
-        ga_map = pd.Series(ga["ga_skm"].to_numpy(), index=schluessel(ga["bahn"], ga["date"], ga["boden"].astype(str)))
-        k = schluessel(r["bahn"], r["date"], r["going_klasse"].fillna("UNBEKANNT").astype(str))
+        gruppe = lambda s: s.map(rtr_arr.boden_gruppe).fillna("UNBEKANNT").astype(str)
+        # (älter abgelegte Allowances je feinem Bodenbegriff: je Gruppe gemittelt, bis standardzeiten.run neu rechnet)
+        ga_map = pd.Series(ga["ga_skm"].to_numpy(), index=schluessel(ga["bahn"], ga["date"], gruppe(ga["boden"])))
+        ga_map = ga_map.groupby(level=0).mean()
+        k = schluessel(r["bahn"], r["date"], gruppe(r["going_klasse"]))
         out["ga_skm"] = k.map(ga_map).to_numpy()
     else:
         out["ga_skm"] = np.nan
