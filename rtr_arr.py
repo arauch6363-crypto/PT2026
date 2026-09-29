@@ -67,14 +67,45 @@ KG_PER_LENGTH = {
                   "3201-3400": 0.65, "3401-3600": 0.6, ">3600": 0.55},
 }
 
-# PMU-Bodenbegriff (racecard.going_klasse) -> Bodenklasse des Notebooks
-GOING_KATEGORIE = {
-    "LOURD": "VERY SLOW", "TRES LOURD": "VERY SLOW", "COLLANT": "VERY SLOW",
-    "SOUPLE": "SLOW", "TRES SOUPLE": "SLOW",
-    "BON SOUPLE": "FAST", "BON": "FAST",
-    "LEGER": "VERY FAST", "BON LEGER": "VERY FAST", "TRES LEGER": "VERY FAST",
-    "PSF": "PSF",
+# Offizieller Bodenbegriff -> Bodengruppe. Alle Berechnungen (Vorlieben, Kachel-Gewichte, ΔL600/ΔB200-Gruppen,
+# TR, Standardzeiten, RTR/ARR) nutzen nur diese Gruppen, nicht den Penetrometer-Wert.
+GOING_MAP = {
+    'Lourd': 'VERY SLOW', 'Très lourd': 'VERY SLOW', 'Collant': 'VERY SLOW',
+    'Souple': 'SLOW',     'Très souple': 'SLOW',
+    'Bon souple': 'FAST', 'Bon': 'FAST',
+    'Léger': 'VERY FAST', 'Bon léger': 'VERY FAST', 'Très léger': 'VERY FAST',
+    'PSF Standard': 'PSF', 'PSF Lente': 'PSF', 'PSF Rapide': 'PSF',
 }
+BODEN_GRUPPEN = ["VERY FAST", "FAST", "SLOW", "VERY SLOW", "PSF"]
+
+
+def _norm_boden(t) -> str:
+    import re
+    import unicodedata
+    t = unicodedata.normalize("NFKD", str(t or "")).encode("ascii", "ignore").decode().upper()
+    return re.sub(r"[^A-Z]+", " ", t).strip()
+
+
+_MAP_NORM = {_norm_boden(k): v for k, v in GOING_MAP.items()}
+# Bodenbegriff ohne Akzente (auch schon als Gruppe) -> Gruppe; "TRES SOUPLE" vor "SOUPLE" usw.
+GOING_KATEGORIE = {**_MAP_NORM, **{g: g for g in BODEN_GRUPPEN}}
+_SUCHE = sorted(_MAP_NORM, key=len, reverse=True)
+
+
+def boden_gruppe(text) -> str | None:
+    """'Bon souple' / 'BON SOUPLE' / 'PSF Rapide' / 'FAST' -> Gruppe nach GOING_MAP; unbekannt -> None."""
+    if text is None or (isinstance(text, float) and np.isnan(text)) or text is pd.NA:
+        return None
+    t = _norm_boden(text)
+    if not t:
+        return None
+    if t in GOING_KATEGORIE:
+        return GOING_KATEGORIE[t]
+    if "PSF" in t.split() or t.startswith("PSF"):
+        return "PSF"
+    import re
+    k = next((k for k in _SUCHE if re.search(rf"\b{k}\b", t)), None)
+    return _MAP_NORM[k] if k else None
 
 START_RATING = 30.0
 K_FAKTOR = 0.5            # wie im Notebook beim Aufruf (k_factor=0.5)

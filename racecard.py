@@ -42,8 +42,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import re
-import unicodedata
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -66,15 +64,18 @@ AE_FENSTER = (30, 90, 365)      # Tage
 TREND_DIFF = 0.4                # A/E 30 Tage so viel über/unter 365 Tagen -> Feuer/Eis
 TREND_MIN_STARTS = 5            # so viele Starts in 30 Tagen braucht der Trend
 VORLIEBEN_JT_TAGE = 730         # Jockey-/Trainer-Vorlieben: letzte zwei Jahre
-GEGNER_LAEUFE = 5               # für so viele der letzten Läufe werden die Gegner verfolgt
-GEGNER_MAX = 3                  # so viele Gegner je Lauf (die am nächsten am Pferd waren)
+GEGNER_LAEUFE = LETZTE_LAEUFE   # für so viele der letzten Läufe werden die Gegner verfolgt (alle Gegner je Lauf)
+KLASSE_TAGE = 365               # Klasse: Ø Gewinnsumme je Lauf der Teilnehmer in so vielen Tagen davor
+# Preisgeld je Platz: PMU montantOffert1er … 5eme, sonst die übliche Aufteilung des Rennpreises (France Galop)
+PREIS_SPALTEN = ["c_montantOffert1er", "c_montantOffert2eme", "c_montantOffert3eme", "c_montantOffert4eme",
+                 "c_montantOffert5eme"]
+PREIS_ANTEILE = [0.50, 0.19, 0.14, 0.09, 0.04]
 SCHNITT_LAEUFE = 5              # Ø der bereinigten Kennzahlen über so viele Läufe mit Tracking
 SCHNITT_PRIOR = 1.0             # Schrumpfung zum Nullpunkt: wirkt wie ein zusätzlicher Lauf mit Wert 0
 SCHNITT_DIST_M = 400            # Gewicht eines Laufs = 1 / (1 + |Distanz − heute| / SCHNITT_DIST_M)
 # TR-Kachel: gewichteter Ø der letzten SCHNITT_LAEUFE Läufe mit TR, Gewicht = Distanz × Going
-GOING_STUFE = {"TRES LEGER": 0, "LEGER": 1, "BON LEGER": 2, "BON": 3, "BON SOUPLE": 4, "SOUPLE": 5,
-               "TRES SOUPLE": 6, "COLLANT": 7, "LOURD": 8, "TRES LOURD": 9}
-SCHNITT_GOING_STUFEN = 2        # Going-Gewicht = 1 / (1 + |Stufen Abstand| / SCHNITT_GOING_STUFEN)
+GOING_STUFE = {"VERY FAST": 0, "FAST": 1, "SLOW": 2, "VERY SLOW": 3}     # Bodengruppen (rtr_arr.GOING_MAP)
+SCHNITT_GOING_STUFEN = 1        # Going-Gewicht = 1 / (1 + |Gruppen Abstand| / SCHNITT_GOING_STUFEN)
 GOING_PSF_GRAS = 0.25           # Going-Gewicht zwischen PSF und Gras
 # Übersicht: Ø dieser Δ-Kennzahlen (tempo_delta, km/h) über die letzten SCHNITT_LAEUFE Läufe mit Tracking
 DELTA_SPALTEN = {"dl600_a": "d_L600_A", "db200_a": "d_B200_A"}
@@ -100,12 +101,6 @@ PLAUSIBEL = {"speed_last600_kmh": (40.0, 75.0), "speed_600_400_kmh": (40.0, 75.0
              "pos_gain_800_finish": (-20, 20), "pace_ratio": (60.0, 160.0), "pace_early_kmh": (40.0, 75.0),
              "dist_vs_winner_m": (-60.0, 100.0)}
 
-# PMU-Bodenbegriffe, längste zuerst ("TRES SOUPLE" vor "SOUPLE")
-GOING_KLASSEN = ["TRES LEGER", "BON LEGER", "BON SOUPLE", "TRES SOUPLE", "COLLANT", "LOURD",
-                 "LEGER", "SOUPLE", "BON"]
-# Ersatz, wenn nur der Penetrometer-Wert bekannt ist: (bis Wert, Klasse)
-GOING_NACH_WERT = [(2.8, "BON LEGER"), (3.3, "BON"), (3.6, "BON SOUPLE"), (3.9, "SOUPLE"),
-                   (4.4, "TRES SOUPLE"), (99, "LOURD")]
 # Laufstil: mittlere frühe Position als Anteil des Feldes (0 = an der Spitze, 1 = Letzter)
 STIL_LAEUFE = 5                 # so viele Läufe mit Tracking bestimmen den Laufstil
 STIL = [(0.20, "F", "Führend"), (0.40, "V", "Vorne dabei"), (0.65, "M", "Mittelfeld"), (1.01, "H", "Hinten")]
@@ -161,27 +156,17 @@ def kategorie(c) -> str | None:
     return KATEGORIE.get(c) or c.replace("_", " ").title()
 
 
-def going_klasse(going, going_value) -> str | None:
-    """Bodenbegriff wie bei PMU ('BON SOUPLE', 'TRES SOUPLE', …), PSF getrennt.
-    Fehlt der Begriff, wird er aus dem Penetrometer-Wert abgeleitet."""
-    t = unicodedata.normalize("NFKD", str(going or "")).encode("ascii", "ignore").decode().upper()
-    t = re.sub(r"[^A-Z]+", " ", t).strip()
-    if "PSF" in t:
-        return "PSF"
-    for k in GOING_KLASSEN:
-        if re.search(rf"\b{k}\b", t):
-            return k
-    v = _num(going_value)
-    if v is None:
-        return None
-    return next(k for bis, k in GOING_NACH_WERT if v <= bis)
+def going_klasse(going, going_value=None) -> str | None:
+    """Bodengruppe nach rtr_arr.GOING_MAP (VERY FAST, FAST, SLOW, VERY SLOW, PSF) aus dem offiziellen
+    Bodenbegriff. Der Penetrometer-Wert (going_value) fließt nicht ein – alle Berechnungen nutzen nur die Gruppe."""
+    return rtr_arr.boden_gruppe(going)
 
 
 def going_anzeige(k: str | None) -> str | None:
-    """'TRES SOUPLE' -> 'Très souple'"""
+    """'VERY SLOW' -> 'Very slow'"""
     if not k:
         return None
-    return "PSF" if k == "PSF" else k.capitalize().replace("Tres ", "Très ").replace("leger", "léger").replace("Leger", "Léger")
+    return "PSF" if k == "PSF" else k.capitalize()
 
 
 def pace_klasse(p) -> str | None:
@@ -209,6 +194,57 @@ def age_bucket(a) -> str | None:
     return None if a is None else ("5+" if a >= 5 else str(int(a)))
 
 
+def alter_gruppe(a) -> str | None:
+    """Altersgruppe für die Trainer-Vorliebe: 2j, 3j, 4j+."""
+    a = _num(a)
+    return None if a is None or a < 2 else ("4j+" if a >= 4 else f"{int(a)}j")
+
+
+def abstammung_keys(df: pd.DataFrame) -> pd.DataFrame:
+    """sire_key, dam_sire_key und cross_key (Vater × Muttervater). Muttervater aus dam_sire (Programm)
+    oder p_nomPereMere (pmu_basis)."""
+    df = df.copy()
+    ds = df["dam_sire"] if "dam_sire" in df else pd.Series(None, index=df.index, dtype=object)
+    if "p_nomPereMere" in df:
+        ds = ds.where(ds.notna() & (ds.astype("string").str.strip() != ""), df["p_nomPereMere"])
+    df["dam_sire"] = ds
+    for c in ["sire", "dam_sire"]:
+        df[c + "_key"] = norm_name(df[c]) if c in df else pd.Series(pd.NA, index=df.index, dtype="string")
+        df.loc[df[c + "_key"].fillna("").isin(["", "NAN", "NONE"]), c + "_key"] = pd.NA
+    df["cross_key"] = (df["sire_key"] + " × " + df["dam_sire_key"]).astype("string")
+    return df
+
+
+def preisgeld_je_platz(r: pd.DataFrame) -> pd.DataFrame:
+    """pz1 … pz5 je Rennen: Preisgeld für Platz 1 … 5 (PMU montantOffert…, sonst Anteil am Rennpreis)."""
+    r = r.copy()
+    for i, (sp, anteil) in enumerate(zip(PREIS_SPALTEN, PREIS_ANTEILE), 1):
+        offen = pd.to_numeric(r[sp], errors="coerce") if sp in r else pd.Series(np.nan, index=r.index)
+        r[f"pz{i}"] = offen.fillna(r["prize_eur"] * anteil)
+    return r
+
+
+def gewinn_vorher(h: pd.DataFrame, tage: int = KLASSE_TAGE) -> pd.DataFrame:
+    """Je Lauf: Läufe und gewonnenes Preisgeld des Pferdes in den `tage` Tagen davor (ohne den Lauf selbst)
+    -> runs_prev, earn_prev, epr_prev (Gewinn je Lauf)."""
+    h = h.copy()
+    if h.empty:
+        for c in ["runs_prev", "earn_prev", "epr_prev"]:
+            h[c] = np.nan
+        return h
+    x = h[["horse_id", "date", "prize_won"]].copy()
+    x["_i"] = np.arange(len(x))
+    x = x.sort_values(["horse_id", "date"], kind="stable")
+    roll = x.set_index("date").groupby("horse_id", sort=False)["prize_won"].rolling(f"{tage}D", closed="left")
+    summe, anzahl = roll.sum().to_numpy(), roll.count().to_numpy()
+    runs = np.empty(len(x)); earn = np.empty(len(x))
+    runs[x["_i"].to_numpy()] = np.nan_to_num(anzahl)
+    earn[x["_i"].to_numpy()] = np.nan_to_num(summe)
+    h["runs_prev"], h["earn_prev"] = runs, earn
+    h["epr_prev"] = (h["earn_prev"] / h["runs_prev"]).where(h["runs_prev"] > 0)
+    return h
+
+
 # --------------------------------------------------------------------------
 # Historie vorbereiten
 # --------------------------------------------------------------------------
@@ -226,17 +262,20 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     r["distance_m"] = pd.to_numeric(r["distance_m"], errors="coerce")
     r["prize_eur"] = pd.to_numeric(r.get("prize_eur"), errors="coerce")
     r["going_value"] = to_float(r["going_value"]) if "going_value" in r else np.nan
-    # Vorlieben: nur der Bodenbegriff aus dem PMU-Programm (going), nicht der Penetrometer-Wert
-    r["going_pmu"] = [going_klasse(g, None) for g in r.get("going", pd.Series(None, index=r.index))]
-    r["going_class"] = [going_klasse(g, v) for g, v in zip(r.get("going"), r["going_value"])]
+    # Boden: nur die Bodengruppe des offiziellen Begriffs (rtr_arr.GOING_MAP), nicht der Penetrometer-Wert
+    r["going_pmu"] = [going_klasse(g) for g in r.get("going", pd.Series(None, index=r.index))]
+    r["going_class"] = r["going_pmu"]
     r["dist_bucket"] = r["distance_m"].map(dist_bucket)
+    r["dist_group"] = r["distance_m"].map(rtr_arr.distance_group)     # Distanzgruppe für die Vorlieben
     r["racetype"] = r["categorie"].map(kategorie) if "categorie" in r else None
     r["course_key"] = norm_name(r["hippodrome"])
+    r = preisgeld_je_platz(r)
 
     h = runners.drop_duplicates(["race_id", "saddle_no"], keep="last").copy()
     h["saddle_no"] = pd.to_numeric(h["saddle_no"], errors="coerce")
-    for c in ["horse", "jockey", "trainer", "sire"]:
+    for c in ["horse", "jockey", "trainer"]:
         h[c + "_key"] = norm_name(h[c]) if c in h else pd.Series(pd.NA, index=h.index, dtype="string")
+    h = abstammung_keys(h)
     h["horse_id"] = h["horse_key"].fillna("?") + "|" + h["sire_key"].fillna("?")
     for c in ["odds_final", "odds_morning", "weight_kg", "finish_pos", "lengths_behind", "lengths_prev", "age"]:
         if c in h:
@@ -250,13 +289,27 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
 
     if "conditions_age" not in r:
         r["conditions_age"] = None
+    pz = [f"pz{i}" for i in range(1, len(PREIS_ANTEILE) + 1)]
     h = h.merge(r[["race_id", "date", "hippodrome", "course_key", "distance_m", "going", "going_value",
-                   "going_pmu", "going_class", "dist_bucket", "prize_eur", "racetype", "conditions_age"]],
+                   "going_pmu", "going_class", "dist_bucket", "dist_group", "prize_eur", "racetype", "conditions_age", *pz]],
                 on="race_id", how="inner")
+    # Preisgeld, das das Pferd in diesem Rennen gewonnen hat (Platz 1 … 5)
+    h["prize_won"] = 0.0
+    for i, c in enumerate(pz, 1):
+        platz = h["finish_pos"] == i
+        h.loc[platz, "prize_won"] = h.loc[platz, c]
+    h["prize_won"] = h["prize_won"].fillna(0.0)
+    h = h.drop(columns=pz)
     h["n_runners"] = h.groupby("race_id")["saddle_no"].transform("count")
     h["won"] = (h["finish_pos"] == 1).astype(int)
     h["placed"] = (h["finish_pos"] <= 3).astype(int)
     h["age_bucket"] = h["age"].map(age_bucket)
+    h["age_grp"] = h["age"].map(alter_gruppe)
+    h["valeur"] = pd.to_numeric(h["rating"], errors="coerce") if "rating" in h else np.nan
+    # Klasse des Rennens: Ø Valeur der Teilnehmer und Ø ihres Gewinns je Lauf in den KLASSE_TAGE davor
+    h = gewinn_vorher(h)
+    h["cls_val"] = h.groupby("race_id")["valeur"].transform("mean")
+    h["cls_epr"] = h.groupby("race_id")["epr_prev"].transform("mean")
     fav = h.groupby("race_id")["odds_final"].transform("min")
     h["odds_rank"] = h.groupby("race_id")["odds_final"].rank(method="min")   # Rang der Eventualquote
     h["favourite"] = (h["odds_final"] == fav) & h["odds_final"].notna()
@@ -337,9 +390,7 @@ def ratings_je_lauf(races: pd.DataFrame, runners: pd.DataFrame, **kw) -> pd.Data
     r = races.drop_duplicates("race_id", keep="last").copy()
     r["date"] = pd.to_datetime(r["race_id"].astype(str).str[:8], format="%Y%m%d", errors="coerce")
     r["distance_m"] = pd.to_numeric(r["distance_m"], errors="coerce")
-    klasse = [going_klasse(g, v) for g, v in zip(r.get("going", pd.Series(None, index=r.index)),
-                                                 r.get("going_value", pd.Series(None, index=r.index)))]
-    r["going_category"] = [rtr_arr.GOING_KATEGORIE.get(k) for k in klasse]
+    r["going_category"] = [going_klasse(g) for g in r.get("going", pd.Series(None, index=r.index))]
     r["distance_group"] = r["distance_m"].map(rtr_arr.distance_group)
     r["prize"] = pd.to_numeric(r.get("prize_eur"), errors="coerce")
     if "categorie" not in r:
@@ -368,9 +419,10 @@ def ratings_je_lauf(races: pd.DataFrame, runners: pd.DataFrame, **kw) -> pd.Data
 
 
 def going_gewicht(lauf, heute) -> float:
-    """Ähnlichkeit zweier offizieller Bodenbegriffe (going_klasse) als Gewicht: 1 bei gleichem Boden, halbes
-    Gewicht bei SCHNITT_GOING_STUFEN Stufen Abstand; PSF gegen Gras GOING_PSF_GRAS; unbekannt -> 1 (neutral)."""
-    a, b = _txt(lauf), _txt(heute)
+    """Ähnlichkeit zweier Bodengruppen (VERY FAST … VERY SLOW, PSF) als Gewicht: 1 bei gleicher Gruppe, halbes
+    Gewicht bei SCHNITT_GOING_STUFEN Gruppen Abstand; PSF gegen Gras GOING_PSF_GRAS; unbekannt -> 1 (neutral).
+    Nimmt auch Bodenbegriffe ('Bon souple') und ordnet sie der Gruppe zu."""
+    a, b = going_klasse(lauf), going_klasse(heute)
     if a is None or b is None:
         return 1.0
     if (a == "PSF") != (b == "PSF"):
@@ -602,6 +654,8 @@ def _formzeile(z, gewicht_heute=None) -> dict:
         "course": _txt(z["hippodrome"]), "dist": _num(z["distance_m"], 0),
         "going": _txt(z["going"]), "going_value": _num(z["going_value"], 1),
         "prize": _num(z["prize_eur"], 0), "type": _txt(z["racetype"]),
+        "cls_val": _num(z.get("cls_val"), 1), "cls_epr": _num(z.get("cls_epr"), 0),
+        "won_eur": _num(z.get("prize_won"), 0),
         "pos": _num(z["finish_pos"], 0), "ran": _num(z["n_runners"], 0),
         "margin": _num(z.get("margin"), 2), "weight": _num(z["weight_kg"], 1),
         "jockey": _txt(z.get("jockey")), "odds": _num(z["odds_final"], 1),
@@ -669,48 +723,95 @@ def _wechsel(p, letzter) -> list[dict]:
     return out
 
 
+def _lb(z) -> float:
+    """Längen hinter dem Sieger (Sieger 0)."""
+    return z["lengths_behind"] if pd.notna(z["lengths_behind"]) else (0.0 if z["finish_pos"] == 1 else np.nan)
+
+
 def _gegner(z, h_rennen: dict, h_pferde: dict, heute: pd.Timestamp) -> list[dict]:
-    """Gegner aus einem früheren Rennen, die danach wieder gelaufen sind – die GEGNER_MAX, die
-    am nächsten am Pferd ins Ziel kamen, mit ihrem nächsten Start."""
+    """Alle Gegner aus einem früheren Rennen in der Reihenfolge des Einlaufs, mit ihrem nächsten Start
+    (None, wenn sie seitdem nicht wieder gelaufen sind) und ob der besser oder schlechter als ihre Quote war."""
     feld = h_rennen.get(z["race_id"])
     if feld is None:
         return []
-    eigen_lb = z["lengths_behind"] if pd.notna(z["lengths_behind"]) else (0.0 if z["finish_pos"] == 1 else np.nan)
+    eigen_lb = _lb(z)
     out = []
-    for _, g in feld.iterrows():
+    for _, g in feld.sort_values(["finish_pos", "saddle_no"], na_position="last").iterrows():
         if g["horse_id"] == z["horse_id"]:
             continue
+        lb = _lb(g)
         spaeter = h_pferde.get(g["horse_id"])
-        if spaeter is None:
-            continue
-        spaeter = spaeter[(spaeter["date"] > z["date"]) & (spaeter["date"] < heute)]
-        if spaeter.empty:
-            continue
-        lb = g["lengths_behind"] if pd.notna(g["lengths_behind"]) else (0.0 if g["finish_pos"] == 1 else np.nan)
-        abstand_l = lb - eigen_lb if pd.notna(lb) and pd.notna(eigen_lb) else np.nan
-        if pd.notna(abstand_l):
-            sort = abs(abstand_l)
-        elif pd.notna(g["finish_pos"]) and pd.notna(z["finish_pos"]):
-            sort = abs(g["finish_pos"] - z["finish_pos"]) * 2
-        else:
-            sort = 99
-        n = spaeter.iloc[0]
-        urteil = None
-        if pd.notna(n["finish_pos"]) and pd.notna(n["odds_rank"]):
-            urteil = "besser" if n["finish_pos"] < n["odds_rank"] else "schlechter" if n["finish_pos"] > n["odds_rank"] else "wie erwartet"
+        if spaeter is not None:
+            spaeter = spaeter[(spaeter["date"] > z["date"]) & (spaeter["date"] < heute)]
+        nxt = None
+        if spaeter is not None and len(spaeter):
+            n = spaeter.iloc[0]
+            urteil = None
+            if pd.notna(n["finish_pos"]) and pd.notna(n["odds_rank"]):
+                urteil = ("besser" if n["finish_pos"] < n["odds_rank"]
+                          else "schlechter" if n["finish_pos"] > n["odds_rank"] else "wie erwartet")
+            nxt = {"date": n["date"].strftime("%Y-%m-%d"), "course": _txt(n["hippodrome"]),
+                   "dist": _num(n["distance_m"], 0), "pos": _num(n["finish_pos"], 0),
+                   "ran": _num(n["n_runners"], 0), "odds_rank": _num(n["odds_rank"], 0),
+                   "odds": _num(n["odds_final"], 1), "verdict": urteil}
         out.append({
-            "_sort": sort, "horse": _txt(g["horse"]), "pos": _num(g["finish_pos"], 0),
-            "diff_l": _num(abstand_l, 2),
-            "next": {"date": n["date"].strftime("%Y-%m-%d"), "course": _txt(n["hippodrome"]),
-                     "dist": _num(n["distance_m"], 0), "pos": _num(n["finish_pos"], 0),
-                     "ran": _num(n["n_runners"], 0), "odds_rank": _num(n["odds_rank"], 0),
-                     "odds": _num(n["odds_final"], 1), "verdict": urteil},
-            "more": int(len(spaeter) - 1),
+            "horse": _txt(g["horse"]), "pos": _num(g["finish_pos"], 0), "odds": _num(g["odds_final"], 1),
+            "weight": _num(g["weight_kg"], 1),
+            "diff_l": _num(lb - eigen_lb, 2) if pd.notna(lb) and pd.notna(eigen_lb) else None,
+            "next": nxt, "more": int(len(spaeter) - 1) if nxt else 0,
         })
-    out.sort(key=lambda x: x["_sort"])
-    for x in out:
-        x.pop("_sort")
-    return out[:GEGNER_MAX]
+    return out
+
+
+def _gegner_bilanz(liste: list[dict] | None) -> dict | None:
+    """Wie liefen die Gegner im nächsten Start: besser / schlechter / wie erwartet gemessen am Quotenrang."""
+    if liste is None:
+        return None
+    v = [g["next"]["verdict"] for g in liste if g["next"]]
+    return {"better": v.count("besser"), "worse": v.count("schlechter"), "same": v.count("wie erwartet"),
+            "ran": len(v), "n": len(liste)}
+
+
+def _duelle(eigen: pd.DataFrame, rennen: dict, heute_gew: dict, hid) -> list[dict]:
+    """Frühere Rennen, in denen das Pferd auf heutige Gegner traf: Platz und Gewicht beider damals,
+    Abstand in Längen und wie sich der Gewichtsunterschied bis heute verschoben hat."""
+    out = []
+    w_ich = heute_gew.get(hid, {}).get("weight")
+    for _, z in eigen.iterrows():
+        feld = rennen.get(z["race_id"])
+        if feld is None:
+            continue
+        for _, g in feld.iterrows():
+            if g["horse_id"] == hid:
+                continue
+            lb_ich, lb_g = _lb(z), _lb(g)
+            w_g = heute_gew.get(g["horse_id"], {})
+            dann = z["weight_kg"] - g["weight_kg"] if pd.notna(z["weight_kg"]) and pd.notna(g["weight_kg"]) else np.nan
+            jetzt = (w_ich - w_g["weight"]) if w_ich is not None and w_g.get("weight") is not None else np.nan
+            out.append({
+                "rival": _txt(g["horse"]), "rival_no": w_g.get("no"),
+                "date": z["date"].strftime("%Y-%m-%d"), "course": _txt(z["hippodrome"]),
+                "dist": _num(z["distance_m"], 0), "going": _txt(z["going"]), "type": _txt(z["racetype"]),
+                "ran": _num(z["n_runners"], 0),
+                "pos": _num(z["finish_pos"], 0), "rival_pos": _num(g["finish_pos"], 0),
+                "weight": _num(z["weight_kg"], 1), "rival_weight": _num(g["weight_kg"], 1),
+                "diff_l": _num(lb_g - lb_ich, 2) if pd.notna(lb_g) and pd.notna(lb_ich) else None,
+                "w_then": _num(dann, 1), "w_today": _num(jetzt, 1),
+                "shift": _num(jetzt - dann, 1) if pd.notna(jetzt) and pd.notna(dann) else None,
+            })
+    return out
+
+
+def _karriere(v: pd.DataFrame, heute: pd.Timestamp) -> dict:
+    """Läufe-Siege-Plätze und Gewinn je Lauf aus der Datenbank: gesamt und letzte KLASSE_TAGE."""
+    def bilanz(g):
+        n = int(len(g))
+        earn = float(g["prize_won"].sum()) if n and "prize_won" in g else 0.0
+        return {"runs": n, "wins": int(g["won"].sum()) if n else 0, "places": int(g["placed"].sum()) if n else 0,
+                "earn": _num(earn, 0), "epr": _num(earn / n, 0) if n else None}
+    if not len(v):
+        return {"all": bilanz(v), "d365": bilanz(v)}
+    return {"all": bilanz(v), "d365": bilanz(v[v["date"] >= heute - timedelta(days=KLASSE_TAGE)])}
 
 
 def _tabelle(g: pd.DataFrame, spalte: str, heute_wert, anzeige) -> list[dict]:
@@ -736,35 +837,41 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     silks = silks or {}
     h = hist[hist["date"] < heute].copy() if not hist.empty else hist
     if h.empty:
-        h = pd.DataFrame(columns=["date", "horse_id", "trainer_key", "jockey_key", "sire_key", "course_key",
-                                  "going_pmu", "dist_bucket", "racetype", "won", "placed", "odds_final",
-                                  "distance_m", "finish_pos", "race_id", "lengths_behind", "odds_rank"])
+        h = pd.DataFrame(columns=["date", "horse_id", "trainer_key", "jockey_key", "sire_key", "dam_sire_key",
+                                  "cross_key", "course_key", "going_pmu", "dist_bucket", "dist_group", "racetype", "age_grp",
+                                  "won", "placed", "odds_final", "distance_m", "finish_pos", "race_id",
+                                  "lengths_behind", "odds_rank", "prize_won", "epr_prev", "weight_kg"])
 
-    # A/E-Tabellen
+    # A/E-Tabellen: Trainer und Jockey je Zeitfenster, Abstammung über die ganze Historie
     ae = {}
-    for rolle in ("trainer", "jockey", "sire"):
+    for rolle in ("trainer", "jockey"):
         for tage in AE_FENSTER:
             sub = h[h["date"] >= heute - timedelta(days=tage)]
             ae[(rolle, tage)] = gruppen(sub, [rolle + "_key"])
+    ae_abst = {rolle: gruppen(h, [rolle + "_key"]) for rolle in ("sire", "dam_sire", "cross")}
 
     kal = pace_kalibrierung(h)
     bias = bahn_bias(h)
 
-    # Vorlieben: Jockey/Trainer die letzten zwei Jahre, Vater die gesamte Historie
+    # Vorlieben: Jockey/Trainer die letzten zwei Jahre, Vater und Muttervater die gesamte Historie
     h_jt = h[h["date"] >= heute - timedelta(days=VORLIEBEN_JT_TAGE)]
     pref = {
         "trainer_jockey": gruppen(h_jt, ["trainer_key", "jockey_key"]),
         "trainer_course": gruppen(h_jt, ["trainer_key", "course_key"]),
         "trainer_type": gruppen(h_jt, ["trainer_key", "racetype"]),
+        "trainer_age": gruppen(h_jt, ["trainer_key", "age_grp"]),
         "jockey_course": gruppen(h_jt, ["jockey_key", "course_key"]),
-        "sire_dist": gruppen(h, ["sire_key", "dist_bucket"]),
+        "sire_dist": gruppen(h, ["sire_key", "dist_group"]),
         "sire_going": gruppen(h, ["sire_key", "going_pmu"]),
+        "dam_sire_dist": gruppen(h, ["dam_sire_key", "dist_group"]),
+        "dam_sire_going": gruppen(h, ["dam_sire_key", "going_pmu"]),
     }
 
     rh = races_heute.drop_duplicates("race_id").copy()
     ru = runners_heute.drop_duplicates(["race_id", "saddle_no"]).copy()
-    for c in ["horse", "jockey", "trainer", "sire"]:
+    for c in ["horse", "jockey", "trainer"]:
         ru[c + "_key"] = norm_name(ru[c]) if c in ru else pd.Series(pd.NA, index=ru.index, dtype="string")
+    ru = abstammung_keys(ru)
     ru["horse_id"] = ru["horse_key"].fillna("?") + "|" + ru["sire_key"].fillna("?")
     ids = set(ru["horse_id"])
     hh = h[h["horse_id"].isin(ids)].sort_values("date", ascending=False)
@@ -780,20 +887,46 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     meetings: dict[int, dict] = {}
     races_out = {}
     for _, r in rh.sort_values(["reunion", "race_no"]).iterrows():
-        gb = going_klasse(r.get("going"), None)          # Bodenbegriff laut PMU
+        gb = going_klasse(r.get("going"))                # Bodengruppe laut PMU-Begriff
         db = dist_bucket(r.get("distance_m"))
+        dg = rtr_arr.distance_group(_num(r.get("distance_m")))   # Distanzgruppe der Vorlieben
         rt = kategorie(r.get("categorie"))
         course = norm_name(pd.Series([r.get("hippodrome")])).iloc[0]
         dist = _num(r.get("distance_m"), 0)
         starters = []
-        for _, p in ru[ru["race_id"] == r["race_id"]].sort_values("saddle_no").iterrows():
+        feld_heute = ru[ru["race_id"] == r["race_id"]]
+        nr_heute = (feld_heute["status"].astype("string").str.upper().fillna("").eq("NON_PARTANT")
+                    if "status" in feld_heute else pd.Series(False, index=feld_heute.index))
+        # Heutige Gegner, die schon früher gegeneinander liefen: Rennen mit mindestens zwei heutigen Startern
+        heute_gew = {z["horse_id"]: {"weight": _num(z.get("weight_kg"), 1), "no": _num(z.get("saddle_no"), 0)}
+                     for _, z in feld_heute[~nr_heute].iterrows()}
+        treffen = hh[hh["horse_id"].isin(set(heute_gew))]
+        duell_rennen = {k: g for k, g in treffen.groupby("race_id") if g["horse_id"].nunique() >= 2}
+        # Klasse des heutigen Rennens: Ø Valeur und Ø Gewinn je Lauf (KLASSE_TAGE) der Starter
+        epr_heute = []
+        for hid_ in heute_gew:
+            v_ = per_pferd.get(hid_)
+            if v_ is not None:
+                v_ = v_[v_["date"] >= heute - timedelta(days=KLASSE_TAGE)]
+                if len(v_):
+                    epr_heute.append(float(v_["prize_won"].sum()) / len(v_))
+        val_heute = pd.to_numeric(feld_heute.loc[~nr_heute, "rating"], errors="coerce").dropna() \
+            if "rating" in feld_heute else pd.Series(dtype=float)
+        klasse = {"val": _num(val_heute.mean(), 1) if len(val_heute) else None, "val_n": int(len(val_heute)),
+                  "epr": _num(float(np.mean(epr_heute)), 0) if epr_heute else None, "epr_n": len(epr_heute),
+                  "n": len(heute_gew)}
+        for _, p in feld_heute.sort_values("saddle_no").iterrows():
             hid, tk, jk, sk = p["horse_id"], p["trainer_key"], p["jockey_key"], p["sire_key"]
+            dk, xk = p["dam_sire_key"], p["cross_key"]
             vorher = per_pferd.get(hid, pd.DataFrame())
             form = []
             for n, (_, z) in enumerate(vorher.head(LETZTE_LAEUFE).iterrows()):
                 f = _formzeile(z, p.get("weight_kg"))
                 f["rivals"] = _gegner(z, h_rennen, h_pferde, heute) if n < GEGNER_LAEUFE else None
+                f["rivals_stat"] = _gegner_bilanz(f["rivals"])
                 form.append(f)
+            duelle = _duelle(vorher[vorher["race_id"].isin(set(duell_rennen))], duell_rennen, heute_gew, hid) \
+                if len(vorher) and hid in heute_gew else []
             siege = vorher[vorher["won"] == 1] if len(vorher) else vorher
             c_sieg = bool(len(siege) and (siege["course_key"] == course).any())
             d_sieg = bool(len(siege) and dist is not None and ((siege["distance_m"] - dist).abs() <= 100).any())
@@ -836,9 +969,13 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 return _leer() if any(_txt(k) is None for k in key) else pref[tab].get(key, _leer())
 
             ae_p = {rolle: {f"d{t}": ae[(rolle, t)].get(key, _leer()) for t in AE_FENSTER}
-                    for rolle, key in (("trainer", tk), ("jockey", jk), ("sire", sk))}
+                    for rolle, key in (("trainer", tk), ("jockey", jk))}
             for rolle in ae_p:
                 ae_p[rolle]["trend"] = _ae_trend(ae_p[rolle]["d30"], ae_p[rolle]["d365"])
+            ae_p["pedigree"] = {rolle: (ae_abst[rolle].get(key, _leer()) if _txt(key) else _leer())
+                                for rolle, key in (("sire", sk), ("dam_sire", dk), ("cross", xk))}
+            jockey_pferd = (_rec(vorher[vorher["jockey_key"] == jk]) if len(vorher) and _txt(jk)
+                            and (vorher["jockey_key"] == jk).any() else _leer())
             status = str(p.get("status") or "").upper()
             inc = str(p.get("incident") or "").upper()
             starts, earn = _num(p.get("starts"), 0), _num(p.get("earnings_eur"), 0)
@@ -849,7 +986,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "weight": _num(p.get("weight_kg"), 1),
                 "rating": _num(p.get("rating"), 1), "blinkers": _txt(p.get("blinkers")),
                 "jockey": _txt(p.get("jockey")), "trainer": _txt(p.get("trainer")), "owner": _txt(p.get("owner")),
-                "sire": _txt(p.get("sire")), "dam": _txt(p.get("dam")), "form": _txt(p.get("form")),
+                "sire": _txt(p.get("sire")), "dam": _txt(p.get("dam")), "dam_sire": _txt(p.get("dam_sire")),
+                "form": _txt(p.get("form")),
+                "career": _karriere(vorher, heute),
                 "starts": starts, "wins": _num(p.get("wins"), 0),
                 "places": _num(p.get("places"), 0), "earnings": earn,
                 "earn_per_start": _num(earn / starts, 0) if earn and starts else None,
@@ -875,14 +1014,19 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "ae": ae_p,
                 "pref": {
                     "horse": {"going": _tabelle(vorher, "going_pmu", gb, going_anzeige),
-                              "distance": _tabelle(vorher, "distance_m", r.get("distance_m"),
-                                                   lambda d: f"{int(d)} m")},
+                              "distance": _tabelle(vorher, "dist_group", dg, lambda d: f"{d} m"),
+                              "course": _tabelle(vorher, "course_key", course, lambda c: str(c).title())},
                     "trainer": {"jockey": q("trainer_jockey", (tk, jk)), "course": q("trainer_course", (tk, course)),
-                                "racetype": q("trainer_type", (tk, rt))},
-                    "jockey": {"course": q("jockey_course", (jk, course)), "trainer": q("trainer_jockey", (tk, jk))},
-                    "sire": {"distance": q("sire_dist", (sk, db)), "going": q("sire_going", (sk, gb))},
+                                "racetype": q("trainer_type", (tk, rt)),
+                                "age": q("trainer_age", (tk, alter_gruppe(p.get("age")))),
+                                "age_label": alter_gruppe(p.get("age"))},
+                    "jockey": {"course": q("jockey_course", (jk, course)), "trainer": q("trainer_jockey", (tk, jk)),
+                               "horse": jockey_pferd},
+                    "sire": {"distance": q("sire_dist", (sk, dg)), "going": q("sire_going", (sk, gb))},
+                    "dam_sire": {"distance": q("dam_sire_dist", (dk, dg)), "going": q("dam_sire_going", (dk, gb))},
                 },
                 "form_lines": form,
+                "duels": duelle,
             })
         partanten = [x for x in starters if not x["nr"]]
         for k in DELTA_SPALTEN:                                   # Rang im heutigen Feld
@@ -905,12 +1049,13 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             "race_id": r["race_id"], "reunion": int(r["reunion"]), "race_no": int(r["race_no"]),
             "time": _txt(r.get("post_time")), "name": _txt(r.get("race_name")), "course": _txt(r.get("hippodrome")),
             "distance": dist, "going": _txt(r.get("going")), "going_value": _txt(r.get("going_value")),
-            "going_pmu": gb, "going_label": going_anzeige(gb), "dist_bucket": db,
+            "going_pmu": gb, "going_label": going_anzeige(gb), "dist_bucket": db, "dist_group": dg,
             "dist_label": DIST_LABEL.get(db), "prize": _num(r.get("prize_eur"), 0), "type": rt,
             "age": _txt(r.get("conditions_age")), "sex": _txt(r.get("conditions_sexe")),
             "corde": _txt(r.get("corde")), "declared": _num(r.get("runners_declared"), 0),
             "status": _txt(r.get("statut")), "result": _txt(r.get("finish_order")),
             "runners": starters,
+            "class": klasse,
             "pace": szenario,
             "bias": {**b, "basis": b_basis} if b else None,
         }
@@ -923,7 +1068,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         "params": {"pos_before_m": POS_VOR_FINISH_M, "ae_windows": list(AE_FENSTER), "form_runs": LETZTE_LAEUFE,
                    "style_runs": STIL_LAEUFE, "pacemaker": TEMPOMACHER, "field_ref": PACE_FELD_REF,
                    "trend_diff": TREND_DIFF, "trend_min": TREND_MIN_STARTS, "pref_jt_years": VORLIEBEN_JT_TAGE // 365,
-                   "avg_runs": SCHNITT_LAEUFE, "rivals_runs": GEGNER_LAEUFE, "rivals_max": GEGNER_MAX,
+                   "avg_runs": SCHNITT_LAEUFE, "rivals_runs": GEGNER_LAEUFE, "class_days": KLASSE_TAGE,
                    "best_seg_m": speedfig.BEST_SEG_BEREICH_M, "beaten_l": speedfig.AUSGERITTEN_L,
                    "avg_prior": SCHNITT_PRIOR, "avg_dist_m": SCHNITT_DIST_M, "weight_ref": GEWICHT_REF, "going_stufen": SCHNITT_GOING_STUFEN, "going_psf": GOING_PSF_GRAS, "tr_upg_max": timeform_ratings.UPGRADE_MAX_LB,
                    "tr_upg_knie": timeform_ratings.UPGRADE_KNIE,

@@ -409,8 +409,9 @@ def standardzeiten_pruefen() -> None:
            f"Standardzeit je Konfiguration: gleiche Distanz, anderer Parcours getrennt ({diff:+.2f} s/km, wahr +1,10), "
            f"Klasse Preisgeld ×2 {info['preis_x2_skm']:+.2f} s/km (wahr −0,35)")
     gg = ga_df.groupby("boden")["ga_skm"].median()
-    pruefe(gg["LOURD"] > gg["SOUPLE"] > gg["BON SOUPLE"] - 0.3 and abs(gg.get("PSF", 0.0)) < 0.2,
-           f"Going Allowance nach Boden (Lourd {gg['LOURD']:+.2f}, Souple {gg['SOUPLE']:+.2f} s/km), PSF eigener Nullpunkt")
+    pruefe(gg["VERY SLOW"] > gg["SLOW"] > gg["FAST"] and abs(gg["FAST"]) < 0.4 and abs(gg.get("PSF", 0.0)) < 0.2,
+           f"Going Allowance je Bodengruppe (Lourd = VERY SLOW {gg['VERY SLOW']:+.2f}, Souple = SLOW {gg['SLOW']:+.2f}, "
+           f"Bon/Bon souple = FAST {gg['FAST']:+.2f} s/km), PSF eigener Nullpunkt")
 
 
 def pmu_basis_pruefen() -> None:
@@ -497,8 +498,10 @@ def racecard_pruefen() -> None:
         "status": "PARTANT", "finish_pos": pos, "odds_final": odds, "weight_kg": 57, "age": 4, "sex": "MALES",
         "blinkers": "SANS_OEILLERES", "lengths_prev": None if pos == 1 else 2.0,
         "lengths_behind": None if pos == 1 else 2.0, **kw}
-    runners = pd.DataFrame([lauf(rid(10, 1), 1, "X", "TR", 1, 4.0), lauf(rid(10, 1), 2, "Y", "TR", 2, 2.0),
-                            lauf(rid(100, 1), 1, "X", "TR", 2, 5.0), lauf(rid(100, 1), 2, "Y", "AND", 1, 3.0),
+    runners = pd.DataFrame([lauf(rid(10, 1), 1, "X", "TR", 1, 4.0, p_nomPereMere="MV"),
+                            lauf(rid(10, 1), 2, "Y", "TR", 2, 2.0),
+                            lauf(rid(100, 1), 1, "X", "TR", 2, 5.0, p_nomPereMere="MV"),
+                            lauf(rid(100, 1), 2, "Y", "AND", 1, 3.0),
                             lauf(rid(100, 1), 3, "Z", "AND", 2, 9.0)])       # totes Rennen um Platz 2
     # Abschnitte 1200 m: DEP-1000, 1000-800, ... je 200 m; Pferd 1 sauber, Pferd 2 mit falscher Zeit
     splits = {1: (12.6, 11.9, 11.7, 11.5, 11.3, 11.6), 2: (12.6, 11.9, 11.7, 11.5, 11.3, 9.0)}
@@ -530,7 +533,8 @@ def racecard_pruefen() -> None:
            "frühes Tempo ohne Spalte pace_early_kmh aus tracking_leader ersetzt")
     heute_r = pd.DataFrame([{"race_id": f"{tag:%Y%m%d}R1C1", "reunion": 1, "race_no": 1, "hippodrome": "DEAUVILLE",
                              "distance_m": 1200, "going": "Bon", "going_value": "4,8", "categorie": "HANDICAP"}])
-    heute_s = pd.DataFrame([{**lauf(f"{tag:%Y%m%d}R1C1", 1, "X", "TR", None, 3.0, blinkers="OEILLERES_CLASSIQUE"),
+    heute_s = pd.DataFrame([{**lauf(f"{tag:%Y%m%d}R1C1", 1, "X", "TR", None, 3.0, blinkers="OEILLERES_CLASSIQUE",
+                                  dam_sire="MV"),
                              "finish_pos": None},
                             {**lauf(f"{tag:%Y%m%d}R1C1", 2, "Y", "NEU", None, 3.0, sex="HONGRES"),
                              "finish_pos": None}])
@@ -545,11 +549,12 @@ def racecard_pruefen() -> None:
            and rc._ae_trend({"runs": 3, "ae": 3.0}, {"runs": 90, "ae": 1.0}) is None,
            "Feuer/Eis: 30 Tage deutlich über/unter 365 Tagen, erst ab 5 Starts")
     boden = x["pref"]["horse"]["going"]
-    pruefe(boden[0]["label"] == "Bon" and boden[0]["today"] and (boden[0]["runs"], boden[0]["wins"]) == (1, 1)
-           and {z["label"] for z in boden} == {"Bon", "Lourd"},
-           "Pferd nach Boden: alle Böden, der heutige (Bon laut PMU) oben markiert")
+    pruefe(boden[0]["label"] == "Fast" and boden[0]["today"] and (boden[0]["runs"], boden[0]["wins"]) == (1, 1)
+           and {z["label"] for z in boden} == {"Fast", "Very slow"},
+           "Pferd nach Boden: Bodengruppen (Bon -> FAST, Lourd -> VERY SLOW), die heutige oben markiert")
     dist = x["pref"]["horse"]["distance"]
-    pruefe(dist[0]["label"] == "1200 m" and dist[0]["today"] and len(dist) == 2, "Pferd nach Distanz: 1200 m heute markiert")
+    pruefe(dist[0]["label"] == "1001-1200 m" and dist[0]["today"] and {z["label"] for z in dist} == {"1001-1200 m", "1801-2000 m"},
+           "Pferd nach Distanz: Distanzgruppen (1200 m -> 1001-1200, 2000 m -> 1801-2000), heute markiert")
     pruefe(x["pref"]["trainer"]["course"]["runs"] == 2, "Trainer in Deauville: 2 Läufe (letzte zwei Jahre)")
     pruefe(x["badges"] == ["CD"] and "BF" in y["badges"],
            "CD für den Bahn-/Distanzsieger, BF für den geschlagenen Favoriten")
@@ -562,11 +567,42 @@ def racecard_pruefen() -> None:
     pruefe(y["form_lines"][0]["weg_med"] == 6.7, "Weg: Meter gegenüber dem Median des Feldes (13,31 − 6,66)")
     pruefe(x["days"] == 10 and len(x["form_lines"]) == 2, "10 Tage seit dem letzten Lauf, 2 Formzeilen")
     g = x["form_lines"][1]["rivals"]
-    pruefe(len(g) == 1 and g[0]["horse"] == "Y" and g[0]["next"]["pos"] == 2 and g[0]["next"]["odds_rank"] == 1
-           and g[0]["next"]["verdict"] == "schlechter",
-           "Gegner: Y lief danach wieder, Platz 2 bei Quotenrang 1 -> schlechter als erwartet; Z lief nicht wieder")
-    pruefe(rc.going_klasse("Très souple", None) == "TRES SOUPLE" and rc.going_klasse("Souple", None) == "SOUPLE"
-           and rc.going_klasse(None, 3.5) == "BON SOUPLE", "Bodenbegriffe: Très souple ≠ Souple")
+    pruefe(len(g) == 2 and g[0]["horse"] == "Y" and g[0]["next"]["pos"] == 2 and g[0]["next"]["odds_rank"] == 1
+           and g[0]["next"]["verdict"] == "schlechter" and g[1]["horse"] == "Z" and g[1]["next"] is None
+           and x["form_lines"][1]["rivals_stat"] == {"better": 0, "worse": 1, "same": 0, "ran": 1, "n": 2},
+           "Gegner: alle aufgeführt – Y (danach Platz 2 bei Quotenrang 1 -> schlechter), Z ohne weiteren Start; "
+           "Bilanz 0 besser / 1 schlechter")
+    k = x["career"]["all"]
+    pruefe((k["runs"], k["wins"], k["places"], k["earn"], k["epr"]) == (2, 1, 2, 16350, 8175)
+           and x["career"]["d365"]["runs"] == 2,
+           "Karriere aus der Datenbank: 2-1-2, Preisgeld 27000 × 50 % + 15000 × 19 % = 16350, je Lauf 8175")
+    hx_a = hist[(hist["race_id"] == rid(10, 1)) & (hist["horse"] == "X")].iloc[0]
+    pruefe(hx_a["cls_epr"] == (2850 + 7500) / 2 and np.isnan(hist.loc[hist["race_id"] == rid(100, 1), "cls_epr"]).all(),
+           "Klasse früherer Rennen: Ø Gewinn je Lauf der Teilnehmer in den 365 Tagen davor (X 2850, Y 7500)")
+    kl = d["races"][f"{tag:%Y%m%d}R1C1"]["class"]
+    pruefe(kl["epr"] == round((8175 + (7500 + 5130) / 2) / 2) and kl["epr_n"] == 2,
+           "Klasse heute: Ø Gewinn je Lauf (365 Tage) der Starter = (8175 + 6315) / 2")
+    ped = x["ae"]["pedigree"]
+    pruefe(ped["dam_sire"]["runs"] == 2 and ped["dam_sire"]["wins"] == 1 and ped["cross"]["runs"] == 2
+           and ped["sire"]["runs"] == 5 and y["ae"]["pedigree"]["dam_sire"]["runs"] == 0 and "sire" not in x["ae"],
+           "A/E Abstammung über die ganze Historie: Vater, Muttervater (p_nomPereMere) und Cross Vater × Muttervater")
+    pr = x["pref"]
+    pruefe(pr["trainer"]["age_label"] == "4j+" and pr["trainer"]["age"]["runs"] == 3
+           and pr["jockey"]["horse"]["runs"] == 2 and pr["dam_sire"]["going"]["runs"] == 1
+           and pr["horse"]["course"][0]["label"] == "Deauville" and pr["horse"]["course"][0]["today"],
+           "Vorlieben: Trainer nach Altersgruppe, Jockey auf dem Pferd, Muttervater nach Boden, Pferd nach Kurs")
+    du = x["duels"]
+    pruefe(len(du) == 2 and du[0]["rival"] == "Y" and du[0]["diff_l"] == 2.0 and du[0]["shift"] == 0.0
+           and du[0]["rival_no"] == 2 and du[1]["pos"] == 2 and du[1]["rival_pos"] == 1,
+           "Heutige Gegner: X traf Y zweimal – zuletzt 2 L vor ihm bei gleichem Gewicht, davor hinter ihm")
+    import rtr_arr as ra
+    pruefe(all(rc.going_klasse(k) == v for k, v in ra.GOING_MAP.items())
+           and rc.going_klasse("BON SOUPLE") == "FAST" and rc.going_klasse("Bon léger") == "VERY FAST"
+           and rc.going_klasse("PSF") == "PSF" and rc.going_klasse(None, 3.5) is None and rc.going_klasse("FAST") == "FAST",
+           "Bodengruppen nach GOING_MAP (auch ohne Akzente, PSF-Varianten); Penetrometer-Wert allein ergibt nichts")
+    pruefe(ra.distance_group(1000) == "0-1000" and ra.distance_group(1001) == "1001-1200"
+           and ra.distance_group(1600) == "1401-1600" and ra.distance_group(3601) == ">3600",
+           "Distanzgruppen der Vorlieben: 0-1000, 1001-1200, …, >3600")
     fy = y["form_lines"]
     # RTR von Hand: Rennen vor 100 Tagen (2000 m Lourd -> 0,85 kg/L), alle Start 30, Y vor X (2 L) vor Z (4 L):
     # Stufe(1,7) = 3,2009, Stufe(3,4) = 4,1413, erwartet je Paar Stufe(0) = 1; Preisbonus (4/6 − 0,5)·5·e^−0,07
@@ -589,11 +625,12 @@ def racecard_pruefen() -> None:
     lf = pd.DataFrame({"tr": [100.0, 90.0, 80.0], "distance_m": [1600, 2400, 1600],
                        "going_pmu": ["BON", "LOURD", "PSF"]})
     k_ = rc.tr_schnitt(lf, 1600, "BON")
-    gw = [1.0, 1 / 3 * 1 / (1 + 5 / 2), 0.25]
+    gw = [1.0, 1 / 3 * 1 / (1 + 2 / 1), 0.25]          # Lourd = VERY SLOW, zwei Gruppen von FAST entfernt
     pruefe(np.allclose(k_["gewichte"], gw, atol=0.005)
            and abs(k_["avg"] - (100 + 90 * gw[1] + 80 * gw[2]) / sum(gw)) < 1e-9 and k_["runs"] == 3
-           and rc.going_gewicht(None, "BON") == 1.0 and rc.going_gewicht("BON SOUPLE", "BON") == 1 / 1.5,
-           f"TR-Kachel: Ø gewichtet nach Distanz × Going (2400 m Lourd bei heute 1600 m Bon: {gw[1]:.3f}, "
+           and rc.going_gewicht(None, "BON") == 1.0 and rc.going_gewicht("BON SOUPLE", "BON") == 1.0
+           and rc.going_gewicht("SLOW", "FAST") == 0.5,
+           f"TR-Kachel: Ø gewichtet nach Distanz × Bodengruppe (2400 m Lourd bei heute 1600 m Bon: {gw[1]:.3f}, "
            f"PSF: 0,25) = {k_['avg']:.1f}")
     lw = rc.lauf_gewichte(pd.DataFrame({"distance_m": [1600, 2000, 1600], "going_pmu": ["SOUPLE", "BON", None]}), 1600, "BON")
     pruefe(np.allclose(lw, [1 / (1 + 2 / 2), 1 / (1 + 400 / 400), 1.0]),
@@ -643,7 +680,9 @@ def racecard_pruefen() -> None:
     zeilen, secs = [], []
     for i in range(500):
         rid_i = f"2024{i:05d}"
-        dist_i, gv, pace = rng.choice([1200, 1600, 2400]), rng.uniform(2.8, 4.8), rng.normal(98, 3)
+        dist_i, pace = rng.choice([1200, 1600, 2400]), rng.normal(98, 3)
+        boden_i = rng.choice(["VERY FAST", "FAST", "SLOW", "VERY SLOW"])       # Boden nur als Gruppe bekannt
+        gv = {"VERY FAST": 2.8, "FAST": 3.3, "SLOW": 4.0, "VERY SLOW": 4.8}[boden_i]
         bahn = rng.choice(["A", "B", "C"])
         v_early = 16.8 + 0.15 * (pace - 98)          # frühes Tempo des Führenden (m/s), Ursache des Verlaufs
         basis = 17.2 - 0.9 * (dist_i - 1200) / 1200 - 0.5 * (gv - 3.5) - 0.08 * (pace - 98) \
@@ -656,7 +695,7 @@ def racecard_pruefen() -> None:
                            "speed_last400_kmh": vv * 3.6, "speed_last600_kmh": (vv - 0.3) * 3.6,
                            "speed_600_400_kmh": (vv - 0.9) * 3.6, "path_factor": 1.0,
                            "finish_index": 100 + (vv - basis) * 5, "distance_m": dist_i, "going_value": gv,
-                           "going_class": "SOUPLE", "course_key": bahn, "pace_ratio": pace,
+                           "going_class": boden_i, "course_key": bahn, "pace_ratio": pace,
                            "pace_early_kmh": v_early * 3.6, "true": koennen[p]})
             secs += [{"race_id": rid_i, "saddle_no": pos, "m_to_go": mtg, "seg_len_m": 200,
                       "split_s": 200 / (vv + (1.5 if mtg >= 800 else 0))} for mtg in (1000, 600, 400, 200, 0)]

@@ -208,16 +208,12 @@ def _rennreferenz(h: pd.DataFrame, col: str) -> pd.DataFrame:
 
 def _design(r: pd.DataFrame, going_mittel: dict | None = None) -> tuple[np.ndarray, np.ndarray, dict]:
     """Merkmale für das Par-Modell auf Rennebene. Rückgabe: X, Strafgewichte, Imputationswerte."""
-    wert = pd.to_numeric(r["going_value"], errors="coerce").astype(float)
-    if going_mittel is None:
-        going_mittel = {k: float(v) for k, v in wert.groupby(r["going_class"]).mean().items() if pd.notna(v)}
-    gesamt = float(np.mean(list(going_mittel.values()))) if going_mittel else 3.5
-    gv = wert.fillna(r["going_class"].map(going_mittel)).fillna(gesamt).astype(float)
+    going_mittel = going_mittel or {}
     d = pd.to_numeric(r["distance_m"], errors="coerce").astype(float) / 1000
     pace = pd.to_numeric(r["_pace"], errors="coerce").astype(float)
     pace = pace - float(pace.mean())                              # zentriert, Ridge skaliert stetige Spalten
-    stetig = pd.DataFrame({"d": d, "d2": d ** 2, "gv": gv, "gv_fehlt": wert.isna().astype(float),
-                           "pace": pace, "pace2": pace ** 2, "pace_d": pace * d})
+    # Boden nur über die Bodengruppe (Dummy boden_…), nicht über den Penetrometer-Wert
+    stetig = pd.DataFrame({"d": d, "d2": d ** 2, "pace": pace, "pace2": pace ** 2, "pace_d": pace * d})
     # (kein eigenes PSF-Flag mehr – das ist bereits die Dummy-Spalte boden_PSF)
     dummies = pd.get_dummies(r[["course_key", "going_class"]].astype("string").fillna("?"),
                              prefix=["bahn", "boden"], dtype=float)

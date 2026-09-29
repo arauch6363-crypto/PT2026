@@ -161,18 +161,21 @@ Die HTML-Datei ist eigenständig und lässt sich direkt im Browser öffnen.
 
 Je Starter:
 
-* **Übersicht**: Trikot (PMU `urlCasaque`, eingebettet), Musique, Karriere Starts-Siege-Plätze
-  und Gewinn je Start, Jockey und Trainer mit A/E über 365 Tage (🔥 / 🧊, wenn die letzten 30 Tage
+* **Übersicht**: Trikot (PMU `urlCasaque`, eingebettet), Musique, Karriere Läufe-Siege-Plätze
+  und Gewinn je Lauf aus der Datenbank (Preisgeld je Platz laut PMU `montantOffert…`, sonst 50/19/14/9/4 %
+  des Rennpreises), Muttervater, Jockey und Trainer mit A/E über 365 Tage (🔥 / 🧊, wenn die letzten 30 Tage
   deutlich besser/schlechter waren), Hinweise auf Trainerwechsel, Scheuklappen-Wechsel und
   „erstmals Wallach“, der Kurs hervorgehoben, dazu Ø von ΔL600 A und ΔB200 A
   der letzten 5 Läufe mit Tracking (gewichtet nach Distanz- und Going-Ähnlichkeit zu heute, zum Nullpunkt
   geschrumpft, mit Streuung) samt Rang im heutigen Feld.
 * **Formzeilen** der letzten 7 Läufe mit Fünftel-Position 400 m vor dem Ziel, Pace-Ratio,
   Finish-Index (roh und bereinigt), ±800, Weg gegenüber dem Median des Feldes, ΔL600 A und
-  ΔB200 A. Für die
-  letzten 5 Läufe lassen sich die Gegner aufklappen, die seitdem wieder liefen (die 3, die dem Pferd
-  am nächsten waren), mit Platz im nächsten Start und ob der besser oder schlechter war als der Rang
-  ihrer Quote.
+  ΔB200 A und der Klasse des Rennens (Kl.: Ø Valeur und Ø Gewinn je Lauf der Teilnehmer in den
+  365 Tagen davor). Je Lauf lassen sich alle Gegner aufklappen, mit Platz im nächsten Start und ob der
+  besser oder schlechter war als der Rang ihrer Quote; der Knopf zeigt besser / (besser + schlechter).
+* **Heutige Gegner · frühere Duelle**: Rennen, in denen das Pferd schon auf heutige Gegner traf – Platz
+  beider, Abstand, Gewichte damals und die Verschiebung des Gewichtsunterschieds bis heute.
+* **Klasse** im Rennkopf: Ø Valeur der Starter und Ø ihres Gewinns je Lauf der letzten 365 Tage.
 * **Rohwerte aus den Abschnitten** (`speedfig.rohwerte_aus_abschnitten`): L600, L400, Tempo
   600–400 m und Finish-Index werden beim Bau der Race Card aus `tracking_sections` neu gebildet,
   nicht aus den beim Parsen abgelegten Spalten – so gelten die Korrekturen auch für alte Daten ohne
@@ -181,8 +184,8 @@ Je Starter:
   letzten 600 m werden gegen die offizielle Angabe der Übersichtsseite geprüft (bei Abweichung
   > 0,5 s werden die Tempi dieses Laufs verworfen).
 * **ΔL600 A / ΔB200 A** (`tempo_delta.py`, km/h): Tempo der letzten 600 m bzw. schnellstes 200-m-Segment der
-  letzten 800 m gegenüber der Erwartung. Verglichen wird nur innerhalb **Tag × Kurs × Going** (offizieller
-  PMU-Bodenbegriff, nicht der Penetrometerwert), korrigiert um Kurs × Distanz und Pace-Ratio (linear + quadratisch
+  letzten 800 m gegenüber der Erwartung. Verglichen wird nur innerhalb **Tag × Kurs × Going** (Bodengruppe
+  des offiziellen PMU-Begriffs, nicht der Penetrometerwert), korrigiert um Kurs × Distanz und Pace-Ratio (linear + quadratisch
   je Distanzgruppe). Dazu die **Klassenkorrektur** der Gruppe: β × (Ø Klasse der Gruppe − Ø Klasse aller Läufe),
   β aus Altersklasse (`conditions_age`) und log. Preisgeld, geschätzt über die ganze Historie innerhalb der
   Gruppen. So wird ein Tag mit nur schwachen Rennen nicht überbewertet. Rennen mit Pace-Ratio im 1.–99. Perzentil
@@ -222,9 +225,17 @@ Je Starter:
   ARR und Ergänzung identisch, RTR identisch bei gleicher Reihenfolge der Starter (hier: Einlauf). Bereinigt
   nach Gewicht: `x_adj = x − Gewicht + 55` – in der Übersicht mit dem heutigen Gewicht (RTR aktuell, ARR nach Distanz- und
   Going-Ähnlichkeit gewichteter Ø der letzten 5 Läufe wie TR, Rang im Feld), in den Formzeilen ebenfalls mit dem heutigen Gewicht (ARR 36, heute 52 kg -> 39); klein daneben der Rohwert.
-* **A/E** für Trainer, Jockey und Vater über 30, 90 und 365 Tage.
-* **Vorlieben**: Pferd mit allen Böden und Distanzen der gesamten Historie (heute markiert),
-  Trainer und Jockey der letzten zwei Jahre, Vater über die gesamte Historie.
+* **A/E** für Trainer und Jockey über 30, 90 und 365 Tage; Abstammung (Vater, Muttervater und
+  Cross Vater × Muttervater) über die gesamte Historie. Muttervater aus `dam_sire` (Programm) bzw.
+  `p_nomPereMere` (pmu_basis).
+* **Boden**: Alle Berechnungen (Vorlieben, Kachel-Gewichte, ΔL600/ΔB200-Gruppen, TR und Going Allowance,
+  Standardzeiten, RTR/ARR, Speedfig) nutzen nur die Bodengruppe nach `rtr_arr.GOING_MAP`: Lourd, Très lourd,
+  Collant = VERY SLOW · Souple, Très souple = SLOW · Bon souple, Bon = FAST · Léger, Bon léger, Très léger =
+  VERY FAST · PSF Standard/Lente/Rapide = PSF. Der Penetrometerwert wird nur angezeigt.
+* **Distanzgruppen der Vorlieben** (`rtr_arr.distance_group`): 0-1000, dann je 200 m (1001-1200 …), >3600.
+* **Vorlieben**: Pferd mit allen Böden, Distanzen und Kursen der gesamten Historie (heute markiert),
+  Trainer (mit Jockey, Kurs, Typ, Altersgruppe 2j/3j/4j+) und Jockey (Kurs, Trainer) der letzten zwei
+  Jahre, Jockey auf dem Pferd, Vater und Muttervater nach Distanz und Boden über die gesamte Historie.
 * **Laufstil** je Pferd (F / V / M / H), **Pace-Szenario** aus Tempomachern und Feldgröße,
   **Bahn-Bias** vorne gegen hinten je Bahn und Distanz.
 * Racing-Post-Kürzel **C / D / CD / BF**, Tage seit dem letzten Lauf, Gewicht, Rating, Startbox.
