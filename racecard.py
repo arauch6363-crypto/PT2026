@@ -611,12 +611,21 @@ def _rec(g: pd.DataFrame) -> dict:
     mit = g["odds_final"].notna()
     exp = float((1 / g.loc[mit, "odds_final"]).sum())
     wins_mit = int(g.loc[mit, "won"].sum())
+    epr = float(g["prize_won"].mean()) if runs and "prize_won" in g else None
     return {"runs": runs, "wins": wins, "places": int(g["placed"].sum()),
-            "exp": _num(exp), "ae": _num(wins_mit / exp) if exp > 0 else None}
+            "exp": _num(exp), "ae": _num(wins_mit / exp) if exp > 0 else None, "epr": _num(epr, 0)}
 
 
 def _leer() -> dict:
-    return {"runs": 0, "wins": 0, "places": 0, "exp": None, "ae": None}
+    return {"runs": 0, "wins": 0, "places": 0, "exp": None, "ae": None, "epr": None}
+
+
+def _perzentil(sortiert: np.ndarray, wert) -> int | None:
+    """Anteil (0–100) der Werte, die kleiner oder gleich `wert` sind."""
+    v = _num(wert)
+    if v is None or not len(sortiert):
+        return None
+    return int(round(100 * np.searchsorted(sortiert, v, side="right") / len(sortiert)))
 
 
 def gruppen(h: pd.DataFrame, keys: list[str]) -> dict:
@@ -849,6 +858,14 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             sub = h[h["date"] >= heute - timedelta(days=tage)]
             ae[(rolle, tage)] = gruppen(sub, [rolle + "_key"])
     ae_abst = {rolle: gruppen(h, [rolle + "_key"]) for rolle in ("sire", "dam_sire", "cross")}
+    # Vergleich für Gewinn je Lauf: Ø aller Läufe im selben Zeitfenster (Trainer/Jockey) bzw. der ganzen Historie
+    pw = pd.to_numeric(h["prize_won"], errors="coerce") if "prize_won" in h else pd.Series(dtype=float)
+    epr_ref = {f"d{t}": _num(pw[h["date"] >= heute - timedelta(days=t)].mean(), 0) for t in AE_FENSTER}
+    epr_ref["all"] = _num(pw.mean(), 0)
+    # Klasse: Verteilung über alle früheren Rennen (Ø Valeur, Ø Gewinn je Lauf der Teilnehmer)
+    rennen_kl = h.drop_duplicates("race_id") if len(h) else h
+    kl_vert = {c: np.sort(pd.to_numeric(rennen_kl[c], errors="coerce").dropna().to_numpy())
+               if c in rennen_kl else np.array([]) for c in ("cls_val", "cls_epr")}
 
     kal = pace_kalibrierung(h)
     bias = bahn_bias(h)
@@ -860,6 +877,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         "trainer_course": gruppen(h_jt, ["trainer_key", "course_key"]),
         "trainer_type": gruppen(h_jt, ["trainer_key", "racetype"]),
         "trainer_age": gruppen(h_jt, ["trainer_key", "age_grp"]),
+        "sire_age": gruppen(h, ["sire_key", "age_grp"]),
+        "dam_sire_age": gruppen(h, ["dam_sire_key", "age_grp"]),
         "jockey_course": gruppen(h_jt, ["jockey_key", "course_key"]),
         "sire_dist": gruppen(h, ["sire_key", "dist_group"]),
         "sire_going": gruppen(h, ["sire_key", "going_pmu"]),
@@ -915,6 +934,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         klasse = {"val": _num(val_heute.mean(), 1) if len(val_heute) else None, "val_n": int(len(val_heute)),
                   "epr": _num(float(np.mean(epr_heute)), 0) if epr_heute else None, "epr_n": len(epr_heute),
                   "n": len(heute_gew)}
+        klasse["val_pct"] = _perzentil(kl_vert["cls_val"], klasse["val"])
+        klasse["epr_pct"] = _perzentil(kl_vert["cls_epr"], klasse["epr"])
         for _, p in feld_heute.sort_values("saddle_no").iterrows():
             hid, tk, jk, sk = p["horse_id"], p["trainer_key"], p["jockey_key"], p["sire_key"]
             dk, xk = p["dam_sire_key"], p["cross_key"]
@@ -924,6 +945,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 f = _formzeile(z, p.get("weight_kg"))
                 f["rivals"] = _gegner(z, h_rennen, h_pferde, heute) if n < GEGNER_LAEUFE else None
                 f["rivals_stat"] = _gegner_bilanz(f["rivals"])
+                f["cls_val_pct"] = _perzentil(kl_vert["cls_val"], f["cls_val"])
+                f["cls_epr_pct"] = _perzentil(kl_vert["cls_epr"], f["cls_epr"])
                 form.append(f)
             duelle = _duelle(vorher[vorher["race_id"].isin(set(duell_rennen))], duell_rennen, heute_gew, hid) \
                 if len(vorher) and hid in heute_gew else []
@@ -1022,8 +1045,10 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                                 "age_label": alter_gruppe(p.get("age"))},
                     "jockey": {"course": q("jockey_course", (jk, course)), "trainer": q("trainer_jockey", (tk, jk)),
                                "horse": jockey_pferd},
-                    "sire": {"distance": q("sire_dist", (sk, dg)), "going": q("sire_going", (sk, gb))},
-                    "dam_sire": {"distance": q("dam_sire_dist", (dk, dg)), "going": q("dam_sire_going", (dk, gb))},
+                    "sire": {"distance": q("sire_dist", (sk, dg)), "going": q("sire_going", (sk, gb)),
+                             "age": q("sire_age", (sk, alter_gruppe(p.get("age"))))},
+                    "dam_sire": {"distance": q("dam_sire_dist", (dk, dg)), "going": q("dam_sire_going", (dk, gb)),
+                                 "age": q("dam_sire_age", (dk, alter_gruppe(p.get("age"))))},
                 },
                 "form_lines": form,
                 "duels": duelle,
@@ -1039,6 +1064,15 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             for x in starters:
                 x[k]["rank"] = _rang(werte, x[k][feld]) if not x["nr"] else None
                 x[k]["n"] = sum(w is not None for w in werte)
+        for fenster in ("all", "d365"):                        # Gewinn je Lauf: Rang und Verhältnis zum Feld
+            werte = [x["career"][fenster]["epr"] for x in partanten]
+            vorhanden = [w for w in werte if w is not None]
+            median = float(np.median(vorhanden)) if vorhanden else None
+            for x in starters:
+                k_ = x["career"][fenster]
+                k_["rank"] = _rang(werte, k_["epr"]) if not x["nr"] else None
+                k_["n"] = len(vorhanden)
+                k_["rel"] = _num(k_["epr"] / median, 2) if k_["epr"] is not None and median else None
         szenario = pace_szenario(partanten, db, kal)
         b = bias["exakt"].get((course, dist)) or bias["gruppe"].get((course, db))
         b_basis = "exakt" if bias["exakt"].get((course, dist)) else ("gruppe" if b else None)
@@ -1069,6 +1103,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                    "style_runs": STIL_LAEUFE, "pacemaker": TEMPOMACHER, "field_ref": PACE_FELD_REF,
                    "trend_diff": TREND_DIFF, "trend_min": TREND_MIN_STARTS, "pref_jt_years": VORLIEBEN_JT_TAGE // 365,
                    "avg_runs": SCHNITT_LAEUFE, "rivals_runs": GEGNER_LAEUFE, "class_days": KLASSE_TAGE,
+                   "epr_ref": epr_ref, "class_races": int(len(kl_vert["cls_epr"])),
                    "best_seg_m": speedfig.BEST_SEG_BEREICH_M, "beaten_l": speedfig.AUSGERITTEN_L,
                    "avg_prior": SCHNITT_PRIOR, "avg_dist_m": SCHNITT_DIST_M, "weight_ref": GEWICHT_REF, "going_stufen": SCHNITT_GOING_STUFEN, "going_psf": GOING_PSF_GRAS, "tr_upg_max": timeform_ratings.UPGRADE_MAX_LB,
                    "tr_upg_knie": timeform_ratings.UPGRADE_KNIE,

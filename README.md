@@ -175,7 +175,12 @@ Je Starter:
   besser oder schlechter war als der Rang ihrer Quote; der Knopf zeigt besser / (besser + schlechter).
 * **Heutige Gegner · frühere Duelle**: Rennen, in denen das Pferd schon auf heutige Gegner traf – Platz
   beider, Abstand, Gewichte damals und die Verschiebung des Gewichtsunterschieds bis heute.
-* **Klasse** im Rennkopf: Ø Valeur der Starter und Ø ihres Gewinns je Lauf der letzten 365 Tage.
+* **Klasse** im Rennkopf: Ø Valeur der Starter und Ø ihres Gewinns je Lauf der letzten 365 Tage, farbig als
+  Perzentil aller früheren Rennen (grün oberes, rot unteres Drittel).
+* **€/Lauf-Kachel** und Karriere im Detail (gesamt und 365 Tage) nur aus der PMU-Historie, mit Rang im Feld;
+  grün ab 1,25 × Median des Feldes, rot bis 0,8 ×. €/Lauf auch für Trainer, Jockey, Vater, Muttervater und
+  Cross (gegen den Ø aller Läufe im selben Zeitraum). Vorlieben zusätzlich Vater und Muttervater nach
+  Altersgruppe (2j, 3j, 4j+).
 * **Rohwerte aus den Abschnitten** (`speedfig.rohwerte_aus_abschnitten`): L600, L400, Tempo
   600–400 m und Finish-Index werden beim Bau der Race Card aus `tracking_sections` neu gebildet,
   nicht aus den beim Parsen abgelegten Spalten – so gelten die Korrekturen auch für alte Daten ohne
