@@ -55,6 +55,7 @@ import speedfig
 import standardzeiten
 import tempo_delta
 import timeform_ratings
+import uebersetzen
 
 TEMPLATE = Path(__file__).with_name("racecard_template.html")
 
@@ -307,10 +308,12 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
 
     if "conditions_age" not in r:
         r["conditions_age"] = None
+    if "race_comment" not in r:
+        r["race_comment"] = None
     pz = [f"pz{i}" for i in range(1, len(PREIS_ANTEILE) + 1)]
     h = h.merge(r[["race_id", "date", "hippodrome", "course_key", "distance_m", "going", "going_value",
                    "going_pmu", "going_class", "dist_bucket", "dist_group", "prize_eur", "racetype", "conditions_age", "konfig",
-                   *pz]],
+                   "race_comment", *pz]],
                 on="race_id", how="inner")
     # Preisgeld, das das Pferd in diesem Rennen gewonnen hat (Platz 1 … 5)
     h["prize_won"] = 0.0
@@ -692,6 +695,7 @@ def _formzeile(z, gewicht_heute=None) -> dict:
         "jockey": _txt(z.get("jockey")), "odds": _num(z["odds_final"], 1),
         "odds_rank": _num(z.get("odds_rank"), 0),
         "valeur": _num(z.get("valeur"), 1), "blinkers": _txt(z.get("blinkers")), "draw": _num(z.get("draw"), 0),
+        "comment": _txt(z.get("comment")), "race_comment": _txt(z.get("race_comment")),
         "incident": _txt(z.get("incident")), "fav": bool(z["favourite"]),
         "tracking": bool(z["tracking"]), "unreliable": bool(z.get("ausgeritten") is True),
         "early_pos": _num(z.get("early_pos"), 0),
@@ -1163,6 +1167,20 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     }
 
 
+def kommentare_uebersetzen(daten: dict, base: Path | None = None, **kw) -> int:
+    """Kommentare der Formzeilen (Starter und Rennen, französisch) ins Deutsche übersetzen, wo möglich:
+    ergänzt comment_de / race_comment_de. Rückgabe: Zahl der übersetzten Formzeilen-Kommentare."""
+    zeilen = [f for r in daten.get("races", {}).values() for x in r["runners"] for f in x["form_lines"]]
+    de = uebersetzen.uebersetze([f.get(k) for f in zeilen for k in ("comment", "race_comment")], base, **kw)
+    n = 0
+    for f in zeilen:
+        for k in ("comment", "race_comment"):
+            t = (f.get(k) or "").strip()
+            f[k + "_de"] = de.get(t) if t else None
+        n += f["comment_de"] is not None
+    return n
+
+
 def trikots(urls, session: requests.Session | None = None) -> dict:
     """Trikot-Bilder (PMU 'urlCasaque') laden und als data:-URI einbetten, damit die Race Card
     ohne Internet funktioniert. Fehlende oder fehlerhafte Bilder werden übergangen."""
@@ -1224,6 +1242,9 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
             print("Backtest – Vorhersage des nächsten Laufs (r mit dem Platzanteil; Top-3-Quote des Bestbewerteten):")
             print(v.to_string(index=False))
     daten = baue_daten(hist, races_heute, runners_heute, tag, silks)
+    mit_k = sum(1 for r in daten["races"].values() for x in r["runners"] for f in x["form_lines"] if f.get("comment"))
+    if mit_k:
+        print(f"Kommentare in den Formzeilen: {mit_k}, davon auf Deutsch: {kommentare_uebersetzen(daten, base)}")
     out = Path(out) if out else base / "racecards" / f"racecard_{tag:%Y%m%d}.html"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html(daten), encoding="utf-8")

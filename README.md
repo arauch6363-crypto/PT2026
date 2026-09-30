@@ -181,6 +181,9 @@ Je Starter:
 * **Übersicht**: Läufe-Siege-Plätze neben der Musique, Besitzer mit A/E, Scheuklappen-Symbol (klassisch /
   australisch), Kurs mit Morgenkurs und Pfeil (▼ gefallen, ▲ gestiegen). RTR, ΔL600 A und ΔB200 A nur hier.
 * **Formzeilen** zusätzlich mit Valeur, Scheuklappen-Symbol und Endquote.
+* **Kommentare** (`comment` aus pmu_runners, `race_comment` aus pmu_races) unter jedem früheren Lauf, auf
+  Deutsch übersetzt, wo möglich (`uebersetzen.py`, deep-translator, Cache `<BASE>/uebersetzungen_fr_de.json`);
+  ohne Paket oder Netz bleibt der französische Text (markiert mit FR).
 * **A/E** zusätzlich für Besitzer und Züchter; Abstammung mit Zahl der Pferde und Ø ihrer höchsten Valeur.
 * **Duelle** mit heutigen Gegnern nur aus den letzten 365 Tagen.
 * **Klasse** im Rennkopf: Ø Valeur der Starter und Ø ihres Gewinns je Lauf der letzten 365 Tage, farbig als

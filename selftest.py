@@ -489,7 +489,7 @@ def racecard_pruefen() -> None:
     rid = lambda d, n: f"{tag - timedelta(days=d):%Y%m%d}R1C{n}"
     races = pd.DataFrame([
         {"race_id": rid(10, 1), "hippodrome": "DEAUVILLE", "distance_m": 1200, "going": "Bon",
-         "going_value": "3,1", "prize_eur": 27000, "categorie": "HANDICAP"},
+         "going_value": "3,1", "prize_eur": 27000, "categorie": "HANDICAP", "race_comment": "Course rapide."},
         {"race_id": rid(100, 1), "hippodrome": "VICHY", "distance_m": 2000, "going": "Lourd",
          "going_value": "4,5", "prize_eur": 15000, "categorie": "A_RECLAMER"},
     ])
@@ -498,7 +498,8 @@ def racecard_pruefen() -> None:
         "status": "PARTANT", "finish_pos": pos, "odds_final": odds, "weight_kg": 57, "age": 4, "sex": "MALES",
         "blinkers": "SANS_OEILLERES", "lengths_prev": None if pos == 1 else 2.0, "draw": no, "owner": "STALL",
         "lengths_behind": None if pos == 1 else 2.0, **kw}
-    runners = pd.DataFrame([lauf(rid(10, 1), 1, "X", "TR", 1, 4.0, p_nomPereMere="MV", rating=40),
+    runners = pd.DataFrame([lauf(rid(10, 1), 1, "X", "TR", 1, 4.0, p_nomPereMere="MV", rating=40,
+                                 comment="A fini fort à l'extérieur."),
                             lauf(rid(10, 1), 2, "Y", "TR", 2, 2.0),
                             lauf(rid(100, 1), 1, "X", "TR", 2, 5.0, p_nomPereMere="MV",
                                  blinkers="OEILLERES_AUSTRALIENNES"),
@@ -624,6 +625,20 @@ def racecard_pruefen() -> None:
                                                    "DEAUVILLE|1600|HERBE|GRANDE PISTE|CORDE_DROITE"],
            "Standardzeiten auch aus pmu_races: Bahn | Distanz | track_type | parcours_norm | Corde -> race_time_s; "
            "Startbox nutzt dieselbe Konfiguration")
+    import uebersetzen as ue
+    tmp_k = Path(tempfile.mkdtemp(prefix="pt_ue_"))
+    fake = lambda texte: [{"A fini fort à l'extérieur.": "Stark außen beendet.", "Course rapide.": "Schnelles Rennen."}[t]
+                          for t in texte]
+    n_k = rc.kommentare_uebersetzen(d, tmp_k, uebersetzer=fake)
+    pruefe(n_k == 1 and f["comment"] == "A fini fort à l'extérieur." and f["comment_de"] == "Stark außen beendet."
+           and f["race_comment_de"] == "Schnelles Rennen." and x["form_lines"][1]["comment_de"] is None
+           and (tmp_k / ue.CACHE).exists(),
+           "Kommentare der Formzeilen auf Deutsch (Starter und Rennen), Cache in BASE")
+    def kaputt(texte):
+        raise ConnectionError("offline")
+    pruefe(ue.uebersetze(["A fini fort à l'extérieur.", "Neu."], tmp_k, uebersetzer=kaputt)
+           == {"A fini fort à l'extérieur.": "Stark außen beendet.", "Neu.": None},
+           "Übersetzung nur falls möglich: Cache greift, ohne Dienst bleibt der Text französisch")
     du = x["duels"]
     pruefe(len(du) == 2 and du[0]["rival"] == "Y" and du[0]["diff_l"] == 2.0 and du[0]["shift"] == 0.0
            and du[0]["rival_no"] == 2 and du[1]["pos"] == 2 and du[1]["rival_pos"] == 1,
