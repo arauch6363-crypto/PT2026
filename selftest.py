@@ -496,11 +496,13 @@ def racecard_pruefen() -> None:
     lauf = lambda r, no, horse, tr, pos, odds, **kw: {
         "race_id": r, "saddle_no": no, "horse": horse, "sire": "VATER", "jockey": "J. OCKEY", "trainer": tr,
         "status": "PARTANT", "finish_pos": pos, "odds_final": odds, "weight_kg": 57, "age": 4, "sex": "MALES",
-        "blinkers": "SANS_OEILLERES", "lengths_prev": None if pos == 1 else 2.0,
+        "blinkers": "SANS_OEILLERES", "lengths_prev": None if pos == 1 else 2.0, "draw": no, "owner": "STALL",
         "lengths_behind": None if pos == 1 else 2.0, **kw}
-    runners = pd.DataFrame([lauf(rid(10, 1), 1, "X", "TR", 1, 4.0, p_nomPereMere="MV"),
+    runners = pd.DataFrame([lauf(rid(10, 1), 1, "X", "TR", 1, 4.0, p_nomPereMere="MV", rating=40,
+                                 comment="A fini fort à l'extérieur."),
                             lauf(rid(10, 1), 2, "Y", "TR", 2, 2.0),
-                            lauf(rid(100, 1), 1, "X", "TR", 2, 5.0, p_nomPereMere="MV"),
+                            lauf(rid(100, 1), 1, "X", "TR", 2, 5.0, p_nomPereMere="MV",
+                                 blinkers="OEILLERES_AUSTRALIENNES"),
                             lauf(rid(100, 1), 2, "Y", "AND", 1, 3.0),
                             lauf(rid(100, 1), 3, "Z", "AND", 2, 9.0)])       # totes Rennen um Platz 2
     # Abschnitte 1200 m: DEP-1000, 1000-800, ... je 200 m; Pferd 1 sauber, Pferd 2 mit falscher Zeit
@@ -600,6 +602,46 @@ def racecard_pruefen() -> None:
            "Gewinn je Lauf im Vergleich zum Feld: Rang und Verhältnis zum Median")
     pruefe(f["cls_epr_pct"] == 100 and kl["epr_pct"] == 100,
            "Klasse eingeordnet als Perzentil aller früheren Rennen")
+    ds = x["draw_stat"]
+    pruefe(ds["mean"] == 1.0 and ds["dev"] == 0.5 and ds["n"] == 1 and not ds["ok"]
+           and y["draw_stat"]["mean"] == 0.0 and y["draw_stat"]["n"] == 1,
+           "Startbox: Ø relative Platzierung (Starter − Platz) / (Starter − 1) je Konfiguration × Box, Abweichung zu 0,5")
+    pruefe(x["ae"]["owner"]["d365"]["runs"] == 5 and x["ae"]["breeder"]["d365"]["runs"] == 0,
+           "A/E für Besitzer (und Züchter, hier ohne Angabe)")
+    pv = x["ae"]["pedigree"]["sire"]
+    pruefe(pv["horses"] == 3 and pv["max_val"] == 40.0 and x["ae"]["pedigree"]["dam_sire"]["horses"] == 1,
+           "Abstammung: 3 verschiedene Pferde vom Vater, Ø höchste Valeur je Pferd")
+    pruefe(f["valeur"] == 40.0 and x["form_lines"][1]["blinkers"] == "OEILLERES_AUSTRALIENNES" and f["odds"] == 4.0,
+           "Formzeile mit Valeur, Scheuklappen und Endquote")
+    rz = pd.DataFrame([{"race_id": "20260901R1C1", "hippodrome": "DEAUVILLE", "distance_m": 1600, "corde": "CORDE_DROITE",
+                        "track_type": "HERBE", "parcours_norm": "LIGNE DROITE", "race_time_s": 96.4, "going": "Bon souple"},
+                       {"race_id": "20260901R1C2", "hippodrome": "DEAUVILLE", "distance_m": 1600, "corde": "CORDE_DROITE",
+                        "track_type": "HERBE", "parcours": "1600 M. (Grande piste)", "race_time_s": None}])
+    import standardzeiten as sz_
+    az = sz_.aus_pmu_races(rz)
+    pruefe(len(az) == 1 and sz_.konfiguration(az).iloc[0] == "DEAUVILLE|1600|HERBE|LIGNE DROITE|CORDE_DROITE"
+           and az["zeit_s"].iloc[0] == 96.4 and az["going_klasse"].iloc[0] == "BON SOUPLE"
+           and rc.konfig_schluessel(rz).tolist() == ["DEAUVILLE|1600|HERBE|LIGNE DROITE|CORDE_DROITE",
+                                                   "DEAUVILLE|1600|HERBE|GRANDE PISTE|CORDE_DROITE"],
+           "Standardzeiten auch aus pmu_races: Bahn | Distanz | track_type | parcours_norm | Corde -> race_time_s; "
+           "Startbox nutzt dieselbe Konfiguration")
+    rn = rc.baue_daten(hist, heute_r.assign(going=None, going_value=None), heute_s, tag)["races"][f"{tag:%Y%m%d}R1C1"]
+    pruefe(rn["going_pmu"] == "FAST" and rn["going_assumed"] and rn["runners"][0]["pref"]["horse"]["going"][0]["today"]
+           and not d["races"][f"{tag:%Y%m%d}R1C1"]["going_assumed"],
+           "Bodenangabe fehlt (noch): FAST angenommen und so markiert, Vorlieben rechnen mit FAST")
+    import uebersetzen as ue
+    tmp_k = Path(tempfile.mkdtemp(prefix="pt_ue_"))
+    fake = lambda texte: [{"A fini fort à l'extérieur.": "Stark außen beendet."}[t] for t in texte]
+    n_k = rc.kommentare_uebersetzen(d, tmp_k, uebersetzer=fake)
+    pruefe(n_k == 1 and f["comment"] == "A fini fort à l'extérieur." and f["comment_de"] == "Stark außen beendet."
+           and "race_comment" not in f and x["form_lines"][1]["comment_de"] is None
+           and (tmp_k / ue.CACHE).exists(),
+           "Kommentare je Starter in den Formzeilen auf Deutsch, Cache in BASE")
+    def kaputt(texte):
+        raise ConnectionError("offline")
+    pruefe(ue.uebersetze(["A fini fort à l'extérieur.", "Neu."], tmp_k, uebersetzer=kaputt)
+           == {"A fini fort à l'extérieur.": "Stark außen beendet.", "Neu.": None},
+           "Übersetzung nur falls möglich: Cache greift, ohne Dienst bleibt der Text französisch")
     du = x["duels"]
     pruefe(len(du) == 2 and du[0]["rival"] == "Y" and du[0]["diff_l"] == 2.0 and du[0]["shift"] == 0.0
            and du[0]["rival_no"] == 2 and du[1]["pos"] == 2 and du[1]["rival_pos"] == 1,
@@ -607,8 +649,9 @@ def racecard_pruefen() -> None:
     import rtr_arr as ra
     pruefe(all(rc.going_klasse(k) == v for k, v in ra.GOING_MAP.items())
            and rc.going_klasse("BON SOUPLE") == "FAST" and rc.going_klasse("Bon léger") == "VERY FAST"
-           and rc.going_klasse("PSF") == "PSF" and rc.going_klasse(None, 3.5) is None and rc.going_klasse("FAST") == "FAST",
-           "Bodengruppen nach GOING_MAP (auch ohne Akzente, PSF-Varianten); Penetrometer-Wert allein ergibt nichts")
+           and rc.going_klasse("PSF") == "PSF" and rc.going_klasse(None, 3.5) == "FAST" and rc.going_klasse("FAST") == "FAST"
+           and rc.going_klasse("") == "FAST",
+           "Bodengruppen nach GOING_MAP (auch ohne Akzente, PSF-Varianten); fehlt der Begriff: FAST (Penetrometer zählt nicht)")
     pruefe(ra.distance_group(1000) == "0-1000" and ra.distance_group(1001) == "1001-1200"
            and ra.distance_group(1600) == "1401-1600" and ra.distance_group(3601) == ">3600",
            "Distanzgruppen der Vorlieben: 0-1000, 1001-1200, …, >3600")
