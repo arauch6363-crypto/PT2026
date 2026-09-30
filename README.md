@@ -180,7 +180,10 @@ Je Starter:
   dieser Box auf derselben Konfiguration (Bahn | Distanz | track_type | parcours_norm | Corde) von 0,5.
 * **Übersicht**: Läufe-Siege-Plätze neben der Musique, Besitzer mit A/E, Scheuklappen-Symbol (klassisch /
   australisch), Kurs mit Morgenkurs und Pfeil (▼ gefallen, ▲ gestiegen). RTR, ΔL600 A und ΔB200 A nur hier.
-* **Formzeilen** zusätzlich mit Valeur, Scheuklappen-Symbol und Endquote.
+* **Formzeilen** zusätzlich mit Valeur, Scheuklappen-Symbol und Endquote; ARR, TR und Klasse (Val, €/L) farbig im
+  Vergleich zu allen früheren Läufen der heutigen Starter, ±800 und Weg m bei auffälligen Werten farbig.
+* **Übersicht**: Karriere mit €/Lauf neben der Musique; Rating mit letzter Sieg- bzw. Platzmarke im Handicap;
+  Rating, Tage, RTR, ARR und TR farbig nach dem Rang im Feld. Vorlieben zusätzlich Pferd nach Scheuklappen.
 * **Kommentare** (`comment` je Starter aus pmu_runners) unter jedem früheren Lauf, auf
   Deutsch übersetzt, wo möglich (`uebersetzen.py`, deep-translator, Cache `<BASE>/uebersetzungen_fr_de.json`);
   ohne Paket oder Netz bleibt der französische Text (markiert mit FR).

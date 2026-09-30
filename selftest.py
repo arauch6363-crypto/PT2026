@@ -629,6 +629,13 @@ def racecard_pruefen() -> None:
     pruefe(rn["going_pmu"] == "FAST" and rn["going_assumed"] and rn["runners"][0]["pref"]["horse"]["going"][0]["today"]
            and not d["races"][f"{tag:%Y%m%d}R1C1"]["going_assumed"],
            "Bodenangabe fehlt (noch): FAST angenommen und so markiert, Vorlieben rechnen mit FAST")
+    hm = x["hcp_mark"]
+    pruefe(hm["kind"] == "sieg" and hm["val"] == 40.0 and y["hcp_mark"] is None
+           and rc.handicap_marke(hist[(hist["horse"] == "X") & (hist["won"] == 0)].assign(valeur=36.0, racetype="Handicap")
+                                 .sort_values("date", ascending=False), 38)["kind"] == "platz",
+           "Letzte Siegmarke im Handicap (Valeur 40), ohne Sieg die letzte Platzmarke")
+    bl = {z["label"]: z["runs"] for z in x["pref"]["horse"]["blinkers"]}
+    pruefe(bl == {"ohne": 1, "australisch": 1}, "Pferd nach Scheuklappen: ohne / australisch")
     import uebersetzen as ue
     tmp_k = Path(tempfile.mkdtemp(prefix="pt_ue_"))
     fake = lambda texte: [{"A fini fort à l'extérieur.": "Stark außen beendet."}[t] for t in texte]
