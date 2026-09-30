@@ -159,10 +159,14 @@ def kategorie(c) -> str | None:
     return KATEGORIE.get(c) or c.replace("_", " ").title()
 
 
-def going_klasse(going, going_value=None) -> str | None:
+BODEN_ANNAHME = "FAST"          # fehlt die Bodenangabe (noch), gilt der Tag als FAST (Bon, Bon souple)
+
+
+def going_klasse(going, going_value=None) -> str:
     """Bodengruppe nach rtr_arr.GOING_MAP (VERY FAST, FAST, SLOW, VERY SLOW, PSF) aus dem offiziellen
-    Bodenbegriff. Der Penetrometer-Wert (going_value) fließt nicht ein – alle Berechnungen nutzen nur die Gruppe."""
-    return rtr_arr.boden_gruppe(going)
+    Bodenbegriff; fehlt er (oder ist unbekannt): BODEN_ANNAHME. Der Penetrometer-Wert (going_value) fließt nicht
+    ein – alle Berechnungen nutzen nur die Gruppe."""
+    return rtr_arr.boden_gruppe(going) or BODEN_ANNAHME
 
 
 def going_anzeige(k: str | None) -> str | None:
@@ -308,12 +312,10 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
 
     if "conditions_age" not in r:
         r["conditions_age"] = None
-    if "race_comment" not in r:
-        r["race_comment"] = None
     pz = [f"pz{i}" for i in range(1, len(PREIS_ANTEILE) + 1)]
     h = h.merge(r[["race_id", "date", "hippodrome", "course_key", "distance_m", "going", "going_value",
                    "going_pmu", "going_class", "dist_bucket", "dist_group", "prize_eur", "racetype", "conditions_age", "konfig",
-                   "race_comment", *pz]],
+                   *pz]],
                 on="race_id", how="inner")
     # Preisgeld, das das Pferd in diesem Rennen gewonnen hat (Platz 1 … 5)
     h["prize_won"] = 0.0
@@ -695,7 +697,7 @@ def _formzeile(z, gewicht_heute=None) -> dict:
         "jockey": _txt(z.get("jockey")), "odds": _num(z["odds_final"], 1),
         "odds_rank": _num(z.get("odds_rank"), 0),
         "valeur": _num(z.get("valeur"), 1), "blinkers": _txt(z.get("blinkers")), "draw": _num(z.get("draw"), 0),
-        "comment": _txt(z.get("comment")), "race_comment": _txt(z.get("race_comment")),
+        "comment": _txt(z.get("comment")),
         "incident": _txt(z.get("incident")), "fav": bool(z["favourite"]),
         "tracking": bool(z["tracking"]), "unreliable": bool(z.get("ausgeritten") is True),
         "early_pos": _num(z.get("early_pos"), 0),
@@ -948,7 +950,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     meetings: dict[int, dict] = {}
     races_out = {}
     for _, r in rh.sort_values(["reunion", "race_no"]).iterrows():
-        gb = going_klasse(r.get("going"))                # Bodengruppe laut PMU-Begriff
+        gb = going_klasse(r.get("going"))                # Bodengruppe laut PMU-Begriff (fehlt er: FAST)
+        gb_angenommen = rtr_arr.boden_gruppe(r.get("going")) is None
         db = dist_bucket(r.get("distance_m"))
         dg = rtr_arr.distance_group(_num(r.get("distance_m")))   # Distanzgruppe der Vorlieben
         rt = kategorie(r.get("categorie"))
@@ -1135,7 +1138,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             "race_id": r["race_id"], "reunion": int(r["reunion"]), "race_no": int(r["race_no"]),
             "time": _txt(r.get("post_time")), "name": _txt(r.get("race_name")), "course": _txt(r.get("hippodrome")),
             "distance": dist, "going": _txt(r.get("going")), "going_value": _txt(r.get("going_value")),
-            "going_pmu": gb, "going_label": going_anzeige(gb), "dist_bucket": db, "dist_group": dg,
+            "going_pmu": gb, "going_label": going_anzeige(gb), "going_assumed": gb_angenommen, "dist_bucket": db, "dist_group": dg,
             "dist_label": DIST_LABEL.get(db), "prize": _num(r.get("prize_eur"), 0), "type": rt,
             "age": _txt(r.get("conditions_age")), "sex": _txt(r.get("conditions_sexe")),
             "corde": _txt(r.get("corde")), "konfig": _txt(konfig_heute), "declared": _num(r.get("runners_declared"), 0),
@@ -1168,15 +1171,14 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
 
 
 def kommentare_uebersetzen(daten: dict, base: Path | None = None, **kw) -> int:
-    """Kommentare der Formzeilen (Starter und Rennen, französisch) ins Deutsche übersetzen, wo möglich:
-    ergänzt comment_de / race_comment_de. Rückgabe: Zahl der übersetzten Formzeilen-Kommentare."""
+    """Kommentare der Formzeilen (je Starter aus pmu_runners, französisch) ins Deutsche übersetzen, wo möglich:
+    ergänzt comment_de. Rückgabe: Zahl der übersetzten Kommentare."""
     zeilen = [f for r in daten.get("races", {}).values() for x in r["runners"] for f in x["form_lines"]]
-    de = uebersetzen.uebersetze([f.get(k) for f in zeilen for k in ("comment", "race_comment")], base, **kw)
+    de = uebersetzen.uebersetze([f.get("comment") for f in zeilen], base, **kw)
     n = 0
     for f in zeilen:
-        for k in ("comment", "race_comment"):
-            t = (f.get(k) or "").strip()
-            f[k + "_de"] = de.get(t) if t else None
+        t = (f.get("comment") or "").strip()
+        f["comment_de"] = de.get(t) if t else None
         n += f["comment_de"] is not None
     return n
 

@@ -489,7 +489,7 @@ def racecard_pruefen() -> None:
     rid = lambda d, n: f"{tag - timedelta(days=d):%Y%m%d}R1C{n}"
     races = pd.DataFrame([
         {"race_id": rid(10, 1), "hippodrome": "DEAUVILLE", "distance_m": 1200, "going": "Bon",
-         "going_value": "3,1", "prize_eur": 27000, "categorie": "HANDICAP", "race_comment": "Course rapide."},
+         "going_value": "3,1", "prize_eur": 27000, "categorie": "HANDICAP"},
         {"race_id": rid(100, 1), "hippodrome": "VICHY", "distance_m": 2000, "going": "Lourd",
          "going_value": "4,5", "prize_eur": 15000, "categorie": "A_RECLAMER"},
     ])
@@ -625,15 +625,18 @@ def racecard_pruefen() -> None:
                                                    "DEAUVILLE|1600|HERBE|GRANDE PISTE|CORDE_DROITE"],
            "Standardzeiten auch aus pmu_races: Bahn | Distanz | track_type | parcours_norm | Corde -> race_time_s; "
            "Startbox nutzt dieselbe Konfiguration")
+    rn = rc.baue_daten(hist, heute_r.assign(going=None, going_value=None), heute_s, tag)["races"][f"{tag:%Y%m%d}R1C1"]
+    pruefe(rn["going_pmu"] == "FAST" and rn["going_assumed"] and rn["runners"][0]["pref"]["horse"]["going"][0]["today"]
+           and not d["races"][f"{tag:%Y%m%d}R1C1"]["going_assumed"],
+           "Bodenangabe fehlt (noch): FAST angenommen und so markiert, Vorlieben rechnen mit FAST")
     import uebersetzen as ue
     tmp_k = Path(tempfile.mkdtemp(prefix="pt_ue_"))
-    fake = lambda texte: [{"A fini fort à l'extérieur.": "Stark außen beendet.", "Course rapide.": "Schnelles Rennen."}[t]
-                          for t in texte]
+    fake = lambda texte: [{"A fini fort à l'extérieur.": "Stark außen beendet."}[t] for t in texte]
     n_k = rc.kommentare_uebersetzen(d, tmp_k, uebersetzer=fake)
     pruefe(n_k == 1 and f["comment"] == "A fini fort à l'extérieur." and f["comment_de"] == "Stark außen beendet."
-           and f["race_comment_de"] == "Schnelles Rennen." and x["form_lines"][1]["comment_de"] is None
+           and "race_comment" not in f and x["form_lines"][1]["comment_de"] is None
            and (tmp_k / ue.CACHE).exists(),
-           "Kommentare der Formzeilen auf Deutsch (Starter und Rennen), Cache in BASE")
+           "Kommentare je Starter in den Formzeilen auf Deutsch, Cache in BASE")
     def kaputt(texte):
         raise ConnectionError("offline")
     pruefe(ue.uebersetze(["A fini fort à l'extérieur.", "Neu."], tmp_k, uebersetzer=kaputt)
@@ -646,8 +649,9 @@ def racecard_pruefen() -> None:
     import rtr_arr as ra
     pruefe(all(rc.going_klasse(k) == v for k, v in ra.GOING_MAP.items())
            and rc.going_klasse("BON SOUPLE") == "FAST" and rc.going_klasse("Bon léger") == "VERY FAST"
-           and rc.going_klasse("PSF") == "PSF" and rc.going_klasse(None, 3.5) is None and rc.going_klasse("FAST") == "FAST",
-           "Bodengruppen nach GOING_MAP (auch ohne Akzente, PSF-Varianten); Penetrometer-Wert allein ergibt nichts")
+           and rc.going_klasse("PSF") == "PSF" and rc.going_klasse(None, 3.5) == "FAST" and rc.going_klasse("FAST") == "FAST"
+           and rc.going_klasse("") == "FAST",
+           "Bodengruppen nach GOING_MAP (auch ohne Akzente, PSF-Varianten); fehlt der Begriff: FAST (Penetrometer zählt nicht)")
     pruefe(ra.distance_group(1000) == "0-1000" and ra.distance_group(1001) == "1001-1200"
            and ra.distance_group(1600) == "1401-1600" and ra.distance_group(3601) == ">3600",
            "Distanzgruppen der Vorlieben: 0-1000, 1001-1200, …, >3600")

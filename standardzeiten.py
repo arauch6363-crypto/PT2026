@@ -286,7 +286,7 @@ def berechnen(rennen: pd.DataFrame, *, min_rennen: int = MIN_RENNEN, shrink_k: f
     d["date"] = pd.to_datetime(d["date"].astype(str), format="%Y%m%d", errors="coerce")
     d["konfig"] = konfiguration(d)
     d["bahn_dist"] = d["bahn"].astype(str) + "|" + d["distance_m"].astype("Int64").astype(str)
-    d["boden"] = d["going_klasse"].map(rtr_arr.boden_gruppe).fillna("UNBEKANNT")    # Bodengruppe
+    d["boden"] = d["going_klasse"].map(rtr_arr.boden_gruppe).fillna("FAST")    # Bodengruppe, fehlt sie: FAST
     d["gruppe"] = d["bahn"].astype(str) + "_" + d["date"].dt.strftime("%Y-%m-%d") + "_" + d["boden"]
     d["skm"] = d["zeit_s"] / (d["distance_m"] / 1000)
     d = d.set_index("race_id", drop=False)
@@ -404,7 +404,7 @@ def je_rennen(base: Path) -> pd.DataFrame:
     if f.exists():
         ga = pd.read_parquet(f)
         schluessel = lambda b, d, g: b.astype(str) + "_" + pd.to_datetime(d.astype(str), format="mixed").dt.strftime("%Y-%m-%d") + "_" + g
-        gruppe = lambda s: s.map(rtr_arr.boden_gruppe).fillna("UNBEKANNT").astype(str)
+        gruppe = lambda s: s.map(rtr_arr.boden_gruppe).fillna("FAST").astype(str)
         # (älter abgelegte Allowances je feinem Bodenbegriff: je Gruppe gemittelt, bis standardzeiten.run neu rechnet)
         ga_map = pd.Series(ga["ga_skm"].to_numpy(), index=schluessel(ga["bahn"], ga["date"], gruppe(ga["boden"])))
         ga_map = ga_map.groupby(level=0).mean()
