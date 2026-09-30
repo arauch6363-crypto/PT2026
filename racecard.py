@@ -852,6 +852,30 @@ def _karriere(v: pd.DataFrame, heute: pd.Timestamp) -> dict:
     return {"all": bilanz(v), "d365": bilanz(v[v["date"] >= heute - timedelta(days=KLASSE_TAGE)])}
 
 
+def scheuklappen_gruppe(x) -> str | None:
+    """'SANS_OEILLERES' -> 'ohne', 'OEILLERES_CLASSIQUE' -> 'klassisch', 'OEILLERES_AUSTRALIENNES' -> 'australisch'."""
+    t = str(x or "").upper()
+    if not t or t in ("NAN", "NONE"):
+        return None
+    return "ohne" if t.startswith("SANS") else ("australisch" if "AUSTRAL" in t else "klassisch")
+
+
+def handicap_marke(v: pd.DataFrame, rating_heute=None) -> dict | None:
+    """Letzte Siegmarke im Handicap (Valeur beim letzten Handicap-Sieg); ohne Sieg die letzte Platzmarke (1.–3.)."""
+    if not len(v) or "valeur" not in v:
+        return None
+    hc = v[(v["racetype"] == "Handicap") & v["valeur"].notna()]
+    for art, maske in (("sieg", hc["won"] == 1), ("platz", hc["placed"] == 1)):
+        t = hc[maske]
+        if len(t):
+            z = t.iloc[0]                                   # v ist nach Datum absteigend sortiert
+            r = _num(rating_heute, 1)
+            return {"kind": art, "val": _num(z["valeur"], 1), "pos": _num(z["finish_pos"], 0),
+                    "date": z["date"].strftime("%Y-%m-%d"), "course": _txt(z["hippodrome"]),
+                    "diff": _num(r - z["valeur"], 1) if r is not None else None}
+    return None
+
+
 def _tabelle(g: pd.DataFrame, spalte: str, heute_wert, anzeige) -> list[dict]:
     """Bilanz je Ausprägung einer Spalte (z. B. alle Böden eines Pferdes), heutige markiert."""
     if g.empty or spalte not in g:
@@ -1063,6 +1087,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "silks": silks.get(_txt(p.get("silks_url"))),
                 "weight": _num(p.get("weight_kg"), 1),
                 "rating": _num(p.get("rating"), 1), "blinkers": _txt(p.get("blinkers")),
+                "hcp_mark": handicap_marke(vorher, p.get("rating")),
                 "jockey": _txt(p.get("jockey")), "trainer": _txt(p.get("trainer")), "owner": _txt(p.get("owner")), "breeder": _txt(p.get("breeder")),
                 "sire": _txt(p.get("sire")), "dam": _txt(p.get("dam")), "dam_sire": _txt(p.get("dam_sire")),
                 "form": _txt(p.get("form")),
@@ -1093,7 +1118,10 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "pref": {
                     "horse": {"going": _tabelle(vorher, "going_pmu", gb, going_anzeige),
                               "distance": _tabelle(vorher, "dist_group", dg, lambda d: f"{d} m"),
-                              "course": _tabelle(vorher, "course_key", course, lambda c: str(c).title())},
+                              "course": _tabelle(vorher, "course_key", course, lambda c: str(c).title()),
+                              "blinkers": _tabelle(vorher.assign(blink_grp=vorher["blinkers"].map(scheuklappen_gruppe))
+                                                   if len(vorher) and "blinkers" in vorher else vorher, "blink_grp",
+                                                   scheuklappen_gruppe(p.get("blinkers")), str)},
                     "trainer": {"jockey": q("trainer_jockey", (tk, jk)), "course": q("trainer_course", (tk, course)),
                                 "racetype": q("trainer_type", (tk, rt)),
                                 "age": q("trainer_age", (tk, alter_gruppe(p.get("age")))),
