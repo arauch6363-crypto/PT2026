@@ -234,6 +234,7 @@ def race_row(tag: date, m: dict, c: dict) -> dict:
         "discipline": c.get("discipline"), "specialite": c.get("specialite"),
         "statut": c.get("statut"),
         "distance_m": c.get("distance"), "corde": c.get("corde"), "parcours": c.get("parcours"),
+        "track_type": c.get("typePiste"),
         "prize_eur": c.get("montantPrix"),
         "categorie": c.get("categorieParticularite"), "conditions_age": c.get("conditionAge"),
         "conditions_sexe": c.get("conditionSexe"),

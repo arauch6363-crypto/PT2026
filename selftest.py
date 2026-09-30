@@ -496,11 +496,12 @@ def racecard_pruefen() -> None:
     lauf = lambda r, no, horse, tr, pos, odds, **kw: {
         "race_id": r, "saddle_no": no, "horse": horse, "sire": "VATER", "jockey": "J. OCKEY", "trainer": tr,
         "status": "PARTANT", "finish_pos": pos, "odds_final": odds, "weight_kg": 57, "age": 4, "sex": "MALES",
-        "blinkers": "SANS_OEILLERES", "lengths_prev": None if pos == 1 else 2.0,
+        "blinkers": "SANS_OEILLERES", "lengths_prev": None if pos == 1 else 2.0, "draw": no, "owner": "STALL",
         "lengths_behind": None if pos == 1 else 2.0, **kw}
-    runners = pd.DataFrame([lauf(rid(10, 1), 1, "X", "TR", 1, 4.0, p_nomPereMere="MV"),
+    runners = pd.DataFrame([lauf(rid(10, 1), 1, "X", "TR", 1, 4.0, p_nomPereMere="MV", rating=40),
                             lauf(rid(10, 1), 2, "Y", "TR", 2, 2.0),
-                            lauf(rid(100, 1), 1, "X", "TR", 2, 5.0, p_nomPereMere="MV"),
+                            lauf(rid(100, 1), 1, "X", "TR", 2, 5.0, p_nomPereMere="MV",
+                                 blinkers="OEILLERES_AUSTRALIENNES"),
                             lauf(rid(100, 1), 2, "Y", "AND", 1, 3.0),
                             lauf(rid(100, 1), 3, "Z", "AND", 2, 9.0)])       # totes Rennen um Platz 2
     # Abschnitte 1200 m: DEP-1000, 1000-800, ... je 200 m; Pferd 1 sauber, Pferd 2 mit falscher Zeit
@@ -600,6 +601,29 @@ def racecard_pruefen() -> None:
            "Gewinn je Lauf im Vergleich zum Feld: Rang und Verhältnis zum Median")
     pruefe(f["cls_epr_pct"] == 100 and kl["epr_pct"] == 100,
            "Klasse eingeordnet als Perzentil aller früheren Rennen")
+    ds = x["draw_stat"]
+    pruefe(ds["mean"] == 1.0 and ds["dev"] == 0.5 and ds["n"] == 1 and not ds["ok"]
+           and y["draw_stat"]["mean"] == 0.0 and y["draw_stat"]["n"] == 1,
+           "Startbox: Ø relative Platzierung (Starter − Platz) / (Starter − 1) je Konfiguration × Box, Abweichung zu 0,5")
+    pruefe(x["ae"]["owner"]["d365"]["runs"] == 5 and x["ae"]["breeder"]["d365"]["runs"] == 0,
+           "A/E für Besitzer (und Züchter, hier ohne Angabe)")
+    pv = x["ae"]["pedigree"]["sire"]
+    pruefe(pv["horses"] == 3 and pv["max_val"] == 40.0 and x["ae"]["pedigree"]["dam_sire"]["horses"] == 1,
+           "Abstammung: 3 verschiedene Pferde vom Vater, Ø höchste Valeur je Pferd")
+    pruefe(f["valeur"] == 40.0 and x["form_lines"][1]["blinkers"] == "OEILLERES_AUSTRALIENNES" and f["odds"] == 4.0,
+           "Formzeile mit Valeur, Scheuklappen und Endquote")
+    rz = pd.DataFrame([{"race_id": "20260901R1C1", "hippodrome": "DEAUVILLE", "distance_m": 1600, "corde": "CORDE_DROITE",
+                        "track_type": "HERBE", "parcours_norm": "LIGNE DROITE", "race_time_s": 96.4, "going": "Bon souple"},
+                       {"race_id": "20260901R1C2", "hippodrome": "DEAUVILLE", "distance_m": 1600, "corde": "CORDE_DROITE",
+                        "track_type": "HERBE", "parcours": "1600 M. (Grande piste)", "race_time_s": None}])
+    import standardzeiten as sz_
+    az = sz_.aus_pmu_races(rz)
+    pruefe(len(az) == 1 and sz_.konfiguration(az).iloc[0] == "DEAUVILLE|1600|HERBE|LIGNE DROITE|CORDE_DROITE"
+           and az["zeit_s"].iloc[0] == 96.4 and az["going_klasse"].iloc[0] == "BON SOUPLE"
+           and rc.konfig_schluessel(rz).tolist() == ["DEAUVILLE|1600|HERBE|LIGNE DROITE|CORDE_DROITE",
+                                                   "DEAUVILLE|1600|HERBE|GRANDE PISTE|CORDE_DROITE"],
+           "Standardzeiten auch aus pmu_races: Bahn | Distanz | track_type | parcours_norm | Corde -> race_time_s; "
+           "Startbox nutzt dieselbe Konfiguration")
     du = x["duels"]
     pruefe(len(du) == 2 and du[0]["rival"] == "Y" and du[0]["diff_l"] == 2.0 and du[0]["shift"] == 0.0
            and du[0]["rival_no"] == 2 and du[1]["pos"] == 2 and du[1]["rival_pos"] == 1,

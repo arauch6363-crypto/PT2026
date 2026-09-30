@@ -141,7 +141,8 @@ Tag × Bahn × Boden), dann abwechselnd per Median Standardzeit je Konfiguration
 Tag × Bahn × Boden. Nullpunkt der Allowance je Bahn und Belag – Gras: guter Boden (Bon, Bon souple, Bon léger),
 PSF: eigener Median –, die Standardzeit gilt also für guten Boden. Konfigurationen mit wenigen Rennen werden zur
 Standardzeit derselben Bahn und Distanz gezogen (n / (n + 5)); `belastbar` ab 5 Rennen. Dazu
-`going_allowances.parquet` je Renntag.
+`going_allowances.parquet` je Renntag. Grundlage sind die eigene Sammlung und – vorrangig – `pmu_races` aus
+pmu_basis (hippodrome, distance_m, track_type, parcours_norm, corde -> race_time_s).
 
 **Verwendung in TR:** `racecard.run` lädt `standardzeiten.je_rennen(BASE)` – je gesammeltem Rennen die Standardzeit
 seiner Konfiguration des Tages und die Going Allowance seines Renntags (aus allen Rennen des Tages). TR nutzt diese
@@ -175,6 +176,13 @@ Je Starter:
   besser oder schlechter war als der Rang ihrer Quote; der Knopf zeigt besser / (besser + schlechter).
 * **Heutige Gegner · frühere Duelle**: Rennen, in denen das Pferd schon auf heutige Gegner traf – Platz
   beider, Abstand, Gewichte damals und die Verschiebung des Gewichtsunterschieds bis heute.
+* **Startbox**: unter der Box die Abweichung der Ø relativen Platzierung (Starter − Platz) / (Starter − 1) aus
+  dieser Box auf derselben Konfiguration (Bahn | Distanz | track_type | parcours_norm | Corde) von 0,5.
+* **Übersicht**: Läufe-Siege-Plätze neben der Musique, Besitzer mit A/E, Scheuklappen-Symbol (klassisch /
+  australisch), Kurs mit Morgenkurs und Pfeil (▼ gefallen, ▲ gestiegen). RTR, ΔL600 A und ΔB200 A nur hier.
+* **Formzeilen** zusätzlich mit Valeur, Scheuklappen-Symbol und Endquote.
+* **A/E** zusätzlich für Besitzer und Züchter; Abstammung mit Zahl der Pferde und Ø ihrer höchsten Valeur.
+* **Duelle** mit heutigen Gegnern nur aus den letzten 365 Tagen.
 * **Klasse** im Rennkopf: Ø Valeur der Starter und Ø ihres Gewinns je Lauf der letzten 365 Tage, farbig als
   Perzentil aller früheren Rennen (grün oberes, rot unteres Drittel).
 * **€/Lauf-Kachel** und Karriere im Detail (gesamt und 365 Tage) nur aus der PMU-Historie, mit Rang im Feld;

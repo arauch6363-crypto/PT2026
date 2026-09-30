@@ -225,10 +225,35 @@ def sammeln(base: Path, von, bis=None, *, max_tage: int | None = None, nachladen
     return stat
 
 
-def laden(base: Path) -> pd.DataFrame:
-    """Alle gesammelten Rennen."""
+def aus_pmu_races(races: pd.DataFrame) -> pd.DataFrame:
+    """pmu_races (pmu_basis) im Format der Sammlung: Konfiguration aus hippodrome, distance_m, track_type,
+    parcours_norm, corde und Siegerzeit race_time_s. Nur Rennen mit Siegerzeit."""
+    if races is None or races.empty or "race_time_s" not in races:
+        return pd.DataFrame()
+    r = races.drop_duplicates("race_id", keep="last").copy()
+    r["zeit_s"] = pd.to_numeric(r["race_time_s"], errors="coerce")
+    r = r[r["zeit_s"].notna()].copy()
+    if r.empty:
+        return pd.DataFrame()
+    r["bahn"] = [pmu.norm(h or "") or h for h in r["hippodrome"]]
+    r["piste"] = r["track_type"] if "track_type" in r else None
+    pn = r["parcours_norm"] if "parcours_norm" in r else pd.Series(None, index=r.index, dtype=object)
+    r["parcours_n"] = [p if isinstance(p, str) else parcours_norm(roh)
+                       for p, roh in zip(pn, r.get("parcours", pd.Series(None, index=r.index)))]
+    r["going_klasse"] = r["going"].map(going_klasse) if "going" in r else None
+    r["date"] = r["race_id"].astype(str).str[:8]
+    return r
+
+
+def laden(base: Path, *, mit_pmu_races: bool = True) -> pd.DataFrame:
+    """Alle Rennen mit Siegerzeit: die eigene Sammlung und – vorrangig – pmu_races aus pmu_basis
+    (race_time_s, track_type, parcours_norm, corde, hippodrome, distance_m)."""
     d = ordner(Path(base)) / "rennen"
     teile = [pd.read_parquet(f) for f in sorted(d.glob("*.parquet"))] if d.exists() else []
+    if mit_pmu_races:
+        import pipeline
+        teile.append(aus_pmu_races(pipeline.lade("pmu_races", Path(base))))
+    teile = [t for t in teile if len(t)]
     return pd.concat(teile, ignore_index=True).drop_duplicates("race_id", keep="last") if teile else pd.DataFrame()
 
 
