@@ -643,7 +643,7 @@ function detailHTML(x, race){
       <div class="panel"><h4>Pferd nach Trainer (gesamt)</h4>${trainerTable(P.horse.trainer)}</div>
     </div>
     <div class="panel"><h4>Heutige Gegner · frühere Duelle (letzte ${DATA.params.duel_days} Tage)</h4>${x.duels.length
-      ? `<button class="riv-btn" type="button" data-duel="1" data-k="${dk}" aria-expanded="${dOffen}">${dOffen ? "▾" : "▸"} ${duelKnopf(x.duels_sum, x.duels.length)}</button>${dOffen ? duelsHTML(x.duels, race) : ""}`
+      ? `<button class="riv-btn ${vorneCls(x.duels_sum)}" type="button" data-duel="1" data-k="${dk}" aria-expanded="${dOffen}" title="Grün: gegen mindestens die Hälfte der heutigen Gegner vorne erwartet, rot: gegen weniger">${dOffen ? "▾" : "▸"} ${duelKnopf(x.duels_sum, x.duels.length)}</button>${dOffen ? duelsHTML(x.duels, race) : ""}`
       : `<p class="muted">Kein heutiger Gegner ist in den letzten ${DATA.params.duel_days} Tagen schon gegen ${esc(title(x.horse))} gelaufen.</p>`}</div>
     <div class="panel"><h4>Heutige Gegner · indirekte Duelle (letzte ${DATA.params.ind_days} Tage)</h4>${indirektHTML(x, race)}</div>
     <div class="panel"><h4>Letzte Läufe</h4>${formTable(x.form_lines, x.no, x.weight, x.rating)}</div>
@@ -651,6 +651,8 @@ function detailHTML(x, race){
 }
 
 // Duelle: je heutigem Gegner das letzte Duell, Abstand damals ± Gewichtsverschiebung (1 kg = 1 Länge)
+// Farbe der Duell-Knöpfe wie beim Gegner-Knopf der letzten Läufe: grün ab der Hälfte vorne erwartet
+const vorneCls = S => !S || !(S.ahead + S.behind) ? "" : S.ahead / (S.ahead + S.behind) >= 0.5 ? "up" : "down";
 function duelKnopf(S, n){
   const t = `${n} ${n === 1 ? "Duell" : "Duelle"} mit ${S.n} heutigen ${S.n === 1 ? "Gegner" : "Gegnern"}`;
   return S.ahead + S.behind ? `${t} · vorne erwartet gegen ${S.ahead}/${S.ahead + S.behind}` : t;
@@ -680,7 +682,7 @@ function indirektHTML(x, race){
         <td class="r num">${kg(e.w_today)}</td>
         <td class="r num"><span class="verdict-chip ${c}">${erw}</span></td></tr>`; }).join("")}</tbody></table>
     <p class="muted" style="margin:4px 0 0;font-size:11.5px">Vergleichsrennen: letzte ${DATA.params.ind_days} Tage, ±${DATA.params.ind_dist} m, Boden innerhalb einer Stufe (PSF nur mit PSF), dieses Pferd, der gemeinsame Gegner und der heutige Gegner jeweils in der vorderen Hälfte des Feldes. Mehrere gemeinsame Gegner bzw. Vergleiche: Durchschnitt.</p></div>`;
-  return `<button class="riv-btn" type="button" data-duel="1" data-k="${k}" aria-expanded="${offen}">${offen ? "▾" : "▸"} ${knopf}</button>${offen ? tab : ""}`;
+  return `<button class="riv-btn ${vorneCls(I)}" type="button" data-duel="1" data-k="${k}" aria-expanded="${offen}" title="Grün: gegen mindestens die Hälfte der heutigen Gegner vorne erwartet, rot: gegen weniger">${offen ? "▾" : "▸"} ${knopf}</button>${offen ? tab : ""}`;
 }
 function duelsHTML(list, race){
   const kg = v => v == null ? "–" : sgn(v, 1) + " kg";
