@@ -179,14 +179,14 @@ Je Starter:
 * **Startbox**: unter der Box die Abweichung der Ø relativen Platzierung (Starter − Platz) / (Starter − 1) aus
   dieser Box auf derselben Konfiguration (Bahn | Distanz | track_type | parcours_norm | Corde) von 0,5.
 * **Übersicht**: Läufe-Siege-Plätze neben der Musique, Besitzer mit A/E, Scheuklappen-Symbol (klassisch /
-  australisch), Kurs mit Morgenkurs und Pfeil (▼ gefallen, ▲ gestiegen). RTR, ΔL600 A und ΔB200 A nur hier.
+  australisch), rechts nur die cote probable der PMU-Prognose (kein Morgen- oder Totokurs). RTR, ΔL600 A und ΔB200 A nur hier.
 * **Formzeilen** zusätzlich mit Valeur, Scheuklappen-Symbol und Endquote; ARR, TR und Klasse (Val, €/L) farbig im
   Vergleich zu allen früheren Läufen der heutigen Starter, ±800 und Weg m bei auffälligen Werten farbig.
 * **Übersicht**: Karriere mit €/Lauf neben der Musique; Rating mit letzter Sieg- bzw. Platzmarke im Handicap;
   Rating, Tage, RTR, ARR und TR farbig nach dem Rang im Feld. Vorlieben zusätzlich Pferd nach Scheuklappen.
 * **PMU-Prognose** (`pmu.prognosen`, Endpunkte `/pronostics` und `/pronostics-detailles`, nur vor dem Rennen):
   Rennkommentar der Redaktion, Auswahl mit cote probable (4/1 = 5,0) und Konsens der Tippgeber (Borda) im
-  Rennkopf; am Pferd P1 … (Rang der Auswahl) bzw. T5 (in 5 Tipp-Listen), cote probable im Kurs-Kasten,
+  Rennkopf; am Pferd P1 … (Rang der Auswahl) bzw. T5 (in 5 Tipp-Listen), cote probable im Prognose-Kasten,
   Kurzkommentar (cribles) im Detail – übersetzt wie die Kommentare.
 * **Kommentare** (`comment` je Starter aus pmu_runners) unter jedem früheren Lauf, auf
   Deutsch übersetzt, wo möglich (`uebersetzen.py`, deep-translator, Cache `<BASE>/uebersetzungen_fr_de.json`);
