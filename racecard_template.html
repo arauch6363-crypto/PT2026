@@ -590,9 +590,10 @@ const fmtEur = v => v >= 1000 ? (v/1000).toFixed(1).replace(/\.0$/,"") + "k" : S
 
 function trainerTable(rows){
   if (!rows || !rows.length) return `<p class="muted">Keine Läufe in der Historie.</p>`;
-  const zr = z => z.from === z.to ? dt(z.from) : `${dt(z.from)} – ${dt(z.to)}`;
+  const mj = d => { const [y, m] = d.split("-"); return `${MON[+m-1]} ${y.slice(2)}`; };   // "May 24"
+  const zr = z => mj(z.from) === mj(z.to) ? mj(z.from) : `${mj(z.from)} – ${mj(z.to)}`;
   return `<div class="scroll"><table class="preftab"><thead><tr><th>Trainer</th><th>Zeitraum</th><th class="r">S-L</th><th class="r">Plätze</th><th class="r">A/E</th></tr></thead><tbody>${
-    rows.map(z => `<tr class="${z.today ? "today" : ""}"><td>${esc(z.label)}${z.today ? ` <span class="heute">heute</span>` : ""}</td><td class="num">${zr(z)}</td><td class="r num">${z.wins}-${z.runs} (${pct(z.wins,z.runs)})</td><td class="r num">${z.places}</td><td class="r">${aeChip(z, 5)}</td></tr>`).join("")}</tbody></table></div>`;
+    rows.map(z => `<tr class="${z.today ? "today" : ""}"><td>${esc(z.label)}${z.today ? ` <span class="heute">heute</span>` : ""}</td><td class="num" title="${esc(`${dt(z.from)} – ${dt(z.to)}`)}">${zr(z)}</td><td class="r num">${z.wins}-${z.runs} (${pct(z.wins,z.runs)})</td><td class="r num">${z.places}</td><td class="r">${aeChip(z, 5)}</td></tr>`).join("")}</tbody></table></div>`;
 }
 function prefTable(rows, head){
   if (!rows || !rows.length) return `<p class="muted">Keine Läufe in der Historie.</p>`;
