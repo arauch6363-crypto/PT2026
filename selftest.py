@@ -738,6 +738,18 @@ def racecard_pruefen() -> None:
            and fehler is not None and "403" in fehler,
            "DeepL direkt über die API: Schlüssel im Header (nicht als auth_key-Parameter), Free-Schlüssel (:fx) -> "
            "api-free, 403 wird als Grund gemeldet")
+    ow = rc._wechsel({"owner_key": "NEU", "owner": "NEU"}, {"owner_key": "ALT", "owner": "ALT"})
+    pruefe([c["key"] for c in ow] == ["OW"] and "Besitzerwechsel" in ow[0]["text"],
+           "Hinweis Besitzerwechsel gegenüber dem letzten Lauf")
+    b1, b2, b3 = rc.box_urteil(0.6, 100), rc.box_urteil(0.6, 10), rc.box_urteil(0.53, 2000)
+    pruefe(b1["sig"] and not b2["sig"] and not b3["sig"] and b1["dev"] == 0.1,
+           "Startbox auffällig nur bei ≥ 2 Standardfehlern und ≥ 0,05 Abweichung (0,60 aus 100 ja, aus 10 nein; 0,53 nein)")
+    pruefe(f["draw_stat"]["n"] == 1 and not f["draw_stat"]["sig"],
+           "Startbox-Urteil auch je früherem Lauf (Konfiguration und Box dieses Laufs)")
+    pc, ptr = x["pref"]["horse"]["course"], y["pref"]["horse"]["trainer"]
+    pruefe(len(pc) == 1 and pc[0]["today"] and {z["label"] for z in ptr} == {"Tr", "And"}
+           and not any(z["today"] for z in ptr),
+           "Pferd nach Kurs: nur die heutige Bahn; Pferd nach Trainer: alle bisherigen Trainer")
     du = x["duels"]
     pruefe(len(du) == 2 and du[0]["rival"] == "Y" and du[0]["diff_l"] == 2.0 and du[0]["shift"] == 0.0
            and du[0]["rival_no"] == 2 and du[1]["pos"] == 2 and du[1]["rival_pos"] == 1,

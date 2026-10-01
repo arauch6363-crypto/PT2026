@@ -198,6 +198,11 @@ Je Starter:
   Zeitfenster bzw. alle Väter, Muttervater, Crosses; nur ab 5 Läufen bzw. 3 dreijährigen Nachkommen).
   100 = Durchschnitt, über 100 überdurchschnittlich; grün ab 125, rot bis 80.
 * **Duelle** mit heutigen Gegnern nur aus den letzten 365 Tagen.
+* **Startbox in den früheren Läufen**: „Box 3 ▲/▼“, wenn die Box auf der Konfiguration dieses Rennens auffällig
+  gut bzw. schlecht war (Ø relative Platzierung ≥ 0,05 von 0,5 entfernt und ≥ 2 Standardfehler; dieselbe Regel
+  färbt die Box in der Übersicht).
+* **Pferd auf dieser Bahn** (nur die heutige) und **Pferd nach Trainer** (alle bisherigen Trainer);
+  Hinweis **Besitzerwechsel** gegenüber dem letzten Lauf.
 * **Klasse** im Rennkopf: Ø Valeur der Starter und Ø ihres Gewinns je Lauf der letzten 365 Tage, farbig als
   Perzentil aller früheren Rennen (grün oberes, rot unteres Drittel).
 * **€/Lauf-Kachel** und Karriere im Detail (gesamt und 365 Tage) nur aus der PMU-Historie, mit Rang im Feld;
