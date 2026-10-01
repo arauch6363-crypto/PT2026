@@ -1345,7 +1345,7 @@ def html(daten: dict, template: Path = TEMPLATE, *, eigenstaendig: bool = True) 
 
 
 def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True,
-        uebersetzen_aktiv: bool = False) -> Path:
+        uebersetzen_aktiv: bool = True) -> Path:
     """Race Card für `tag` (Vorgabe: heute) bauen und als HTML speichern."""
     import pipeline as tp
     base = Path(base)
@@ -1384,7 +1384,7 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
             print(v.to_string(index=False))
     daten = baue_daten(hist, races_heute, runners_heute, tag, silks, prognosen)
     mit_k = sum(1 for r in daten["races"].values() for x in r["runners"] for f in x["form_lines"] if f.get("comment"))
-    if uebersetzen_aktiv and (mit_k or prognosen):       # Vorgabe: Kommentare bleiben französisch
+    if uebersetzen_aktiv and (mit_k or prognosen):       # Übersetzung: DeepL (DEEPL_API_KEY) -> Google -> MyMemory
         print(f"Kommentare in den Formzeilen: {mit_k}, davon auf Deutsch: {kommentare_uebersetzen(daten, base)}")
     out = Path(out) if out else base / "racecards" / f"racecard_{tag:%Y%m%d}.html"
     out.parent.mkdir(parents=True, exist_ok=True)
