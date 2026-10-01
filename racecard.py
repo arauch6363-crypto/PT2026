@@ -1065,6 +1065,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     rennen_kl = h.drop_duplicates("race_id") if len(h) else h
     kl_vert = {c: np.sort(pd.to_numeric(rennen_kl[c], errors="coerce").dropna().to_numpy())
                if c in rennen_kl else np.array([]) for c in ("cls_val", "cls_epr")}
+    # Rennstärke: Ø (über alle früheren Rennen) des Ø-Gewinns je Lauf der Teilnehmer in den KLASSE_TAGE davor
+    epr_rennen = float(kl_vert["cls_epr"].mean()) if len(kl_vert["cls_epr"]) else None
+    pop["rennen_epr"] = epr_rennen
 
     kal = pace_kalibrierung(h)
     bias = bahn_bias(h)
@@ -1138,6 +1141,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                   "n": len(heute_gew)}
         klasse["val_pct"] = _perzentil(kl_vert["cls_val"], klasse["val"])
         klasse["epr_pct"] = _perzentil(kl_vert["cls_epr"], klasse["epr"])
+        klasse["epr_idx"] = index(klasse["epr"], epr_rennen)
         prono_r, prono_je = _prognose_rennen(prognosen.get((int(r["reunion"]), int(r["race_no"]))))
         for _, p in feld_heute.sort_values("saddle_no").iterrows():
             hid, tk, jk, sk = p["horse_id"], p["trainer_key"], p["jockey_key"], p["sire_key"]
@@ -1153,6 +1157,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 f["draw_stat"] = box_urteil(bz["mean"], bz["count"]) if bz is not None else None
                 f["cls_val_pct"] = _perzentil(kl_vert["cls_val"], f["cls_val"])
                 f["cls_epr_pct"] = _perzentil(kl_vert["cls_epr"], f["cls_epr"])
+                f["cls_epr_idx"] = index(f["cls_epr"], epr_rennen)    # Rennstärke: 100 = Ø aller Rennen
                 form.append(f)
             duelle = _duelle(vorher[vorher["race_id"].isin(set(duell_rennen))], duell_rennen, heute_gew, hid) \
                 if len(vorher) and hid in heute_gew else []

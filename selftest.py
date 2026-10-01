@@ -750,6 +750,9 @@ def racecard_pruefen() -> None:
     pruefe(len(pc) == 1 and pc[0]["today"] and {z["label"] for z in ptr} == {"Tr", "And"}
            and not any(z["today"] for z in ptr),
            "Pferd nach Kurs: nur die heutige Bahn; Pferd nach Trainer: alle bisherigen Trainer")
+    pruefe(f["cls_epr_idx"] == 100 and kl["epr_idx"] == round(100 * kl["epr"] / 5175)
+           and d["params"]["pop"]["rennen_epr"] == 5175.0,
+           f"Rennstärke €/L+: Ø Gewinn je Lauf der Teilnehmer ÷ Ø aller früheren Rennen (heute {kl['epr_idx']})")
     du = x["duels"]
     pruefe(len(du) == 2 and du[0]["rival"] == "Y" and du[0]["diff_l"] == 2.0 and du[0]["shift"] == 0.0
            and du[0]["rival_no"] == 2 and du[1]["pos"] == 2 and du[1]["rival_pos"] == 1,

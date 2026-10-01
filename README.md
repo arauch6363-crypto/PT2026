@@ -196,7 +196,9 @@ Je Starter:
   Nachkommen als 3-Jährige (Ø max Val 3j).
 * **Indizes €/L+ und Val+**: 100 × Wert ÷ Ø der Population (alle Trainer, Jockeys, Besitzer, Züchter im selben
   Zeitfenster bzw. alle Väter, Muttervater, Crosses; nur ab 5 Läufen bzw. 3 dreijährigen Nachkommen).
-  100 = Durchschnitt, über 100 überdurchschnittlich; grün ab 125, rot bis 80.
+  100 = Durchschnitt, über 100 überdurchschnittlich; Chips wie A/E: grün ab 110, rot bis 90, blass bei wenig Daten.
+* **Rennstärke €/L+** (Klasse im Rennkopf und in den Formzeilen): Ø Gewinn je Lauf der Teilnehmer in den 365 Tagen
+  vor dem Rennen ÷ Ø aller früheren Rennen × 100.
 * **Duelle** mit heutigen Gegnern nur aus den letzten 365 Tagen.
 * **Startbox in den früheren Läufen**: „Box 3 ▲/▼“, wenn die Box auf der Konfiguration dieses Rennens auffällig
   gut bzw. schlecht war (Ø relative Platzierung ≥ 0,05 von 0,5 entfernt und ≥ 2 Standardfehler; dieselbe Regel
