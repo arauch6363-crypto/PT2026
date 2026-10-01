@@ -72,6 +72,9 @@ HARVILLE_L2, HARVILLE_L3 = 0.8, 0.65   # Stauchung p^λ für Platz 2 und 3 (Lo /
 POP_MIN_LAEUFE = 5              # Population für €/L+: nur Personen/Linien mit so vielen Läufen
 POP_MIN_PFERDE = 3              # Population für max Val+: nur Linien mit so vielen 3-jährigen Nachkommen
 KLASSE_TAGE = 365               # Klasse: Ø Gewinnsumme je Lauf der Teilnehmer in so vielen Tagen davor
+INDIREKT_TAGE = 120             # indirekte Duelle: Vergleichsrennen höchstens so alt (für beide Seiten)
+INDIREKT_DIST_M = 200           # … Distanz höchstens so weit auseinander
+INDIREKT_REL_MIN = 0.5          # … alle drei Pferde in der vorderen Hälfte: rel. Platzierung > 0,5
 DUELL_TAGE = 365                # Heutige Gegner · frühere Duelle: nur Rennen der letzten so vielen Tage
 BOX_SD = 0.289                  # Streuung der relativen Platzierung bei Zufall (Gleichverteilung 0…1)
 BOX_Z = 2.0                     # Startbox auffällig: |Ø − 0,5| mindestens BOX_Z Standardfehler …
@@ -978,6 +981,81 @@ def _duell_bilanz(duelle: list[dict]) -> dict | None:
     return {"rivals": je, "ahead": vorne, "behind": hinten, "n": len(je)}
 
 
+def _boden_nah(a, b) -> bool:
+    """Boden innerhalb einer Stufe (Very fast – Fast – Slow – Very slow); PSF nur mit PSF."""
+    a, b = going_klasse(a), going_klasse(b)
+    if "PSF" in (a, b):
+        return a == b
+    return abs(GOING_STUFE.get(a, 1) - GOING_STUFE.get(b, 1)) <= 1
+
+
+def _kg_je_laenge(going, distanz) -> float:
+    return rtr_arr._kpl(going_klasse(going), rtr_arr.distance_group(_num(distanz)), vorgabe_fast=True)
+
+
+def indirekte_basis(h: pd.DataFrame, heute: pd.Timestamp) -> pd.DataFrame:
+    """Läufe der letzten INDIREKT_TAGE in der vorderen Feldhälfte (rel. Platzierung > INDIREKT_REL_MIN) mit
+    Längen hinter dem Sieger und Gewicht – die Grundlage der indirekten Duelle."""
+    if not len(h):
+        return pd.DataFrame()
+    g = h[(h["date"] >= heute - timedelta(days=INDIREKT_TAGE)) & (h["rel_place"] > INDIREKT_REL_MIN)].copy()
+    g["lb"] = g["lengths_behind"].where(g["finish_pos"] != 1, 0.0)
+    g = g.dropna(subset=["lb", "weight_kg"])
+    g["kpl"] = [_kg_je_laenge(a, b) for a, b in zip(g["going_pmu"], g["distance_m"])]
+    return g[["race_id", "date", "horse_id", "horse", "lb", "weight_kg", "going_pmu", "distance_m", "kpl"]]
+
+
+def _indirekte_duelle(basis: pd.DataFrame, heute_gew: dict, going_heute, distanz_heute) -> dict:
+    """Je heutigem Starter: Vergleich mit heutigen Gegnern über gemeinsame frühere Gegner.
+    Leistung gegen den gemeinsamen Gegner in kg = Längen vor ihm × kg je Länge (Boden × Distanz) + Mehrgewicht;
+    Pferd − Gegner über denselben gemeinsamen Gegner, nur Rennpaare mit ±INDIREKT_DIST_M und Boden innerhalb einer
+    Stufe; heute erwartet = Ø dieser Differenzen − heutiges Mehrgewicht (kg), in Längen mit kg je Länge von heute."""
+    if basis is None or not len(basis) or len(heute_gew) < 2:
+        return {}
+    ids = set(heute_gew)
+    eigen = basis[basis["horse_id"].isin(ids)]
+    if not len(eigen):
+        return {}
+    # Paare (heutiges Pferd, gemeinsamer Gegner) im selben Rennen
+    p = eigen.merge(basis, on="race_id", suffixes=("", "_c"))
+    p = p[(p["horse_id_c"] != p["horse_id"]) & ~p["horse_id_c"].isin(ids)]
+    if not len(p):
+        return {}
+    # Leistung gegenüber dem gemeinsamen Gegner (kg, + = besser)
+    p["perf"] = (p["lb_c"] - p["lb"]) * p["kpl"] + (p["weight_kg"] - p["weight_kg_c"])
+    a = p[["horse_id", "horse_id_c", "race_id", "perf", "going_pmu", "distance_m"]]
+    v = a.merge(a, on="horse_id_c", suffixes=("", "_r"))
+    v = v[(v["horse_id"] != v["horse_id_r"]) & (v["race_id"] != v["race_id_r"])]
+    if not len(v):
+        return {}
+    boden = pd.Series([_boden_nah(x, y) for x, y in zip(v["going_pmu"], v["going_pmu_r"])], index=v.index)
+    ok = ((v["distance_m"] - v["distance_m_r"]).abs() <= INDIREKT_DIST_M) & boden
+    v = v[ok]
+    if not len(v):
+        return {}
+    v = v.assign(diff=v["perf"] - v["perf_r"])               # Pferd besser als heutiger Gegner (kg)
+    kpl_heute = _kg_je_laenge(going_heute, distanz_heute)
+    namen = basis.drop_duplicates("horse_id").set_index("horse_id")["horse"]
+    out = {}
+    for (hid, rid), g in v.groupby(["horse_id", "horse_id_r"]):
+        w_i, w_r = heute_gew.get(hid, {}).get("weight"), heute_gew.get(rid, {}).get("weight")
+        damals = float(g["diff"].mean())
+        mehr = (w_i - w_r) if w_i is not None and w_r is not None else 0.0
+        heute_kg = damals - mehr
+        out.setdefault(hid, []).append({
+            "rival": _txt(namen.get(rid)), "rival_no": heute_gew.get(rid, {}).get("no"),
+            "n": int(len(g)), "common": sorted({_txt(namen.get(c)) for c in g["horse_id_c"]} - {None}),
+            "then_kg": _num(damals, 1), "w_today": _num(mehr, 1),
+            "exp_kg": _num(heute_kg, 1), "exp_l": _num(heute_kg / kpl_heute, 1) if kpl_heute else None})
+    for hid, liste in out.items():
+        liste.sort(key=lambda e: -(e["exp_kg"] or 0))
+        out[hid] = {"rivals": liste, "n": len(liste),
+                    "ahead": sum(1 for e in liste if (e["exp_kg"] or 0) > 0),
+                    "behind": sum(1 for e in liste if (e["exp_kg"] or 0) < 0),
+                    "kpl": _num(kpl_heute, 2)}
+    return out
+
+
 def _trainer_tabelle(v: pd.DataFrame, heute_wert) -> list[dict]:
     """Pferd nach Trainer mit dem Zeitraum, in dem das Pferd dort war (erster bis letzter Lauf), neuester zuerst."""
     if not len(v) or "trainer_key" not in v:
@@ -1104,6 +1182,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     epr_rennen = float(kl_vert["cls_epr"].mean()) if len(kl_vert["cls_epr"]) else None
     pop["rennen_epr"] = epr_rennen
 
+    ind_basis = indirekte_basis(h, heute)                     # Grundlage der indirekten Duelle
     kal = pace_kalibrierung(h)
     bias = bahn_bias(h)
 
@@ -1161,6 +1240,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                      for _, z in feld_heute[~nr_heute].iterrows()}
         treffen = hh[hh["horse_id"].isin(set(heute_gew)) & (hh["date"] >= heute - timedelta(days=DUELL_TAGE))]
         duell_rennen = {k: g for k, g in treffen.groupby("race_id") if g["horse_id"].nunique() >= 2}
+        indirekt = _indirekte_duelle(ind_basis, heute_gew, r.get("going"), r.get("distance_m"))
         # Klasse des heutigen Rennens: Ø Valeur und Ø Gewinn je Lauf (KLASSE_TAGE) der Starter
         epr_heute = []
         for hid_ in heute_gew:
@@ -1322,6 +1402,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "prono": prono_je.get(_num(p.get("saddle_no"), 0)),
                 "duels": duelle,
                 "duels_sum": _duell_bilanz(duelle),
+                "indirect": indirekt.get(hid),
             })
         partanten = [x for x in starters if not x["nr"]]
         for k in DELTA_SPALTEN:                                   # Rang im heutigen Feld
@@ -1373,7 +1454,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         "params": {"pos_before_m": POS_VOR_FINISH_M, "ae_windows": list(AE_FENSTER), "form_runs": LETZTE_LAEUFE,
                    "style_runs": STIL_LAEUFE, "pacemaker": TEMPOMACHER, "field_ref": PACE_FELD_REF,
                    "trend_diff": TREND_DIFF, "trend_min": TREND_MIN_STARTS, "pref_jt_years": VORLIEBEN_JT_TAGE // 365,
-                   "avg_runs": SCHNITT_LAEUFE, "rivals_runs": GEGNER_LAEUFE, "class_days": KLASSE_TAGE,
+                   "avg_runs": SCHNITT_LAEUFE, "rivals_runs": GEGNER_LAEUFE, "class_days": KLASSE_TAGE, "ind_days": INDIREKT_TAGE,
+                   "ind_dist": INDIREKT_DIST_M,
                    "epr_ref": epr_ref, "class_races": int(len(kl_vert["cls_epr"])),
                    "pop": {k: _num(v, 1) for k, v in pop.items()}, "pop_min_runs": POP_MIN_LAEUFE,
                    "pop_min_horses": POP_MIN_PFERDE,

@@ -201,6 +201,10 @@ Je Starter:
   vor dem Rennen ÷ Ø aller früheren Rennen × 100.
 * **Duelle** mit heutigen Gegnern nur aus den letzten 365 Tagen; je Duell „heute erwartet“ = Abstand damals −
   Verschiebung des Gewichtsunterschieds (1 kg = 1 Länge), am Knopf „vorne erwartet gegen x/y“ (je Gegner das letzte Duell).
+* **Indirekte Duelle** (`racecard._indirekte_duelle`): je heutigem Gegner über gemeinsame frühere Gegner –
+  Vergleichsrennen ≤ 120 Tage, ±200 m, Boden innerhalb einer Stufe (PSF nur mit PSF), alle drei Pferde mit
+  relativer Platzierung > 0,5. Leistung = Längen × kg je Länge (`rtr_arr.KG_PER_LENGTH`) + Mehrgewicht; heute
+  erwartet = Ø Unterschied − heutiges Mehrgewicht. Knopf mit Zusammenfassung, Tabelle je heutigem Gegner.
 * **Startbox in den früheren Läufen**: „Box 3 ▲/▼“, wenn die Box auf der Konfiguration dieses Rennens auffällig
   gut bzw. schlecht war (Ø relative Platzierung ≥ 0,05 von 0,5 entfernt und ≥ 2 Standardfehler; dieselbe Regel
   färbt die Box in der Übersicht).
