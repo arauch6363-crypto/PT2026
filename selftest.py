@@ -766,7 +766,8 @@ def racecard_pruefen() -> None:
            "Pferd nach Trainer: Zeitraum je Trainer, neuester zuerst")
     du = x["duels"]
     pruefe(len(du) == 2 and du[0]["rival"] == "Y" and du[0]["diff_l"] == 2.0 and du[0]["shift"] == 0.0
-           and du[0]["rival_no"] == 2 and du[1]["pos"] == 2 and du[1]["rival_pos"] == 1,
+           and du[0]["rival_no"] == 2 and du[1]["pos"] == 2 and du[1]["rival_pos"] == 1
+           and du[0]["exp_l"] == 2.0 and du[1]["exp_l"] == -2.0,
            "Heutige Gegner: X traf Y zweimal – zuletzt 2 L vor ihm bei gleichem Gewicht, davor hinter ihm")
     import rtr_arr as ra
     pruefe(all(rc.going_klasse(k) == v for k, v in ra.GOING_MAP.items())

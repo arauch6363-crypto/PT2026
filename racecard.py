@@ -915,6 +915,9 @@ def _duelle(eigen: pd.DataFrame, rennen: dict, heute_gew: dict, hid) -> list[dic
                 "diff_l": _num(lb_g - lb_ich, 2) if pd.notna(lb_g) and pd.notna(lb_ich) else None,
                 "w_then": _num(dann, 1), "w_today": _num(jetzt, 1),
                 "shift": _num(jetzt - dann, 1) if pd.notna(jetzt) and pd.notna(dann) else None,
+                # heute erwartet: Abstand damals − Verschiebung des Gewichtsunterschieds (1 kg = 1 Länge)
+                "exp_l": (_num((lb_g - lb_ich) - ((jetzt - dann) if pd.notna(jetzt) and pd.notna(dann) else 0), 1)
+                          if pd.notna(lb_g) and pd.notna(lb_ich) else None),
             })
     return out
 
