@@ -690,6 +690,37 @@ def racecard_pruefen() -> None:
         ue._dienste = alt_d
     pruefe(erg == {"Ça va.": "DE: Ça va."},
            "Übersetzung weicht aus: Google gesperrt (TooManyRequests) -> nächster Dienst")
+    import requests as rq_
+    gesendet = {"urls": []}
+
+    class Antwort:
+        def __init__(self, code, daten=None):
+            self.status_code, self._d, self.text = code, daten, "" if daten else "Forbidden"
+        def json(self):
+            return self._d
+
+    def post_(url, headers=None, json=None, timeout=None):
+        gesendet["urls"].append(url)
+        gesendet.update(headers=headers, json=json)
+        ok = headers["Authorization"] == "DeepL-Auth-Key abc:fx"
+        return Antwort(200, {"translations": [{"text": "Stark beendet."}]}) if ok else Antwort(403)
+    alt_post = rq_.post
+    rq_.post = post_
+    try:
+        de_ok = ue._deepl(' abc:fx ')("A fini fort.")
+        try:
+            ue._deepl("falsch")("A fini fort.")
+            fehler = None
+        except ue.DeeplFehler as e:
+            fehler = str(e)
+    finally:
+        rq_.post = alt_post
+    pruefe(de_ok == "Stark beendet." and gesendet["urls"] == ["https://api-free.deepl.com/v2/translate",
+                                                              "https://api.deepl.com/v2/translate"]
+           and gesendet["json"] == {"text": ["A fini fort."], "source_lang": "FR", "target_lang": "DE"}
+           and fehler is not None and "403" in fehler,
+           "DeepL direkt über die API: Schlüssel im Header (nicht als auth_key-Parameter), Free-Schlüssel (:fx) -> "
+           "api-free, 403 wird als Grund gemeldet")
     du = x["duels"]
     pruefe(len(du) == 2 and du[0]["rival"] == "Y" and du[0]["diff_l"] == 2.0 and du[0]["shift"] == 0.0
            and du[0]["rival_no"] == 2 and du[1]["pos"] == 2 and du[1]["rival_pos"] == 1,

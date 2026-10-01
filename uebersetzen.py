@@ -1,7 +1,7 @@
 """Französische PMU-Kommentare ins Deutsche übersetzen – nur, wenn es geht.
 
-Übersetzt wird mit deep-translator (`pip install deep-translator`): DeepL, wenn die Umgebungsvariable
-DEEPL_API_KEY gesetzt ist (kostenlose API reicht), sonst Google, als letzter Ausweg MyMemory (mit
+Übersetzt wird mit DeepL, wenn die Umgebungsvariable DEEPL_API_KEY gesetzt ist (direkt über die API, die
+kostenlose reicht), sonst über deep-translator (`pip install deep-translator`) mit Google, als letzter Ausweg MyMemory (mit
 MYMEMORY_EMAIL mehr Kontingent). Stößt ein Dienst an ein Limit, wird der nächste genommen. Jede Übersetzung landet
 im Cache <BASE>/uebersetzungen_fr_de.json und wird nur einmal abgefragt. Fehlt das Paket oder ist der Dienst
 nicht erreichbar, bleibt der Text unübersetzt (Rückgabe None) – die Race Card zeigt dann das Original.
@@ -40,21 +40,49 @@ def _cache_schreiben(base: Path | None, cache: dict) -> None:
 
 
 GOOGLE_PAUSE_S = 0.25           # Google erlaubt etwa 5 Anfragen je Sekunde
-SPERRE = ("TooManyRequests", "QuotaExceeded", "AuthorizationException", "ApiKeyException", "ServerException")
+SPERRE = ("TooManyRequests", "QuotaExceeded", "AuthorizationException", "ApiKeyException", "ServerException",
+          "DeeplFehler")
+
+
+class DeeplFehler(Exception):
+    """Antwort der DeepL-API mit Fehlerstatus (403 Schlüssel abgelehnt, 456 Kontingent erschöpft …)."""
+
+
+def _deepl(key: str) -> Callable[[str], str]:
+    """DeepL direkt über die REST-API (POST, Schlüssel im Header). deep-translator sendet den Schlüssel noch als
+    URL-Parameter auth_key – das lehnt DeepL inzwischen mit 403 ab."""
+    import requests
+    key = key.strip().strip('"').strip("'")
+    host = "api-free.deepl.com" if key.endswith(":fx") else "api.deepl.com"   # Free-Schlüssel enden auf ':fx'
+    url = f"https://{host}/v2/translate"
+    kopf = {"Authorization": f"DeepL-Auth-Key {key}", "Content-Type": "application/json"}
+
+    def uebersetzen(t: str) -> str:
+        r = requests.post(url, headers=kopf, json={"text": [t], "source_lang": "FR", "target_lang": "DE"}, timeout=30)
+        if r.status_code != 200:
+            grund = {403: "Schlüssel abgelehnt (falscher Schlüssel oder Free/Pro vertauscht)",
+                     456: "Kontingent erschöpft", 429: "zu viele Anfragen"}.get(r.status_code, "Fehler")
+            raise DeeplFehler(f"HTTP {r.status_code} {grund} – {host}: {r.text[:120]}")
+        return r.json()["translations"][0]["text"]
+    return uebersetzen
 
 
 def _dienste() -> list[tuple[str, Callable[[str], str]]]:
     """Verfügbare Übersetzungsdienste in Reihenfolge der Qualität:
-    DeepL (Umgebungsvariable DEEPL_API_KEY, kostenlose API), Google, MyMemory (optional MYMEMORY_EMAIL)."""
+    DeepL (Umgebungsvariable DEEPL_API_KEY, direkt über die API), Google und MyMemory (über deep-translator,
+    MyMemory optional mit MYMEMORY_EMAIL). ImportError nur, wenn weder DeepL noch deep-translator verfügbar ist."""
     import os
     import time
-    from deep_translator import DeeplTranslator, GoogleTranslator, MyMemoryTranslator
     out = []
     key = os.getenv("DEEPL_API_KEY")
-    if key:
-        frei = key.strip().endswith(":fx")               # Schlüssel der kostenlosen API enden auf ':fx'
-        d = DeeplTranslator(source="fr", target="de", api_key=key.strip(), use_free_api=frei)
-        out.append(("DeepL", d.translate))
+    if key and key.strip():
+        out.append(("DeepL", _deepl(key)))
+    try:
+        from deep_translator import GoogleTranslator, MyMemoryTranslator
+    except ImportError:
+        if out:
+            return out
+        raise
     g = GoogleTranslator(source="fr", target="de")
 
     def google(t: str) -> str:
@@ -95,7 +123,7 @@ def _standard_uebersetzer() -> Callable[[list[str]], list[str | None]] | None:
                 LETZTER_FEHLER = f"{name}: {type(e).__name__}: {str(e)[:160]}"
                 if type(e).__name__ in SPERRE or "429" in str(e) or "quota" in str(e).lower():
                     gesperrt.add(name)
-                    print(f"Kommentare: {name} nicht nutzbar ({type(e).__name__}) – nächster Dienst.")
+                    print(f"Kommentare: {name} nicht nutzbar ({type(e).__name__}: {str(e)[:160]}) – nächster Dienst.")
         return None
 
     def batch(texte: list[str]) -> list[str | None]:
