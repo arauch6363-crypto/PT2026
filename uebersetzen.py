@@ -1,6 +1,8 @@
 """Französische PMU-Kommentare ins Deutsche übersetzen – nur, wenn es geht.
 
-Übersetzt wird mit deep-translator (Google Translate, `pip install deep-translator`). Jede Übersetzung landet
+Übersetzt wird mit deep-translator (`pip install deep-translator`): DeepL, wenn die Umgebungsvariable
+DEEPL_API_KEY gesetzt ist (kostenlose API reicht), sonst Google, als letzter Ausweg MyMemory (mit
+MYMEMORY_EMAIL mehr Kontingent). Stößt ein Dienst an ein Limit, wird der nächste genommen. Jede Übersetzung landet
 im Cache <BASE>/uebersetzungen_fr_de.json und wird nur einmal abgefragt. Fehlt das Paket oder ist der Dienst
 nicht erreichbar, bleibt der Text unübersetzt (Rückgabe None) – die Race Card zeigt dann das Original.
 """
@@ -37,30 +39,68 @@ def _cache_schreiben(base: Path | None, cache: dict) -> None:
         pass
 
 
+GOOGLE_PAUSE_S = 0.25           # Google erlaubt etwa 5 Anfragen je Sekunde
+SPERRE = ("TooManyRequests", "QuotaExceeded", "AuthorizationException", "ApiKeyException", "ServerException")
+
+
+def _dienste() -> list[tuple[str, Callable[[str], str]]]:
+    """Verfügbare Übersetzungsdienste in Reihenfolge der Qualität:
+    DeepL (Umgebungsvariable DEEPL_API_KEY, kostenlose API), Google, MyMemory (optional MYMEMORY_EMAIL)."""
+    import os
+    import time
+    from deep_translator import DeeplTranslator, GoogleTranslator, MyMemoryTranslator
+    out = []
+    key = os.getenv("DEEPL_API_KEY")
+    if key:
+        frei = key.strip().endswith(":fx")               # Schlüssel der kostenlosen API enden auf ':fx'
+        d = DeeplTranslator(source="fr", target="de", api_key=key.strip(), use_free_api=frei)
+        out.append(("DeepL", d.translate))
+    g = GoogleTranslator(source="fr", target="de")
+
+    def google(t: str) -> str:
+        time.sleep(GOOGLE_PAUSE_S)
+        return g.translate(t)
+    out.append(("Google", google))
+    m = MyMemoryTranslator(source="french", target="german", email=os.getenv("MYMEMORY_EMAIL"))
+    out.append(("MyMemory", m.translate))
+    return out
+
+
 def _standard_uebersetzer() -> Callable[[list[str]], list[str | None]] | None:
-    """deep-translator, falls installiert; sonst None."""
+    """Übersetzer über deep-translator mit Ausweichen: Stößt ein Dienst an ein Limit oder lehnt ab,
+    wird er für den Rest des Laufs übersprungen und der nächste genommen. None, wenn das Paket fehlt."""
     global HINWEIS_GEZEIGT, LETZTER_FEHLER
     try:
-        from deep_translator import GoogleTranslator
+        dienste = _dienste()
     except ImportError as e:
         LETZTER_FEHLER = f"deep-translator nicht installiert ({e})"
         if not HINWEIS_GEZEIGT:
             print("Kommentare: keine Übersetzung – `pip install deep-translator` installieren, dann auf Deutsch.")
             HINWEIS_GEZEIGT = True
         return None
-    tr = GoogleTranslator(source="fr", target="de")
+    gesperrt: set[str] = set()
+    genutzt: dict[str, int] = {}
 
     def einzeln(t: str) -> str | None:
         global LETZTER_FEHLER
-        try:
-            return tr.translate(t)
-        except Exception as e:
-            LETZTER_FEHLER = f"{type(e).__name__}: {str(e)[:200]}"
-            return None
+        for name, fn in dienste:
+            if name in gesperrt:
+                continue
+            try:
+                de = fn(t)
+                if isinstance(de, str) and de.strip():
+                    genutzt[name] = genutzt.get(name, 0) + 1
+                    return de
+            except Exception as e:
+                LETZTER_FEHLER = f"{name}: {type(e).__name__}: {str(e)[:160]}"
+                if type(e).__name__ in SPERRE or "429" in str(e) or "quota" in str(e).lower():
+                    gesperrt.add(name)
+                    print(f"Kommentare: {name} nicht nutzbar ({type(e).__name__}) – nächster Dienst.")
+        return None
 
     def batch(texte: list[str]) -> list[str | None]:
-        # einzeln statt translate_batch: ein fehlerhafter Text kostet nicht den ganzen Block, Fehler bleibt sichtbar
         return [einzeln(t) for t in texte]
+    batch.genutzt = genutzt
     return batch
 
 
@@ -88,7 +128,9 @@ def uebersetze(texte: Iterable, base: Path | None = None, *,
                         neu += 1
             if neu:
                 _cache_schreiben(base, cache)
-                print(f"Kommentare: {neu} neu übersetzt ({len(cache)} im Cache).")
+                quelle = getattr(fn, "genutzt", None)
+                print(f"Kommentare: {neu} neu übersetzt ({len(cache)} im Cache)"
+                      + (f" – {', '.join(f'{k} {v}' for k, v in quelle.items())}" if quelle else "") + ".")
             if neu < len(offen):
                 print(f"Kommentare: {len(offen) - neu} von {len(offen)} nicht übersetzt"
                       + (f" – Grund: {LETZTER_FEHLER}" if LETZTER_FEHLER else ""))

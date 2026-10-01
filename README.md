@@ -187,10 +187,11 @@ Je Starter:
 * **PMU-Prognose** (`pmu.prognosen`, Endpunkte `/pronostics` und `/pronostics-detailles`, nur vor dem Rennen):
   Rennkommentar der Redaktion, Auswahl mit cote probable (4/1 = 4,0) und Konsens der Tippgeber (Borda) im
   Rennkopf; am Pferd P1 … (Rang der Auswahl) bzw. T5 (in 5 Tipp-Listen), cote probable im Prognose-Kasten,
-  Kurzkommentar (cribles) im Detail – auf Französisch.
-* **Kommentare** (`comment` je Starter aus pmu_runners) unter jedem früheren Lauf, auf Französisch. Eine
-  Übersetzung ist mit `racecard.run(..., uebersetzen_aktiv=True)` möglich (`uebersetzen.py`, deep-translator),
-  ist aber abgeschaltet, weil Google Translate Anfragen aus Colab ablehnt.
+  Kurzkommentar (cribles) in der Übersicht unter dem Namen – übersetzt wie die Kommentare.
+* **Kommentare** (`comment` je Starter aus pmu_runners) unter jedem früheren Lauf, auf Deutsch übersetzt, wo
+  möglich (`uebersetzen.py`, deep-translator: DeepL mit Umgebungsvariable `DEEPL_API_KEY`, sonst Google, sonst
+  MyMemory; Cache `<BASE>/uebersetzungen_fr_de.json`; Schnelltest `uebersetzen.pruefen()`); sonst französisch
+  (FR). Abschalten mit `racecard.run(..., uebersetzen_aktiv=False)`.
 * **A/E** zusätzlich für Besitzer und Züchter; Abstammung mit Zahl der Pferde und Ø ihrer höchsten Valeur.
 * **Duelle** mit heutigen Gegnern nur aus den letzten 365 Tagen.
 * **Klasse** im Rennkopf: Ø Valeur der Starter und Ø ihres Gewinns je Lauf der letzten 365 Tage, farbig als
