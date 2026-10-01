@@ -133,6 +133,7 @@ svg text{fill:var(--ink-3);font:10px var(--f-mono)}
 .metric.rt span{font-weight:600;color:var(--accent)}
 .rt-cell b{font:600 14px var(--f-mono)}
 .rt-cell small{display:block;font:10.5px var(--f-mono);color:var(--ink-3)}
+.rt-cell small.up{color:var(--good)} .rt-cell small.down{color:var(--bad)}
 .rt-cell.cap b{color:var(--ink-3);font-style:italic}
 .oddsbox{display:grid;justify-items:center;align-content:center;background:var(--accent);color:var(--accent-ink);border-radius:4px;padding:4px 10px;min-width:58px}
 .oddsbox i{font-style:normal;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;opacity:.85}
@@ -643,7 +644,7 @@ function detailHTML(x, race){
     <div class="panel"><h4>Heutige Gegner · frühere Duelle (letzte ${DATA.params.duel_days} Tage)</h4>${x.duels.length
       ? `<button class="riv-btn" type="button" data-duel="1" data-k="${dk}" aria-expanded="${dOffen}">${dOffen ? "▾" : "▸"} ${duelKnopf(x.duels_sum, x.duels.length)}</button>${dOffen ? duelSummeHTML(x.duels_sum) + duelsHTML(x.duels) : ""}`
       : `<p class="muted">Kein heutiger Gegner ist in den letzten ${DATA.params.duel_days} Tagen schon gegen ${esc(title(x.horse))} gelaufen.</p>`}</div>
-    <div class="panel"><h4>Letzte Läufe</h4>${formTable(x.form_lines, x.no, x.weight)}</div>
+    <div class="panel"><h4>Letzte Läufe</h4>${formTable(x.form_lines, x.no, x.weight, x.rating)}</div>
   </div>`;
 }
 
@@ -752,7 +753,15 @@ function kommentarHTML(f){
   const a = teil(f.comment_de, f.comment, "Kommentar", "");
   return a ? `<div class="cmt-t">${a}</div>` : "";
 }
-function formTable(rows, no, wHeute){
+// Valeur damals und heute im Vergleich: heute − damals; negativ = heute niedriger eingestuft (günstiger)
+function valCell(v, rHeute){
+  if (v == null) return `<td class="r num"><span class="muted">–</span></td>`;
+  const d = rHeute != null ? Math.round((rHeute - v) * 10) / 10 : null;
+  const tip = `Valeur in diesem Rennen ${fx(v,1)}` + (d == null ? " – heutige Valeur unbekannt"
+    : d === 0 ? " – heute gleich eingestuft" : ` – heute ${fx(Math.abs(d),1)} ${d > 0 ? "höher (ungünstiger)" : "niedriger (günstiger)"} eingestuft (heute ${fx(rHeute,1)})`);
+  return `<td class="r rt-cell" title="${esc(tip)}"><b>${fx(v,1).replace(/\.0$/,"")}</b>${d != null ? `<small class="${d < 0 ? "up" : d > 0 ? "down" : ""}">${d === 0 ? "±0" : sgn(d,1).replace(/\.0$/,"")}</small>` : ""}</td>`;
+}
+function formTable(rows, no, wHeute, rHeute){
   if (!rows.length) return `<p class="muted">Keine früheren Läufe in der Datenbank (nur französische Flachrennen seit Beginn der Sammlung).</p>`;
   const body = rows.map(f => {
     const inc = f.incident && INC[f.incident] !== undefined ? INC[f.incident] : "";
@@ -767,7 +776,7 @@ function formTable(rows, no, wHeute){
       <td class="fl-date">${dt(f.date)}<br><span class="muted">${esc(title(f.course))}</span><br>${btn}</td>
       <td class="fl-cond num">${f.dist ?? "–"}m ${esc(f.going || "–")} ${prize(f.prize)}${boxForm(f)}<br><span class="muted">${esc(f.type || "")}</span>${kl}</td>
       <td class="fl-pos">${pos} ${mg ? `(${mg})` : ""}${blinkIcon(f.blinkers)} <span class="num">${f.weight != null ? fx(f.weight,1).replace(/\.0$/,"") + "kg" : ""}</span><br><span class="muted">${esc(title(f.jockey) || "")} · <span class="num" title="Endquote (odds_final)${f.odds_rank ? `, Quotenrang ${f.odds_rank}` : ""}">Q ${f.odds != null ? fx(f.odds,1) : "–"}${f.fav ? " F" : ""}</span></span>${f.unreliable ? `<br><span class="muted" title="Mehr als ${DATA.params.beaten_l} Längen geschlagen – vermutlich ausgeritten, zählt nicht in den Schnitt">ausgeritten?</span>` : ""}</td>
-      <td class="r num" title="Valeur (handicapValeur) in diesem Rennen">${f.valeur != null ? fx(f.valeur,1).replace(/\.0$/,"") : "–"}</td>
+      ${valCell(f.valeur, rHeute)}
       ${rtCell(f.arr, f.arr_adj, `ARR in diesem Rennen ${fx(f.arr,1)} kg; ${adjTip("ARR", wHeute, f.weight)}${f.rating_filled ? " · Rating für die Referenz ergänzt" : ""} · Farbe: im Vergleich zu allen früheren Läufen der heutigen Starter (oberes / unteres Drittel)`, poolCls("arr", f.arr_adj ?? f.arr))}
       <td>${f.fifth ? fifthSVG(f.fifth, f.pos_before, f.ran, f.pos_before_m) : `<span class="muted">${f.tracking ? "–" : "kein Tracking"}</span>`}${f.early_pos ? `<span class="early">früh ${f.early_pos}. → ${f.pos_before_m ?? ""} m ${f.pos_before ?? "–"}.</span>` : ""}</td>
       <td>${f.pace_ratio != null ? paceSVG(f.pace_ratio) + `<span class="num"> ${fx(f.pace_ratio,1)}</span>` : `<span class="muted">–</span>`}</td>
@@ -777,7 +786,7 @@ function formTable(rows, no, wHeute){
       ${trCell(f, wHeute)}${fsCell(f.fs, f.fs_opt, "Opt", "FS% des Pferdes: Tempo der letzten " + (f.dist > 1600 ? 600 : 400) + " m ÷ Durchschnittstempo × 100; klein: optimaler FS% für Kurs × Distanz und Boden")}
     </tr>${cmt ? `<tr class="cmt ${f.unreliable ? "unrel" : ""}"><td colspan="12">${cmt}</td></tr>` : ""}${offen ? `<tr class="rivrow"><td colspan="12">${rivalsHTML(f.rivals)}</td></tr>` : ""}`; }).join("");
   return `<div class="scroll"><table class="formtab"><thead><tr>
-    <th>Datum · Bahn</th><th>Dist · Boden · Preis · Typ</th><th>Pos · Gew. · Jockey · Quote</th><th class="r" title="Valeur (handicapValeur) in diesem Rennen">Val</th>
+    <th>Datum · Bahn</th><th>Dist · Boden · Preis · Typ</th><th>Pos · Gew. · Jockey · Quote</th><th class="r" title="Valeur (handicapValeur) in diesem Rennen; klein: heutige Valeur − damalige (grün: heute niedriger eingestuft, rot: höher)">Val</th>
     <th class="r" title="ARR: Leistung im Rennen gemessen an den Pferden im vorderen Drittel des Einlaufs (kg), groß bereinigt auf das heutige Gewicht = ARR − Gewicht heute + ${DATA.params.weight_ref}, klein roh">ARR</th>
     <th title="Position ${DATA.params.pos_before_m} m vor dem Ziel als Fünftel des Feldes">Pos. vor Finish</th>
     <th title="Tempo frühe Phase / Tempo Schlussphase × 100">Pace-Ratio</th>

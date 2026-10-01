@@ -206,7 +206,7 @@ Je Starter:
   färbt die Box in der Übersicht).
 * **Pferd auf dieser Bahn** (nur die heutige) und **Pferd nach Trainer** (alle bisherigen Trainer mit Zeitraum,
   neuester zuerst); in der A/E-Tabelle nur noch €/L+ (Betrag im Tooltip); in den Formzeilen Box bei Distanz/Boden
-  und Valeur als eigene Spalte;
+  und Valeur als eigene Spalte (klein: heutige Valeur − damalige);
   Hinweis **Besitzerwechsel** gegenüber dem letzten Lauf.
 * **Klasse** im Rennkopf: Ø Valeur der Starter und Ø ihres Gewinns je Lauf der letzten 365 Tage, farbig als
   Perzentil aller früheren Rennen (grün oberes, rot unteres Drittel).
