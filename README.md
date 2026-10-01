@@ -192,7 +192,11 @@ Je Starter:
   möglich (`uebersetzen.py`, deep-translator: DeepL mit Umgebungsvariable `DEEPL_API_KEY`, sonst Google, sonst
   MyMemory; Cache `<BASE>/uebersetzungen_fr_de.json`; Schnelltest `uebersetzen.pruefen()`); sonst französisch
   (FR). Abschalten mit `racecard.run(..., uebersetzen_aktiv=False)`.
-* **A/E** zusätzlich für Besitzer und Züchter; Abstammung mit Zahl der Pferde und Ø ihrer höchsten Valeur.
+* **A/E** zusätzlich für Besitzer und Züchter; Abstammung mit Zahl der Pferde und Ø der höchsten Valeur der
+  Nachkommen als 3-Jährige (Ø max Val 3j).
+* **Indizes €/L+ und Val+**: 100 × Wert ÷ Ø der Population (alle Trainer, Jockeys, Besitzer, Züchter im selben
+  Zeitfenster bzw. alle Väter, Muttervater, Crosses; nur ab 5 Läufen bzw. 3 dreijährigen Nachkommen).
+  100 = Durchschnitt, über 100 überdurchschnittlich; grün ab 125, rot bis 80.
 * **Duelle** mit heutigen Gegnern nur aus den letzten 365 Tagen.
 * **Klasse** im Rennkopf: Ø Valeur der Starter und Ø ihres Gewinns je Lauf der letzten 365 Tage, farbig als
   Perzentil aller früheren Rennen (grün oberes, rot unteres Drittel).

@@ -543,7 +543,7 @@ def racecard_pruefen() -> None:
     d = rc.baue_daten(hist, heute_r, heute_s, tag)
     x, y = d["races"][f"{tag:%Y%m%d}R1C1"]["runners"]
     pruefe(x["ae"]["trainer"]["d90"] == {"runs": 2, "wins": 1, "places": 2, "exp": 2.0, "ae": 1.0, "ae_win": 1.33,
-                                         "epr": round((13500 + 5130) / 2)},
+                                         "epr": round((13500 + 5130) / 2), "epr_idx": None},
            "A/E Platz 90 Tage: 2 Starter -> beide sicher platziert (erwartet 2, A/E 1,00); A/E Sieg 1,33 zum Vergleich")
     # Rennen vor 100 Tagen: 3 Starter (Quoten 3 / 5 / 9) -> Platz = 1.–2.; X wurde (zeitgleich) Zweiter
     px = rc.harville_platz(np.array([1 / 3, 1 / 5, 1 / 9]), 2)[1]
@@ -622,8 +622,25 @@ def racecard_pruefen() -> None:
     pruefe(x["ae"]["owner"]["d365"]["runs"] == 5 and x["ae"]["breeder"]["d365"]["runs"] == 0,
            "A/E für Besitzer (und Züchter, hier ohne Angabe)")
     pv = x["ae"]["pedigree"]["sire"]
-    pruefe(pv["horses"] == 3 and pv["max_val"] == 40.0 and x["ae"]["pedigree"]["dam_sire"]["horses"] == 1,
-           "Abstammung: 3 verschiedene Pferde vom Vater, Ø höchste Valeur je Pferd")
+    pruefe(pv["horses"] == 3 and pv["horses3"] == 0 and pv["max_val3"] is None
+           and x["ae"]["pedigree"]["dam_sire"]["horses"] == 1,
+           "Abstammung: 3 verschiedene Pferde vom Vater, max Val nur aus 3-jährigen Nachkommen (hier keine)")
+    alt_min = rc.POP_MIN_LAEUFE
+    rc.POP_MIN_LAEUFE = 1
+    try:
+        d3 = rc.baue_daten(hist.assign(age=3), heute_r, heute_s, tag)
+    finally:
+        rc.POP_MIN_LAEUFE = alt_min
+    x3 = d3["races"][f"{tag:%Y%m%d}R1C1"]["runners"][0]
+    p3 = x3["ae"]["pedigree"]["sire"]
+    t365 = x3["ae"]["trainer"]["d365"]
+    pop_t = ((13500 + 5130 + 2850) / 3 + (7500 + 2850) / 2) / 2
+    pruefe(p3["horses3"] == 1 and p3["max_val3"] == 40.0 and p3["max_val3_idx"] is None
+           and x3["ae"]["trainer"]["d90"]["epr_idx"] == 100
+           and t365["epr_idx"] == round(100 * t365["epr"] / pop_t)
+           and d3["params"]["pop"]["trainer_d365"] == round(pop_t, 1),
+           f"€/L+ = 100 × €/Lauf ÷ Ø der Population (Trainer 365 Tage: {t365['epr_idx']}); "
+           "max Val 3j nur aus 3-Jährigen, Val+ erst ab 3 Linien-Pferden")
     pruefe(f["valeur"] == 40.0 and x["form_lines"][1]["blinkers"] == "OEILLERES_AUSTRALIENNES" and f["odds"] == 4.0,
            "Formzeile mit Valeur, Scheuklappen und Endquote")
     rz = pd.DataFrame([{"race_id": "20260901R1C1", "hippodrome": "DEAUVILLE", "distance_m": 1600, "corde": "CORDE_DROITE",
