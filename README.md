@@ -199,11 +199,14 @@ Je Starter:
   100 = Durchschnitt, über 100 überdurchschnittlich; Chips wie A/E: grün ab 110, rot bis 90, blass bei wenig Daten.
 * **Rennstärke €/L+** (Klasse im Rennkopf und in den Formzeilen): Ø Gewinn je Lauf der Teilnehmer in den 365 Tagen
   vor dem Rennen ÷ Ø aller früheren Rennen × 100.
-* **Duelle** mit heutigen Gegnern nur aus den letzten 365 Tagen.
+* **Duelle** mit heutigen Gegnern nur aus den letzten 365 Tagen; je Gegner das letzte Duell mit „heute erwartet“
+  = Abstand damals − Verschiebung des Gewichtsunterschieds (1 kg = 1 Länge), am Knopf „vorne erwartet gegen x/y“.
 * **Startbox in den früheren Läufen**: „Box 3 ▲/▼“, wenn die Box auf der Konfiguration dieses Rennens auffällig
   gut bzw. schlecht war (Ø relative Platzierung ≥ 0,05 von 0,5 entfernt und ≥ 2 Standardfehler; dieselbe Regel
   färbt die Box in der Übersicht).
-* **Pferd auf dieser Bahn** (nur die heutige) und **Pferd nach Trainer** (alle bisherigen Trainer);
+* **Pferd auf dieser Bahn** (nur die heutige) und **Pferd nach Trainer** (alle bisherigen Trainer mit Zeitraum,
+  neuester zuerst); in der A/E-Tabelle nur noch €/L+ (Betrag im Tooltip); in den Formzeilen Box bei Distanz/Boden
+  und Valeur als eigene Spalte;
   Hinweis **Besitzerwechsel** gegenüber dem letzten Lauf.
 * **Klasse** im Rennkopf: Ø Valeur der Starter und Ø ihres Gewinns je Lauf der letzten 365 Tage, farbig als
   Perzentil aller früheren Rennen (grün oberes, rot unteres Drittel).
