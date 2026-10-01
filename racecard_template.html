@@ -164,8 +164,10 @@ td .hl-up{color:var(--good);font-weight:600} td .hl-down{color:var(--bad);font-w
 .prono .fr,.crible .fr{font-size:10px;color:var(--ink-3);border:1px solid var(--line);border-radius:2px;padding:0 3px;margin-left:4px}
 .prono .sel b{font-family:var(--f-mono)}
 .badge.pr{background:var(--surface-2);border:1px solid var(--hi);font-family:var(--f-mono)}
-.crible{font-size:12.5px;color:var(--ink-2);line-height:1.4;max-width:70ch}
-.crible b{font:600 10px var(--f-body);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin-right:6px}
+/* PMU-Kurzkommentar: ganz unten in der Starterzeile, über die volle Breite */
+.crible{grid-column:1/-1;display:flex;gap:8px;align-items:baseline;font-size:13px;font-style:italic;line-height:1.45;
+  color:var(--ink);background:var(--hi-soft);border-left:3px solid var(--hi);border-radius:3px;padding:6px 10px;margin-top:2px}
+.crible b{font:600 10px var(--f-body);font-style:normal;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2);flex:none}
 .oddsbox small.pr{opacity:.9}
 .boxdev{display:block;font:500 10px/1.3 var(--f-mono);color:var(--ink-3)}
 .boxdev.up{color:var(--good)} .boxdev.down{color:var(--bad)}
@@ -466,7 +468,6 @@ function runnerHTML(x, race){
           <span title="Besitzer, A/E Platz 365 Tage"><em>B</em> ${esc(title(x.owner) || "–")} ${aeChip(x.ae.owner.d365)}</span>
           <span><em>v.</em> ${esc(title(x.sire) || "–")} – ${esc(title(x.dam) || "–")}${x.dam_sire ? ` <span class="muted">(v. ${esc(title(x.dam_sire))})</span>` : ""}</span>
         </div>
-        ${x.prono && x.prono.crible ? `<div class="crible"><b>PMU</b>${deFr(x.prono.crible_de, x.prono.crible)}</div>` : ""}
       </div>
       <div class="facts">
         <div class="fact"><i>Gew.</i><span>${x.weight != null ? fx(x.weight, 1) : "–"}</span></div>
@@ -476,6 +477,7 @@ function runnerHTML(x, race){
         ${metric("ΔL600 A", S.dl600_a, S.dl600_a_rank, S.dl600_a_n, tip("L600", "Tempo letzte 600 m"), S.dl600_a_sd)}${metric("ΔB200 A", S.db200_a, S.db200_a_rank, S.db200_a_n, tip("B200", "schnellstes 200-m-Segment der letzten 800 m"), S.db200_a_sd)}
         ${oddsBox(x)}
       </div>
+      ${x.prono && x.prono.crible ? `<div class="crible"><b>PMU</b><span>${deFr(x.prono.crible_de, x.prono.crible)}</span></div>` : ""}
     </div>
     ${open ? detailHTML(x, race) : ""}
   </article>`;
@@ -738,7 +740,7 @@ function renderLegend(){
     <div><b>RTR</b> (Rating nach dem Rennen, in kg): Elo-artig, Rennen für Rennen in zeitlicher Reihenfolge. Start mit dem offiziellen Rating (sonst 30); in jedem Rennen tritt jedes Pferd gegen jedes andere an – erwartet wird ein Abstand aus Rating − 0,625 × Gewicht, verglichen mit dem tatsächlichen Abstand in Längen × kg je Länge (nach Boden und Distanz), beides auf einer log. Stufe von 1 bis 5. Das Rating wandert um 0,5 × Ø Überraschung (+ kleiner Preisgeldbonus). <b>ARR</b> (Leistung im Rennen, in kg): gemessen an den Pferden im vorderen Drittel des Einlaufs – deren Rating plus Längenabstand × kg je Länge (große Abstände logarithmisch gedämpft) plus Gewichtsunterschied, Ø über diese Referenzen; fehlende Ratings der Referenzen werden aus vergleichbaren Pferden ergänzt. <b>Bereinigt</b> = Wert − Gewicht + ${p.weight_ref} – immer mit dem <b>heutigen</b> Gewicht, auch beim ARR in den Formzeilen (ein früherer ARR von 36 wird bei heute 52 kg zu 39), klein daneben der Rohwert. RTR, ΔL600 A und ΔB200 A stehen nur in der Übersicht. Übersicht: RTR = aktuelles Rating, ARR = nach Distanz- und Going-Ähnlichkeit gewichteter Ø der letzten ${p.avg_runs} Läufe (wie ΔL600 A und TR, ohne Schrumpfung); darunter der Rang im heutigen Feld.</div>
     <div><b>Gegner</b>: für die letzten ${p.rivals_runs} Läufe alle Gegner in der Reihenfolge des Einlaufs – mit Platz im nächsten Start und ob der besser oder schlechter war als der Rang ihrer Quote. Am Knopf: besser / (besser + schlechter); grün, wenn mindestens die Hälfte der Gegner danach besser lief als ihre Quote (starkes Rennen). <b>Heutige Gegner · frühere Duelle</b>: Rennen in der Datenbank, in denen das Pferd schon auf einen heutigen Gegner traf – Platz beider, Abstand, Gewichte damals und wie sich der Gewichtsunterschied bis heute verschoben hat (+ = trägt heute im Vergleich mehr).</div>
     <div><b>Farben</b>: Rating, Tage, RTR, ARR und TR in der Übersicht nach dem Rang im heutigen Feld – grün oberes Drittel, rot unteres Drittel (bei Tagen umgekehrt: grün = frisch, rot = lange Pause). In den früheren Läufen ARR, TR und Klasse (Val, €/L) im Vergleich zu allen früheren Läufen der heutigen Starter – grün = hoher Wert für dieses Rennen, rot = niedriger. <b>±800</b> grün ab 3 gewonnenen, rot ab 3 verlorenen Plätzen; <b>Weg m</b> rot ab 7,5 m mehr (≈ 3 Längen, meist weit außen), grün ab 7,5 m weniger. <b>Rating</b>: darunter die letzte Siegmarke (S) im Handicap, ohne Handicap-Sieg die letzte Platzmarke (P, 1.–3.), in Klammern heute im Vergleich.</div>
-    <div><b>PMU-Prognose</b> (vor dem Rennen): Kommentar der PMU-Redaktion zum Rennen, Auswahl mit <b>cote probable</b> (geschätzte Quote, z. B. 4/1 = 4,0) und Konsens der Tippgeber (Punkte je Liste nach Position, Borda). Am Pferd: <b>P1</b> … Rang in der PMU-Auswahl, <b>T5</b> = in 5 Tipp-Listen, ohne PMU-Auswahl; im Prognose-Kasten rechts die cote probable, unter dem Namen der Kurzkommentar der PMU (PMU …). Texte auf Deutsch, wo möglich.</div>
+    <div><b>PMU-Prognose</b> (vor dem Rennen): Kommentar der PMU-Redaktion zum Rennen, Auswahl mit <b>cote probable</b> (geschätzte Quote, z. B. 4/1 = 4,0) und Konsens der Tippgeber (Punkte je Liste nach Position, Borda). Am Pferd: <b>P1</b> … Rang in der PMU-Auswahl, <b>T5</b> = in 5 Tipp-Listen, ohne PMU-Auswahl; im Prognose-Kasten rechts die cote probable, ganz unten in der Starterzeile der Kurzkommentar der PMU (kursiv, farbig hinterlegt). Texte auf Deutsch, wo möglich.</div>
     <div><b>Kommentar</b> unter dem Lauf: Kommentar von PMU zum Pferd – auf Deutsch übersetzt (Original im Tooltip), sonst französisch mit <b>FR</b>.</div>
     <div><b>Startbox</b> (unter der Nummer): Box in Klammern, darunter die Abweichung der Ø relativen Platzierung (Starter − Platz) / (Starter − 1) aller früheren Läufe aus dieser Box auf derselben Konfiguration (Bahn | Distanz | Piste | Parcours | Corde) vom Durchschnitt 0,5; grün ab +0,05, rot ab −0,05, farbig erst ab ${p.box_min} Läufen. <b>Scheuklappen</b>: Auge mit geschlossener Klappe = klassisch, mit gestrichelter Fellklappe = australisch – in der Übersicht und je früherem Lauf. <b>Prognose</b> (Kasten rechts): cote probable der PMU-Prognose, darunter dezimal; Morgen- und Totokurs werden nicht angezeigt. <b>B</b> Besitzer mit A/E 365 Tage.</div>
     <div><b>Boden</b>: alle Berechnungen nutzen nur die Bodengruppe des offiziellen Begriffs – Lourd, Très lourd, Collant = Very slow · Souple, Très souple = Slow · Bon souple, Bon = Fast · Léger, Bon léger, Très léger = Very fast · PSF (Standard, Lente, Rapide) = PSF; der Penetrometer-Wert wird nur angezeigt. <b>Distanzgruppen</b> der Vorlieben (Pferd, Vater, Muttervater): 0-1000 m, dann je 200 m (1001-1200, 1201-1400 …), über 3600 m.</div>
