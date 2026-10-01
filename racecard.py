@@ -955,6 +955,38 @@ def handicap_marke(v: pd.DataFrame, rating_heute=None) -> dict | None:
     return None
 
 
+def _duell_bilanz(duelle: list[dict]) -> dict | None:
+    """Je heutigem Gegner das letzte Duell: Abstand damals ± Verschiebung des Gewichtsunterschieds (1 kg = 1 Länge)
+    -> heute erwarteter Abstand (+ = vor dem Gegner). Zusammenfassung: vorne / hinten erwartet."""
+    if not duelle:
+        return None
+    letzte = {}
+    for d in sorted(duelle, key=lambda d: d["date"], reverse=True):
+        letzte.setdefault(d["rival"], d)
+    je = []
+    for r, d in letzte.items():
+        erw = (d["diff_l"] - (d["shift"] or 0)) if d["diff_l"] is not None else None
+        je.append({"rival": r, "rival_no": d["rival_no"], "date": d["date"], "diff_l": d["diff_l"],
+                   "shift": d["shift"], "exp_l": _num(erw, 1),
+                   "n": sum(1 for x in duelle if x["rival"] == r)})
+    je.sort(key=lambda e: -(e["exp_l"] if e["exp_l"] is not None else -99))
+    vorne = sum(1 for e in je if e["exp_l"] is not None and e["exp_l"] > 0)
+    hinten = sum(1 for e in je if e["exp_l"] is not None and e["exp_l"] < 0)
+    return {"rivals": je, "ahead": vorne, "behind": hinten, "n": len(je)}
+
+
+def _trainer_tabelle(v: pd.DataFrame, heute_wert) -> list[dict]:
+    """Pferd nach Trainer mit dem Zeitraum, in dem das Pferd dort war (erster bis letzter Lauf), neuester zuerst."""
+    if not len(v) or "trainer_key" not in v:
+        return []
+    zeilen = []
+    for k, t in v.dropna(subset=["trainer_key"]).groupby("trainer_key"):
+        zeilen.append({"label": str(t["trainer"].iloc[0] if "trainer" in t and pd.notna(t["trainer"].iloc[0]) else k).title(),
+                       "key": k, "today": bool(k == heute_wert), **_rec(t),
+                       "from": t["date"].min().strftime("%Y-%m-%d"), "to": t["date"].max().strftime("%Y-%m-%d")})
+    return sorted(zeilen, key=lambda z: z["to"], reverse=True)
+
+
 def _tabelle(g: pd.DataFrame, spalte: str, heute_wert, anzeige) -> list[dict]:
     """Bilanz je Ausprägung einer Spalte (z. B. alle Böden eines Pferdes), heutige markiert."""
     if g.empty or spalte not in g:
@@ -1268,7 +1300,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                               "distance": _tabelle(vorher, "dist_group", dg, lambda d: f"{d} m"),
                               "course": [z for z in _tabelle(vorher, "course_key", course, lambda c: str(c).title())
                                          if z["today"]],                           # nur die heutige Bahn
-                              "trainer": _tabelle(vorher, "trainer_key", tk, lambda t: str(t).title()),
+                              "trainer": _trainer_tabelle(vorher, tk),
                               "blinkers": _tabelle(vorher.assign(blink_grp=vorher["blinkers"].map(scheuklappen_gruppe))
                                                    if len(vorher) and "blinkers" in vorher else vorher, "blink_grp",
                                                    scheuklappen_gruppe(p.get("blinkers")), str)},
@@ -1286,6 +1318,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "form_lines": form,
                 "prono": prono_je.get(_num(p.get("saddle_no"), 0)),
                 "duels": duelle,
+                "duels_sum": _duell_bilanz(duelle),
             })
         partanten = [x for x in starters if not x["nr"]]
         for k in DELTA_SPALTEN:                                   # Rang im heutigen Feld

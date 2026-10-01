@@ -753,6 +753,17 @@ def racecard_pruefen() -> None:
     pruefe(f["cls_epr_idx"] == 100 and kl["epr_idx"] == round(100 * kl["epr"] / 5175)
            and d["params"]["pop"]["rennen_epr"] == 5175.0,
            f"Rennstärke €/L+: Ø Gewinn je Lauf der Teilnehmer ÷ Ø aller früheren Rennen (heute {kl['epr_idx']})")
+    ds_ = x["duels_sum"]
+    pruefe(ds_["n"] == 1 and ds_["ahead"] == 1 and ds_["rivals"][0]["exp_l"] == 2.0 and ds_["rivals"][0]["n"] == 2,
+           "Duell-Bilanz: letztes Duell je Gegner, Abstand ± Gewichtsverschiebung (1 kg = 1 L) -> vorne erwartet")
+    sim = rc._duell_bilanz([{"rival": "A", "rival_no": 3, "date": "2026-05-01", "diff_l": 1.0, "shift": 2.5},
+                            {"rival": "A", "rival_no": 3, "date": "2026-01-01", "diff_l": 5.0, "shift": 0.0}])
+    pruefe(sim["rivals"][0]["exp_l"] == -1.5 and sim["behind"] == 1,
+           "Duell-Bilanz: 1 L vorn, heute 2,5 kg ungünstiger -> 1,5 L hinten erwartet (älteres Duell zählt nicht)")
+    tt = y["pref"]["horse"]["trainer"]
+    pruefe([z["label"] for z in tt] == ["Tr", "And"] and tt[0]["from"] == tt[0]["to"] == str(tag - timedelta(days=10))
+           and tt[1]["to"] == str(tag - timedelta(days=100)),
+           "Pferd nach Trainer: Zeitraum je Trainer, neuester zuerst")
     du = x["duels"]
     pruefe(len(du) == 2 and du[0]["rival"] == "Y" and du[0]["diff_l"] == 2.0 and du[0]["shift"] == 0.0
            and du[0]["rival_no"] == 2 and du[1]["pos"] == 2 and du[1]["rival_pos"] == 1,
