@@ -15,6 +15,7 @@ BLOCK = 40                      # so viele Texte je Anfrage
 MAX_ZEICHEN = 4500              # längere Texte werden nicht übersetzt (Grenze des Dienstes ~5000)
 
 HINWEIS_GEZEIGT = False
+LETZTER_FEHLER = ""             # Grund, falls nichts übersetzt werden konnte
 
 
 def _cache_laden(base: Path | None) -> dict:
@@ -38,27 +39,28 @@ def _cache_schreiben(base: Path | None, cache: dict) -> None:
 
 def _standard_uebersetzer() -> Callable[[list[str]], list[str | None]] | None:
     """deep-translator, falls installiert; sonst None."""
-    global HINWEIS_GEZEIGT
+    global HINWEIS_GEZEIGT, LETZTER_FEHLER
     try:
         from deep_translator import GoogleTranslator
-    except ImportError:
+    except ImportError as e:
+        LETZTER_FEHLER = f"deep-translator nicht installiert ({e})"
         if not HINWEIS_GEZEIGT:
             print("Kommentare: keine Übersetzung – `pip install deep-translator` installieren, dann auf Deutsch.")
             HINWEIS_GEZEIGT = True
         return None
     tr = GoogleTranslator(source="fr", target="de")
 
-    def batch(texte: list[str]) -> list[str | None]:
+    def einzeln(t: str) -> str | None:
+        global LETZTER_FEHLER
         try:
-            return list(tr.translate_batch(texte))
-        except Exception:
-            out = []
-            for t in texte:                       # einzeln weiter, damit ein fehlerhafter Text nicht alle kostet
-                try:
-                    out.append(tr.translate(t))
-                except Exception:
-                    out.append(None)
-            return out
+            return tr.translate(t)
+        except Exception as e:
+            LETZTER_FEHLER = f"{type(e).__name__}: {str(e)[:200]}"
+            return None
+
+    def batch(texte: list[str]) -> list[str | None]:
+        # einzeln statt translate_batch: ein fehlerhafter Text kostet nicht den ganzen Block, Fehler bleibt sichtbar
+        return [einzeln(t) for t in texte]
     return batch
 
 
@@ -87,4 +89,18 @@ def uebersetze(texte: Iterable, base: Path | None = None, *,
             if neu:
                 _cache_schreiben(base, cache)
                 print(f"Kommentare: {neu} neu übersetzt ({len(cache)} im Cache).")
+            if neu < len(offen):
+                print(f"Kommentare: {len(offen) - neu} von {len(offen)} nicht übersetzt"
+                      + (f" – Grund: {LETZTER_FEHLER}" if LETZTER_FEHLER else ""))
     return {t: cache.get(t) for t in alle}
+
+
+def pruefen(text: str = "Il a terminé fort à l'extérieur.") -> str | None:
+    """Schnelltest: übersetzt einen Satz direkt (ohne Cache) und nennt den Fehler, wenn es nicht klappt."""
+    fn = _standard_uebersetzer()
+    if fn is None:
+        print("Übersetzung nicht möglich:", LETZTER_FEHLER)
+        return None
+    de = fn([text])[0]
+    print(f"{text!r} -> {de!r}" if de else f"Übersetzung fehlgeschlagen: {LETZTER_FEHLER}")
+    return de
