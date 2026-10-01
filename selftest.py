@@ -680,6 +680,16 @@ def racecard_pruefen() -> None:
     pruefe(ue.uebersetze(["A fini fort à l'extérieur.", "Neu."], tmp_k, uebersetzer=kaputt)
            == {"A fini fort à l'extérieur.": "Stark außen beendet.", "Neu.": None},
            "Übersetzung nur falls möglich: Cache greift, ohne Dienst bleibt der Text französisch")
+    alt_d = ue._dienste
+    try:
+        def sperre(t):
+            raise type("TooManyRequests", (Exception,), {})("zu viele Anfragen")
+        ue._dienste = lambda: [("Google", sperre), ("MyMemory", lambda t: "DE: " + t)]
+        erg = ue.uebersetze(["Ça va."], None)
+    finally:
+        ue._dienste = alt_d
+    pruefe(erg == {"Ça va.": "DE: Ça va."},
+           "Übersetzung weicht aus: Google gesperrt (TooManyRequests) -> nächster Dienst")
     du = x["duels"]
     pruefe(len(du) == 2 and du[0]["rival"] == "Y" and du[0]["diff_l"] == 2.0 and du[0]["shift"] == 0.0
            and du[0]["rival_no"] == 2 and du[1]["pos"] == 2 and du[1]["rival_pos"] == 1,
