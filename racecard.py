@@ -954,10 +954,43 @@ def _rang(werte: list, wert) -> int | None:
     return 1 + sum(1 for w in werte if w is not None and w > wert)
 
 
+def _prognose_rennen(pg: dict | None) -> tuple[dict | None, dict]:
+    """PMU-Prognose eines Rennens für die Race Card: (Rennteil, {Startnummer: Starterteil}).
+    Konsens der Tippgeber: Punkte je Liste = Listenlänge − Position + 1 (Borda), Rangfolge nach Punkten."""
+    if not pg:
+        return None, {}
+    je = {}
+    for z in pg.get("selection") or []:
+        je.setdefault(z["no"], {})["sel"] = {"rank": z.get("rank"), "cote": z.get("cote"), "cote_dec": z.get("cote_dec")}
+    tipps = pg.get("tips") or []
+    punkte: dict[int, float] = {}
+    for t in tipps:
+        L = len(t["nos"])
+        for pos, no in enumerate(t["nos"], 1):
+            punkte[no] = punkte.get(no, 0) + (L - pos + 1)
+            e = je.setdefault(no, {}).setdefault("tips", {"n": 0, "top3": 0, "pos": []})
+            e["n"] += 1
+            e["top3"] += pos <= 3
+            e["pos"].append(pos)
+    for no, e in je.items():
+        if "tips" in e:
+            e["tips"] = {"n": e["tips"]["n"], "of": len(tipps), "top3": e["tips"]["top3"],
+                         "avg": _num(float(np.mean(e["tips"]["pos"])), 1)}
+    for no, txt in (pg.get("cribles") or {}).items():
+        je.setdefault(int(no), {})["crible"] = txt
+    konsens = sorted(punkte, key=lambda n: -punkte[n])
+    rennen = {"text": pg.get("text"), "selection": pg.get("selection") or [],
+              "tips": [{"source": t["source"], "nos": t["nos"]} for t in tipps],
+              "consensus": konsens[:6], "cribles_ohne": pg.get("cribles_ohne") or []}
+    return rennen, je
+
+
 def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.DataFrame,
-               tag: date, silks: dict | None = None) -> dict:
+               tag: date, silks: dict | None = None, prognosen: dict | None = None) -> dict:
+    """prognosen: {(Reunion, Rennen): pmu.prognose(...)} – PMU-Prognosen (cote probable, Kommentar, Tipps)."""
     heute = pd.Timestamp(tag)
     silks = silks or {}
+    prognosen = prognosen or {}
     h = hist[hist["date"] < heute].copy() if not hist.empty else hist
     if h.empty:
         h = pd.DataFrame(columns=["date", "horse_id", "trainer_key", "jockey_key", "sire_key", "dam_sire_key",
@@ -1067,6 +1100,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                   "n": len(heute_gew)}
         klasse["val_pct"] = _perzentil(kl_vert["cls_val"], klasse["val"])
         klasse["epr_pct"] = _perzentil(kl_vert["cls_epr"], klasse["epr"])
+        prono_r, prono_je = _prognose_rennen(prognosen.get((int(r["reunion"]), int(r["race_no"]))))
         for _, p in feld_heute.sort_values("saddle_no").iterrows():
             hid, tk, jk, sk = p["horse_id"], p["trainer_key"], p["jockey_key"], p["sire_key"]
             dk, xk = p["dam_sire_key"], p["cross_key"]
@@ -1195,6 +1229,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                                  "age": q("dam_sire_age", (dk, alter_gruppe(p.get("age"))))},
                 },
                 "form_lines": form,
+                "prono": prono_je.get(_num(p.get("saddle_no"), 0)),
                 "duels": duelle,
             })
         partanten = [x for x in starters if not x["nr"]]
@@ -1234,6 +1269,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             "status": _txt(r.get("statut")), "result": _txt(r.get("finish_order")),
             "runners": starters,
             "class": klasse,
+            "prono": prono_r,
             "pace": szenario,
             "bias": {**b, "basis": b_basis} if b else None,
         }
@@ -1263,11 +1299,22 @@ def kommentare_uebersetzen(daten: dict, base: Path | None = None, **kw) -> int:
     """Kommentare der Formzeilen (je Starter aus pmu_runners, französisch) ins Deutsche übersetzen, wo möglich:
     ergänzt comment_de. Rückgabe: Zahl der übersetzten Kommentare."""
     zeilen = [f for r in daten.get("races", {}).values() for x in r["runners"] for f in x["form_lines"]]
-    de = uebersetzen.uebersetze([f.get("comment") for f in zeilen], base, **kw)
+    # dazu die PMU-Prognosen: Rennkommentar und Kurzkommentare (cribles) je Starter
+    rp = [r["prono"] for r in daten.get("races", {}).values() if r.get("prono")]
+    sp = [x["prono"] for r in daten.get("races", {}).values() for x in r["runners"] if x.get("prono")]
+    texte = ([f.get("comment") for f in zeilen] + [r.get("text") for r in rp] + [x.get("crible") for x in sp]
+             + [c.get("text") for r in rp for c in r.get("cribles_ohne", [])])
+    de = uebersetzen.uebersetze(texte, base, **kw)
+    uebers = lambda t: de.get(t.strip()) if isinstance(t, str) and t.strip() else None
+    for r in rp:
+        r["text_de"] = uebers(r.get("text"))
+        for c in r.get("cribles_ohne", []):
+            c["text_de"] = uebers(c.get("text"))
+    for x in sp:
+        x["crible_de"] = uebers(x.get("crible"))
     n = 0
     for f in zeilen:
-        t = (f.get("comment") or "").strip()
-        f["comment_de"] = de.get(t) if t else None
+        f["comment_de"] = uebers(f.get("comment"))
         n += f["comment_de"] is not None
     return n
 
@@ -1306,7 +1353,9 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     races_heute, runners_heute = programm(tag, nur_flach=nur_flach)
     if races_heute.empty:
         raise RuntimeError(f"Keine französischen {'Flach' if nur_flach else 'Galopp'}rennen am {tag}.")
-    print(f"{len(races_heute)} Rennen, {len(runners_heute)} Starter. Historie laden …")
+    print(f"{len(races_heute)} Rennen, {len(runners_heute)} Starter. PMU-Prognosen holen …")
+    prognosen = pmu.prognosen(tag, requests.Session(), list(zip(races_heute["reunion"], races_heute["race_no"])))
+    print(f"Prognosen für {len(prognosen)} von {len(races_heute)} Rennen. Historie laden …")
     std_rennen = standardzeiten.je_rennen(base)
     print(f"Standardzeiten je Konfiguration: {len(std_rennen):,} Rennen zugeordnet"
           + ("" if len(std_rennen) else " – keine Sammlung gefunden (standardzeiten.run), TR schätzt sie selbst"))
@@ -1332,9 +1381,9 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
         if len(v):
             print("Backtest – Vorhersage des nächsten Laufs (r mit dem Platzanteil; Top-3-Quote des Bestbewerteten):")
             print(v.to_string(index=False))
-    daten = baue_daten(hist, races_heute, runners_heute, tag, silks)
+    daten = baue_daten(hist, races_heute, runners_heute, tag, silks, prognosen)
     mit_k = sum(1 for r in daten["races"].values() for x in r["runners"] for f in x["form_lines"] if f.get("comment"))
-    if mit_k:
+    if mit_k or prognosen:
         print(f"Kommentare in den Formzeilen: {mit_k}, davon auf Deutsch: {kommentare_uebersetzen(daten, base)}")
     out = Path(out) if out else base / "racecards" / f"racecard_{tag:%Y%m%d}.html"
     out.parent.mkdir(parents=True, exist_ok=True)

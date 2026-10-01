@@ -184,6 +184,10 @@ Je Starter:
   Vergleich zu allen früheren Läufen der heutigen Starter, ±800 und Weg m bei auffälligen Werten farbig.
 * **Übersicht**: Karriere mit €/Lauf neben der Musique; Rating mit letzter Sieg- bzw. Platzmarke im Handicap;
   Rating, Tage, RTR, ARR und TR farbig nach dem Rang im Feld. Vorlieben zusätzlich Pferd nach Scheuklappen.
+* **PMU-Prognose** (`pmu.prognosen`, Endpunkte `/pronostics` und `/pronostics-detailles`, nur vor dem Rennen):
+  Rennkommentar der Redaktion, Auswahl mit cote probable (4/1 = 5,0) und Konsens der Tippgeber (Borda) im
+  Rennkopf; am Pferd P1 … (Rang der Auswahl) bzw. T5 (in 5 Tipp-Listen), cote probable im Kurs-Kasten,
+  Kurzkommentar (cribles) im Detail – übersetzt wie die Kommentare.
 * **Kommentare** (`comment` je Starter aus pmu_runners) unter jedem früheren Lauf, auf
   Deutsch übersetzt, wo möglich (`uebersetzen.py`, deep-translator, Cache `<BASE>/uebersetzungen_fr_de.json`);
   ohne Paket oder Netz bleibt der französische Text (markiert mit FR).

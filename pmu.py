@@ -294,6 +294,89 @@ def starter(tag: date, session: requests.Session, meets: list[dict], *,
 
 
 # --------------------------------------------------------------------------
+# Prognosen der PMU-Redaktion (nur vor dem Rennen verfügbar)
+# --------------------------------------------------------------------------
+PRONOSTIC_URLS = [u.replace("/participants", "/pronostics") for u in PARTICIPANTS_URLS]
+PRONOSTIC_DETAIL_URLS = [u.replace("/participants", "/pronostics-detailles") for u in PARTICIPANTS_URLS]
+
+
+def cote_dezimal(c) -> float | None:
+    """Cote probable '4/1' -> 5.0, '7/2' -> 4.5, '1/2' -> 1.5; Zahl -> Zahl."""
+    if c is None:
+        return None
+    if isinstance(c, (int, float)):
+        return float(c)
+    m = re.fullmatch(r"\s*(\d+(?:[.,]\d+)?)\s*/\s*(\d+(?:[.,]\d+)?)\s*", str(c))
+    if m:
+        a, b = (float(x.replace(",", ".")) for x in m.groups())
+        return round(a / b + 1, 2) if b else None
+    try:
+        return float(str(c).replace(",", "."))
+    except ValueError:
+        return None
+
+
+def _nummer(d: dict):
+    for k in ("numPmu", "num_partant", "numPartant", "numero", "num"):
+        v = d.get(k)
+        if isinstance(v, (int, float)) or (isinstance(v, str) and v.isdigit()):
+            return int(v)
+    return None
+
+
+def prognose(sel: dict | None, det: dict | None) -> dict:
+    """Rohdaten von /pronostics und /pronostics-detailles ->
+    {text, selection: [{no, rank, cote, cote_dec}], tips: [{source, nos}], cribles: {no|name: text}}."""
+    sel, det = sel or {}, det or {}
+    out = {"text": None, "selection": [], "tips": [], "cribles": {}, "cribles_ohne": []}
+    for z in sel.get("selection") or []:
+        if isinstance(z, dict) and _nummer(z) is not None:
+            out["selection"].append({"no": _nummer(z), "rank": z.get("rang"), "cote": z.get("cote_prob"),
+                                     "cote_dec": cote_dezimal(z.get("cote_prob"))})
+    k = det.get("commentaire")
+    out["text"] = (k.get("texte") if isinstance(k, dict) else k) or None
+    for a in det.get("avis") or []:
+        if isinstance(a, dict):
+            nos = [_nummer(x) for x in a.get("pronostics") or [] if isinstance(x, dict) and _nummer(x) is not None]
+            if nos:
+                out["tips"].append({"source": " · ".join(filter(None, [a.get("societe"), a.get("journaliste")])),
+                                    "nos": nos})
+    for c in det.get("cribles") or []:
+        if not isinstance(c, dict):
+            continue
+        txt = c.get("commentaire")
+        txt = txt.get("texte") if isinstance(txt, dict) else txt
+        if not txt:
+            continue
+        no = _nummer(c)
+        if no is None:
+            for v in c.values():                     # Nummer eventuell in einem Unterobjekt (z. B. participant)
+                if isinstance(v, dict) and _nummer(v) is not None:
+                    no = _nummer(v)
+                    break
+        if no is not None:
+            out["cribles"][no] = txt
+        else:
+            out["cribles_ohne"].append({"name": c.get("nom") or c.get("cheval"), "text": txt})
+    return out
+
+
+def prognosen(tag: date, session: requests.Session, rennen: list[tuple[int, int]], *,
+              pause: float = 0.2) -> dict[tuple[int, int], dict]:
+    """Prognosen je (Reunion, Rennen); fehlt beides, wird das Rennen ausgelassen."""
+    d = tag.strftime("%d%m%Y")
+    out = {}
+    for r, c in rennen:
+        sel = _json(session, PRONOSTIC_URLS, runden=1, d=d, r=r, c=c)
+        det = _json(session, PRONOSTIC_DETAIL_URLS, runden=1, d=d, r=r, c=c)
+        time.sleep(pause)
+        if sel or det:
+            out[(int(r), int(c))] = prognose(sel if isinstance(sel, dict) else None,
+                                            det if isinstance(det, dict) else None)
+    return out
+
+
+# --------------------------------------------------------------------------
 # Abstände in Längen
 # --------------------------------------------------------------------------
 # Französische Abstandsangaben -> Längen (übliche Umrechnung)
