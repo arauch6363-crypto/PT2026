@@ -69,8 +69,13 @@ GEGNER_LAEUFE = LETZTE_LAEUFE   # für so viele der letzten Läufe werden die Ge
 # A/E Platz: Platz = 1.–2. bei bis zu PLATZ_GRENZE Startern, sonst 1.–3.; erwartet nach Harville mit Korrektur
 PLATZ_GRENZE = 7
 HARVILLE_L2, HARVILLE_L3 = 0.8, 0.65   # Stauchung p^λ für Platz 2 und 3 (Lo / Bacon-Shone)
+POP_MIN_LAEUFE = 5              # Population für €/L+: nur Personen/Linien mit so vielen Läufen
+POP_MIN_PFERDE = 3              # Population für max Val+: nur Linien mit so vielen 3-jährigen Nachkommen
 KLASSE_TAGE = 365               # Klasse: Ø Gewinnsumme je Lauf der Teilnehmer in so vielen Tagen davor
 DUELL_TAGE = 365                # Heutige Gegner · frühere Duelle: nur Rennen der letzten so vielen Tage
+BOX_SD = 0.289                  # Streuung der relativen Platzierung bei Zufall (Gleichverteilung 0…1)
+BOX_Z = 2.0                     # Startbox auffällig: |Ø − 0,5| mindestens BOX_Z Standardfehler …
+BOX_MIN_ABW = 0.05              # … und mindestens so weit von 0,5 entfernt
 BOX_MIN_LAEUFE = 15             # Startbox-Abweichung: ab so vielen Läufen aus der Box auf der Konfiguration farbig
 # Preisgeld je Platz: PMU montantOffert1er … 5eme, sonst die übliche Aufteilung des Rennpreises (France Galop)
 PREIS_SPALTEN = ["c_montantOffert1er", "c_montantOffert2eme", "c_montantOffert3eme", "c_montantOffert4eme",
@@ -801,6 +806,17 @@ def _scheuklappen(x) -> str | None:
     return "australische Scheuklappen" if "AUSTRAL" in t else "Scheuklappen"
 
 
+def box_urteil(mean, n) -> dict | None:
+    """Ø relative Platzierung einer Startbox: Abweichung von 0,5 und ob sie auffällig ist
+    (|Abweichung| ≥ BOX_MIN_ABW und ≥ BOX_Z Standardfehler, SE = BOX_SD / √n)."""
+    if mean is None or not n:
+        return None
+    dev = float(mean) - 0.5
+    z = dev / (BOX_SD / np.sqrt(n))
+    return {"mean": _num(mean, 3), "dev": _num(dev, 3), "n": int(n), "z": _num(z, 1),
+            "sig": bool(abs(dev) >= BOX_MIN_ABW and abs(z) >= BOX_Z)}
+
+
 def _wechsel(p, letzter) -> list[dict]:
     """Trainerwechsel, Ausrüstungswechsel und erstmals Wallach gegenüber dem letzten Lauf."""
     if letzter is None:
@@ -808,6 +824,8 @@ def _wechsel(p, letzter) -> list[dict]:
     out = []
     if _txt(letzter.get("trainer_key")) and _txt(p.get("trainer_key")) and letzter["trainer_key"] != p["trainer_key"]:
         out.append({"key": "TR", "text": f"Trainerwechsel (vorher {str(letzter.get('trainer') or '').title()})"})
+    if _txt(letzter.get("owner_key")) and _txt(p.get("owner_key")) and letzter["owner_key"] != p["owner_key"]:
+        out.append({"key": "OW", "text": f"Besitzerwechsel (vorher {str(letzter.get('owner') or '').title()})"})
     heute, vorher = _scheuklappen(p.get("blinkers")), _scheuklappen(letzter.get("blinkers"))
     if heute != vorher:
         if heute and not vorher:
@@ -1006,16 +1024,36 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             sub = h[h["date"] >= heute - timedelta(days=tage)]
             ae[(rolle, tage)] = gruppen(sub, [rolle + "_key"])
     ae_abst = {rolle: gruppen(h, [rolle + "_key"]) for rolle in ("sire", "dam_sire", "cross")}
-    # Abstammung: verschiedene Pferde je Linie und Ø ihrer höchsten Valeur (max je Pferd, dann Ø über die Pferde)
+    # Abstammung: verschiedene Pferde je Linie und – nur 3-jährige Nachkommen – Ø ihrer höchsten Valeur als 3-Jährige
+    # (max je Pferd im Alter von 3 Jahren, dann Ø über die Pferde)
     abst_extra = {}
     for rolle in ("sire", "dam_sire", "cross"):
         k_ = rolle + "_key"
         if len(h) and k_ in h:
-            je_pferd = h.dropna(subset=[k_]).groupby([k_, "horse_id"])["valeur"].max()
-            g_ = je_pferd.groupby(level=0)
-            abst_extra[rolle] = pd.DataFrame({"horses": g_.size(), "max_val": g_.mean()})
+            mit = h.dropna(subset=[k_])
+            pferde = mit.groupby(k_)["horse_id"].nunique()
+            je3 = mit[mit["age"] == 3].groupby([k_, "horse_id"])["valeur"].max().dropna()
+            g3 = je3.groupby(level=0)
+            abst_extra[rolle] = pd.DataFrame({"horses": pferde, "horses3": g3.size(), "max_val3": g3.mean()})
         else:
-            abst_extra[rolle] = pd.DataFrame(columns=["horses", "max_val"])
+            abst_extra[rolle] = pd.DataFrame(columns=["horses", "horses3", "max_val3"])
+
+    # Population: Ø €/Lauf über alle Personen bzw. Linien (je Gruppe und Zeitfenster, ab POP_MIN_LAEUFE Läufen)
+    # und Ø max Val 3j über alle Linien (ab POP_MIN_PFERDE 3-jährigen Nachkommen) – Basis der Indizes €/L+ und Val+
+    def pop_epr(gr: dict) -> float | None:
+        w = [r["epr"] for r in gr.values() if r["runs"] >= POP_MIN_LAEUFE and r["epr"] is not None]
+        return float(np.mean(w)) if w else None
+    pop = {f"{rolle}_d{t}": pop_epr(ae[(rolle, t)]) for rolle in ("trainer", "jockey", "owner", "breeder")
+           for t in AE_FENSTER}
+    for rolle in ("sire", "dam_sire", "cross"):
+        pop[f"{rolle}_all"] = pop_epr(ae_abst[rolle])
+        e = abst_extra[rolle]
+        w = e.loc[e["horses3"].fillna(0) >= POP_MIN_PFERDE, "max_val3"].dropna() if len(e) else pd.Series(dtype=float)
+        pop[f"{rolle}_val3"] = float(w.mean()) if len(w) else None
+
+    def index(wert, basis):
+        """100 = Durchschnitt der Population, > 100 überdurchschnittlich."""
+        return _num(100 * wert / basis, 0) if wert is not None and basis else None
     # Startbox: Ø relative Platzierung je Konfiguration × Box
     box = (h.dropna(subset=["konfig", "draw", "rel_place"]).groupby(["konfig", "draw"])["rel_place"]
            .agg(["mean", "count"]) if len(h) and "konfig" in h else pd.DataFrame(columns=["mean", "count"]))
@@ -1027,6 +1065,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     rennen_kl = h.drop_duplicates("race_id") if len(h) else h
     kl_vert = {c: np.sort(pd.to_numeric(rennen_kl[c], errors="coerce").dropna().to_numpy())
                if c in rennen_kl else np.array([]) for c in ("cls_val", "cls_epr")}
+    # Rennstärke: Ø (über alle früheren Rennen) des Ø-Gewinns je Lauf der Teilnehmer in den KLASSE_TAGE davor
+    epr_rennen = float(kl_vert["cls_epr"].mean()) if len(kl_vert["cls_epr"]) else None
+    pop["rennen_epr"] = epr_rennen
 
     kal = pace_kalibrierung(h)
     bias = bahn_bias(h)
@@ -1100,6 +1141,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                   "n": len(heute_gew)}
         klasse["val_pct"] = _perzentil(kl_vert["cls_val"], klasse["val"])
         klasse["epr_pct"] = _perzentil(kl_vert["cls_epr"], klasse["epr"])
+        klasse["epr_idx"] = index(klasse["epr"], epr_rennen)
         prono_r, prono_je = _prognose_rennen(prognosen.get((int(r["reunion"]), int(r["race_no"]))))
         for _, p in feld_heute.sort_values("saddle_no").iterrows():
             hid, tk, jk, sk = p["horse_id"], p["trainer_key"], p["jockey_key"], p["sire_key"]
@@ -1110,8 +1152,12 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 f = _formzeile(z, p.get("weight_kg"))
                 f["rivals"] = _gegner(z, h_rennen, h_pferde, heute) if n < GEGNER_LAEUFE else None
                 f["rivals_stat"] = _gegner_bilanz(f["rivals"])
+                bz = (box.loc[(z["konfig"], z["draw"])] if pd.notna(z.get("draw")) and pd.notna(z.get("konfig"))
+                      and (z["konfig"], z["draw"]) in box.index else None)
+                f["draw_stat"] = box_urteil(bz["mean"], bz["count"]) if bz is not None else None
                 f["cls_val_pct"] = _perzentil(kl_vert["cls_val"], f["cls_val"])
                 f["cls_epr_pct"] = _perzentil(kl_vert["cls_epr"], f["cls_epr"])
+                f["cls_epr_idx"] = index(f["cls_epr"], epr_rennen)    # Rennstärke: 100 = Ø aller Rennen
                 form.append(f)
             duelle = _duelle(vorher[vorher["race_id"].isin(set(duell_rennen))], duell_rennen, heute_gew, hid) \
                 if len(vorher) and hid in heute_gew else []
@@ -1157,20 +1203,27 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 return _leer() if any(_txt(k) is None for k in key) else pref[tab].get(key, _leer())
 
             ok_, bk_ = p.get("owner_key"), p.get("breeder_key")
-            ae_p = {rolle: {f"d{t}": (ae[(rolle, t)].get(key, _leer()) if _txt(key) else _leer()) for t in AE_FENSTER}
-                    for rolle, key in (("trainer", tk), ("jockey", jk), ("owner", ok_), ("breeder", bk_))}
+            ae_p = {}
+            for rolle, key in (("trainer", tk), ("jockey", jk), ("owner", ok_), ("breeder", bk_)):
+                ae_p[rolle] = {}
+                for t in AE_FENSTER:
+                    rec_ = ae[(rolle, t)].get(key, _leer()) if _txt(key) else _leer()
+                    ae_p[rolle][f"d{t}"] = {**rec_, "epr_idx": index(rec_["epr"], pop[f"{rolle}_d{t}"])}
             for rolle in ae_p:
                 ae_p[rolle]["trend"] = _ae_trend(ae_p[rolle]["d30"], ae_p[rolle]["d365"])
             ae_p["pedigree"] = {}
             for rolle, key in (("sire", sk), ("dam_sire", dk), ("cross", xk)):
                 e_ = abst_extra[rolle].loc[key] if _txt(key) and key in abst_extra[rolle].index else None
-                ae_p["pedigree"][rolle] = {**(ae_abst[rolle].get(key, _leer()) if _txt(key) else _leer()),
-                                           "horses": int(e_["horses"]) if e_ is not None else 0,
-                                           "max_val": _num(e_["max_val"], 1) if e_ is not None else None}
+                rec_ = ae_abst[rolle].get(key, _leer()) if _txt(key) else _leer()
+                mv3 = _num(e_["max_val3"], 1) if e_ is not None else None
+                ae_p["pedigree"][rolle] = {**rec_, "epr_idx": index(rec_["epr"], pop[f"{rolle}_all"]),
+                                           "horses": int(e_["horses"]) if e_ is not None and pd.notna(e_["horses"]) else 0,
+                                           "horses3": int(e_["horses3"]) if e_ is not None and pd.notna(e_["horses3"]) else 0,
+                                           "max_val3": mv3, "max_val3_idx": index(mv3, pop[f"{rolle}_val3"])}
             dr_ = _num(p.get("draw"), 0)
             bx = box.loc[(konfig_heute, dr_)] if dr_ is not None and (konfig_heute, dr_) in box.index else None
-            box_p = {"dev": _num(bx["mean"] - 0.5, 3), "mean": _num(bx["mean"], 3), "n": int(bx["count"]),
-                     "ok": bool(bx["count"] >= BOX_MIN_LAEUFE)} if bx is not None else None
+            box_p = ({**box_urteil(bx["mean"], bx["count"]), "ok": bool(bx["count"] >= BOX_MIN_LAEUFE)}
+                     if bx is not None else None)
             jockey_pferd = (_rec(vorher[vorher["jockey_key"] == jk]) if len(vorher) and _txt(jk)
                             and (vorher["jockey_key"] == jk).any() else _leer())
             status = str(p.get("status") or "").upper()
@@ -1213,7 +1266,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "pref": {
                     "horse": {"going": _tabelle(vorher, "going_pmu", gb, going_anzeige),
                               "distance": _tabelle(vorher, "dist_group", dg, lambda d: f"{d} m"),
-                              "course": _tabelle(vorher, "course_key", course, lambda c: str(c).title()),
+                              "course": [z for z in _tabelle(vorher, "course_key", course, lambda c: str(c).title())
+                                         if z["today"]],                           # nur die heutige Bahn
+                              "trainer": _tabelle(vorher, "trainer_key", tk, lambda t: str(t).title()),
                               "blinkers": _tabelle(vorher.assign(blink_grp=vorher["blinkers"].map(scheuklappen_gruppe))
                                                    if len(vorher) and "blinkers" in vorher else vorher, "blink_grp",
                                                    scheuklappen_gruppe(p.get("blinkers")), str)},
@@ -1284,6 +1339,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                    "trend_diff": TREND_DIFF, "trend_min": TREND_MIN_STARTS, "pref_jt_years": VORLIEBEN_JT_TAGE // 365,
                    "avg_runs": SCHNITT_LAEUFE, "rivals_runs": GEGNER_LAEUFE, "class_days": KLASSE_TAGE,
                    "epr_ref": epr_ref, "class_races": int(len(kl_vert["cls_epr"])),
+                   "pop": {k: _num(v, 1) for k, v in pop.items()}, "pop_min_runs": POP_MIN_LAEUFE,
+                   "pop_min_horses": POP_MIN_PFERDE,
                    "box_min": BOX_MIN_LAEUFE, "duel_days": DUELL_TAGE,
                    "best_seg_m": speedfig.BEST_SEG_BEREICH_M, "beaten_l": speedfig.AUSGERITTEN_L,
                    "avg_prior": SCHNITT_PRIOR, "avg_dist_m": SCHNITT_DIST_M, "weight_ref": GEWICHT_REF, "going_stufen": SCHNITT_GOING_STUFEN, "going_psf": GOING_PSF_GRAS, "tr_upg_max": timeform_ratings.UPGRADE_MAX_LB,

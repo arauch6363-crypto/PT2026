@@ -543,7 +543,7 @@ def racecard_pruefen() -> None:
     d = rc.baue_daten(hist, heute_r, heute_s, tag)
     x, y = d["races"][f"{tag:%Y%m%d}R1C1"]["runners"]
     pruefe(x["ae"]["trainer"]["d90"] == {"runs": 2, "wins": 1, "places": 2, "exp": 2.0, "ae": 1.0, "ae_win": 1.33,
-                                         "epr": round((13500 + 5130) / 2)},
+                                         "epr": round((13500 + 5130) / 2), "epr_idx": None},
            "A/E Platz 90 Tage: 2 Starter -> beide sicher platziert (erwartet 2, A/E 1,00); A/E Sieg 1,33 zum Vergleich")
     # Rennen vor 100 Tagen: 3 Starter (Quoten 3 / 5 / 9) -> Platz = 1.–2.; X wurde (zeitgleich) Zweiter
     px = rc.harville_platz(np.array([1 / 3, 1 / 5, 1 / 9]), 2)[1]
@@ -622,8 +622,25 @@ def racecard_pruefen() -> None:
     pruefe(x["ae"]["owner"]["d365"]["runs"] == 5 and x["ae"]["breeder"]["d365"]["runs"] == 0,
            "A/E für Besitzer (und Züchter, hier ohne Angabe)")
     pv = x["ae"]["pedigree"]["sire"]
-    pruefe(pv["horses"] == 3 and pv["max_val"] == 40.0 and x["ae"]["pedigree"]["dam_sire"]["horses"] == 1,
-           "Abstammung: 3 verschiedene Pferde vom Vater, Ø höchste Valeur je Pferd")
+    pruefe(pv["horses"] == 3 and pv["horses3"] == 0 and pv["max_val3"] is None
+           and x["ae"]["pedigree"]["dam_sire"]["horses"] == 1,
+           "Abstammung: 3 verschiedene Pferde vom Vater, max Val nur aus 3-jährigen Nachkommen (hier keine)")
+    alt_min = rc.POP_MIN_LAEUFE
+    rc.POP_MIN_LAEUFE = 1
+    try:
+        d3 = rc.baue_daten(hist.assign(age=3), heute_r, heute_s, tag)
+    finally:
+        rc.POP_MIN_LAEUFE = alt_min
+    x3 = d3["races"][f"{tag:%Y%m%d}R1C1"]["runners"][0]
+    p3 = x3["ae"]["pedigree"]["sire"]
+    t365 = x3["ae"]["trainer"]["d365"]
+    pop_t = ((13500 + 5130 + 2850) / 3 + (7500 + 2850) / 2) / 2
+    pruefe(p3["horses3"] == 1 and p3["max_val3"] == 40.0 and p3["max_val3_idx"] is None
+           and x3["ae"]["trainer"]["d90"]["epr_idx"] == 100
+           and t365["epr_idx"] == round(100 * t365["epr"] / pop_t)
+           and d3["params"]["pop"]["trainer_d365"] == round(pop_t, 1),
+           f"€/L+ = 100 × €/Lauf ÷ Ø der Population (Trainer 365 Tage: {t365['epr_idx']}); "
+           "max Val 3j nur aus 3-Jährigen, Val+ erst ab 3 Linien-Pferden")
     pruefe(f["valeur"] == 40.0 and x["form_lines"][1]["blinkers"] == "OEILLERES_AUSTRALIENNES" and f["odds"] == 4.0,
            "Formzeile mit Valeur, Scheuklappen und Endquote")
     rz = pd.DataFrame([{"race_id": "20260901R1C1", "hippodrome": "DEAUVILLE", "distance_m": 1600, "corde": "CORDE_DROITE",
@@ -721,6 +738,21 @@ def racecard_pruefen() -> None:
            and fehler is not None and "403" in fehler,
            "DeepL direkt über die API: Schlüssel im Header (nicht als auth_key-Parameter), Free-Schlüssel (:fx) -> "
            "api-free, 403 wird als Grund gemeldet")
+    ow = rc._wechsel({"owner_key": "NEU", "owner": "NEU"}, {"owner_key": "ALT", "owner": "ALT"})
+    pruefe([c["key"] for c in ow] == ["OW"] and "Besitzerwechsel" in ow[0]["text"],
+           "Hinweis Besitzerwechsel gegenüber dem letzten Lauf")
+    b1, b2, b3 = rc.box_urteil(0.6, 100), rc.box_urteil(0.6, 10), rc.box_urteil(0.53, 2000)
+    pruefe(b1["sig"] and not b2["sig"] and not b3["sig"] and b1["dev"] == 0.1,
+           "Startbox auffällig nur bei ≥ 2 Standardfehlern und ≥ 0,05 Abweichung (0,60 aus 100 ja, aus 10 nein; 0,53 nein)")
+    pruefe(f["draw_stat"]["n"] == 1 and not f["draw_stat"]["sig"],
+           "Startbox-Urteil auch je früherem Lauf (Konfiguration und Box dieses Laufs)")
+    pc, ptr = x["pref"]["horse"]["course"], y["pref"]["horse"]["trainer"]
+    pruefe(len(pc) == 1 and pc[0]["today"] and {z["label"] for z in ptr} == {"Tr", "And"}
+           and not any(z["today"] for z in ptr),
+           "Pferd nach Kurs: nur die heutige Bahn; Pferd nach Trainer: alle bisherigen Trainer")
+    pruefe(f["cls_epr_idx"] == 100 and kl["epr_idx"] == round(100 * kl["epr"] / 5175)
+           and d["params"]["pop"]["rennen_epr"] == 5175.0,
+           f"Rennstärke €/L+: Ø Gewinn je Lauf der Teilnehmer ÷ Ø aller früheren Rennen (heute {kl['epr_idx']})")
     du = x["duels"]
     pruefe(len(du) == 2 and du[0]["rival"] == "Y" and du[0]["diff_l"] == 2.0 and du[0]["shift"] == 0.0
            and du[0]["rival_no"] == 2 and du[1]["pos"] == 2 and du[1]["rival_pos"] == 1,
