@@ -62,10 +62,13 @@ TEMPLATE = Path(__file__).with_name("racecard_template.html")
 POS_VOR_FINISH_M = 400          # Messpunkt für "Position vor dem Finish"
 LETZTE_LAEUFE = 7               # so viele Formzeilen je Pferd
 AE_FENSTER = (30, 90, 365)      # Tage
-TREND_DIFF = 0.4                # A/E 30 Tage so viel über/unter 365 Tagen -> Feuer/Eis
+TREND_DIFF = 0.25               # A/E Platz 30 Tage so viel über/unter 365 Tagen -> Feuer/Eis
 TREND_MIN_STARTS = 5            # so viele Starts in 30 Tagen braucht der Trend
 VORLIEBEN_JT_TAGE = 730         # Jockey-/Trainer-Vorlieben: letzte zwei Jahre
 GEGNER_LAEUFE = LETZTE_LAEUFE   # für so viele der letzten Läufe werden die Gegner verfolgt (alle Gegner je Lauf)
+# A/E Platz: Platz = 1.–2. bei bis zu PLATZ_GRENZE Startern, sonst 1.–3.; erwartet nach Harville mit Korrektur
+PLATZ_GRENZE = 7
+HARVILLE_L2, HARVILLE_L3 = 0.8, 0.65   # Stauchung p^λ für Platz 2 und 3 (Lo / Bacon-Shone)
 KLASSE_TAGE = 365               # Klasse: Ø Gewinnsumme je Lauf der Teilnehmer in so vielen Tagen davor
 DUELL_TAGE = 365                # Heutige Gegner · frühere Duelle: nur Rennen der letzten so vielen Tage
 BOX_MIN_LAEUFE = 15             # Startbox-Abweichung: ab so vielen Läufen aus der Box auf der Konfiguration farbig
@@ -237,6 +240,52 @@ def konfig_schluessel(r: pd.DataFrame) -> pd.Series:
     return standardzeiten.konfiguration(x)
 
 
+def harville_platz(p, plaetze: int, l2: float = HARVILLE_L2, l3: float = HARVILLE_L3) -> np.ndarray:
+    """Platzwahrscheinlichkeit je Starter aus Siegwahrscheinlichkeiten p (Harville mit Korrektur):
+    P = p_i + Σ_j p_j·q2_i/(1−q2_j) [+ Σ_j Σ_k p_j·q2_k/(1−q2_j)·q3_i/(1−q3_j−q3_k)], q2 ∝ p^l2, q3 ∝ p^l3.
+    p wird zuvor auf 1 normiert (Marge heraus); l2 = l3 = 1 ergibt das reine Harville-Modell."""
+    p = np.asarray(p, float)
+    p = p / p.sum()
+    n = len(p)
+    if plaetze >= n:
+        return np.ones(n)
+    q2 = p ** l2
+    q2 = q2 / q2.sum()
+    A = p[:, None] * q2[None, :] / np.clip(1 - q2[:, None], 1e-12, None)
+    np.fill_diagonal(A, 0.0)
+    P = p + A.sum(axis=0)
+    if plaetze >= 3:
+        q3 = p ** l3
+        q3 = q3 / q3.sum()
+        nenner = 1 - q3[:, None] - q3[None, :]
+        B = np.where(nenner > 1e-12, A / np.where(nenner > 1e-12, nenner, 1.0), 0.0)
+        np.fill_diagonal(B, 0.0)
+        P = P + q3 * (B.sum() - B.sum(axis=1) - B.sum(axis=0))
+    return np.clip(P, 0.0, 1.0)
+
+
+def platz_erwartung(h: pd.DataFrame) -> pd.Series:
+    """Erwartete Platzwahrscheinlichkeit je Starter aus den Endquoten seines Rennens (Harville mit Korrektur).
+    Marge herausgerechnet über die Starter mit Quote; ohne Quote (oder < 2 Quoten im Rennen) NaN."""
+    out = pd.Series(np.nan, index=h.index)
+    if h.empty:
+        return out
+    q = pd.to_numeric(h["odds_final"], errors="coerce")
+    ok = q.notna() & (q > 1)
+    d = pd.DataFrame({"race": h.loc[ok, "race_id"].astype(str), "p": 1 / q[ok], "n": h.loc[ok, "n_runners"],
+                      "pos": np.flatnonzero(ok.to_numpy())}).sort_values("race", kind="stable")
+    werte = np.full(len(h), np.nan)
+    race, p, n, pos = (d[c].to_numpy() for c in ("race", "p", "n", "pos"))
+    grenzen = np.flatnonzero(race[1:] != race[:-1]) + 1
+    for a, b in zip(np.r_[0, grenzen], np.r_[grenzen, len(race)]):
+        if b - a < 2:
+            continue
+        n_ = int(n[a]) if not np.isnan(n[a]) else b - a
+        werte[pos[a:b]] = harville_platz(p[a:b], 2 if n_ <= PLATZ_GRENZE else 3)
+    out[:] = werte
+    return out
+
+
 def preisgeld_je_platz(r: pd.DataFrame) -> pd.DataFrame:
     """pz1 … pz5 je Rennen: Preisgeld für Platz 1 … 5 (PMU montantOffert…, sonst Anteil am Rennpreis)."""
     r = r.copy()
@@ -326,7 +375,9 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     h = h.drop(columns=pz)
     h["n_runners"] = h.groupby("race_id")["saddle_no"].transform("count")
     h["won"] = (h["finish_pos"] == 1).astype(int)
-    h["placed"] = (h["finish_pos"] <= 3).astype(int)
+    # Platz: bis PLATZ_GRENZE Starter 1.–2., ab 8 Startern 1.–3.
+    h["is_place"] = (h["finish_pos"] <= np.where(h["n_runners"] <= PLATZ_GRENZE, 2, 3)).astype(int)
+    h["placed"] = h["is_place"]
     h["age_bucket"] = h["age"].map(age_bucket)
     h["age_grp"] = h["age"].map(alter_gruppe)
     h["valeur"] = pd.to_numeric(h["rating"], errors="coerce") if "rating" in h else np.nan
@@ -337,6 +388,7 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     fav = h.groupby("race_id")["odds_final"].transform("min")
     h["odds_rank"] = h.groupby("race_id")["odds_final"].rank(method="min")   # Rang der Eventualquote
     h["favourite"] = (h["odds_final"] == fav) & h["odds_final"].notna()
+    h["exp_place"] = platz_erwartung(h)
     # relative Platzierung: 1 = Sieger, 0 = Letzter (für die Startbox-Abweichung)
     h["draw"] = pd.to_numeric(h["draw"], errors="coerce") if "draw" in h else np.nan
     h["rel_place"] = ((h["n_runners"] - h["finish_pos"]) / (h["n_runners"] - 1)).where(h["n_runners"] > 1).clip(0, 1)
@@ -633,18 +685,27 @@ def pace_szenario(stile: list[dict], dist_bucket: str | None, kal: dict) -> dict
 # Statistiken
 # --------------------------------------------------------------------------
 def _rec(g: pd.DataFrame) -> dict:
+    """Bilanz einer Gruppe. A/E = A/E Platz: Plätze ÷ Σ erwartete Platzwahrscheinlichkeit (Harville mit Korrektur,
+    ohne Marge), nur Läufe mit Quote. ae_win: klassisches A/E auf Sieg (Siege ÷ Σ 1/Quote) zum Vergleich."""
     runs = int(len(g))
     wins = int(g["won"].sum())
     mit = g["odds_final"].notna()
-    exp = float((1 / g.loc[mit, "odds_final"]).sum())
+    exp_w = float((1 / g.loc[mit, "odds_final"]).sum())
     wins_mit = int(g.loc[mit, "won"].sum())
+    if "exp_place" in g:
+        mp = g["exp_place"].notna()
+        exp = float(g.loc[mp, "exp_place"].sum())
+        pl_mit = int(g.loc[mp, "placed"].sum())
+    else:
+        exp, pl_mit = 0.0, 0
     epr = float(g["prize_won"].mean()) if runs and "prize_won" in g else None
     return {"runs": runs, "wins": wins, "places": int(g["placed"].sum()),
-            "exp": _num(exp), "ae": _num(wins_mit / exp) if exp > 0 else None, "epr": _num(epr, 0)}
+            "exp": _num(exp), "ae": _num(pl_mit / exp) if exp > 0 else None,
+            "ae_win": _num(wins_mit / exp_w) if exp_w > 0 else None, "epr": _num(epr, 0)}
 
 
 def _leer() -> dict:
-    return {"runs": 0, "wins": 0, "places": 0, "exp": None, "ae": None, "epr": None}
+    return {"runs": 0, "wins": 0, "places": 0, "exp": None, "ae": None, "ae_win": None, "epr": None}
 
 
 def _perzentil(sortiert: np.ndarray, wert) -> int | None:

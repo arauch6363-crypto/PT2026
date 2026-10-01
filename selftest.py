@@ -542,13 +542,26 @@ def racecard_pruefen() -> None:
                              "finish_pos": None}])
     d = rc.baue_daten(hist, heute_r, heute_s, tag)
     x, y = d["races"][f"{tag:%Y%m%d}R1C1"]["runners"]
-    pruefe(x["ae"]["trainer"]["d90"] == {"runs": 2, "wins": 1, "places": 2, "exp": 0.75, "ae": 1.33,
+    pruefe(x["ae"]["trainer"]["d90"] == {"runs": 2, "wins": 1, "places": 2, "exp": 2.0, "ae": 1.0, "ae_win": 1.33,
                                          "epr": round((13500 + 5130) / 2)},
-           "Trainer-A/E 90 Tage = 1 Sieg / (1/4 + 1/2) = 1,33; Gewinn je Lauf (13500 + 5130) / 2")
-    pruefe(x["ae"]["trainer"]["d365"]["runs"] == 3 and x["ae"]["trainer"]["d365"]["ae"] == 1.05,
-           "Trainer-A/E 365 Tage schließt den Lauf vor 100 Tagen ein (1 / 0,95 = 1,05)")
-    pruefe(rc._ae_trend({"runs": 6, "ae": 1.6}, {"runs": 90, "ae": 1.0}) == "hot"
-           and rc._ae_trend({"runs": 12, "ae": 0.3}, {"runs": 90, "ae": 1.0}) == "cold"
+           "A/E Platz 90 Tage: 2 Starter -> beide sicher platziert (erwartet 2, A/E 1,00); A/E Sieg 1,33 zum Vergleich")
+    # Rennen vor 100 Tagen: 3 Starter (Quoten 3 / 5 / 9) -> Platz = 1.–2.; X wurde (zeitgleich) Zweiter
+    px = rc.harville_platz(np.array([1 / 3, 1 / 5, 1 / 9]), 2)[1]
+    t365 = x["ae"]["trainer"]["d365"]
+    pruefe(t365["runs"] == 3 and abs(t365["exp"] - (2 + px)) < 0.01 and t365["ae"] == round(3 / (2 + px), 2),
+           f"A/E Platz 365 Tage = 3 Plätze ÷ (2 + {px:.3f}) – Harville mit Korrektur, Marge herausgerechnet")
+    q_ = [2.5, 4, 6, 10, 20, 30]
+    rest_ = 1.19 - sum(1 / v for v in q_)
+    p_ = np.array([1 / v for v in q_] + [rest_ / 2] * 2)
+    roh_, korr_ = 1 / rc.harville_platz(p_, 3, 1, 1), 1 / rc.harville_platz(p_, 3)
+    pruefe(np.allclose(roh_[:6], [1.29, 1.62, 2.15, 3.31, 6.30, 9.30], atol=0.02)
+           and np.allclose(korr_[:6], [1.41, 1.76, 2.23, 3.13, 5.10, 6.84], atol=0.02)
+           and abs(rc.harville_platz(p_, 3).sum() - 3) < 1e-9 and abs(rc.harville_platz(p_[:6], 2).sum() - 2) < 1e-9,
+           "Harville-Platzquoten wie in der Tabelle (roh 1,29 … 9,30; korrigiert 1,41 … 6,84), Summe = Zahl der Plätze")
+    pruefe(hist.loc[hist["race_id"] == rid(100, 1), "is_place"].tolist() == [1, 1, 1]
+           and rc.PLATZ_GRENZE == 7, "is_place: bis 7 Starter 1.–2. (totes Rennen um Platz 2 zählt doppelt), ab 8 1.–3.")
+    pruefe(rc._ae_trend({"runs": 6, "ae": 1.3}, {"runs": 90, "ae": 1.0}) == "hot"
+           and rc._ae_trend({"runs": 12, "ae": 0.7}, {"runs": 90, "ae": 1.0}) == "cold"
            and rc._ae_trend({"runs": 3, "ae": 3.0}, {"runs": 90, "ae": 1.0}) is None,
            "Feuer/Eis: 30 Tage deutlich über/unter 365 Tagen, erst ab 5 Starts")
     boden = x["pref"]["horse"]["going"]

@@ -244,6 +244,10 @@ Je Starter:
   ARR und Ergänzung identisch, RTR identisch bei gleicher Reihenfolge der Starter (hier: Einlauf). Bereinigt
   nach Gewicht: `x_adj = x − Gewicht + 55` – in der Übersicht mit dem heutigen Gewicht (RTR aktuell, ARR nach Distanz- und
   Going-Ähnlichkeit gewichteter Ø der letzten 5 Läufe wie TR, Rang im Feld), in den Formzeilen ebenfalls mit dem heutigen Gewicht (ARR 36, heute 52 kg -> 39); klein daneben der Rohwert.
+* **A/E Platz** statt A/E auf Sieg: Plätze ÷ Σ erwartete Platzwahrscheinlichkeit. Platz (`is_place`) = 1.–2. bei
+  bis zu 7 Startern, 1.–3. ab 8. Erwartung aus den Endquoten: Marge herausgerechnet, dann Harville mit Korrektur
+  (`racecard.harville_platz`, p^0,8 für Platz 2, p^0,65 für Platz 3). Ohne Marge liegt der Schnitt bei 1; A/E Sieg
+  steht zum Vergleich im Tooltip.
 * **A/E** für Trainer und Jockey über 30, 90 und 365 Tage; Abstammung (Vater, Muttervater und
   Cross Vater × Muttervater) über die gesamte Historie. Muttervater aus `dam_sire` (Programm) bzw.
   `p_nomPereMere` (pmu_basis).
