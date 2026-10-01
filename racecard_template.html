@@ -643,9 +643,9 @@ function detailHTML(x, race){
       <div class="panel"><h4>Pferd nach Trainer (gesamt)</h4>${trainerTable(P.horse.trainer)}</div>
     </div>
     <div class="panel"><h4>Heutige Gegner · frühere Duelle (letzte ${DATA.params.duel_days} Tage)</h4>${x.duels.length
-      ? `<button class="riv-btn" type="button" data-duel="1" data-k="${dk}" aria-expanded="${dOffen}">${dOffen ? "▾" : "▸"} ${duelKnopf(x.duels_sum, x.duels.length)}</button>${dOffen ? duelsHTML(x.duels) : ""}`
+      ? `<button class="riv-btn" type="button" data-duel="1" data-k="${dk}" aria-expanded="${dOffen}">${dOffen ? "▾" : "▸"} ${duelKnopf(x.duels_sum, x.duels.length)}</button>${dOffen ? duelsHTML(x.duels, race) : ""}`
       : `<p class="muted">Kein heutiger Gegner ist in den letzten ${DATA.params.duel_days} Tagen schon gegen ${esc(title(x.horse))} gelaufen.</p>`}</div>
-    <div class="panel"><h4>Heutige Gegner · indirekte Duelle (letzte ${DATA.params.ind_days} Tage)</h4>${indirektHTML(x)}</div>
+    <div class="panel"><h4>Heutige Gegner · indirekte Duelle (letzte ${DATA.params.ind_days} Tage)</h4>${indirektHTML(x, race)}</div>
     <div class="panel"><h4>Letzte Läufe</h4>${formTable(x.form_lines, x.no, x.weight, x.rating)}</div>
   </div>`;
 }
@@ -656,7 +656,15 @@ function duelKnopf(S, n){
   return S.ahead + S.behind ? `${t} · vorne erwartet gegen ${S.ahead}/${S.ahead + S.behind}` : t;
 }
 // Indirekte Duelle: Vergleich über gemeinsame frühere Gegner, je heutigem Gegner zusammengefasst
-function indirektHTML(x){
+// Heutiger Gegner: Nummer, Name und Rang in der PMU-Prognose von allen Startern, z. B. "9 Hey Man 1/10"
+function gegnerHeute(no, name, race){
+  const feld = race.runners.filter(r => !r.nr), g = race.runners.find(r => r.no === no);
+  const S = g && g.prono && g.prono.sel;
+  const rang = `${S ? S.rank : "–"}/${feld.length}`;
+  const tip = S ? `PMU-Prognose: Rang ${S.rank} von ${feld.length} Startern, cote probable ${S.cote}` : `nicht in der PMU-Auswahl (${feld.length} Starter)`;
+  return `${no ? `<b class="num">${no}</b> ` : ""}${esc(title(name))} <span class="muted num" title="${esc(tip)}">${rang}</span>`;
+}
+function indirektHTML(x, race){
   const I = x.indirect;
   if (!I) return `<p class="muted">Kein gemeinsamer früherer Gegner mit einem heutigen Gegner (Vergleichsrennen der letzten ${DATA.params.ind_days} Tage, ±${DATA.params.ind_dist} m, Boden innerhalb einer Stufe, alle drei in der vorderen Feldhälfte).</p>`;
   const k = `${x.no}|ind`, offen = state.duels.has(k);
@@ -666,7 +674,7 @@ function indirektHTML(x){
     I.rivals.map(e => {
       const c = e.exp_kg == null ? "" : e.exp_kg > 0 ? "up" : e.exp_kg < 0 ? "down" : "";
       const erw = e.exp_kg == null ? "–" : e.exp_kg === 0 ? "gleichauf" : `${fx(Math.abs(e.exp_kg),1)} kg / ${fx(Math.abs(e.exp_l ?? 0),1)} L ${e.exp_kg > 0 ? "vor ihm" : "hinter ihm"}`;
-      return `<tr><td>${e.rival_no ? `<b class="num">${e.rival_no}</b> ` : ""}${esc(title(e.rival))}</td>
+      return `<tr><td>${gegnerHeute(e.rival_no, e.rival, race)}</td>
         <td title="${esc(e.common.map(title).join(", "))}">${e.common.length} ${e.common.length === 1 ? "Pferd" : "Pferde"} <span class="muted">(${e.n} ${e.n === 1 ? "Vergleich" : "Vergleiche"})</span></td>
         <td class="r num"><span class="${(e.then_kg ?? 0) > 0 ? "up" : (e.then_kg ?? 0) < 0 ? "down" : ""}">${kg(e.then_kg)}</span></td>
         <td class="r num">${kg(e.w_today)}</td>
@@ -674,14 +682,14 @@ function indirektHTML(x){
     <p class="muted" style="margin:4px 0 0;font-size:11.5px">Vergleichsrennen: letzte ${DATA.params.ind_days} Tage, ±${DATA.params.ind_dist} m, Boden innerhalb einer Stufe (PSF nur mit PSF), dieses Pferd, der gemeinsame Gegner und der heutige Gegner jeweils in der vorderen Hälfte des Feldes. Mehrere gemeinsame Gegner bzw. Vergleiche: Durchschnitt.</p></div>`;
   return `<button class="riv-btn" type="button" data-duel="1" data-k="${k}" aria-expanded="${offen}">${offen ? "▾" : "▸"} ${knopf}</button>${offen ? tab : ""}`;
 }
-function duelsHTML(list){
+function duelsHTML(list, race){
   const kg = v => v == null ? "–" : sgn(v, 1) + " kg";
   return `<div class="rivals duels scroll"><table><thead><tr><th>Gegner heute</th><th>Rennen</th><th class="r">Platz</th><th class="r">Abstand</th><th class="r">Gewicht damals</th><th class="r">Diff. damals</th><th class="r">Diff. heute</th><th class="r">Verschiebung</th><th class="r" title="Abstand damals − Verschiebung des Gewichtsunterschieds, 1 kg = 1 Länge">heute erwartet</th></tr></thead><tbody>${
     list.map(d => {
       const ab = d.diff_l == null ? "–" : d.diff_l > 0 ? `${fx(d.diff_l,1)} L vor ihm` : d.diff_l < 0 ? `${fx(-d.diff_l,1)} L hinter ihm` : "gleichauf";
       const cls = d.diff_l == null ? "" : d.diff_l > 0 ? "up" : d.diff_l < 0 ? "down" : "";
       const sh = d.shift == null ? "–" : d.shift === 0 ? "unverändert" : `<span class="${d.shift > 0 ? "down" : "up"}">${kg(d.shift)} ${d.shift > 0 ? "ungünstiger" : "günstiger"}</span>`;
-      return `<tr><td>${d.rival_no ? `<b class="num">${d.rival_no}</b> ` : ""}${esc(title(d.rival))}</td>
+      return `<tr><td>${gegnerHeute(d.rival_no, d.rival, race)}</td>
         <td>${dt(d.date)} · ${esc(title(d.course))} ${d.dist ?? ""} m <span class="muted">${esc(d.going || "")}${d.type ? " · " + esc(d.type) : ""}</span></td>
         <td class="r num"><b>${d.pos ?? "–"}</b> / ${d.rival_pos ?? "–"} <span class="muted">(${d.ran ?? "–"})</span></td>
         <td class="r num"><span class="${cls}">${ab}</span></td>
