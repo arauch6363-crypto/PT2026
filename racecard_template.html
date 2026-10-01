@@ -590,9 +590,10 @@ const fmtEur = v => v >= 1000 ? (v/1000).toFixed(1).replace(/\.0$/,"") + "k" : S
 
 function trainerTable(rows){
   if (!rows || !rows.length) return `<p class="muted">Keine Läufe in der Historie.</p>`;
-  const zr = z => z.from === z.to ? dt(z.from) : `${dt(z.from)} – ${dt(z.to)}`;
+  const mj = d => { const [y, m] = d.split("-"); return `${MON[+m-1]} ${y.slice(2)}`; };   // "May 24"
+  const zr = z => mj(z.from) === mj(z.to) ? mj(z.from) : `${mj(z.from)} – ${mj(z.to)}`;
   return `<div class="scroll"><table class="preftab"><thead><tr><th>Trainer</th><th>Zeitraum</th><th class="r">S-L</th><th class="r">Plätze</th><th class="r">A/E</th></tr></thead><tbody>${
-    rows.map(z => `<tr class="${z.today ? "today" : ""}"><td>${esc(z.label)}${z.today ? ` <span class="heute">heute</span>` : ""}</td><td class="num">${zr(z)}</td><td class="r num">${z.wins}-${z.runs} (${pct(z.wins,z.runs)})</td><td class="r num">${z.places}</td><td class="r">${aeChip(z, 5)}</td></tr>`).join("")}</tbody></table></div>`;
+    rows.map(z => `<tr class="${z.today ? "today" : ""}"><td>${esc(z.label)}${z.today ? ` <span class="heute">heute</span>` : ""}</td><td class="num" title="${esc(`${dt(z.from)} – ${dt(z.to)}`)}">${zr(z)}</td><td class="r num">${z.wins}-${z.runs} (${pct(z.wins,z.runs)})</td><td class="r num">${z.places}</td><td class="r">${aeChip(z, 5)}</td></tr>`).join("")}</tbody></table></div>`;
 }
 function prefTable(rows, head){
   if (!rows || !rows.length) return `<p class="muted">Keine Läufe in der Historie.</p>`;
@@ -642,8 +643,9 @@ function detailHTML(x, race){
       <div class="panel"><h4>Pferd nach Trainer (gesamt)</h4>${trainerTable(P.horse.trainer)}</div>
     </div>
     <div class="panel"><h4>Heutige Gegner · frühere Duelle (letzte ${DATA.params.duel_days} Tage)</h4>${x.duels.length
-      ? `<button class="riv-btn" type="button" data-duel="1" data-k="${dk}" aria-expanded="${dOffen}">${dOffen ? "▾" : "▸"} ${duelKnopf(x.duels_sum, x.duels.length)}</button>${dOffen ? duelSummeHTML(x.duels_sum) + duelsHTML(x.duels) : ""}`
+      ? `<button class="riv-btn" type="button" data-duel="1" data-k="${dk}" aria-expanded="${dOffen}">${dOffen ? "▾" : "▸"} ${duelKnopf(x.duels_sum, x.duels.length)}</button>${dOffen ? duelsHTML(x.duels) : ""}`
       : `<p class="muted">Kein heutiger Gegner ist in den letzten ${DATA.params.duel_days} Tagen schon gegen ${esc(title(x.horse))} gelaufen.</p>`}</div>
+    <div class="panel"><h4>Heutige Gegner · indirekte Duelle (letzte ${DATA.params.ind_days} Tage)</h4>${indirektHTML(x)}</div>
     <div class="panel"><h4>Letzte Läufe</h4>${formTable(x.form_lines, x.no, x.weight, x.rating)}</div>
   </div>`;
 }
@@ -653,19 +655,28 @@ function duelKnopf(S, n){
   const t = `${n} ${n === 1 ? "Duell" : "Duelle"} mit ${S.n} heutigen ${S.n === 1 ? "Gegner" : "Gegnern"}`;
   return S.ahead + S.behind ? `${t} · vorne erwartet gegen ${S.ahead}/${S.ahead + S.behind}` : t;
 }
-function duelSummeHTML(S){
-  return `<div class="rivals duels scroll"><table><thead><tr><th>Gegner heute</th><th>letztes Duell</th><th class="r">Abstand damals</th><th class="r">Gewicht heute</th><th class="r" title="Abstand damals − Verschiebung des Gewichtsunterschieds, 1 kg = 1 Länge">heute erwartet</th></tr></thead><tbody>${
-    S.rivals.map(e => {
-      const L = v => v == null ? "–" : v > 0 ? `${fx(v,1)} L vor ihm` : v < 0 ? `${fx(-v,1)} L hinter ihm` : "gleichauf";
-      const c = v => v == null ? "" : v > 0 ? "up" : v < 0 ? "down" : "";
-      const sh = e.shift == null ? "–" : e.shift === 0 ? "unverändert" : `${sgn(e.shift,1)} kg ${e.shift > 0 ? "ungünstiger" : "günstiger"}`;
-      return `<tr><td>${e.rival_no ? `<b class="num">${e.rival_no}</b> ` : ""}${esc(title(e.rival))}${e.n > 1 ? ` <span class="muted">(${e.n} Duelle)</span>` : ""}</td><td>${dt(e.date)}</td>
-        <td class="r num"><span class="${c(e.diff_l)}">${L(e.diff_l)}</span></td><td class="r num">${sh}</td>
-        <td class="r num"><span class="verdict-chip ${c(e.exp_l)}">${L(e.exp_l)}</span></td></tr>`; }).join("")}</tbody></table></div>`;
+// Indirekte Duelle: Vergleich über gemeinsame frühere Gegner, je heutigem Gegner zusammengefasst
+function indirektHTML(x){
+  const I = x.indirect;
+  if (!I) return `<p class="muted">Kein gemeinsamer früherer Gegner mit einem heutigen Gegner (Vergleichsrennen der letzten ${DATA.params.ind_days} Tage, ±${DATA.params.ind_dist} m, Boden innerhalb einer Stufe, alle drei in der vorderen Feldhälfte).</p>`;
+  const k = `${x.no}|ind`, offen = state.duels.has(k);
+  const knopf = `Vergleich mit ${I.n} heutigen ${I.n === 1 ? "Gegner" : "Gegnern"} über gemeinsame Gegner` + (I.ahead + I.behind ? ` · vorne erwartet gegen ${I.ahead}/${I.ahead + I.behind}` : "");
+  const kg = v => v == null ? "–" : sgn(v, 1) + " kg";
+  const tab = `<div class="rivals duels scroll"><table><thead><tr><th>Gegner heute</th><th>gemeinsame Gegner</th><th class="r" title="Ø Leistungsunterschied in den Vergleichsrennen: Längen × kg je Länge (Boden × Distanz) + Mehrgewicht, jeweils gegen den gemeinsamen Gegner; + = dieses Pferd besser">damals</th><th class="r" title="eigenes Gewicht heute − Gewicht des Gegners heute">Mehrgewicht heute</th><th class="r" title="damals − Mehrgewicht heute; in Längen mit kg je Länge von heute (${fx(I.kpl,2)} kg)">heute erwartet</th></tr></thead><tbody>${
+    I.rivals.map(e => {
+      const c = e.exp_kg == null ? "" : e.exp_kg > 0 ? "up" : e.exp_kg < 0 ? "down" : "";
+      const erw = e.exp_kg == null ? "–" : e.exp_kg === 0 ? "gleichauf" : `${fx(Math.abs(e.exp_kg),1)} kg / ${fx(Math.abs(e.exp_l ?? 0),1)} L ${e.exp_kg > 0 ? "vor ihm" : "hinter ihm"}`;
+      return `<tr><td>${e.rival_no ? `<b class="num">${e.rival_no}</b> ` : ""}${esc(title(e.rival))}</td>
+        <td title="${esc(e.common.map(title).join(", "))}">${e.common.length} ${e.common.length === 1 ? "Pferd" : "Pferde"} <span class="muted">(${e.n} ${e.n === 1 ? "Vergleich" : "Vergleiche"})</span></td>
+        <td class="r num"><span class="${(e.then_kg ?? 0) > 0 ? "up" : (e.then_kg ?? 0) < 0 ? "down" : ""}">${kg(e.then_kg)}</span></td>
+        <td class="r num">${kg(e.w_today)}</td>
+        <td class="r num"><span class="verdict-chip ${c}">${erw}</span></td></tr>`; }).join("")}</tbody></table>
+    <p class="muted" style="margin:4px 0 0;font-size:11.5px">Vergleichsrennen: letzte ${DATA.params.ind_days} Tage, ±${DATA.params.ind_dist} m, Boden innerhalb einer Stufe (PSF nur mit PSF), dieses Pferd, der gemeinsame Gegner und der heutige Gegner jeweils in der vorderen Hälfte des Feldes. Mehrere gemeinsame Gegner bzw. Vergleiche: Durchschnitt.</p></div>`;
+  return `<button class="riv-btn" type="button" data-duel="1" data-k="${k}" aria-expanded="${offen}">${offen ? "▾" : "▸"} ${knopf}</button>${offen ? tab : ""}`;
 }
 function duelsHTML(list){
   const kg = v => v == null ? "–" : sgn(v, 1) + " kg";
-  return `<div class="rivals duels scroll"><table><thead><tr><th>Gegner heute</th><th>Rennen</th><th class="r">Platz</th><th class="r">Abstand</th><th class="r">Gewicht damals</th><th class="r">Diff. damals</th><th class="r">Diff. heute</th><th class="r">Verschiebung</th></tr></thead><tbody>${
+  return `<div class="rivals duels scroll"><table><thead><tr><th>Gegner heute</th><th>Rennen</th><th class="r">Platz</th><th class="r">Abstand</th><th class="r">Gewicht damals</th><th class="r">Diff. damals</th><th class="r">Diff. heute</th><th class="r">Verschiebung</th><th class="r" title="Abstand damals − Verschiebung des Gewichtsunterschieds, 1 kg = 1 Länge">heute erwartet</th></tr></thead><tbody>${
     list.map(d => {
       const ab = d.diff_l == null ? "–" : d.diff_l > 0 ? `${fx(d.diff_l,1)} L vor ihm` : d.diff_l < 0 ? `${fx(-d.diff_l,1)} L hinter ihm` : "gleichauf";
       const cls = d.diff_l == null ? "" : d.diff_l > 0 ? "up" : d.diff_l < 0 ? "down" : "";
@@ -675,8 +686,9 @@ function duelsHTML(list){
         <td class="r num"><b>${d.pos ?? "–"}</b> / ${d.rival_pos ?? "–"} <span class="muted">(${d.ran ?? "–"})</span></td>
         <td class="r num"><span class="${cls}">${ab}</span></td>
         <td class="r num">${d.weight != null ? fx(d.weight,1) : "–"} / ${d.rival_weight != null ? fx(d.rival_weight,1) : "–"}</td>
-        <td class="r num">${kg(d.w_then)}</td><td class="r num">${kg(d.w_today)}</td><td class="r num">${sh}</td></tr>`; }).join("")}</tbody></table>
-    <p class="muted" style="margin:4px 0 0;font-size:11.5px">Platz: dieses Pferd / Gegner (Starter). Diff. = eigenes Gewicht − Gewicht des Gegners; Verschiebung = Diff. heute − Diff. damals (+ = trägt heute im Vergleich mehr, also ungünstiger).</p></div>`;
+        <td class="r num">${kg(d.w_then)}</td><td class="r num">${kg(d.w_today)}</td><td class="r num">${sh}</td>
+        <td class="r num">${d.exp_l == null ? "–" : `<span class="verdict-chip ${d.exp_l > 0 ? "up" : d.exp_l < 0 ? "down" : ""}">${d.exp_l > 0 ? `${fx(d.exp_l,1)} L vor ihm` : d.exp_l < 0 ? `${fx(-d.exp_l,1)} L hinter ihm` : "gleichauf"}</span>`}</td></tr>`; }).join("")}</tbody></table>
+    <p class="muted" style="margin:4px 0 0;font-size:11.5px">Platz: dieses Pferd / Gegner (Starter). Diff. = eigenes Gewicht − Gewicht des Gegners; Verschiebung = Diff. heute − Diff. damals (+ = trägt heute im Vergleich mehr, also ungünstiger). Heute erwartet = Abstand damals − Verschiebung (1 kg = 1 Länge); am Knopf zählt je Gegner das letzte Duell.</p></div>`;
 }
 
 function fifthSVG(f, pos, ran, m){
@@ -803,7 +815,7 @@ function renderLegend(){
     <div><b>ΔL600 A / ΔB200 A</b> (km/h): Tempo der letzten 600 m bzw. schnellstes 200-m-Segment der letzten 800 m gegenüber der Erwartung. Verglichen wird nur mit den Startern desselben <b>Tages auf demselben Kurs bei gleicher Bodengruppe</b> (Very fast, Fast, Slow, Very slow, PSF), korrigiert um Kurs × Distanz und das Tempo des Rennens (Pace-Ratio, linear und quadratisch je Distanzgruppe). Weil der Mittelwert einer solchen Gruppe auch ihre Klasse enthält, kommt eine <b>Klassenkorrektur</b> dazu: β × (Ø Klasse der Gruppe − Ø Klasse aller Läufe), β aus Altersklasse und log. Preisgeld über die ganze Historie – ein Tag mit nur schwachen Rennen wird abgewertet, ein starker aufgewertet (Wert im Tooltip). + = schneller als erwartet. Rennen nur mit Pace-Ratio im 1.–99. Perzentil und mindestens 5 Rennen je Kurs × Distanz. Mehr als ${p.beaten_l} Längen Geschlagene gelten als ausgeritten und zählen nicht in den Schnitt. Übersicht: Ø der letzten ${p.avg_runs} Läufe mit Tracking, gewichtet nach Distanzähnlichkeit (halbes Gewicht bei ${p.avg_dist_m} m Unterschied) × Going-Ähnlichkeit (halbes Gewicht bei ${p.going_stufen} Bodengruppe Abstand; PSF gegen Gras ${p.going_psf}), zum Nullpunkt geschrumpft; ± = Streuung der Einzelläufe; darunter der Rang im heutigen Feld. <b>Finish-Index</b> = Tempo letzte 400 m ÷ Tempo davor × 100 (klein: bereinigt).</div>
     <div><b>Pos. vor Finish</b>: Platz ${p.pos_before_m} m vor dem Ziel, eingeteilt in Fünftel des Feldes (hervorgehoben). <b>Pace-Ratio</b>: Tempo der frühen Phase ÷ Tempo der letzten ≥ 600 m × 100; unter 100 Schlusssprint, über 100 schnell angegangen. <b>Weg m</b>: gelaufene Meter gegenüber dem Median aller Starter im Rennen (≈ 2,4 m je Länge); + = weiter gelaufen, meist außen.</div>
     <div><b>RTR</b> (Rating nach dem Rennen, in kg): Elo-artig, Rennen für Rennen in zeitlicher Reihenfolge. Start mit dem offiziellen Rating (sonst 30); in jedem Rennen tritt jedes Pferd gegen jedes andere an – erwartet wird ein Abstand aus Rating − 0,625 × Gewicht, verglichen mit dem tatsächlichen Abstand in Längen × kg je Länge (nach Boden und Distanz), beides auf einer log. Stufe von 1 bis 5. Das Rating wandert um 0,5 × Ø Überraschung (+ kleiner Preisgeldbonus). <b>ARR</b> (Leistung im Rennen, in kg): gemessen an den Pferden im vorderen Drittel des Einlaufs – deren Rating plus Längenabstand × kg je Länge (große Abstände logarithmisch gedämpft) plus Gewichtsunterschied, Ø über diese Referenzen; fehlende Ratings der Referenzen werden aus vergleichbaren Pferden ergänzt. <b>Bereinigt</b> = Wert − Gewicht + ${p.weight_ref} – immer mit dem <b>heutigen</b> Gewicht, auch beim ARR in den Formzeilen (ein früherer ARR von 36 wird bei heute 52 kg zu 39), klein daneben der Rohwert. RTR, ΔL600 A und ΔB200 A stehen nur in der Übersicht. Übersicht: RTR = aktuelles Rating, ARR = nach Distanz- und Going-Ähnlichkeit gewichteter Ø der letzten ${p.avg_runs} Läufe (wie ΔL600 A und TR, ohne Schrumpfung); darunter der Rang im heutigen Feld.</div>
-    <div><b>Gegner</b>: für die letzten ${p.rivals_runs} Läufe alle Gegner in der Reihenfolge des Einlaufs – mit Platz im nächsten Start und ob der besser oder schlechter war als der Rang ihrer Quote. Am Knopf: besser / (besser + schlechter); grün, wenn mindestens die Hälfte der Gegner danach besser lief als ihre Quote (starkes Rennen). <b>Heutige Gegner · frühere Duelle</b>: Rennen in der Datenbank, in denen das Pferd schon auf einen heutigen Gegner traf – Platz beider, Abstand, Gewichte damals und wie sich der Gewichtsunterschied bis heute verschoben hat (+ = trägt heute im Vergleich mehr). Oben je Gegner das letzte Duell mit „heute erwartet“ = Abstand damals − Verschiebung (1 kg = 1 Länge); am Knopf: vorne erwartet gegen x von y Gegnern.</div>
+    <div><b>Gegner</b>: für die letzten ${p.rivals_runs} Läufe alle Gegner in der Reihenfolge des Einlaufs – mit Platz im nächsten Start und ob der besser oder schlechter war als der Rang ihrer Quote. Am Knopf: besser / (besser + schlechter); grün, wenn mindestens die Hälfte der Gegner danach besser lief als ihre Quote (starkes Rennen). <b>Heutige Gegner · frühere Duelle</b>: Rennen in der Datenbank, in denen das Pferd schon auf einen heutigen Gegner traf – Platz beider, Abstand, Gewichte damals und wie sich der Gewichtsunterschied bis heute verschoben hat (+ = trägt heute im Vergleich mehr). Je Duell „heute erwartet“ = Abstand damals − Verschiebung (1 kg = 1 Länge); am Knopf: vorne erwartet gegen x von y Gegnern (je Gegner das letzte Duell). <b>Indirekte Duelle</b>: Vergleich mit heutigen Gegnern über gemeinsame frühere Gegner – Vergleichsrennen der letzten ${p.ind_days} Tage, ±${p.ind_dist} m, Boden innerhalb einer Stufe (PSF nur mit PSF), alle drei Pferde in der vorderen Feldhälfte. Leistung gegen den gemeinsamen Gegner = Längen × kg je Länge (Boden × Distanz) + Mehrgewicht; daraus der Unterschied zum heutigen Gegner, abzüglich des heutigen Mehrgewichts = heute erwartet (kg, in Längen mit kg je Länge von heute); mehrere Vergleiche gemittelt.</div>
     <div><b>Farben</b>: Rating, Tage, RTR, ARR und TR in der Übersicht nach dem Rang im heutigen Feld – grün oberes Drittel, rot unteres Drittel (bei Tagen umgekehrt: grün = frisch, rot = lange Pause). In den früheren Läufen ARR, TR und Klasse (Val, €/L) im Vergleich zu allen früheren Läufen der heutigen Starter – grün = hoher Wert für dieses Rennen, rot = niedriger. <b>±800</b> grün ab 3 gewonnenen, rot ab 3 verlorenen Plätzen; <b>Weg m</b> rot ab 7,5 m mehr (≈ 3 Längen, meist weit außen), grün ab 7,5 m weniger. <b>Rating</b>: darunter die letzte Siegmarke (S) im Handicap, ohne Handicap-Sieg die letzte Platzmarke (P, 1.–3.), in Klammern heute im Vergleich.</div>
     <div><b>PMU-Prognose</b> (vor dem Rennen): Kommentar der PMU-Redaktion zum Rennen, Auswahl mit <b>cote probable</b> (geschätzte Quote, z. B. 4/1 = 4,0) und Konsens der Tippgeber (Punkte je Liste nach Position, Borda). Am Pferd: <b>P1</b> … Rang in der PMU-Auswahl, <b>T5</b> = in 5 Tipp-Listen, ohne PMU-Auswahl; im Prognose-Kasten rechts die cote probable, ganz unten in der Starterzeile der Kurzkommentar der PMU (kursiv, farbig hinterlegt). Texte auf Deutsch, wo möglich.</div>
     <div><b>Kommentar</b> unter dem Lauf: Kommentar von PMU zum Pferd – auf Deutsch übersetzt (Original im Tooltip), sonst französisch mit <b>FR</b>.</div>

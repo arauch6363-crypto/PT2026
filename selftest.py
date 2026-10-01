@@ -764,9 +764,30 @@ def racecard_pruefen() -> None:
     pruefe([z["label"] for z in tt] == ["Tr", "And"] and tt[0]["from"] == tt[0]["to"] == str(tag - timedelta(days=10))
            and tt[1]["to"] == str(tag - timedelta(days=100)),
            "Pferd nach Trainer: Zeitraum je Trainer, neuester zuerst")
+    T0 = pd.Timestamp(tag)
+    def lf(race, tage, going, dist, pferde):
+        n = len(pferde)
+        return [{"race_id": race, "date": T0 - timedelta(days=tage), "going_pmu": going, "distance_m": dist,
+                 "horse_id": hid, "horse": hid, "finish_pos": pos, "lengths_behind": lb, "weight_kg": w,
+                 "rel_place": (n - pos) / (n - 1)} for pos, (hid, lb, w) in enumerate(pferde, 1)]
+    hi = pd.DataFrame(lf("A", 30, "FAST", 1600, [("H", None, 58), ("C", 2.0, 56), ("F1", 3, 55), ("F2", 4, 55)])
+                      + lf("B", 20, "SLOW", 1700, [("R", None, 57), ("C", 1.0, 57), ("F3", 2, 55), ("F4", 3, 55)])
+                      + lf("P", 10, "PSF", 1600, [("R", None, 57), ("C", 9.0, 57), ("F5", 10, 55), ("F6", 11, 55)])
+                      + lf("O", 200, "FAST", 1600, [("R", None, 57), ("C", 9.0, 57), ("F7", 10, 55), ("F8", 11, 55)]))
+    ib = rc.indirekte_basis(hi, T0)
+    ind = rc._indirekte_duelle(ib, {"H": {"weight": 60.0, "no": 1}, "R": {"weight": 56.0, "no": 2}}, "Bon", 1600)
+    e_h, e_r = ind["H"]["rivals"][0], ind["R"]["rivals"][0]
+    pruefe(e_h["rival"] == "R" and e_h["n"] == 1 and e_h["common"] == ["C"] and e_h["then_kg"] == 3.4
+           and e_h["w_today"] == 4.0 and e_h["exp_kg"] == -0.6 and e_h["exp_l"] == -0.5
+           and ind["H"]["behind"] == 1 and e_r["exp_kg"] == 0.6,
+           "Indirekte Duelle: über gemeinsamen Gegner (2 L × 1,2 + 2 kg = 4,4 vs 1 L × 1,0 = 1,0 -> 3,4 kg), "
+           "heute 4 kg mehr -> 0,6 kg / 0,5 L hinten; PSF-Rennen und Rennen > 120 Tage zählen nicht")
+    pruefe(rc._boden_nah("Bon", "Souple") and not rc._boden_nah("Bon", "Lourd") and not rc._boden_nah("PSF", "Bon")
+           and rc._boden_nah("Bon léger", "Bon"), "Boden innerhalb einer Stufe, PSF nur mit PSF")
     du = x["duels"]
     pruefe(len(du) == 2 and du[0]["rival"] == "Y" and du[0]["diff_l"] == 2.0 and du[0]["shift"] == 0.0
-           and du[0]["rival_no"] == 2 and du[1]["pos"] == 2 and du[1]["rival_pos"] == 1,
+           and du[0]["rival_no"] == 2 and du[1]["pos"] == 2 and du[1]["rival_pos"] == 1
+           and du[0]["exp_l"] == 2.0 and du[1]["exp_l"] == -2.0,
            "Heutige Gegner: X traf Y zweimal – zuletzt 2 L vor ihm bei gleichem Gewicht, davor hinter ihm")
     import rtr_arr as ra
     pruefe(all(rc.going_klasse(k) == v for k, v in ra.GOING_MAP.items())
