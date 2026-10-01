@@ -301,7 +301,8 @@ PRONOSTIC_DETAIL_URLS = [u.replace("/participants", "/pronostics-detailles") for
 
 
 def cote_dezimal(c) -> float | None:
-    """Cote probable '4/1' -> 5.0, '7/2' -> 4.5, '1/2' -> 1.5; Zahl -> Zahl."""
+    """Cote probable als Dezimalquote nach PMU-Lesart (Rückzahlung je 1 € Einsatz): '4/1' -> 4.0, '7/2' -> 3.5;
+    Zahl -> Zahl."""
     if c is None:
         return None
     if isinstance(c, (int, float)):
@@ -309,7 +310,7 @@ def cote_dezimal(c) -> float | None:
     m = re.fullmatch(r"\s*(\d+(?:[.,]\d+)?)\s*/\s*(\d+(?:[.,]\d+)?)\s*", str(c))
     if m:
         a, b = (float(x.replace(",", ".")) for x in m.groups())
-        return round(a / b + 1, 2) if b else None
+        return round(a / b, 2) if b else None
     try:
         return float(str(c).replace(",", "."))
     except ValueError:
