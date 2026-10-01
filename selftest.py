@@ -658,13 +658,13 @@ def racecard_pruefen() -> None:
                      {"societe": "Paris-Turf", "pronostics": [{"numPmu": 2, "nom": "Y"}]}],
             "cribles": [{"numPmu": 1, "nom": "X", "commentaire": "Bien placé."}, {"commentaire": "Sans numéro."}]}
     pg_ = pmu.prognose(sel_, det_)
-    pruefe(pg_["selection"][0] == {"no": 2, "rank": 1, "cote": "4/1", "cote_dec": 5.0}
-           and pg_["selection"][1]["cote_dec"] == 4.5 and pg_["text"] == "Y devrait s'imposer."
+    pruefe(pg_["selection"][0] == {"no": 2, "rank": 1, "cote": "4/1", "cote_dec": 4.0}
+           and pg_["selection"][1]["cote_dec"] == 3.5 and pg_["text"] == "Y devrait s'imposer."
            and pg_["cribles"] == {1: "Bien placé."} and len(pg_["cribles_ohne"]) == 1 and len(pg_["tips"]) == 3,
-           "PMU-Prognose: cote probable 4/1 -> 5,0, Kommentar, Tipps, Kurzkommentare je Starter")
+           "PMU-Prognose: cote probable 4/1 -> 4,0 (Rückzahlung je 1 €), Kommentar, Tipps, Kurzkommentare je Starter")
     dp = rc.baue_daten(hist, heute_r, heute_s, tag, prognosen={(1, 1): pg_})["races"][f"{tag:%Y%m%d}R1C1"]
     xp, yp = dp["runners"][0]["prono"], dp["runners"][1]["prono"]
-    pruefe(dp["prono"]["consensus"] == [2, 1] and xp["sel"]["cote_dec"] == 4.5 and xp["crible"] == "Bien placé."
+    pruefe(dp["prono"]["consensus"] == [2, 1] and xp["sel"]["cote_dec"] == 3.5 and xp["crible"] == "Bien placé."
            and xp["tips"] == {"n": 2, "of": 3, "top3": 2, "avg": 1.5} and yp["tips"]["n"] == 3 and yp["sel"]["rank"] == 1,
            "Prognose in der Race Card: Konsens der Tipps (Borda), cote probable und Kurzkommentar je Starter")
     import uebersetzen as ue
