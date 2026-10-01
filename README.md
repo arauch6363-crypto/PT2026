@@ -187,7 +187,7 @@ Je Starter:
 * **PMU-Prognose** (`pmu.prognosen`, Endpunkte `/pronostics` und `/pronostics-detailles`, nur vor dem Rennen):
   Rennkommentar der Redaktion, Auswahl mit cote probable (4/1 = 4,0) und Konsens der Tippgeber (Borda) im
   Rennkopf; am Pferd P1 … (Rang der Auswahl) bzw. T5 (in 5 Tipp-Listen), cote probable im Prognose-Kasten,
-  Kurzkommentar (cribles) in der Übersicht unter dem Namen – übersetzt wie die Kommentare.
+  Kurzkommentar (cribles) ganz unten in der Übersichtszeile über die volle Breite (kursiv, farbig) – übersetzt wie die Kommentare.
 * **Kommentare** (`comment` je Starter aus pmu_runners) unter jedem früheren Lauf, auf Deutsch übersetzt, wo
   möglich (`uebersetzen.py`, deep-translator: DeepL mit Umgebungsvariable `DEEPL_API_KEY`, sonst Google, sonst
   MyMemory; Cache `<BASE>/uebersetzungen_fr_de.json`; Schnelltest `uebersetzen.pruefen()`); sonst französisch
