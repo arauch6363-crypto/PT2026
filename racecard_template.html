@@ -159,6 +159,17 @@ td .hl-up{color:var(--good);font-weight:600} td .hl-down{color:var(--bad);font-w
 .cmt-t .fr{font-size:10px;color:var(--ink-3);border:1px solid var(--line);border-radius:2px;padding:0 3px}
 .cmt-t .race{color:var(--ink-3)}
 .prono{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--hi);border-radius:4px;padding:10px 14px;margin-bottom:12px;display:grid;gap:6px}
+details.fold{margin-bottom:12px}
+details.fold>summary{display:flex;align-items:baseline;gap:10px;cursor:pointer;list-style:none;padding:2px 0}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::before{content:"▸";font-size:12px;color:var(--ink-3);width:10px}
+details.fold[open]>summary::before{content:"▾"}
+details.fold>summary h3{margin:0;font:600 12px/1.2 var(--f-display);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.fold-kurz{font-size:12.5px;color:var(--ink-2)}
+details.insight-fold{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:8px 14px}
+details.insight-fold[open]{padding-bottom:12px}
+details.insight-fold .insight{margin:8px 0 0}
+details.prono:not([open]){gap:0}
 .prono h3{margin:0;font:600 12px/1.2 var(--f-display);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
 .prono p{margin:0;font-size:13.5px;line-height:1.5}
 .prono .fr,.crible .fr{font-size:10px;color:var(--ink-3);border:1px solid var(--line);border-radius:2px;padding:0 3px;margin-left:4px}
@@ -270,7 +281,8 @@ const INC = {DISQUALIFIE:"DSQ", ARRETE:"PU", TOMBE:"F", NON_PLACE:"", RESTE_AU_P
 // Starterzeile bleibt zwischen Neuladen erhalten
 const store = {get(k){try{return localStorage.getItem(k)}catch(e){return null}}, set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
 
-let state = {meeting:null, race:null, sort:"no", open:new Set(), rivals:new Set(), duels:new Set()};
+let state = {meeting:null, race:null, sort:"no", open:new Set(), rivals:new Set(), duels:new Set(),
+             fold:{prono:false, pace:false}};   // ausklappbare Kästen oberhalb der Starter, Vorgabe: eingeklappt
 
 function init(){
   if (!DATA || !DATA.meetings || !DATA.meetings.length){
@@ -374,6 +386,7 @@ function renderRace(){
     const go = () => { const n = +el.dataset.no; state.open.has(n) ? state.open.delete(n) : state.open.add(n); renderRace(); };
     el.onclick = go; el.onkeydown = e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); go(); } };
   });
+  document.querySelectorAll("details.fold").forEach(d => d.ontoggle = () => { state.fold[d.dataset.fold] = d.open; });
   document.querySelectorAll(".riv-btn").forEach(b => b.onclick = e => {
     e.stopPropagation(); const k = b.dataset.k, S = b.dataset.duel ? state.duels : state.rivals;
     S.has(k) ? S.delete(k) : S.add(k); renderRace(); });
@@ -401,10 +414,13 @@ function insightHTML(r){
       <span class="note">${B.bias > 0 ? "Frontrenner erfolgreicher" : B.bias < 0 ? "Abwartend Gerittene erfolgreicher" : "ausgeglichen"} · ${rel}</span></div>
       <div class="note">IV vorne ${fx(B.iv_front,2)} · IV hinten ${fx(B.iv_back,2)} · ${B.races} Rennen (${B.basis === "exakt" ? `${esc(title(r.course))} ${r.distance} m` : `${esc(title(r.course))}, ${esc(r.dist_label || "")}`})${A ? ` · alle Bahnen ${sgn(A.bias,2)}` : ""}</div>`;
   }
-  return `<div class="insight">
+  const kurz = [P && P.expected != null ? {schnell:"schnelles Tempo", langsam:"langsames Tempo", normal:"normales Tempo"}[P.label] : null,
+                B ? `Bahn-Bias ${sgn(B.bias,2)}` : null].filter(Boolean).join(" · ");
+  return `<details class="fold insight-fold" data-fold="pace" ${state.fold.pace ? "open" : ""}><summary><h3>Pace-Szenario · Bahn-Bias</h3>${kurz ? `<span class="fold-kurz">${kurz}</span>` : ""}</summary>
+    <div class="insight">
     <section><h3>Pace-Szenario</h3>${verdict}<div class="styles">${grid}</div>${unk}</section>
     <section><h3>Bahn-Bias · vorne vs. hinten</h3>${bias}</section>
-  </div>`;
+  </div></details>`;
 }
 
 function aeChip(s, minRuns=10){
@@ -509,7 +525,9 @@ function pronoHTML(r){
   const sel = P.selection.length ? `<div class="note sel">Auswahl PMU: ${P.selection.map(z => `<b>${z.no}</b> ${esc(name(z.no))} <span class="muted">${esc(z.cote || "")}</span>`).join(" · ")}</div>` : "";
   const kon = P.consensus.length ? `<div class="note" title="${esc(P.tips.map(t => `${t.source || "?"}: ${t.nos.join("-")}`).join(" | "))}">Konsens aus ${P.tips.length} Tipps: ${P.consensus.map(no => `<b class="num">${no}</b> ${esc(name(no))}`).join(" · ")}</div>` : "";
   const ohne = P.cribles_ohne.length ? `<div class="note">${P.cribles_ohne.map(c => `${c.name ? `<b>${esc(title(c.name))}</b>: ` : ""}${deFr(c.text_de, c.text)}`).join("<br>")}</div>` : "";
-  return `<section class="prono"><h3>PMU-Prognose</h3>${P.text ? `<p>${deFr(P.text_de, P.text)}</p>` : ""}${sel}${kon}${ohne}</section>`;
+  const kurz = P.selection.length ? `Auswahl ${P.selection.slice(0, 5).map(z => z.no).join(" · ")}`
+             : P.consensus.length ? `Konsens ${P.consensus.slice(0, 5).join(" · ")}` : "";
+  return `<details class="prono fold" data-fold="prono" ${state.fold.prono ? "open" : ""}><summary><h3>PMU-Prognose</h3>${kurz ? `<span class="fold-kurz">${kurz}</span>` : ""}</summary>${P.text ? `<p>${deFr(P.text_de, P.text)}</p>` : ""}${sel}${kon}${ohne}</details>`;
 }
 function pronoBadge(x){
   const P = x.prono;
