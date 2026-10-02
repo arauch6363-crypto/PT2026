@@ -180,6 +180,93 @@ def going_klasse(going, going_value=None) -> str:
     return rtr_arr.boden_gruppe(going) or BODEN_ANNAHME
 
 
+BODEN_DATEI = Path(__file__).with_name("boden_manuell.json")   # im Repo, auf GitHub editierbar
+PSF_MERKMALE = {"PSF", "FIBRE", "FIBREE", "POLYTRACK", "VISCORIDE"}   # ganze Wörter
+
+
+def ist_psf(r) -> bool:
+    """PSF-Rennen nach PMU-Bahnart (typePiste) oder Parcours-Text."""
+    t = " ".join(str(r.get(k) or "") for k in ("track_type", "parcours"))
+    return bool(PSF_MERKMALE & set(rtr_arr._norm_boden(t).split()))
+
+
+def boden_manuell_laden(datei: Path | None = None, tag: date | None = None) -> dict[str, str]:
+    """Manuelle Bodenangaben {Bahn (pmu.norm): Bodenbegriff} aus boden_manuell.json. Nur gültige Gras-Begriffe
+    nach rtr_arr.GOING_MAP; Tippfehler, PSF-Angaben und eine nicht passende 'datum'-Angabe werden gemeldet und
+    übergangen. Fehlt die Datei oder ist sie kaputt: {} (dann gilt wie bisher die Annahme)."""
+    f = Path(datei) if datei else BODEN_DATEI
+    if not f.exists():
+        return {}
+    try:
+        d = json.loads(f.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        print(f"Boden manuell: {f.name} nicht lesbar ({e}) – nicht verwendet.")
+        return {}
+    datum = str(d.get("datum") or "").strip()
+    if datum and tag is not None:
+        try:
+            gilt = pd.to_datetime(datum, dayfirst=not datum[:4].isdigit()).date()
+        except (ValueError, TypeError):
+            print(f"Boden manuell: Datum {datum!r} unverständlich – Angaben nicht verwendet.")
+            return {}
+        if gilt != tag:
+            print(f"Boden manuell: Angaben gelten für {gilt}, Rennkarte ist für {tag} – nicht verwendet.")
+            return {}
+    out = {}
+    for bahn, wert in (d.get("bahnen") or {}).items():
+        w = str(wert or "").strip()
+        if not w:
+            continue
+        g = rtr_arr._MAP_NORM.get(rtr_arr._norm_boden(w))      # streng: nur Begriffe aus GOING_MAP
+        if g is None or g == "PSF":
+            print(f"Boden manuell: {bahn}: {w!r} ist keine gültige Gras-Bodenangabe – übergangen.")
+            continue
+        out[pmu.norm(bahn)] = w
+    return out
+
+
+def _bahn_eintrag(name, manuell: dict[str, str]) -> str | None:
+    """Eintrag zur Bahn: gleicher Name (pmu.norm), sonst eindeutig über die Wörter ('TOULOUSE' passt zu
+    'TOULOUSE LA CEPIERE'); passt ein Eintrag auf mehrere Schreibweisen oder keiner: None."""
+    n = pmu.norm(name or "")
+    if n in manuell:
+        return manuell[n]
+    w = set(n.split())
+    treffer = [k for k in manuell if w and (set(k.split()) <= w or w <= set(k.split()))]
+    return manuell[treffer[0]] if len(treffer) == 1 else None
+
+
+def boden_manuell_anwenden(races: pd.DataFrame, manuell: dict[str, str]) -> pd.DataFrame:
+    """Bodenangabe der heutigen Rennen ergänzen, nur wo PMU (noch) keine gültige liefert:
+    PSF-Rennen -> 'PSF'; Gras-Rennen -> manueller Eintrag der Bahn; sonst bleibt es bei der Annahme.
+    Spalte going_quelle: PMU, manuell, PSF oder Annahme."""
+    r = races.copy()
+    if "going" not in r:
+        r["going"] = None
+    r["going"] = r["going"].astype(object)
+    quelle, ohne = [], set()
+    for i, z in r.iterrows():
+        if rtr_arr.boden_gruppe(z.get("going")) is not None:
+            quelle.append("PMU")
+        elif ist_psf(z):
+            r.at[i, "going"] = "PSF"
+            quelle.append("PSF")
+        elif _bahn_eintrag(z.get("hippodrome"), manuell):
+            r.at[i, "going"] = _bahn_eintrag(z.get("hippodrome"), manuell)
+            quelle.append("manuell")
+        else:
+            quelle.append("Annahme")
+            ohne.add(str(z.get("hippodrome")))
+    r["going_quelle"] = quelle
+    n = pd.Series(quelle).value_counts()
+    print("Boden heute: " + ", ".join(f"{k} {v}" for k, v in n.items())
+          + (f" – ohne Eintrag in {BODEN_DATEI.name}: {', '.join(sorted(ohne))}" if ohne else ""))
+    for (bahn, q), g in r.groupby(["hippodrome", "going_quelle"], sort=True):
+        if q == "manuell":
+            print(f"  {bahn}: manuell {g['going'].iloc[0]!r} ({len(g)} Rennen)")
+    return r
+
+
 def going_anzeige(k: str | None) -> str | None:
     """'VERY SLOW' -> 'Very slow'"""
     if not k:
@@ -1437,7 +1524,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             "race_id": r["race_id"], "reunion": int(r["reunion"]), "race_no": int(r["race_no"]),
             "time": _txt(r.get("post_time")), "name": _txt(r.get("race_name")), "course": _txt(r.get("hippodrome")),
             "distance": dist, "going": _txt(r.get("going")), "going_value": _txt(r.get("going_value")),
-            "going_pmu": gb, "going_label": going_anzeige(gb), "going_assumed": gb_angenommen, "dist_bucket": db, "dist_group": dg,
+            "going_pmu": gb, "going_label": going_anzeige(gb), "going_assumed": gb_angenommen,
+            "going_source": _txt(r.get("going_quelle")), "dist_bucket": db, "dist_group": dg,
             "dist_label": DIST_LABEL.get(db), "prize": _num(r.get("prize_eur"), 0), "type": rt,
             "age": _txt(r.get("conditions_age")), "sex": _txt(r.get("conditions_sexe")),
             "corde": _txt(r.get("corde")), "konfig": _txt(konfig_heute), "declared": _num(r.get("runners_declared"), 0),
@@ -1532,6 +1620,7 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     races_heute, runners_heute = programm(tag, nur_flach=nur_flach)
     if races_heute.empty:
         raise RuntimeError(f"Keine französischen {'Flach' if nur_flach else 'Galopp'}rennen am {tag}.")
+    races_heute = boden_manuell_anwenden(races_heute, boden_manuell_laden(tag=tag))   # fehlt PMU-Boden: manuell
     print(f"{len(races_heute)} Rennen, {len(runners_heute)} Starter. PMU-Prognosen holen …")
     prognosen = pmu.prognosen(tag, requests.Session(), list(zip(races_heute["reunion"], races_heute["race_no"])))
     print(f"Prognosen für {len(prognosen)} von {len(races_heute)} Rennen. Historie laden …")
