@@ -199,7 +199,7 @@ Je Starter:
   100 = Durchschnitt, über 100 überdurchschnittlich; Chips wie A/E: grün ab 110, rot bis 90, blass bei wenig Daten.
 * **Klasse Val+ und €/L+** (Rennkopf und Formzeilen): Ø Valeur bzw. Ø Gewinn je Lauf (365 Tage davor) der
   Teilnehmer ÷ Ø aller früheren Rennen × 100. In den Formzeilen Farbverlauf nach der Lage unter allen früheren
-  Läufen der heutigen Starter (rot = niedrigster, grün = höchster Wert für dieses Rennen).
+  Läufen der heutigen Starter (rot = niedrigster, grün = höchster Wert für dieses Rennen); ebenso das Preisgeld.
 * **Duelle** mit heutigen Gegnern nur aus den letzten 365 Tagen; je Duell „heute erwartet“ = Abstand damals −
   Verschiebung des Gewichtsunterschieds (1 kg = 1 Länge), am Knopf „vorne erwartet gegen x/y“ (je Gegner das letzte Duell).
 * **Indirekte Duelle** (`racecard._indirekte_duelle`): je heutigem Gegner über gemeinsame frühere Gegner –
