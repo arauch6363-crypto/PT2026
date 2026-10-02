@@ -357,7 +357,7 @@ function renderRace(){
   const runners = [...r.runners].sort((a,b) => (a.nr - b.nr) || dir*(key(a) - key(b)) || (a.no - b.no));
   const tags = [
     ["Distanz", r.distance ? r.distance + " m" : "–"],
-    ["Boden", r.going_assumed ? `${r.going_label} (angenommen)` : (r.going || "–") + (r.going_label ? " · " + r.going_label : "") + (r.going_value ? " · " + r.going_value : ""), r.going_assumed ? "Noch keine Bodenangabe für den Tag – angenommen: Fast (Bon, Bon souple)" : "Offizieller Bodenbegriff · Bodengruppe (für alle Berechnungen) · Penetrometer (nur zur Anzeige)"],
+    ["Boden", r.going_assumed ? `${r.going_label} (angenommen)` : (r.going || "–") + (r.going_label ? " · " + r.going_label : "") + (r.going_value ? " · " + r.going_value : "") + (r.going_source === "manuell" ? " (manuell)" : r.going_source === "PSF" ? " (Bahnart)" : ""), r.going_assumed ? "Noch keine Bodenangabe für den Tag – angenommen: Fast (Bon, Bon souple)" : r.going_source === "manuell" ? "PMU hat noch keine Bodenangabe – Wert aus boden_manuell.json · Bodengruppe (für alle Berechnungen)" : r.going_source === "PSF" ? "PMU hat noch keine Bodenangabe – PSF laut Bahnart" : "Offizieller Bodenbegriff · Bodengruppe (für alle Berechnungen) · Penetrometer (nur zur Anzeige)"],
     ["Preisgeld", "€" + prize(r.prize)],
     ["Typ", r.type || "–"],
     ["Alter", r.age ? title(r.age.replace(/_/g," ")) : "–"],

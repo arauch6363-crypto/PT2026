@@ -279,6 +279,12 @@ Je Starter:
   Standardzeiten, RTR/ARR, Speedfig) nutzen nur die Bodengruppe nach `rtr_arr.GOING_MAP`: Lourd, Très lourd,
   Collant = VERY SLOW · Souple, Très souple = SLOW · Bon souple, Bon = FAST · Léger, Bon léger, Très léger =
   VERY FAST · PSF Standard/Lente/Rapide = PSF. Der Penetrometerwert wird nur angezeigt.
+* **Boden von heute, solange PMU ihn noch nicht hat**: Bei PSF-Rennen (Bahnart `typePiste`/Parcours) gilt PSF.
+  Bei Gras gilt der Eintrag der Bahn in `boden_manuell.json` (im Repo, auf GitHub editieren; Vorgabe überall
+  „Bon“). Gültige Begriffe stehen oben in der Datei zum Kopieren; Tippfehler werden gemeldet und übergangen.
+  Mit `"datum"` gelten die Angaben nur für die Rennkarte dieses Tages. Liefert PMU eine Angabe, hat sie immer
+  Vorrang. Die Karte zeigt „(manuell)“ an. Fehlt eine Bahn in der Datei, gilt die Annahme FAST, und die Ausgabe
+  nennt den Bahnnamen zum Ergänzen.
 * **Distanzgruppen der Vorlieben** (`rtr_arr.distance_group`): 0-1000, dann je 200 m (1001-1200 …), >3600.
 * **Vorlieben**: Pferd mit allen Böden, Distanzen und Kursen der gesamten Historie (heute markiert),
   Trainer (mit Jockey, Kurs, Typ, Altersgruppe 2j/3j/4j+) und Jockey (Kurs, Trainer) der letzten zwei

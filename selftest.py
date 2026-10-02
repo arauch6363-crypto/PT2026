@@ -1048,6 +1048,44 @@ def racecard_pruefen() -> None:
 
     pruefe(len(x["form_lines"]) <= rc.LETZTE_LAEUFE == 7, "höchstens 7 Formzeilen")
 
+    # Manuelle Bodenangaben (boden_manuell.json): nur wenn PMU keine hat, nie für PSF, Tippfehler übergangen
+    import json as _json, tempfile as _tf
+    from datetime import date as _date
+    with _tf.TemporaryDirectory() as td:
+        f = Path(td) / "b.json"
+        f.write_text(_json.dumps({"datum": "", "bahnen": {"Chantilly": "Souple", "Saint-Cloud": "Bon soupe",
+                                                          "Deauville": "PSF Standard", "Toulouse": "Lourd",
+                                                          "Vichy": ""}}), encoding="utf-8")
+        m = rc.boden_manuell_laden(f, _date(2026, 10, 3))
+        pruefe(m == {"CHANTILLY": "Souple", "TOULOUSE": "Lourd"},
+               "Boden manuell: gültige Gras-Angaben gelesen, Tippfehler/PSF/leer übergangen")
+        f.write_text(_json.dumps({"datum": "2026-10-02", "bahnen": {"Chantilly": "Souple"}}), encoding="utf-8")
+        pruefe(rc.boden_manuell_laden(f, _date(2026, 10, 3)) == {}
+               and rc.boden_manuell_laden(f, _date(2026, 10, 2)) == {"CHANTILLY": "Souple"},
+               "Boden manuell: mit Datum nur für die Rennkarte dieses Tages")
+        f.write_text("{kaputt", encoding="utf-8")
+        pruefe(rc.boden_manuell_laden(f, _date(2026, 10, 3)) == {}, "Boden manuell: kaputte Datei -> nicht verwendet")
+    rr = pd.DataFrame([
+        {"hippodrome": "CHANTILLY", "going": "Bon", "track_type": "HERBE", "parcours": None},
+        {"hippodrome": "CHANTILLY", "going": None, "track_type": "HERBE", "parcours": None},
+        {"hippodrome": "CHANTILLY", "going": None, "track_type": "PSF", "parcours": None},
+        {"hippodrome": "CHANTILLY", "going": None, "track_type": None, "parcours": "Piste en sable fibré"},
+        {"hippodrome": "TOULOUSE LA CEPIERE", "going": "", "track_type": "HERBE", "parcours": None},
+        {"hippodrome": "VICHY", "going": None, "track_type": "HERBE", "parcours": None},
+        {"hippodrome": "SABLE SUR SARTHE", "going": None, "track_type": "HERBE", "parcours": "Sablé"}])
+    ra = rc.boden_manuell_anwenden(rr, {"CHANTILLY": "Souple", "TOULOUSE": "Lourd", "SABLE SUR SARTHE": "Collant"})
+    pruefe(list(ra["going_quelle"]) == ["PMU", "manuell", "PSF", "PSF", "manuell", "Annahme", "manuell"]
+           and list(ra["going"])[:5] == ["Bon", "Souple", "PSF", "PSF", "Lourd"] and ra["going"].iloc[6] == "Collant"
+           and [rc.going_klasse(g) for g in ra["going"]] == ["FAST", "SLOW", "PSF", "PSF", "VERY SLOW", "FAST",
+                                                               "VERY SLOW"],
+           "Boden manuell: PMU hat Vorrang, PSF nach Bahnart, Bahnname auch verkürzt, sonst Annahme FAST")
+    bd = _json.loads(rc.BODEN_DATEI.read_text(encoding="utf-8"))
+    alle = [w for ws in bd["moegliche_angaben"].values() for w in ws]
+    pruefe(all(rc.rtr_arr.boden_gruppe(w) == g for g, ws in bd["moegliche_angaben"].items() for w in ws)
+           and set(alle) == {k for k, v in rc.rtr_arr.GOING_MAP.items() if v != "PSF"}
+           and all(rc.rtr_arr.boden_gruppe(v) for v in bd["bahnen"].values()),
+           "boden_manuell.json: Liste der möglichen Angaben = GOING_MAP (Gras), alle Bahnen gültig")
+
     seite = rc.html(d)
     pruefe(seite.startswith("<!doctype html>") and "/*__DATA__*/null" not in seite, "HTML mit eingesetzten Daten")
 
