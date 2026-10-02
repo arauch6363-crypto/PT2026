@@ -197,8 +197,9 @@ Je Starter:
 * **Indizes €/L+ und Val+**: 100 × Wert ÷ Ø der Population (alle Trainer, Jockeys, Besitzer, Züchter im selben
   Zeitfenster bzw. alle Väter, Muttervater, Crosses; nur ab 5 Läufen bzw. 3 dreijährigen Nachkommen).
   100 = Durchschnitt, über 100 überdurchschnittlich; Chips wie A/E: grün ab 110, rot bis 90, blass bei wenig Daten.
-* **Rennstärke €/L+** (Klasse im Rennkopf und in den Formzeilen): Ø Gewinn je Lauf der Teilnehmer in den 365 Tagen
-  vor dem Rennen ÷ Ø aller früheren Rennen × 100.
+* **Klasse Val+ und €/L+** (Rennkopf und Formzeilen): Ø Valeur bzw. Ø Gewinn je Lauf (365 Tage davor) der
+  Teilnehmer ÷ Ø aller früheren Rennen × 100. In den Formzeilen Farbverlauf nach der Lage unter allen früheren
+  Läufen der heutigen Starter (rot = niedrigster, grün = höchster Wert für dieses Rennen).
 * **Duelle** mit heutigen Gegnern nur aus den letzten 365 Tagen; je Duell „heute erwartet“ = Abstand damals −
   Verschiebung des Gewichtsunterschieds (1 kg = 1 Länge), am Knopf „vorne erwartet gegen x/y“ (je Gegner das letzte Duell).
 * **Indirekte Duelle** (`racecard._indirekte_duelle`): je heutigem Gegner über gemeinsame frühere Gegner –

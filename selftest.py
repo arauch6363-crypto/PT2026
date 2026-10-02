@@ -753,6 +753,8 @@ def racecard_pruefen() -> None:
     pruefe(f["cls_epr_idx"] == 100 and kl["epr_idx"] == round(100 * kl["epr"] / 5175)
            and d["params"]["pop"]["rennen_epr"] == 5175.0,
            f"Rennstärke €/L+: Ø Gewinn je Lauf der Teilnehmer ÷ Ø aller früheren Rennen (heute {kl['epr_idx']})")
+    pruefe(f["cls_val_idx"] == 100 and d["params"]["pop"]["rennen_val"] == 40.0,
+           "Val+: Ø Valeur der Teilnehmer ÷ Ø aller früheren Rennen (einziges Rennen mit Valeur -> 100)")
     ds_ = x["duels_sum"]
     pruefe(ds_["n"] == 1 and ds_["ahead"] == 1 and ds_["rivals"][0]["exp_l"] == 2.0 and ds_["rivals"][0]["n"] == 2,
            "Duell-Bilanz: letztes Duell je Gegner, Abstand ± Gewichtsverschiebung (1 kg = 1 L) -> vorne erwartet")
