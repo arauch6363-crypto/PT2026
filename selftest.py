@@ -546,6 +546,16 @@ def racecard_pruefen() -> None:
                                          "epr": round((13500 + 5130) / 2), "epr_idx": None,
                                          "pl_exp": 2, "n_exp": 2},
            "A/E Platz 90 Tage: 2 Starter -> beide sicher platziert (erwartet 2, A/E 1,00); A/E Sieg 1,33 zum Vergleich")
+    # Rating (Valeur) bereinigt nach dem heutigen Gewicht wie ARR: 30 bei 58 kg -> 27; 29 bei 54 kg -> 30 (vorne)
+    hs = heute_s.assign(rating=[30.0, 29.0], weight_kg=[58.0, 54.0])
+    xr, yr = rc.baue_daten(hist, heute_r, hs, tag)["races"][f"{tag:%Y%m%d}R1C1"]["runners"]
+    pruefe(xr["rating_adj"] == 27.0 and yr["rating_adj"] == 30.0 and xr["rating"] == 30.0
+           and (yr["rating_rank"], xr["rating_rank"], xr["rating_n"]) == (1, 2, 2),
+           "Rating bereinigt: Valeur − heutiges Gewicht + 55, Rang im Feld nach dem bereinigten Wert")
+    hs = heute_s.assign(rating=[30.0, None], weight_kg=[None, 57.0])
+    xr, yr = rc.baue_daten(hist, heute_r, hs, tag)["races"][f"{tag:%Y%m%d}R1C1"]["runners"]
+    pruefe(xr["rating_adj"] is None and xr["rating"] == 30.0 and yr["rating_adj"] is None,
+           "Rating bereinigt: ohne Gewicht oder ohne Valeur kein bereinigter Wert")
     # Rennen vor 100 Tagen: 3 Starter (Quoten 3 / 5 / 9) -> Platz = 1.–2.; X wurde (zeitgleich) Zweiter
     px = rc.harville_platz(np.array([1 / 3, 1 / 5, 1 / 9]), 2)[1]
     t365 = x["ae"]["trainer"]["d365"]
