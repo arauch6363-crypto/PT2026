@@ -543,7 +543,8 @@ def racecard_pruefen() -> None:
     d = rc.baue_daten(hist, heute_r, heute_s, tag)
     x, y = d["races"][f"{tag:%Y%m%d}R1C1"]["runners"]
     pruefe(x["ae"]["trainer"]["d90"] == {"runs": 2, "wins": 1, "places": 2, "exp": 2.0, "ae": 1.0, "ae_win": 1.33,
-                                         "epr": round((13500 + 5130) / 2), "epr_idx": None},
+                                         "epr": round((13500 + 5130) / 2), "epr_idx": None,
+                                         "pl_exp": 2, "n_exp": 2},
            "A/E Platz 90 Tage: 2 Starter -> beide sicher platziert (erwartet 2, A/E 1,00); A/E Sieg 1,33 zum Vergleich")
     # Rennen vor 100 Tagen: 3 Starter (Quoten 3 / 5 / 9) -> Platz = 1.–2.; X wurde (zeitgleich) Zweiter
     px = rc.harville_platz(np.array([1 / 3, 1 / 5, 1 / 9]), 2)[1]
@@ -1070,6 +1071,27 @@ def racecard_pruefen() -> None:
     pruefe(len(aus) == 7 and all(e is None for _, e in aus), "Formzeilen: alles unter den letzten 7 -> nichts dazu")
     aus = rc.formzeilen_auswahl(vv.head(5), "X", 1850, "FAST")
     pruefe(len(aus) == 5, "Formzeilen: weniger als 7 Läufe -> nur diese")
+
+    # Vorlieben: A/E deutlich und signifikant anders als der Rest derselben Person/Linie
+    ges = {"n_exp": 400, "exp": 100.0, "pl_exp": 100}                       # A/E gesamt 1,0
+    gut = rc.ae_abweichung({"n_exp": 60, "exp": 15.0, "pl_exp": 30}, ges)    # Teil A/E 2,0, Rest 70/85
+    pruefe(gut["sig"] and gut["dir"] == 1 and gut["ratio"] > 1.2 and gut["z"] >= 2,
+           "Vorlieben: deutlich und signifikant besser als der Rest -> ▲")
+    schlecht = rc.ae_abweichung({"n_exp": 80, "exp": 20.0, "pl_exp": 8}, ges)
+    pruefe(schlecht["sig"] and schlecht["dir"] == -1, "Vorlieben: deutlich und signifikant schlechter -> ▼")
+    pruefe(not rc.ae_abweichung({"n_exp": 6, "exp": 1.5, "pl_exp": 3}, ges)["sig"],
+           "Vorlieben: deutlich, aber zu wenige Läufe -> nicht auffällig")
+    gross = {"n_exp": 40000, "exp": 10000.0, "pl_exp": 10000}
+    knapp = rc.ae_abweichung({"n_exp": 20000, "exp": 5000.0, "pl_exp": 5400}, gross)
+    pruefe(abs(knapp["z"]) >= 2 and not knapp["sig"], "Vorlieben: signifikant, aber unter ×1,2 -> nicht auffällig")
+    pruefe(rc.ae_abweichung({"n_exp": 10, "exp": 2.5, "pl_exp": 3}, {"n_exp": 10, "exp": 2.5, "pl_exp": 3}) is None
+           and rc.ae_abweichung(rc._leer(), ges) is None and rc.ae_abweichung({"n_exp": 5, "exp": 1.0, "pl_exp": 1}, None)
+           is None, "Vorlieben: ohne Rest oder ohne Läufe kein Urteil")
+    pruefe(all("dev" in x["pref"][g][k] for g, ks in (("trainer", ("jockey", "course", "racetype", "age")),
+                                                      ("jockey", ("course", "trainer", "horse")),
+                                                      ("sire", ("distance", "going", "age")),
+                                                      ("dam_sire", ("distance", "going", "age"))) for k in ks),
+           "Vorlieben: jeder Eintrag von Trainer, Jockey, Vater, Muttervater mit Abweichungs-Urteil")
 
     # Manuelle Bodenangaben (boden_manuell.json): nur wenn PMU keine hat, nie für PSF, Tippfehler übergangen
     import json as _json, tempfile as _tf

@@ -294,6 +294,10 @@ Je Starter:
 * **Vorlieben**: Pferd mit allen Böden, Distanzen und Kursen der gesamten Historie (heute markiert),
   Trainer (mit Jockey, Kurs, Typ, Altersgruppe 2j/3j/4j+) und Jockey (Kurs, Trainer) der letzten zwei
   Jahre, Jockey auf dem Pferd, Vater und Muttervater nach Distanz und Boden über die gesamte Historie.
+  **▲ / ▼** hinter dem A/E (Trainer, Jockey, Vater, Muttervater; `ae_abweichung`) bedeutet: Die Vorliebe weicht
+  deutlich und signifikant vom Rest derselben Person bzw. Linie ab. Bedingungen: mindestens ×1,2 bzw. ×0,8 des
+  A/E aus ihren übrigen Läufen im selben Zeitraum, mindestens 2 Standardfehler und mindestens 20 übrige Läufe –
+  wie beim Box-Urteil.
 * **Laufstil** je Pferd (F / V / M / H), **Pace-Szenario** aus Tempomachern und Feldgröße,
   **Bahn-Bias** vorne gegen hinten je Bahn und Distanz.
 * Racing-Post-Kürzel **C / D / CD / BF**, Tage seit dem letzten Lauf, Gewicht, Rating, Startbox.
