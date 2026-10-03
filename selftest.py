@@ -1072,6 +1072,13 @@ def racecard_pruefen() -> None:
     aus = rc.formzeilen_auswahl(vv.head(5), "X", 1850, "FAST")
     pruefe(len(aus) == 5, "Formzeilen: weniger als 7 Läufe -> nur diese")
 
+    # PMU-Prognose: Platz im Konsens der Tippgeber (Borda), gleiche Punkte = gleicher Platz
+    _, je = rc._prognose_rennen({"selection": [{"no": 3, "rank": 1, "cote": "3/1", "cote_dec": 3.0}],
+                                 "tips": [{"source": "A", "nos": [3, 5, 7]}, {"source": "B", "nos": [5, 3, 8]}]})
+    pruefe(je[3]["konsens"] == {"pos": 1, "of": 4, "pts": 5} and je[5]["konsens"]["pos"] == 1
+           and je[7]["konsens"]["pos"] == 3 and je[8]["konsens"]["pos"] == 3 and "konsens" not in je.get(9, {}),
+           "Prognose: Platz im Konsens der Tippgeber je Pferd (Gleichstand = gleicher Platz)")
+
     # Vorlieben: A/E deutlich und signifikant anders als der Rest derselben Person/Linie
     ges = {"n_exp": 400, "exp": 100.0, "pl_exp": 100}                       # A/E gesamt 1,0
     gut = rc.ae_abweichung({"n_exp": 60, "exp": 15.0, "pl_exp": 30}, ges)    # Teil A/E 2,0, Rest 70/85

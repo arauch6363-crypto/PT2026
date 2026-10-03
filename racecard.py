@@ -1275,6 +1275,9 @@ def _prognose_rennen(pg: dict | None) -> tuple[dict | None, dict]:
     for no, txt in (pg.get("cribles") or {}).items():
         je.setdefault(int(no), {})["crible"] = txt
     konsens = sorted(punkte, key=lambda n: -punkte[n])
+    for no in konsens:                                    # Platz im Konsens, gleiche Punkte = gleicher Platz
+        je.setdefault(no, {})["konsens"] = {"pos": 1 + sum(1 for m in punkte if punkte[m] > punkte[no]),
+                                            "of": len(konsens), "pts": _num(punkte[no], 0)}
     rennen = {"text": pg.get("text"), "selection": pg.get("selection") or [],
               "tips": [{"source": t["source"], "nos": t["nos"]} for t in tipps],
               "consensus": konsens[:6], "cribles_ohne": pg.get("cribles_ohne") or []}
