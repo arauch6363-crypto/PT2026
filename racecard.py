@@ -1536,6 +1536,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "silks": silks.get(_txt(p.get("silks_url"))),
                 "weight": _num(p.get("weight_kg"), 1),
                 "rating": _num(p.get("rating"), 1), "blinkers": _txt(p.get("blinkers")),
+                "rating_adj": _adj(p.get("rating"), w_heute),      # Valeur − heutiges Gewicht + GEWICHT_REF
                 "hcp_mark": handicap_marke(vorher, p.get("rating")),
                 "jockey": _txt(p.get("jockey")), "trainer": _txt(p.get("trainer")), "owner": _txt(p.get("owner")), "breeder": _txt(p.get("breeder")),
                 "sire": _txt(p.get("sire")), "dam": _txt(p.get("dam")), "dam_sire": _txt(p.get("dam_sire")),
@@ -1605,6 +1606,10 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             for x in starters:
                 x[k]["rank"] = _rang(werte, x[k][feld]) if not x["nr"] else None
                 x[k]["n"] = sum(w is not None for w in werte)
+        werte = [x["rating_adj"] for x in partanten]             # Rating (bereinigt): Rang im heutigen Feld
+        for x in starters:
+            x["rating_rank"] = _rang(werte, x["rating_adj"]) if not x["nr"] else None
+            x["rating_n"] = sum(w is not None for w in werte)
         for fenster in ("all", "d365"):                        # Gewinn je Lauf: Rang und Verhältnis zum Feld
             werte = [x["career"][fenster]["epr"] for x in partanten]
             vorhanden = [w for w in werte if w is not None]
