@@ -1046,7 +1046,25 @@ def racecard_pruefen() -> None:
     pruefe(pmu.runner_row("R", {"urlCasaque": "https://x/c.png"})["silks_url"] == "https://x/c.png",
            "PMU-Starterzeile übernimmt die Trikot-Adresse (urlCasaque)")
 
-    pruefe(len(x["form_lines"]) <= rc.LETZTE_LAEUFE == 7, "höchstens 7 Formzeilen")
+    pruefe(len(x["form_lines"]) <= rc.LETZTE_LAEUFE + 3 and rc.LETZTE_LAEUFE == 7
+           and all("same" in f and "extra" in f for f in x["form_lines"]),
+           "höchstens 7 + 3 Formzeilen, je Zeile Kennzeichen K/D/B und ob zusätzlich")
+
+    # Letzte Läufe: Kennzeichen K/D/B; fehlt ein Merkmal unter den letzten 7, der letzte ältere Lauf dazu
+    vv = pd.DataFrame([{"race_id": f"r{i}", "course_key": c, "dist_group": d, "going_pmu": g}
+                       for i, (c, d, g) in enumerate(
+                           [("A", "1401-1600", "SLOW")] * 7 + [("A", "1401-1600", "FAST"),
+                            ("X", "1801-2000", "FAST"), ("X", "1401-1600", "SLOW"), ("X", "1801-2000", "VERY SLOW")])])
+    aus = rc.formzeilen_auswahl(vv, "X", "1801-2000", "FAST")
+    pruefe([z["race_id"] for z, _ in aus] == [f"r{i}" for i in range(7)] + ["r7", "r8"]
+           and [e for _, e in aus][7:] == [["B"], ["K", "D"]]
+           and rc.gleich_heute(vv.iloc[8], "X", "1801-2000", "FAST") == ["K", "D", "B"]
+           and rc.gleich_heute(vv.iloc[0], "X", "1801-2000", "FAST") == [],
+           "Formzeilen: letzter Lauf auf Boden bzw. Kurs+Distanz zusätzlich (ein Lauf deckt mehrere ab)")
+    aus = rc.formzeilen_auswahl(vv, "A", "1401-1600", "SLOW")
+    pruefe(len(aus) == 7 and all(e is None for _, e in aus), "Formzeilen: alles unter den letzten 7 -> nichts dazu")
+    aus = rc.formzeilen_auswahl(vv.head(5), "X", "1801-2000", "FAST")
+    pruefe(len(aus) == 5, "Formzeilen: weniger als 7 Läufe -> nur diese")
 
     # Manuelle Bodenangaben (boden_manuell.json): nur wenn PMU keine hat, nie für PSF, Tippfehler übergangen
     import json as _json, tempfile as _tf
