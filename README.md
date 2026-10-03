@@ -285,6 +285,11 @@ Je Starter:
   Mit `"datum"` gelten die Angaben nur für die Rennkarte dieses Tages. Liefert PMU eine Angabe, hat sie immer
   Vorrang. Die Karte zeigt „(manuell)“ an. Fehlt eine Bahn in der Datei, gilt die Annahme FAST, und die Ausgabe
   nennt den Bahnnamen zum Ergänzen.
+* **Letzte Läufe**: Die letzten 7 Läufe. Gelb markiert ist, was dem heutigen Rennen entspricht: K = Kurs,
+  D = Distanzgruppe, B = Bodengruppe. Fehlt unter den 7 ein Lauf auf dem heutigen Kurs, in der heutigen
+  Distanzgruppe oder in der heutigen Bodengruppe, kommt unten gestrichelt abgetrennt der letzte ältere Lauf mit
+  diesem Merkmal dazu. Ein Lauf kann mehrere Merkmale abdecken. Es sind höchstens 3 zusätzliche Läufe, also bis
+  zu 10 Zeilen (`formzeilen_auswahl`).
 * **Distanzgruppen der Vorlieben** (`rtr_arr.distance_group`): 0-1000, dann je 200 m (1001-1200 …), >3600.
 * **Vorlieben**: Pferd mit allen Böden, Distanzen und Kursen der gesamten Historie (heute markiert),
   Trainer (mit Jockey, Kurs, Typ, Altersgruppe 2j/3j/4j+) und Jockey (Kurs, Trainer) der letzten zwei

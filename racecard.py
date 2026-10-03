@@ -935,6 +935,46 @@ def _lb(z) -> float:
     return z["lengths_behind"] if pd.notna(z["lengths_behind"]) else (0.0 if z["finish_pos"] == 1 else np.nan)
 
 
+FORM_KRITERIEN = (("K", "course_key"), ("D", "dist_group"), ("B", "going_pmu"))   # Reihenfolge der Kennzeichen
+
+
+def gleich_heute(z, course, dg, gb) -> list[str]:
+    """Kennzeichen, in denen ein früherer Lauf dem heutigen Rennen entspricht: K Kurs, D Distanzgruppe
+    (rtr_arr.distance_group), B Bodengruppe (GOING_MAP)."""
+    heute_w = {"course_key": course, "dist_group": dg, "going_pmu": gb}
+    return [k for k, sp in FORM_KRITERIEN
+            if heute_w[sp] is not None and pd.notna(z.get(sp)) and z.get(sp) == heute_w[sp]]
+
+
+def formzeilen_auswahl(vorher: pd.DataFrame, course, dg, gb) -> list[tuple]:
+    """Die letzten LETZTE_LAEUFE Läufe; fehlt darunter ein Lauf auf demselben Kurs, derselben Distanzgruppe
+    oder derselben Bodengruppe, kommt der letzte ältere Lauf mit diesem Merkmal dazu (je Lauf nur einmal,
+    höchstens drei, neueste zuerst). Liste von (Zeile, None oder Liste der Kennzeichen, für die er dazukam)."""
+    if not len(vorher):
+        return []
+    kopf, rest = vorher.head(LETZTE_LAEUFE), vorher.iloc[LETZTE_LAEUFE:]
+    out = [(z, None) for _, z in kopf.iterrows()]
+    vorhanden = set().union(*(gleich_heute(z, course, dg, gb) for z, _ in out))
+    extra: dict[int, list[str]] = {}                       # Position in rest -> Kennzeichen
+    for k, _ in FORM_KRITERIEN:
+        if k in vorhanden:
+            continue
+        for i in range(len(rest)):
+            if k in gleich_heute(rest.iloc[i], course, dg, gb):
+                extra.setdefault(i, []).append(k)
+                break
+    out += [(rest.iloc[i], extra[i]) for i in sorted(extra)]  # vorher ist neueste zuerst sortiert
+    return out
+
+
+def _feld_nachladen(rid, h: pd.DataFrame, h_rennen: dict, h_pferde: dict) -> None:
+    """Feld eines älteren Rennens samt späterer Starts seiner Gegner nachtragen (für zusätzliche Formzeilen)."""
+    feld = h[h["race_id"] == rid]
+    h_rennen[rid] = feld
+    for hid in set(feld["horse_id"]) - set(h_pferde):
+        h_pferde[hid] = h[h["horse_id"] == hid].sort_values("date")
+
+
 def _gegner(z, h_rennen: dict, h_pferde: dict, heute: pd.Timestamp) -> list[dict]:
     """Alle Gegner aus einem früheren Rennen in der Reihenfolge des Einlaufs, mit ihrem nächsten Start
     (None, wenn sie seitdem nicht wieder gelaufen sind) und ob der besser oder schlechter als ihre Quote war."""
@@ -1352,9 +1392,13 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             dk, xk = p["dam_sire_key"], p["cross_key"]
             vorher = per_pferd.get(hid, pd.DataFrame())
             form = []
-            for n, (_, z) in enumerate(vorher.head(LETZTE_LAEUFE).iterrows()):
+            for n, (z, extra) in enumerate(formzeilen_auswahl(vorher, course, dg, gb)):
                 f = _formzeile(z, p.get("weight_kg"))
-                f["rivals"] = _gegner(z, h_rennen, h_pferde, heute) if n < GEGNER_LAEUFE else None
+                f["same"] = gleich_heute(z, course, dg, gb)       # K/D/B: Kurs, Distanzgruppe, Bodengruppe wie heute
+                f["extra"] = extra                                 # zusätzlich gezeigt: letzter Lauf auf K/D/B
+                if extra and z["race_id"] not in h_rennen:         # ältere Läufe: Feld und Gegner nachladen
+                    _feld_nachladen(z["race_id"], h, h_rennen, h_pferde)
+                f["rivals"] = _gegner(z, h_rennen, h_pferde, heute) if n < GEGNER_LAEUFE or extra else None
                 f["rivals_stat"] = _gegner_bilanz(f["rivals"])
                 bz = (box.loc[(z["konfig"], z["draw"])] if pd.notna(z.get("draw")) and pd.notna(z.get("konfig"))
                       and (z["konfig"], z["draw"]) in box.index else None)
