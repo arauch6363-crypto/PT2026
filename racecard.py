@@ -935,32 +935,42 @@ def _lb(z) -> float:
     return z["lengths_behind"] if pd.notna(z["lengths_behind"]) else (0.0 if z["finish_pos"] == 1 else np.nan)
 
 
-FORM_KRITERIEN = (("K", "course_key"), ("D", "dist_group"), ("B", "going_pmu"))   # Reihenfolge der Kennzeichen
+FORM_KRITERIEN = ("K", "D", "B")   # Reihenfolge der Kennzeichen
+FORM_DIST_M = 100                  # D: Distanz höchstens so weit von heute entfernt
 
 
-def gleich_heute(z, course, dg, gb) -> list[str]:
-    """Kennzeichen, in denen ein früherer Lauf dem heutigen Rennen entspricht: K Kurs, D Distanzgruppe
-    (rtr_arr.distance_group), B Bodengruppe (GOING_MAP)."""
-    heute_w = {"course_key": course, "dist_group": dg, "going_pmu": gb}
-    return [k for k, sp in FORM_KRITERIEN
-            if heute_w[sp] is not None and pd.notna(z.get(sp)) and z.get(sp) == heute_w[sp]]
+def gleich_heute(z, course, dist, gb) -> list[str]:
+    """Kennzeichen, in denen ein früherer Lauf dem heutigen Rennen entspricht:
+    K gleicher Kurs und gleicher Belag (PSF gegen Gras, PSF = Bodengruppe PSF),
+    D Distanz ±FORM_DIST_M m, B gleiche Bodengruppe (GOING_MAP)."""
+    out = []
+    g = z.get("going_pmu")
+    if course is not None and z.get("course_key") == course and pd.notna(g) and gb is not None \
+            and (g == "PSF") == (gb == "PSF"):
+        out.append("K")
+    d = _num(z.get("distance_m"))
+    if dist is not None and d is not None and abs(d - dist) <= FORM_DIST_M:
+        out.append("D")
+    if gb is not None and pd.notna(g) and g == gb:
+        out.append("B")
+    return out
 
 
-def formzeilen_auswahl(vorher: pd.DataFrame, course, dg, gb) -> list[tuple]:
-    """Die letzten LETZTE_LAEUFE Läufe; fehlt darunter ein Lauf auf demselben Kurs, derselben Distanzgruppe
-    oder derselben Bodengruppe, kommt der letzte ältere Lauf mit diesem Merkmal dazu (je Lauf nur einmal,
-    höchstens drei, neueste zuerst). Liste von (Zeile, None oder Liste der Kennzeichen, für die er dazukam)."""
+def formzeilen_auswahl(vorher: pd.DataFrame, course, dist, gb) -> list[tuple]:
+    """Die letzten LETZTE_LAEUFE Läufe; fehlt darunter ein Lauf auf demselben Kurs (und Belag), über die
+    heutige Distanz (±FORM_DIST_M m) oder auf derselben Bodengruppe, kommt der letzte ältere Lauf mit diesem
+    Merkmal dazu (je Lauf nur einmal, höchstens drei, neueste zuerst). Liste von (Zeile, None oder Liste der Kennzeichen, für die er dazukam)."""
     if not len(vorher):
         return []
     kopf, rest = vorher.head(LETZTE_LAEUFE), vorher.iloc[LETZTE_LAEUFE:]
     out = [(z, None) for _, z in kopf.iterrows()]
-    vorhanden = set().union(*(gleich_heute(z, course, dg, gb) for z, _ in out))
+    vorhanden = set().union(*(gleich_heute(z, course, dist, gb) for z, _ in out))
     extra: dict[int, list[str]] = {}                       # Position in rest -> Kennzeichen
-    for k, _ in FORM_KRITERIEN:
+    for k in FORM_KRITERIEN:
         if k in vorhanden:
             continue
         for i in range(len(rest)):
-            if k in gleich_heute(rest.iloc[i], course, dg, gb):
+            if k in gleich_heute(rest.iloc[i], course, dist, gb):
                 extra.setdefault(i, []).append(k)
                 break
     out += [(rest.iloc[i], extra[i]) for i in sorted(extra)]  # vorher ist neueste zuerst sortiert
@@ -1392,9 +1402,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             dk, xk = p["dam_sire_key"], p["cross_key"]
             vorher = per_pferd.get(hid, pd.DataFrame())
             form = []
-            for n, (z, extra) in enumerate(formzeilen_auswahl(vorher, course, dg, gb)):
+            for n, (z, extra) in enumerate(formzeilen_auswahl(vorher, course, dist, gb)):
                 f = _formzeile(z, p.get("weight_kg"))
-                f["same"] = gleich_heute(z, course, dg, gb)       # K/D/B: Kurs, Distanzgruppe, Bodengruppe wie heute
+                f["same"] = gleich_heute(z, course, dist, gb)     # K/D/B: Kurs+Belag, Distanz ±100 m, Bodengruppe
                 f["extra"] = extra                                 # zusätzlich gezeigt: letzter Lauf auf K/D/B
                 if extra and z["race_id"] not in h_rennen:         # ältere Läufe: Feld und Gegner nachladen
                     _feld_nachladen(z["race_id"], h, h_rennen, h_pferde)
