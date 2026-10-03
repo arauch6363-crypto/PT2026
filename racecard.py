@@ -80,6 +80,9 @@ BOX_SD = 0.289                  # Streuung der relativen Platzierung bei Zufall 
 BOX_Z = 2.0                     # Startbox auffällig: |Ø − 0,5| mindestens BOX_Z Standardfehler …
 BOX_MIN_ABW = 0.05              # … und mindestens so weit von 0,5 entfernt
 BOX_MIN_LAEUFE = 15             # Startbox-Abweichung: ab so vielen Läufen aus der Box auf der Konfiguration farbig
+AE_Z = 2.0                      # Vorlieben auffällig: A/E mindestens AE_Z Standardfehler vom Rest der Person/Linie …
+AE_MIN_ABW = 0.20               # … und mindestens ×1,2 bzw. ×0,8 davon entfernt
+AE_MIN_REST = 20                # … bei mindestens so vielen Läufen im Rest (Maßstab)
 # Preisgeld je Platz: PMU montantOffert1er … 5eme, sonst die übliche Aufteilung des Rennpreises (France Galop)
 PREIS_SPALTEN = ["c_montantOffert1er", "c_montantOffert2eme", "c_montantOffert3eme", "c_montantOffert4eme",
                  "c_montantOffert5eme"]
@@ -791,16 +794,41 @@ def _rec(g: pd.DataFrame) -> dict:
         mp = g["exp_place"].notna()
         exp = float(g.loc[mp, "exp_place"].sum())
         pl_mit = int(g.loc[mp, "placed"].sum())
+        n_mit = int(mp.sum())
     else:
-        exp, pl_mit = 0.0, 0
+        exp, pl_mit, n_mit = 0.0, 0, 0
     epr = float(g["prize_won"].mean()) if runs and "prize_won" in g else None
     return {"runs": runs, "wins": wins, "places": int(g["placed"].sum()),
             "exp": _num(exp), "ae": _num(pl_mit / exp) if exp > 0 else None,
-            "ae_win": _num(wins_mit / exp_w) if exp_w > 0 else None, "epr": _num(epr, 0)}
+            "ae_win": _num(wins_mit / exp_w) if exp_w > 0 else None, "epr": _num(epr, 0),
+            "pl_exp": pl_mit, "n_exp": n_mit}          # Plätze und Läufe, über die A/E gerechnet ist
 
 
 def _leer() -> dict:
-    return {"runs": 0, "wins": 0, "places": 0, "exp": None, "ae": None, "ae_win": None, "epr": None}
+    return {"runs": 0, "wins": 0, "places": 0, "exp": None, "ae": None, "ae_win": None, "epr": None,
+            "pl_exp": 0, "n_exp": 0}
+
+
+def ae_abweichung(teil: dict, gesamt: dict | None) -> dict | None:
+    """Weicht das A/E einer Teilgruppe (z. B. Trainer auf diesem Kurs) vom Rest derselben Person/Linie ab?
+    Maßstab = A/E des Rests (gesamt minus Teil). Erwartete Plätze der Teilgruppe = Σ Erwartung × A/E Rest,
+    Varianz ≈ E·(1 − E/n). Auffällig (sig), wenn A/E Teil ÷ A/E Rest mindestens AE_MIN_ABW von 1 entfernt
+    ist und mindestens AE_Z Standardfehler, bei mindestens AE_MIN_REST Läufen im Rest. None ohne Grundlage."""
+    if not gesamt or not teil or not teil.get("n_exp") or not teil.get("exp"):
+        return None
+    n_r = gesamt.get("n_exp", 0) - teil["n_exp"]
+    e_r = (gesamt.get("exp") or 0) - teil["exp"]
+    p_r = gesamt.get("pl_exp", 0) - teil["pl_exp"]
+    if n_r <= 0 or e_r <= 0 or p_r <= 0:
+        return None
+    basis = p_r / e_r
+    erw = teil["exp"] * basis
+    var = erw * max(1 - erw / teil["n_exp"], 0.05)
+    z = (teil["pl_exp"] - erw) / np.sqrt(var) if var > 0 else 0.0
+    ratio = (teil["pl_exp"] / teil["exp"]) / basis
+    return {"base": _num(basis), "ratio": _num(ratio), "z": _num(z, 1), "rest": int(n_r),
+            "sig": bool(abs(ratio - 1) >= AE_MIN_ABW and abs(z) >= AE_Z and n_r >= AE_MIN_REST),
+            "dir": 1 if ratio > 1 else -1}
 
 
 def _perzentil(sortiert: np.ndarray, wert) -> int | None:
@@ -1338,6 +1366,11 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         "sire_going": gruppen(h, ["sire_key", "going_pmu"]),
         "dam_sire_dist": gruppen(h, ["dam_sire_key", "dist_group"]),
         "dam_sire_going": gruppen(h, ["dam_sire_key", "going_pmu"]),
+        # Gesamtbilanz je Person/Linie im selben Zeitraum: Maßstab für auffällige Vorlieben (ae_abweichung)
+        "trainer": gruppen(h_jt, ["trainer_key"]),
+        "jockey": gruppen(h_jt, ["jockey_key"]),
+        "sire": gruppen(h, ["sire_key"]),
+        "dam_sire": gruppen(h, ["dam_sire_key"]),
     }
 
     rh = races_heute.drop_duplicates("race_id").copy()
@@ -1458,8 +1491,14 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 gew = lauf_gewichte(w, r.get("distance_m"), gb)
                 return _num(float((gew * w[spalte]).sum() / (gew.sum() + SCHNITT_PRIOR)), 2)
 
-            def q(tab, key):
-                return _leer() if any(_txt(k) is None for k in key) else pref[tab].get(key, _leer())
+            def q(tab, key, rolle=None):
+                """Vorliebe aus pref[tab]; mit rolle zusätzlich die Abweichung vom Rest dieser Person/Linie
+                (key[0] ist ihr Schlüssel bzw. für den Jockey key[1] bei trainer_jockey)."""
+                rec_ = _leer() if any(_txt(k) is None for k in key) else pref[tab].get(key, _leer())
+                if rolle is None:
+                    return rec_
+                ek = key[1] if (rolle == "jockey" and tab == "trainer_jockey") else key[0]
+                return {**rec_, "dev": ae_abweichung(rec_, pref[rolle].get(ek) if _txt(ek) else None)}
 
             ok_, bk_ = p.get("owner_key"), p.get("breeder_key")
             ae_p = {}
@@ -1531,16 +1570,20 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                               "blinkers": _tabelle(vorher.assign(blink_grp=vorher["blinkers"].map(scheuklappen_gruppe))
                                                    if len(vorher) and "blinkers" in vorher else vorher, "blink_grp",
                                                    scheuklappen_gruppe(p.get("blinkers")), str)},
-                    "trainer": {"jockey": q("trainer_jockey", (tk, jk)), "course": q("trainer_course", (tk, course)),
-                                "racetype": q("trainer_type", (tk, rt)),
-                                "age": q("trainer_age", (tk, alter_gruppe(p.get("age")))),
+                    "trainer": {"jockey": q("trainer_jockey", (tk, jk), "trainer"),
+                                "course": q("trainer_course", (tk, course), "trainer"),
+                                "racetype": q("trainer_type", (tk, rt), "trainer"),
+                                "age": q("trainer_age", (tk, alter_gruppe(p.get("age"))), "trainer"),
                                 "age_label": alter_gruppe(p.get("age"))},
-                    "jockey": {"course": q("jockey_course", (jk, course)), "trainer": q("trainer_jockey", (tk, jk)),
-                               "horse": jockey_pferd},
-                    "sire": {"distance": q("sire_dist", (sk, dg)), "going": q("sire_going", (sk, gb)),
-                             "age": q("sire_age", (sk, alter_gruppe(p.get("age"))))},
-                    "dam_sire": {"distance": q("dam_sire_dist", (dk, dg)), "going": q("dam_sire_going", (dk, gb)),
-                                 "age": q("dam_sire_age", (dk, alter_gruppe(p.get("age"))))},
+                    "jockey": {"course": q("jockey_course", (jk, course), "jockey"),
+                               "trainer": q("trainer_jockey", (tk, jk), "jockey"),
+                               "horse": {**jockey_pferd, "dev": ae_abweichung(
+                                   jockey_pferd, pref["jockey"].get(jk) if _txt(jk) else None)}},
+                    "sire": {"distance": q("sire_dist", (sk, dg), "sire"), "going": q("sire_going", (sk, gb), "sire"),
+                             "age": q("sire_age", (sk, alter_gruppe(p.get("age"))), "sire")},
+                    "dam_sire": {"distance": q("dam_sire_dist", (dk, dg), "dam_sire"),
+                                 "going": q("dam_sire_going", (dk, gb), "dam_sire"),
+                                 "age": q("dam_sire_age", (dk, alter_gruppe(p.get("age"))), "dam_sire")},
                 },
                 "form_lines": form,
                 "prono": prono_je.get(_num(p.get("saddle_no"), 0)),

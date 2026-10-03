@@ -435,6 +435,13 @@ function aeChip(s, minRuns=10){
   const tip = `A/E Platz: ${s.places} Plätze aus ${s.runs} Starts, erwartet ${fx(s.exp,1)} (Harville mit Korrektur, ohne Marge)` + (s.ae_win != null ? ` · A/E Sieg ${fx(s.ae_win,2)} (${s.wins} Siege)` : "");
   return `<span class="ae ${cls} ${s.runs < minRuns ? "thin" : ""}" title="${esc(tip)}">${s.ae == null ? "–" : s.ae.toFixed(2)}</span>`;
 }
+// Vorliebe weicht deutlich und signifikant vom Rest derselben Person/Linie ab (wie das Box-Urteil): ▲ / ▼
+function aeDev(s, wer){
+  const D = s && s.dev;
+  if (!D || !D.sig) return "";
+  const t = `A/E ${fx(s.ae,2)} gegenüber ${fx(D.base,2)} sonst ${wer || ""} (×${fx(D.ratio,2)}, ${fx(Math.abs(D.z),1)} Standardfehler, Vergleich mit ${D.rest} übrigen Läufen) – deutlich und signifikant ${D.dir > 0 ? "besser" : "schlechter"}`;
+  return ` <span class="lvl ${D.dir > 0 ? "up" : "down"} aedev" title="${esc(t)}" aria-label="${esc(t)}">${D.dir > 0 ? "▲" : "▼"}</span>`;
+}
 function trendIcon(a){
   if (!a.trend) return "";
   const k = a.d30, l = a.d365;
@@ -631,7 +638,7 @@ function detailHTML(x, race){
                    ["Cross", x.sire && x.dam_sire ? `${title(x.sire)} × ${title(x.dam_sire)}` : null, PD.cross, "cross"]].map(([l, n, s, rolle]) =>
     `<tr><td>${l}${n ? ` <span class="muted">${esc(title(n))}</span>` : ""}</td><td class="r num">${rec(s)}</td><td class="r num">${s.places}</td><td class="r">${aeChip(s)}</td><td class="r num">${s.epr != null ? "€" + fmtEur(s.epr) : "–"}</td><td class="r">${idxHTML(s.epr_idx, pop[rolle + "_all"] != null ? "€" + fmtEur(pop[rolle + "_all"]) + " je Lauf" : null, `€/L+ ${l}`, s.runs || null)}</td><td class="r num" title="${s.horses3 ?? 0} davon mit Läufen als 3-Jährige">${s.horses || "–"}</td><td class="r num" title="${esc(`Ø der höchsten Valeur als 3-Jährige aus ${s.horses3 ?? 0} Nachkommen`)}">${s.max_val3 != null ? fx(s.max_val3,1) : "–"}</td><td class="r">${idxHTML(s.max_val3_idx, pop[rolle + "_val3"] != null ? "Ø max Val 3j " + fx(pop[rolle + "_val3"],1) : null, `max Val+ ${l}`, s.horses3 || null, 3, "3-jährigen Nachkommen")}</td></tr>`).join("");
   const P = x.pref;
-  const it = (label, s) => `<div class="it"><span title="${esc(label)}">${esc(label)}</span><span>${rec(s)} ${aeChip(s, 5)}</span></div>`;
+  const it = (label, s, wer) => `<div class="it"><span title="${esc(label)}">${esc(label)}</span><span>${rec(s)} ${aeChip(s, 5)}${aeDev(s, wer)}</span></div>`;
   const jahre = DATA.params.pref_jt_years;
   const K = x.career.all, K1 = x.career.d365;
   const kTxt = k => k.runs ? `${k.runs}-${k.wins}-${k.places} · €${prize(k.earn)} · <span class="lvl ${relCls(k.rel)}" title="${k.rel != null ? `${fx(k.rel,2)} × Median des heutigen Feldes (grün ab 1,25, rot bis 0,8)` : ""}">€${fmtEur(k.epr ?? 0)}/Lauf</span>${k.rank ? ` <span class="muted">#${k.rank}/${k.n}</span>` : ""}` : "keine Läufe";
@@ -648,10 +655,10 @@ function detailHTML(x, race){
     </div>
     <div class="panels one">
       <div class="panel"><h4>Vorlieben · Trainer, Jockey (${jahre} Jahre) · Jockey auf dem Pferd, Vater, Muttervater (gesamt)</h4><div class="pref">
-        <div class="grp"><b>Trainer</b>${it("mit " + (title(x.jockey) || "–"), P.trainer.jockey)}${it("in " + title(race.course), P.trainer.course)}${it("Typ: " + (race.type || "–"), P.trainer.racetype)}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.trainer.age)}</div>
-        <div class="grp"><b>Jockey</b>${it("in " + title(race.course), P.jockey.course)}${it("für " + (title(x.trainer) || "–"), P.jockey.trainer)}${it("auf " + (title(x.horse) || "–"), P.jockey.horse)}</div>
-        <div class="grp"><b>Vater</b>${it("Distanz: " + (race.dist_group ? race.dist_group + " m" : "–"), P.sire.distance)}${it("Boden: " + (race.going_label || "unbekannt"), P.sire.going)}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.sire.age)}</div>
-        <div class="grp"><b>Muttervater${x.dam_sire ? ` · ${esc(title(x.dam_sire))}` : ""}</b>${it("Distanz: " + (race.dist_group ? race.dist_group + " m" : "–"), P.dam_sire.distance)}${it("Boden: " + (race.going_label || "unbekannt"), P.dam_sire.going)}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.dam_sire.age)}</div>
+        <div class="grp"><b>Trainer</b>${it("mit " + (title(x.jockey) || "–"), P.trainer.jockey, "beim Trainer")}${it("in " + title(race.course), P.trainer.course, "beim Trainer")}${it("Typ: " + (race.type || "–"), P.trainer.racetype, "beim Trainer")}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.trainer.age, "beim Trainer")}</div>
+        <div class="grp"><b>Jockey</b>${it("in " + title(race.course), P.jockey.course, "beim Jockey")}${it("für " + (title(x.trainer) || "–"), P.jockey.trainer, "beim Jockey")}${it("auf " + (title(x.horse) || "–"), P.jockey.horse, "beim Jockey (Läufe auf dem Pferd aus der ganzen Historie, Jockey sonst: 2 Jahre)")}</div>
+        <div class="grp"><b>Vater</b>${it("Distanz: " + (race.dist_group ? race.dist_group + " m" : "–"), P.sire.distance, "beim Vater")}${it("Boden: " + (race.going_label || "unbekannt"), P.sire.going, "beim Vater")}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.sire.age, "beim Vater")}</div>
+        <div class="grp"><b>Muttervater${x.dam_sire ? ` · ${esc(title(x.dam_sire))}` : ""}</b>${it("Distanz: " + (race.dist_group ? race.dist_group + " m" : "–"), P.dam_sire.distance, "beim Muttervater")}${it("Boden: " + (race.going_label || "unbekannt"), P.dam_sire.going, "beim Muttervater")}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.dam_sire.age, "beim Muttervater")}</div>
       </div></div>
     </div>
     <div class="panels four">
@@ -862,6 +869,7 @@ function renderLegend(){
     <div><b>€/Lauf</b> (Kachel) und <b>Karriere</b> (Detail, gesamt und ${p.class_days} Tage): Läufe-Siege-Plätze (1.–2. bis 7 Starter, sonst 1.–3.) und Gewinn je Lauf nur aus der PMU-Historie (französische Flachrennen seit Beginn der Sammlung), mit Rang im heutigen Feld; grün ab 1,25 × Median des Feldes, rot bis 0,8 ×. <b>€/L+</b> bei Trainer, Jockey, Besitzer, Züchter, Vater, Muttervater und Cross: Gewinn je Lauf als Index, 100 = Ø aller Personen bzw. Linien dieser Gruppe im selben Zeitraum (ab ${p.pop_min_runs} Läufen), über 100 überdurchschnittlich; grün ab 110, rot bis 90. <b>Ø max Val 3j</b>: Ø der höchsten Valeur der Nachkommen als 3-Jährige, <b>Val+</b> derselbe Index (Population ab ${p.pop_min_horses} 3-jährigen Nachkommen); Preisgeld je Platz laut PMU (montantOffert, sonst 50/19/14/9/4 % des Rennpreises). <b>Klasse</b>: <b>Val+</b> = Ø Valeur der Teilnehmer und <b>Rennstärke €/L+</b> = Ø Gewinn je Lauf der Teilnehmer in den ${p.class_days} Tagen vor dem Rennen, jeweils als Index, 100 = Ø aller früheren Rennen. Im Rennkopf für heute (grün ab 110, rot bis 90); in den Formzeilen (Kl.) für das damalige Rennen mit Farbverlauf nach der Lage unter allen früheren Läufen der heutigen Starter – rot = niedrigster, grün = höchster Wert für dieses Rennen; ebenso das Preisgeld. <b>Abstammung</b>: A/E über die ganze Historie für Vater, Muttervater und die Kombination Vater × Muttervater (Cross).</div>
     <div><b>Laufstil</b> F führend · V vorne dabei · M Mittelfeld · H hinten – aus der Ø frühen Position der letzten ${p.style_runs} Läufe mit Tracking. <b>Pace-Szenario</b>: Norm der Distanzgruppe plus Effekt der Tempomacher und der Feldgröße, geschätzt aus früheren Rennen. <b>Bahn-Bias</b> = IV vorne − IV hinten; positiv: Frontrenner erfolgreicher.</div>
     <div><b>C</b> Sieger auf der Bahn · <b>D</b> Sieger über die Distanz (±100 m) · <b>CD</b> beides im selben Rennen · <b>BF</b> letzter Start als Favorit geschlagen. Wechsel (Trainer, Besitzer, Scheuklappen, erstmals Wallach) gegenüber dem letzten Lauf in der Datenbank. <b>Tage</b> seit dem letzten Lauf in der Datenbank.</div>
+    <div><b>Vorlieben ▲ / ▼</b> (Trainer, Jockey, Vater, Muttervater): A/E der Vorliebe weicht deutlich und signifikant vom Rest derselben Person bzw. Linie ab – mindestens ×1,2 bzw. ×0,8 des A/E aus ihren übrigen Läufen im selben Zeitraum (Trainer/Jockey 2 Jahre, Vater/Muttervater gesamte Historie) und mindestens 2 Standardfehler, bei mindestens 20 übrigen Läufen. Wie beim Box-Urteil; Werte im Tooltip.</div>
     <div><b>Letzte Läufe</b>: die letzten ${p.form_runs} Läufe; gelb markiert, was dem heutigen Rennen entspricht – <b>K</b> Kurs mit gleichem Belag (PSF gegen Gras), <b>D</b> Distanz ±100 m, <b>B</b> Bodengruppe. Fehlt darunter ein Lauf auf dem Kurs (gleicher Belag), über die Distanz (±100 m) oder in der Bodengruppe von heute, steht unten (gestrichelt abgetrennt) zusätzlich der letzte ältere Lauf mit diesem Merkmal – höchstens drei, also bis zu ${p.form_runs + 3} Zeilen.</div>`;
 }
 
