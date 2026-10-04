@@ -100,6 +100,11 @@ Pferdeebene, `runners[].prono`:
 - `tips`: in `n` von `of` Tippreihen genannt, davon `top3`-mal unter den
   ersten drei, Ø-Platz `avg`. Fehlt der Eintrag, nennt keine Quelle das
   Pferd.
+- `konsens`: Platz des Pferdes im Konsens aller Tippreihen (Borda) —
+  `pos` (Platz, gleiche Punkte = gleicher Platz), `of` (Zahl der
+  überhaupt getippten Pferde), `pts` (Punkte). Die Karte zeigt ihn in der
+  Prognose-Kachel als „Tipp 2./9“. Fehlt der Eintrag, steht das Pferd in
+  keiner Tippreihe.
 - `crible` / `crible_de`: Kurzkommentar zum Pferd, nicht bei jedem.
 
 ### P2 — Prognose-Chance
@@ -123,7 +128,9 @@ mit entsprechender Vorsicht lesen.
 
 ### P3 — Wie stark wird die Öffentlichkeit das Pferd spielen?
 
-Prognose-Rang und Tipps zusammen ergeben die Publikumslage:
+Prognose-Rang (`sel.rank`) und Tipp-Konsens (`konsens.pos`) zusammen
+ergeben die Publikumslage. Weichen beide um mehrere Plätze voneinander
+ab, ist das der Fall „Quellen uneins“:
 
 - **Publikumspferd:** vorne in der Prognose und in den Tipps, mit
   wohlwollendem Crible. Der Festkurs wird bis zum Start tendenziell
@@ -173,7 +180,8 @@ ganzen Durchgang schwer wiegen:
   vorhandene Handicapmarke ist ein brauchbares Klassenmaß gegen das Feld.
 - **Conditions, Listed und Gruppenrennen:** "Wer hat die Klasse, und was
   kostet sie heute an Gewicht?" Ohne Handicap fällt die Marke-Frage aus
-  B6 weg; an ihre Stelle treten Valeur (`rating`) im Feldvergleich, die
+  B6 weg; an ihre Stelle treten die gewichtsbereinigte Valeur
+  (`rating_adj`, Rang `rating_rank`, siehe B13) im Feldvergleich, die
   Herkunftsklasse der Formzeilen, der Gewinn je Lauf relativ zum Feld
   (`career.d365.rel`) und das heutige Gewicht. In Gruppenrennen liegt die
   Prognose meist nah an der Wirklichkeit — Edges sind seltener und
@@ -215,6 +223,13 @@ offizielle Bodenangabe; angenommen ist Fast.** Dann gilt:
   „gilt bei Bon/Bon souple" — und der Nutzer den Hinweis, den
   offiziellen Boden vor der Wette zu prüfen.
 - PSF ist nie angenommen; dort entfällt das.
+
+**Woher der Boden kommt, steht in `going_source`:**
+
+- `PMU` — offizielle Angabe. Sie hat immer Vorrang.
+- `manuell` — PMU hat noch nichts; der Nutzer hat den Boden der Bahn selbst eingetragen (`boden_manuell.json`). Er gilt wie eine Angabe, nicht als Annahme (`going_assumed: false`). Ein Angle, der am Boden hängt, bekommt trotzdem die Bedingung „gilt bei …“ mit dem eingetragenen Begriff, und der Nutzer gleicht ihn vor der Wette mit dem offiziellen Boden ab.
+- `PSF` — PMU hat noch nichts, das Rennen ist laut Bahnart PSF.
+- `Annahme` — weder PMU noch ein Eintrag; es gilt Fast, siehe oben.
 
 ### A3 — Klasse
 
@@ -376,8 +391,16 @@ Prognose steht, eher ein Kandidat für Überschätzung.
 
 ### B3 — Formzeilen filtern
 
-Die sieben `form_lines` werden nicht alle gleich gelesen. Zuerst
-aussortieren:
+**Aufbau von `form_lines`.**
+
+Die ersten sieben Zeilen sind die letzten sieben Läufe (`extra: null`). Jede Zeile trägt in `same` die Merkmale, in denen sie dem heutigen Rennen entspricht:
+- `K`: gleicher Kurs mit gleichem Belag (PSF gegen Gras)
+- `D`: Distanz ±100 m
+- `B`: gleiche Bodengruppe
+
+Fehlt unter den sieben ein Lauf mit einem dieser Merkmale, hängt die Karte **bis zu drei ältere Läufe** an. Es ist jeweils der letzte Lauf mit diesem Merkmal; in `extra` steht, wofür er dazukam, etwa `["K", "D"]`. Diese Zeilen sind älter als alle anderen und nicht Teil der jüngsten Form. Sie zeigen, wie das Pferd unter heutigen Bedingungen zuletzt lief, und werden für B6 gelesen, nicht für B0.
+
+Die Zeilen werden nicht alle gleich gelesen. Zuerst aussortieren:
 
 - Klar geschlagene Läufe, etwa Zehnter von zwölf mit neun Längen
   Rückstand. `unreliable: true` markiert Läufe mit mehr als zehn Längen
@@ -408,6 +431,10 @@ aussortieren:
 - Bei vielen Starts pro Pferd reicht es, gezielt nach den
   **vergleichbaren Bedingungen** zu suchen — gleiche Distanz, gleicher
   Boden, ähnliche Klasse — statt alle Zeilen der Reihe nach zu würdigen.
+  `same` nimmt die Suche ab: Zeilen mit zwei oder drei Kennzeichen sind
+  die ersten Kandidaten. Steht nur in einer angehängten `extra`-Zeile
+  ein Lauf unter heutigen Bedingungen, ist das Material dafür alt — das
+  Alter mitlesen und in der Sicherheit berücksichtigen.
 
 **Variante bei wenig Starts:** Hat ein Pferd nur drei bis vier Läufe,
 entfällt das Filtern. Stattdessen den Entwicklungsverlauf vom Debüt
@@ -488,7 +515,10 @@ Gegner (`ran`).
 
 - Handicapmarke im Zeitverlauf (`valeur` der Formzeilen) gegen heute
   (`rating`). Konstante Marke über viele Läufe heißt: kommt damit klar,
-  geht aber nicht darüber hinaus.
+  geht aber nicht darüber hinaus. Marken-Vergleiche (hier und bei
+  `hcp_mark`) laufen immer über die **offizielle Valeur** `rating`, nicht
+  über das gewichtsbereinigte `rating_adj` — die Karte zeigt die Valeur
+  dafür klein neben dem bereinigten Wert.
 - **Die entscheidende Frage im Handicap: Wie steht das Pferd heute zu
   seiner letzten Sieg- oder Platzmarke?** `hcp_mark.kind` (`sieg` oder
   `platz`) sagt, worauf sich die Marke bezieht; `diff` = heute minus
@@ -560,6 +590,21 @@ Handicaps. Diese Unterscheidungen ernst nehmen, statt eine Gesamtquote
 zu lesen. Kleine Stichproben, etwa zwei Siege aus neun, sind nicht
 signifikant und werden auch nicht so behandelt.
 
+**Die Karte nimmt diese Prüfung ab: `dev` an jeder Vorliebe** von Trainer, Jockey, Vater und Muttervater (`pref.trainer.*`, `pref.jockey.*`, `pref.sire.*`, `pref.dam_sire.*`). Verglichen wird das A/E der Spezialisierung mit dem A/E derselben Person bzw. Linie aus ihren **übrigen** Läufen im selben Zeitraum: Trainer und Jockey 2 Jahre, Vater und Muttervater die gesamte Historie.
+
+Felder:
+- `base`: A/E der übrigen Läufe
+- `ratio`: A/E der Vorliebe ÷ `base`
+- `z`: Abstand in Standardfehlern
+- `rest`: Zahl der übrigen Läufe
+- `dir`: +1 oder −1
+
+`sig: true` (in der Karte ▲ / ▼) heißt: mindestens ×1,2 bzw. ×0,8, mindestens 2 Standardfehler und mindestens 20 übrige Läufe. Lesart:
+- **Nur eine Spezialisierung mit `sig` ist ein belastbares Argument.** Ein hohes A/E ohne `sig` ist eine Andeutung, auch wenn es grün ist.
+- Ein ▲ beim Trainer auf dieser Bahn oder in dieser Rennart ist genau die Unterscheidung, die die Gesamtquote verdeckt. Steht sie nicht im Crible, ist sie ein *nicht erkanntes* Argument (B11).
+- Ein ▼ beim Prognose-Favoriten (etwa Trainer mit dieser Altersklasse) ist ein unabhängiges Fragezeichen im Sinne von B12.
+- Bei `pref.jockey.horse` ist der Vergleich nur ungefähr: Die Läufe auf dem Pferd zählen über die ganze Historie, der Jockey sonst nur über 2 Jahre.
+
 `epr_idx` (€/L+, 100 = Durchschnitt) sagt, auf welchem **Niveau** ein
 Stall oder Jockey unterwegs ist, nicht wie gut er gerade läuft. Ein
 großer Stall mit hohem €/L+ in einem kleinen Claimer ist ein
@@ -584,6 +629,8 @@ Distanz und den heutigen Boden: `pref.sire.distance`, `pref.sire.going`,
 `pref.dam_sire.distance`, `pref.dam_sire.going` (bei Zwei- und
 Dreijährigen auch `.age`). Ein schwacher Vater kann durch einen
 passenden Muttervater ausgeglichen werden.
+
+Die **Neigung** einer Linie zu Distanz, Boden oder Alter ist das, was `dev` (B7) misst: ▲ heißt, die Nachkommen laufen unter dieser Bedingung deutlich und signifikant besser als unter den übrigen. Das ist die eigentliche Aussage „die Linie mag weichen Boden“. Ein hohes A/E ohne `sig` kann auch nur eine gute Linie insgesamt sein. Die Distanz der Vorlieben bleibt in 200-m-Gruppen (`dist_group`), anders als die ±100 m der Formzeilen-Kennzeichen (B3).
 
 Die Gesamtstatistik der Linien steht in `ae.pedigree` für `sire`,
 `dam_sire` und `cross` (Vater × Muttervater): A/E, `epr_idx`, die Zahl
@@ -741,8 +788,8 @@ Vergleich über das ganze Feld kommt am Ende des Durchgangs. In beiden
 Fällen dienen die Ratings nicht dazu, Kandidaten zu finden, sondern die
 gefundenen zu prüfen.
 
-Alle drei sind auf das **heutige Gewicht** umgerechnet und tragen einen
-`rank` im Feld:
+Alle sind auf das **heutige Gewicht** umgerechnet und tragen einen
+Rang im Feld:
 
 - **TR** (`tr.heute`): Zeit-Rating nach Timeform-Art mit
   Finishing-Speed-Upgrade, gewichteter Ø der letzten Läufe nach Distanz-
@@ -752,6 +799,14 @@ Alle drei sind auf das **heutige Gewicht** umgerechnet und tragen einen
   vorderen Drittel des Einlaufs, gewichteter Ø.
 - **RTR** (`rtr.adj`): laufendes Elo-artiges Rating nach dem letzten
   Rennen.
+- **Valeur bereinigt** (`rating_adj` = Valeur − heutiges Gewicht + 55,
+  Rang `rating_rank` von `rating_n`): die offizielle Einstufung, auf das
+  heutige Gewicht umgerechnet wie ARR und RTR. Im Handicap ist sie im
+  Feld fast flach — das Gewicht gleicht die Valeur ja gerade aus; ein
+  Pferd, das bereinigt klar vorne steht, trägt weniger, als seine
+  Einstufung verlangt (Erlaubnis, Gewichtsgrenze). In Conditions-,
+  Listed- und Gruppenrennen ist sie das direkte Klassenmaß gegen das
+  Feld (A1). Fehlt das Gewicht, ist `rating_adj` leer.
 - Ergänzend **ΔL600 A / ΔB200 A** (`summary.dl600_a`, `summary.db200_a`
   mit Rang): Schlussvermögen gegenüber der Erwartung — ein Maß für den
   Speed im Finish, unabhängig vom Ergebnis.
@@ -960,6 +1015,10 @@ for rid, r in offen.items():
     reihenfolge = sorted(starter, key=lambda x:
         ((x.get("prono") or {}).get("sel") or {}).get("rank", 99))
     boden_angenommen = r["going_assumed"]
+    boden_quelle = r.get("going_source")  # PMU / manuell / PSF / Annahme (A2)
+    konsens = {x["no"]: (x.get("prono") or {}).get("konsens") for x in starter}
+    alte_zeilen = {x["no"]: [f for f in x["form_lines"] if f.get("extra")]
+                   for x in starter}      # angehängte ältere Läufe (B3)
     bias_rel = r["bias"]["bias"] - bias_alle   # ±0,25 = wie überall
     luecken = {x["no"]: x["starts"] - x["career"]["all"]["runs"]
                for x in starter
