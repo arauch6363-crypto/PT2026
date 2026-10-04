@@ -303,3 +303,15 @@ Je Starter:
 * **Laufstil** je Pferd (F / V / M / H), **Pace-Szenario** aus Tempomachern und Feldgröße,
   **Bahn-Bias** vorne gegen hinten je Bahn und Distanz.
 * Racing-Post-Kürzel **C / D / CD / BF**, Tage seit dem letzten Lauf, Gewicht, Rating, Startbox.
+
+## Skill Rennkarten-Durchgang
+
+`.claude/skills/rennkarten-durchgang/SKILL.md` ist der qualitative Durchgang durch eine Rennkarte. Er geht Pferd für Pferd
+in der Reihenfolge der PMU-Prognose vor und prüft je Starter, ob es einen Wett-Angle gibt und ob dieser schon
+eingepreist ist. Daraus leitet er den Edge gegen die Prognose-Chance und eine Mindestquote (Festkurs) ab.
+
+Der Skill liest die von `racecard.py` erzeugte HTML-Karte. Die Daten stecken dort im eingebetteten `const DATA = …`
+und werden mit Python geparst.
+
+- **Claude Code:** In Sitzungen auf diesem Repo steht der Skill automatisch zur Verfügung.
+- **claude.ai:** Dort wird er weiterhin als `.skill`/ZIP hochgeladen. Die Datei hier ist die versionierte Vorlage.
