@@ -1089,6 +1089,72 @@ def racecard_pruefen() -> None:
            and je[7]["konsens"]["pos"] == 3 and je[8]["konsens"]["pos"] == 3 and "konsens" not in je.get(9, {}),
            "Prognose: Platz im Konsens der Tippgeber je Pferd (Gleichstand = gleicher Platz)")
 
+    # Claude-Version der Karte (claude_export): alle Daten außer Trikots/Kursen, vorgerechnet
+    import claude_export as ce, copy as _copy, json
+    dd = _copy.deepcopy(d)
+    rr = next(iter(dd["races"].values()))
+    rr["status"] = "PROGRAMMEE"
+    for i_, x_ in enumerate(rr["runners"]):
+        x_["prono"] = {"sel": {"rank": 2 - i_, "cote": f"{2 + i_}/1", "cote_dec": 3.0 + i_}}
+        x_["odds"], x_["odds_morning"], x_["silks"] = 4.0, 5.0, "data:image/png;base64,AAAA"
+    nr_ = _copy.deepcopy(rr["runners"][0]); nr_["no"], nr_["nr"] = 9, True
+    rr["runners"].append(nr_)
+    fertig = _copy.deepcopy(rr); fertig.update(race_id="FERTIG", status="ARRIVEE_DEFINITIVE")
+    dd["races"]["FERTIG"] = fertig
+    ex = ce.export(dd)
+    eo, ef = ex["races"][rr["race_id"]], ex["races"]["FERTIG"]
+    txt = json.dumps(ex, ensure_ascii=False)
+    pruefe(eo["offen"] and not ef["offen"] and len(ef["runners"]) == 2 and eo["nr"] == [9]
+           and [x_["no"] for x_ in eo["nichtstarter"]] == [9]
+           and [x_["no"] for x_ in eo["runners"]] == eo["vorgerechnet"]["reihenfolge"] == [2, 1]
+           and abs(sum(x_["p_prog"] for x_ in eo["runners"]) - 1) < 1e-3
+           and eo["runners"][0]["p_prog"] < eo["runners"][1]["p_prog"]       # 4,0 dezimal < 3,0 dezimal
+           and eo["vorgerechnet"]["marge"] == round(1 / 3 + 1 / 4, 3)
+           and "odds_morning" not in txt and '"silks"' not in txt and "base64" not in txt
+           and all("odds" not in x_ for x_ in eo["runners"])
+           and all("rivals" not in f_ and "rivals_nah" in f_ and "rivals_stat" in f_
+                   and not (set(f_) & ce.OHNE_FORMZEILE) for x_ in eo["runners"] for f_ in x_["form_lines"]),
+           "Claude-Version: Starter nach Prognose-Rang, p_prog (Potenzmethode) und Marge vorgerechnet, ohne "
+           "Kurse/Trikots; Formzeilen mit nächsten Gegnern statt voller Liste, ohne Zwischenwerte; Nichtstarter und "
+           "gelaufene Rennen vollständig dabei")
+
+    def _pfade(o, pre=""):
+        """Alle Schlüsselpfade (Listenindizes zu [] zusammengefasst)."""
+        if isinstance(o, dict):
+            return {q for k, v in o.items() for q in {f"{pre}.{k}"} | _pfade(v, f"{pre}.{k}")}
+        if isinstance(o, list):
+            return {q for v in o for q in _pfade(v, pre + "[]")}
+        return set()
+    def _norm(q):            # Rennschlüssel (Datum…/FERTIG) weg, Nichtstarter zählen wie Starter
+        q = q.replace(".nichtstarter[]", ".runners[]")
+        return ".".join(t for t in q.split(".") if not t.startswith(("20", "FERTIG")))
+    ausgelassen = (".runners[].silks", ".runners[].odds", ".runners[].odds_morning",
+                   *(f".form_lines[].{k}" for k in ce.OHNE_FORMZEILE))
+    weg = lambda q: q.endswith(ausgelassen) or any(o + "." in q or o + "[]" in q for o in ausgelassen)  # + Unterfelder
+    fehlend = sorted({_norm(q) for q in _pfade(dd)} - {_norm(q) for q in _pfade(ex)}
+                     - {q for q in {_norm(q) for q in _pfade(dd)} if weg(q)})
+    pruefe(not fehlend, "Claude-Version vollständig: jedes Feld der Race Card außer Trikots/Kursen/Gegnerliste/Zwischenwerten"
+           + (f" – fehlt: {fehlend[:5]}" if fehlend else ""))
+    dn = _copy.deepcopy(dd)
+    x_ = next(iter(dn["races"].values()))["runners"][0]
+    x_["neues_feld"] = {"a": 1}; x_["form_lines"][0]["neu_fz"] = 2; next(iter(dn["races"].values()))["neu_r"] = 3
+    en = ce.export(dn)
+    eon = en["races"][rr["race_id"]]
+    pruefe(any(y_.get("neues_feld") == {"a": 1} for y_ in eon["runners"] + eon["nichtstarter"])
+           and any(f_.get("neu_fz") == 2 for y_ in eon["runners"] for f_ in y_["form_lines"]) and eon["neu_r"] == 3,
+           "Claude-Version: neue Felder der Race Card kommen automatisch mit")
+    p_ = ce.potenz_normierung({1: 1 / 3.4, 2: 1 / 17, 3: 1 / 3, 4: 1 / 5, 5: 1 / 9, 6: 1 / 6, 7: 1 / 12, 8: 1 / 7})
+    pruefe(abs(sum(p_.values()) - 1) < 1e-6 and p_[2] < (1 / 17) / sum([1 / 3.4, 1 / 17, 1 / 3, 1 / 5, 1 / 9, 1 / 6,
+                                                                          1 / 12, 1 / 7]),
+           "Claude-Version: Potenzmethode zieht die Marge stärker beim Außenseiter ab als proportional")
+    skill = (Path(__file__).parent / ".claude/skills/rennkarten-durchgang/SKILL.md").read_text(encoding="utf-8")
+    x0 = eo["runners"][0]
+    pruefe(all(k in x0 for k in ("form_lines", "pref", "ae", "career", "rating_adj", "prono", "duels", "starts",
+                                 "days", "changes", "badges", "hcp_mark", "tr", "arr", "rtr", "summary", "luecke"))
+           and all(k in eo for k in ("prono", "pace", "bias", "class", "going_source", "going_assumed", "declared"))
+           and all(k in skill for k in ("_claude.json", "p_prog", "vorgerechnet", "rivals_nah", "luecke")),
+           "Claude-Version: Felder, die der Skill liest, sind da; der Skill kennt die Claude-Version")
+
     # Vorlieben: A/E deutlich und signifikant anders als der Rest derselben Person/Linie
     ges = {"n_exp": 400, "exp": 100.0, "pl_exp": 100}                       # A/E gesamt 1,0
     gut = rc.ae_abweichung({"n_exp": 60, "exp": 15.0, "pl_exp": 30}, ges)    # Teil A/E 2,0, Rest 70/85

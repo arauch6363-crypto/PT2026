@@ -495,7 +495,9 @@ Für jede verbliebene Zeile:
 
 ### B5 — Gegneraufwertung
 
-Über `rivals[].next` und `rivals_stat` prüfen, ob die damaligen Gegner
+Über `rivals[].next` (in der Claude-Version `rivals_nah[].next`: die
+Gegner direkt davor und dahinter) und `rivals_stat` (alle wieder
+gelaufenen Gegner) prüfen, ob die damaligen Gegner
 seither ihre Form bestätigt haben. Das Urteil `verdict` ist
 **marktrelativ**: „besser" heißt, der Gegner lief im nächsten Start
 besser als sein Quotenrang, „schlechter" schlechter, „wie erwartet"
@@ -985,10 +987,54 @@ Buchmachers halten kann.
 
 ## Arbeitsweise im Gespräch
 
-Die Racecard liegt als HTML mit eingebettetem `const DATA = {...}` vor
-(mehrere MB). Mit Python parsen, nicht als Text lesen. Gleich zu Beginn
-offene Rennen, Prognose-Chancen und die Lücken aus D berechnen; `odds`
-und `odds_morning` dabei nicht anfassen:
+**Bevorzugt: die Claude-Version `racecard_JJJJMMTT_claude.json`.** Sie
+entsteht neben der HTML-Karte. Sie enthält **alle Daten der Karte**,
+auch Detailinfos, die in diesem Raster nicht vorkommen. Wer mehr wissen
+will, findet es dort. Unterschiede zu `DATA`:
+
+- **Weggelassen sind nur:**
+  - die Trikots und `odds` / `odds_morning` der Starter. Historische
+    Endquoten in den Formzeilen und bei den Gegnern bleiben.
+  - je Formzeile die volle Gegnerliste `rivals`.
+  - die Zwischenwerte der Berechnung, etwa Rohtempo, Klassenkorrektur,
+    Bestandteile des TR und Perzentile für die Farbe. Die Ergebnisse
+    (`dl600_a`, `db200_a`, `tr`, `tr_heute`, `cls_*_idx` …) bleiben.
+- **Starter in `runners`** stehen bereits in Prognose-Reihenfolge.
+- **Nichtstarter** stehen vollständig getrennt in `nichtstarter`; ihre
+  Nummern stehen in `nr`. Mit ihnen wird nichts gerechnet.
+- **Je Formzeile** stehen statt aller Gegner `rivals_nah` (je zwei
+  Gegner direkt davor und dahinter, mit ihrem nächsten Start) und
+  `rivals_stat` (Bilanz über alle wieder gelaufenen Gegner, B5).
+- **`offen`:** `true` für Rennen mit Status `PROGRAMMEE`. Gelaufene
+  Rennen (`false`) sind vollständig enthalten, werden aber nur als eine
+  Zeile ausgegeben.
+- **Vorgerechnet:**
+  - `vorgerechnet` je Rennen: `marge`, `reihenfolge` (Startnummern) und
+    `bias_rel` (Bias minus Schnitt aller Bahnen).
+  - Je Starter: `p_prog` (Prognose-Chance nach der Potenzmethode, P2)
+    und `luecke` (`starts` − Datenbank-Läufe, D).
+
+Diese Werte direkt übernehmen, nicht neu rechnen:
+
+```python
+import json
+DATA = json.load(open(pfad, encoding="utf-8"))
+offen = {rid: r for rid, r in DATA["races"].items() if r["offen"]}
+for rid, r in offen.items():
+    v = r["vorgerechnet"]                 # marge, reihenfolge, bias_rel
+    for x in r["runners"]:                # schon in Prognose-Reihenfolge
+        p, luecke = x["p_prog"], x["luecke"]
+        alte_zeilen = [f for f in x["form_lines"] if f.get("extra")]
+# Edge je Kandidat: p_eigen / x["p_prog"] - 1
+```
+
+Für ein einzelnes Rennen reicht `DATA["races"][rid]`. Den Block des
+Rennens ausgeben und lesen, statt die ganze Datei zu durchsuchen.
+
+**Rückfall: nur die HTML-Karte.** Sie hat ein eingebettetes
+`const DATA = {...}` (mehrere MB). Mit Python parsen, nicht als Text
+lesen. Gleich zu Beginn offene Rennen, Prognose-Chancen und die Lücken
+aus D berechnen; `odds` und `odds_morning` dabei nicht anfassen:
 
 ```python
 import json

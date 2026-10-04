@@ -1716,8 +1716,9 @@ def html(daten: dict, template: Path = TEMPLATE, *, eigenstaendig: bool = True) 
 
 
 def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True,
-        uebersetzen_aktiv: bool = True) -> Path:
-    """Race Card für `tag` (Vorgabe: heute) bauen und als HTML speichern."""
+        uebersetzen_aktiv: bool = True, claude: bool = True) -> Path:
+    """Race Card für `tag` (Vorgabe: heute) bauen und als HTML speichern; mit claude=True zusätzlich die kompakte
+    Claude-Version racecard_JJJJMMTT_claude.json daneben (claude_export)."""
     import pipeline as tp
     base = Path(base)
     tag = pd.to_datetime(tag).date() if tag else pmu.heute()
@@ -1763,6 +1764,10 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     out.write_text(html(daten), encoding="utf-8")
     print(f"Race Card gespeichert: {out}  ({daten['history']['runs']} historische Läufe, "
           f"davon {daten['history']['tracked']} mit Tracking)")
+    if claude:                                            # kompakte JSON für den Skill rennkarten-durchgang
+        import claude_export
+        cj = claude_export.schreiben(daten, out.with_name(out.stem + "_claude.json"))
+        print(f"Claude-Version: {cj}  ({cj.stat().st_size / 1e6:.1f} MB)")
     return out
 
 
