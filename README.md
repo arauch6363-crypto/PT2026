@@ -315,3 +315,17 @@ und werden mit Python geparst.
 
 - **Claude Code:** In Sitzungen auf diesem Repo steht der Skill automatisch zur Verfügung.
 - **claude.ai:** Dort wird er weiterhin als `.skill`/ZIP hochgeladen. Die Datei hier ist die versionierte Vorlage.
+
+**Claude-Version der Karte** (`claude_export.py`): Neben `racecard_JJJJMMTT.html` schreibt `racecard.run` die Datei
+`racecard_JJJJMMTT_claude.json` (abschalten mit `claude=False`).
+
+- **Weggelassen:**
+  - Trikots und Morgen-/Totokurse.
+  - Nichtstarter (ihre Nummern stehen in `nr`).
+  - Je Formzeile die volle Gegnerliste und die Zwischenwerte der Berechnung.
+- **Gelaufene Rennen** haben nur Kopf und Ergebnis.
+- **Vorgerechnet:**
+  - Prognose-Chance nach der Potenzmethode (`p_prog`), `marge`, `reihenfolge` nach Prognose-Rang.
+  - `bias_rel` gegen den Schnitt aller Bahnen, `luecke` (PMU-Starts − Datenbank-Läufe).
+- **Größe:** Etwa ein Drittel der HTML-Karte (02.10.: 2,6 statt 8,2 MB).
+- **Zur Analyse** in claude.ai hochladen: den Skill und diese Datei statt der HTML-Karte. Der Skill liest sie bevorzugt; die HTML-Karte bleibt als Rückfall.
