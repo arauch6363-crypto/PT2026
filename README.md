@@ -325,3 +325,6 @@ und werden mit Python geparst.
 - **Vorgerechnet:** Prognose-Chance nach der Potenzmethode (`p_prog`), `marge`, `reihenfolge`, `bias_rel` gegen den Schnitt aller Bahnen, `luecke` (PMU-Starts − Datenbank-Läufe).
 - **Größe:** etwa ein Drittel der HTML-Karte (02.10.: 2,8 statt 8,2 MB).
 - **Zur Analyse** in claude.ai hochladen: den Skill und diese Datei statt der HTML-Karte. Der Skill liest sie bevorzugt; die HTML-Karte bleibt als Rückfall.
+
+**claude.ai-Projekt:** Systemprompt und Einrichtung (Skill über die GitHub-Anbindung, nur die Claude-JSON hochladen) stehen in
+`claude_projekt/systemprompt.md`.
