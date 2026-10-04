@@ -1112,9 +1112,11 @@ def racecard_pruefen() -> None:
            and eo["vorgerechnet"]["marge"] == round(1 / 3 + 1 / 4, 3)
            and "odds_morning" not in txt and '"silks"' not in txt and "base64" not in txt
            and all("odds" not in x_ for x_ in eo["runners"])
-           and all("rivals" in f_ and "rivals_nah" in f_ for x_ in eo["runners"] for f_ in x_["form_lines"]),
+           and all("rivals" not in f_ and "rivals_nah" in f_ and "rivals_stat" in f_
+                   and not (set(f_) & ce.OHNE_FORMZEILE) for x_ in eo["runners"] for f_ in x_["form_lines"]),
            "Claude-Version: Starter nach Prognose-Rang, p_prog (Potenzmethode) und Marge vorgerechnet, ohne "
-           "Kurse/Trikots; Nichtstarter und gelaufene Rennen vollständig dabei")
+           "Kurse/Trikots; Formzeilen mit nächsten Gegnern statt voller Liste, ohne Zwischenwerte; Nichtstarter und "
+           "gelaufene Rennen vollständig dabei")
 
     def _pfade(o, pre=""):
         """Alle Schlüsselpfade (Listenindizes zu [] zusammengefasst)."""
@@ -1126,10 +1128,12 @@ def racecard_pruefen() -> None:
     def _norm(q):            # Rennschlüssel (Datum…/FERTIG) weg, Nichtstarter zählen wie Starter
         q = q.replace(".nichtstarter[]", ".runners[]")
         return ".".join(t for t in q.split(".") if not t.startswith(("20", "FERTIG")))
-    ausgelassen = (".runners[].silks", ".runners[].odds", ".runners[].odds_morning")
+    ausgelassen = (".runners[].silks", ".runners[].odds", ".runners[].odds_morning",
+                   *(f".form_lines[].{k}" for k in ce.OHNE_FORMZEILE))
+    weg = lambda q: q.endswith(ausgelassen) or any(o + "." in q or o + "[]" in q for o in ausgelassen)  # + Unterfelder
     fehlend = sorted({_norm(q) for q in _pfade(dd)} - {_norm(q) for q in _pfade(ex)}
-                     - {q for q in {_norm(q) for q in _pfade(dd)} if q.endswith(ausgelassen)})
-    pruefe(not fehlend, "Claude-Version vollständig: jedes Feld der Race Card außer Trikots/Kursen ist enthalten"
+                     - {q for q in {_norm(q) for q in _pfade(dd)} if weg(q)})
+    pruefe(not fehlend, "Claude-Version vollständig: jedes Feld der Race Card außer Trikots/Kursen/Gegnerliste/Zwischenwerten"
            + (f" – fehlt: {fehlend[:5]}" if fehlend else ""))
     dn = _copy.deepcopy(dd)
     x_ = next(iter(dn["races"].values()))["runners"][0]
