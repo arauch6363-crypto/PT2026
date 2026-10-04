@@ -495,8 +495,9 @@ Für jede verbliebene Zeile:
 
 ### B5 — Gegneraufwertung
 
-Über `rivals[].next` (in der Claude-Version `rivals_nah[].next`, nur
-die Gegner direkt davor und dahinter) und `rivals_stat` prüfen, ob die damaligen Gegner
+Über `rivals[].next` (alle Gegner; in der Claude-Version zusätzlich
+`rivals_nah` mit den Gegnern direkt davor und dahinter) und `rivals_stat`
+prüfen, ob die damaligen Gegner
 seither ihre Form bestätigt haben. Das Urteil `verdict` ist
 **marktrelativ**: „besser" heißt, der Gegner lief im nächsten Start
 besser als sein Quotenrang, „schlechter" schlechter, „wie erwartet"
@@ -987,20 +988,26 @@ Buchmachers halten kann.
 ## Arbeitsweise im Gespräch
 
 **Bevorzugt: die Claude-Version `racecard_JJJJMMTT_claude.json`.** Sie
-entsteht neben der HTML-Karte und enthält dieselben Felder wie
-`DATA` mit diesen Unterschieden:
+entsteht neben der HTML-Karte. Sie enthält **alle Daten der Karte**,
+auch Detailinfos, die in diesem Raster nicht vorkommen. Wer mehr wissen
+will, findet es dort. Unterschiede zu `DATA`:
 
-- **Weggelassen:**
-  - Trikots, `odds` und `odds_morning`.
-  - Nichtstarter. Ihre Nummern stehen in `nr`, `declared` bleibt erhalten.
-  - Je Formzeile die volle Gegnerliste und die reinen Zwischenwerte der Berechnung.
-- **Je Formzeile:** `rivals_stat` und `rivals_nah`, die je zwei Gegner direkt davor und dahinter (B5).
-- **Startbox damals:** `draw_stat` steht nur in Formzeilen, in denen die Box auffällig war (`sig`).
-- **Gelaufene Rennen** haben `offen: false` und nur Kopf und Ergebnis.
-- **Offene Rennen** (`offen: true`):
-  - Die Starter sind bereits nach Prognose-Rang sortiert.
-  - `vorgerechnet` enthält `marge`, `reihenfolge` (Nummern) und `bias_rel` (Bias minus Schnitt aller Bahnen).
-  - Je Starter stehen `p_prog` (Prognose-Chance nach der Potenzmethode, P2) und `luecke` (`starts` − Datenbank-Läufe, D).
+- **Weggelassen sind nur** die Trikots und `odds` / `odds_morning` der
+  Starter. Historische Endquoten in den Formzeilen und bei den Gegnern
+  bleiben.
+- **Starter in `runners`** stehen bereits in Prognose-Reihenfolge.
+- **Nichtstarter** stehen vollständig getrennt in `nichtstarter`; ihre
+  Nummern stehen in `nr`. Mit ihnen wird nichts gerechnet.
+- **Je Formzeile** gibt es neben der vollen Liste `rivals` zusätzlich
+  `rivals_nah`: je zwei Gegner direkt davor und dahinter (B5).
+- **`offen`:** `true` für Rennen mit Status `PROGRAMMEE`. Gelaufene
+  Rennen (`false`) sind vollständig enthalten, werden aber nur als eine
+  Zeile ausgegeben.
+- **Vorgerechnet:**
+  - `vorgerechnet` je Rennen: `marge`, `reihenfolge` (Startnummern) und
+    `bias_rel` (Bias minus Schnitt aller Bahnen).
+  - Je Starter: `p_prog` (Prognose-Chance nach der Potenzmethode, P2)
+    und `luecke` (`starts` − Datenbank-Läufe, D).
 
 Diese Werte direkt übernehmen, nicht neu rechnen:
 

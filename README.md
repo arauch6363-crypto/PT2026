@@ -319,13 +319,9 @@ und werden mit Python geparst.
 **Claude-Version der Karte** (`claude_export.py`): Neben `racecard_JJJJMMTT.html` schreibt `racecard.run` die Datei
 `racecard_JJJJMMTT_claude.json` (abschalten mit `claude=False`).
 
-- **Weggelassen:**
-  - Trikots und Morgen-/Totokurse.
-  - Nichtstarter (ihre Nummern stehen in `nr`).
-  - Je Formzeile die volle Gegnerliste und die Zwischenwerte der Berechnung.
-- **Gelaufene Rennen** haben nur Kopf und Ergebnis.
-- **Vorgerechnet:**
-  - Prognose-Chance nach der Potenzmethode (`p_prog`), `marge`, `reihenfolge` nach Prognose-Rang.
-  - `bias_rel` gegen den Schnitt aller Bahnen, `luecke` (PMU-Starts − Datenbank-Läufe).
-- **Größe:** Etwa ein Drittel der HTML-Karte (02.10.: 2,6 statt 8,2 MB).
+- **Inhalt:** **alle Daten der Karte**, auch Detailinfos, die der Skill heute nicht nutzt. Neue Felder der Karte kommen automatisch mit; ein Selbsttest prüft die Vollständigkeit.
+- **Weggelassen** sind nur Trikots und Morgen-/Totokurs.
+- **Umgeordnet:** Starter nach Prognose-Rang, Nichtstarter getrennt (`nichtstarter`, Nummern in `nr`).
+- **Vorgerechnet:** Prognose-Chance nach der Potenzmethode (`p_prog`), `marge`, `reihenfolge`, `bias_rel` gegen den Schnitt aller Bahnen, `luecke` (PMU-Starts − Datenbank-Läufe). Je Formzeile zusätzlich `rivals_nah`.
+- **Größe:** etwa die Hälfte der HTML-Karte (02.10.: 4,7 statt 8,2 MB).
 - **Zur Analyse** in claude.ai hochladen: den Skill und diese Datei statt der HTML-Karte. Der Skill liest sie bevorzugt; die HTML-Karte bleibt als Rückfall.

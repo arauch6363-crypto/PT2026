@@ -1,38 +1,30 @@
-"""Claude-Version der Race Card: kompakte JSON für den Skill „rennkarten-durchgang“.
+"""Claude-Version der Race Card: JSON für den Skill „rennkarten-durchgang“ (racecard_JJJJMMTT_claude.json).
 
-Aus denselben Daten wie die HTML-Karte (racecard.baue_daten), aber ohne das, was der Skill nicht braucht oder
-ausdrücklich nicht nutzen soll:
-* keine Trikots (base64), keine Morgen-/Totokurse (`odds`, `odds_morning`),
-* je Formzeile statt aller Gegner nur die direkt davor und dahinter (`rivals_nah`) plus `rivals_stat`,
-* Nichtstarter gestrichen (Nummern in `nr`), gelaufene Rennen nur als eine Zeile.
-Dazu vorgerechnet, was der Skill sonst selbst rechnet: Prognose-Chance nach der Potenzmethode (`p_prog`), Marge,
-Reihenfolge nach Prognose-Rang, Bias gegen den Schnitt aller Bahnen, Lücke `starts` − Datenbank-Läufe.
-racecard.run schreibt die Datei als racecard_JJJJMMTT_claude.json neben die HTML-Karte.
+Enthält **alle Daten der Race Card** (racecard.baue_daten) – auch Detailinfos, die der Skill heute noch nicht nutzt,
+damit eine spätere Fassung des Skills sie ohne Codeänderung lesen kann. Neue Felder der Karte kommen automatisch mit,
+weil nicht ausgewählt, sondern nur ausgelassen wird (selftest prüft das).
+
+Ausgelassen wird nur, was keine Information für die Analyse trägt oder ausdrücklich nicht genutzt werden soll:
+* Trikots (`silks`, base64-Bilder),
+* Morgen- und Totokurs (`odds`, `odds_morning` des Starters; die Karte zeigt sie nicht, der Skill soll sie nicht
+  nutzen). Historische Endquoten in den Formzeilen und bei den Gegnern bleiben.
+
+Umgeordnet und vorgerechnet, damit Claude nicht selbst rechnen muss:
+* je Rennen `offen` (Status PROGRAMMEE), Starter in Prognose-Reihenfolge, Nichtstarter getrennt in `nichtstarter`
+  (vollständig) und ihre Nummern in `nr`,
+* `vorgerechnet`: Marge der cote probable, Reihenfolge nach Prognose-Rang, Bias gegen den Schnitt aller Bahnen,
+* je Starter `p_prog` (Prognose-Chance nach der Potenzmethode) und `luecke` (PMU-Starts − Datenbank-Läufe),
+* je Formzeile zusätzlich `rivals_nah` (die Gegner direkt davor und dahinter) neben der vollen Liste `rivals`.
 """
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 
-OHNE_STARTER = {"silks", "odds", "odds_morning"}     # nicht für Claude
-GEGNER_NAH = 2                                       # je Formzeile: so viele Gegner davor und dahinter
+OHNE_STARTER = {"silks", "odds", "odds_morning"}     # einzige ausgelassene Felder
+GEGNER_NAH = 2                                       # rivals_nah: so viele Gegner davor und dahinter
 OFFEN = "PROGRAMMEE"
-# Felder der Formzeilen, die der Skill liest (Rest – Rohwerte, Zwischenwerte der Berechnung – bleibt weg)
-FORM_FELDER = ("date", "course", "dist", "going", "type", "prize", "won_eur", "pos", "ran", "margin", "incident",
-               "unreliable", "weight", "jockey", "blinkers", "odds", "odds_rank", "fav", "valeur", "draw",
-               "draw_stat", "comment", "comment_de", "tracking", "early_pos", "pos_before", "fifth", "pos_gain",
-               "weg_med", "pace_ratio", "finish_index", "fs", "fs_opt", "dl600_a", "db200_a", "arr", "arr_adj",
-               "tr", "tr_heute", "tr_cap", "cls_val", "cls_epr", "cls_val_idx", "cls_epr_idx", "rivals_stat",
-               "same", "extra")
-
-
-def _formzeile(f: dict) -> dict:
-    """Formzeile für Claude: nur FORM_FELDER, leere Werte weg, Box-Urteil nur wenn auffällig (sig)."""
-    out = {k: f[k] for k in FORM_FELDER if f.get(k) not in (None, [], "")}
-    if not (f.get("draw_stat") or {}).get("sig"):
-        out.pop("draw_stat", None)
-    out["rivals_nah"] = _gegner_nah(f)
-    return out
 
 
 def potenz_normierung(q: dict) -> dict:
@@ -58,53 +50,52 @@ def _gegner_nah(f: dict) -> list[dict]:
     return vor + nach
 
 
-def _starter(x: dict) -> dict:
-    y = {k: v for k, v in x.items() if k not in OHNE_STARTER}
-    y["form_lines"] = [_formzeile(f) for f in x.get("form_lines") or []]
+def _starter(x: dict, p: dict) -> dict:
+    """Starter vollständig, ohne OHNE_STARTER; dazu p_prog, luecke und je Formzeile rivals_nah."""
+    y = {k: copy.deepcopy(v) for k, v in x.items() if k not in OHNE_STARTER}
+    for f in y.get("form_lines") or []:
+        f["rivals_nah"] = _gegner_nah(f)
     db = (x.get("career") or {}).get("all", {}).get("runs")
     y["luecke"] = (x["starts"] - db) if isinstance(x.get("starts"), int) and isinstance(db, int) else None
+    y["p_prog"] = round(p[x["no"]], 4) if x.get("no") in p else None
     return y
 
 
 def rennen(r: dict, bias_alle: float | None) -> dict:
-    """Ein Rennen für Claude; gelaufene/abgebrochene Rennen nur mit Kopf und Ergebnis."""
-    kopf = {k: r.get(k) for k in ("race_id", "reunion", "race_no", "time", "name", "course", "status", "result")}
-    if r.get("status") != OFFEN:
-        return {**kopf, "offen": False}
-    starter = [x for x in r.get("runners") or [] if not x.get("nr")]
+    """Ein Rennen vollständig; Starter nach Prognose-Rang, Nichtstarter getrennt, Vorgerechnetes dazu."""
+    alle = r.get("runners") or []
+    starter = [x for x in alle if not x.get("nr")]
+    nicht = [x for x in alle if x.get("nr")]
     roh = {x["no"]: 1 / x["prono"]["sel"]["cote_dec"] for x in starter
            if ((x.get("prono") or {}).get("sel") or {}).get("cote_dec")}
     p = potenz_normierung(roh)
-    out = {**{k: v for k, v in r.items() if k != "runners"}, "offen": True}
-    out["nr"] = [x["no"] for x in r.get("runners") or [] if x.get("nr")]
+    reihenfolge = [x["no"] for x in sorted(
+        starter, key=lambda x: (((x.get("prono") or {}).get("sel") or {}).get("rank") or 99, x["no"]))]
     b = (r.get("bias") or {}).get("bias")
+    out = {k: copy.deepcopy(v) for k, v in r.items() if k != "runners"}
+    out["offen"] = r.get("status") == OFFEN
+    out["nr"] = [x["no"] for x in nicht]
     out["vorgerechnet"] = {
         "marge": round(sum(roh.values()), 3) if roh else None,      # Σ 1/cote_dec, typisch 1,15–1,50
-        "reihenfolge": [x["no"] for x in sorted(
-            starter, key=lambda x: (((x.get("prono") or {}).get("sel") or {}).get("rank") or 99, x["no"]))],
+        "reihenfolge": reihenfolge,                                  # Startnummern nach Prognose-Rang
         "bias_rel": round(b - bias_alle, 2) if b is not None and bias_alle is not None else None,
     }
-    out["runners"] = []
-    for x in sorted(starter, key=lambda x: out["vorgerechnet"]["reihenfolge"].index(x["no"])):
-        y = _starter(x)
-        y["p_prog"] = round(p[x["no"]], 4) if x["no"] in p else None
-        out["runners"].append(y)
+    nach_no = {x["no"]: x for x in starter}
+    out["runners"] = [_starter(nach_no[no], p) for no in reihenfolge]
+    out["nichtstarter"] = [_starter(x, {}) for x in nicht]
     return out
 
 
 def export(daten: dict) -> dict:
-    """Claude-Version aus dem Ergebnis von racecard.baue_daten."""
+    """Claude-Version aus dem Ergebnis von racecard.baue_daten: alle Felder außer Trikots und Kursen."""
     bias_alle = (daten.get("bias_all") or {}).get("bias")
-    races = {rid: rennen(r, bias_alle) for rid, r in (daten.get("races") or {}).items()}
-    return {
-        "hinweis": "Claude-Version der Race Card für den Skill rennkarten-durchgang: ohne Trikots und ohne "
-                   "Morgen-/Totokurse, Nichtstarter gestrichen (Nummern in nr), Starter nach Prognose-Rang sortiert; "
-                   "vorgerechnet: p_prog (Potenzmethode), marge, reihenfolge, bias_rel, luecke; je Formzeile nur "
-                   "die nächsten Gegner (rivals_nah) und rivals_stat.",
-        "date": daten.get("date"), "generated": daten.get("generated"), "history": daten.get("history"),
-        "bias_all": daten.get("bias_all"), "params": daten.get("params"), "meetings": daten.get("meetings"),
-        "races": races,
-    }
+    out = {"hinweis": "Claude-Version der Race Card für den Skill rennkarten-durchgang: alle Daten der Karte außer "
+                      "Trikots und Morgen-/Totokurs. Starter nach Prognose-Rang sortiert, Nichtstarter getrennt in "
+                      "nichtstarter (Nummern in nr); vorgerechnet: p_prog (Potenzmethode), marge, reihenfolge, "
+                      "bias_rel, luecke; je Formzeile zusätzlich rivals_nah."}
+    out.update({k: copy.deepcopy(v) for k, v in daten.items() if k != "races"})
+    out["races"] = {rid: rennen(r, bias_alle) for rid, r in (daten.get("races") or {}).items()}
+    return out
 
 
 def schreiben(daten: dict, pfad: Path) -> Path:
