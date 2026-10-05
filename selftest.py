@@ -757,6 +757,31 @@ def racecard_pruefen() -> None:
            "Startbox auffällig nur bei ≥ 2 Standardfehlern und ≥ 0,05 Abweichung (0,60 aus 100 ja, aus 10 nein; 0,53 nein)")
     pruefe(f["draw_stat"]["n"] == 1 and not f["draw_stat"]["sig"],
            "Startbox-Urteil auch je früherem Lauf (Konfiguration und Box dieses Laufs)")
+
+    # Bahnart fehlt im Tagesprogramm: Schlüssel an die Historie angleichen bzw. aus der Detailseite nachladen
+    hk = pd.Series(["DEAUVILLE|1300|PSF|PISTE EN SABLE FIBRE|CORDE_DROITE"] * 50
+                   + ["DEAUVILLE|1300|?|PISTE EN SABLE FIBRE|CORDE_DROITE"] * 2
+                   + ["DEAUVILLE|1300|HERBE|LIGNE DROITE|CORDE_DROITE"] * 80)
+    ang = rc.konfig_angleichen(pd.Series(["DEAUVILLE|1300|?|PISTE EN SABLE FIBRE|CORDE_DROITE",
+                                          "DEAUVILLE|1300|HERBE|LIGNE DROITE|CORDE_DROITE",
+                                          "MANS|1600|?||CORDE_GAUCHE"]), hk)
+    pruefe(ang.tolist() == ["DEAUVILLE|1300|PSF|PISTE EN SABLE FIBRE|CORDE_DROITE",
+                            "DEAUVILLE|1300|HERBE|LIGNE DROITE|CORDE_DROITE", "MANS|1600|?||CORDE_GAUCHE"],
+           "Startbox: fehlende Bahnart heute wird aus der Historie gleicher Bahn/Distanz/Parcours/Corde ergänzt")
+
+    class DetailSession:
+        def get(self, url, headers=None, timeout=None):
+            import json as _j
+            if "R4/C3" in url:
+                return FakeResponse(text=_j.dumps({"typePiste": "PSF", "parcours": "Piste en sable fibré"}))
+            return FakeResponse(status=404)
+    rz2 = rc.bahnart_nachladen([{"reunion": 4, "race_no": 3, "track_type": None, "parcours": None},
+                                {"reunion": 3, "race_no": 1, "track_type": None, "parcours": None},
+                                {"reunion": 1, "race_no": 1, "track_type": "HERBE"}],
+                               date(2026, 10, 5), DetailSession(), pause=0)
+    pruefe(rz2[0]["track_type"] == "PSF" and rz2[0]["parcours"] == "Piste en sable fibré"
+           and rz2[1]["track_type"] is None and rz2[2]["track_type"] == "HERBE",
+           "Startbox: Bahnart aus der Detailseite des Rennens nachgeladen (fehlt sie dort, bleibt sie leer)")
     pc, ptr = x["pref"]["horse"]["course"], y["pref"]["horse"]["trainer"]
     pruefe(len(pc) == 1 and pc[0]["today"] and {z["label"] for z in ptr} == {"Tr", "And"}
            and not any(z["today"] for z in ptr),
