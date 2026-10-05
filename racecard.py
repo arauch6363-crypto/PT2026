@@ -42,6 +42,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -336,6 +337,24 @@ def konfig_schluessel(r: pd.DataFrame) -> pd.Series:
         "corde": r["corde"] if "corde" in r else pd.Series(None, index=idx, dtype=object),
     }, index=idx)
     return standardzeiten.konfiguration(x)
+
+
+def konfig_angleichen(heute: pd.Series, hist_konfig: pd.Series) -> pd.Series:
+    """Fehlt heute die Bahnart (Piste '?'), den Schlüssel der häufigsten Konfiguration der Historie mit gleicher
+    Bahn, Distanz, Parcours und Corde übernehmen – sonst passt er nur zu wenigen alten Rennen ohne Bahnart."""
+    zahl = hist_konfig.dropna().value_counts()
+    teile = {k: k.split("|") for k in zahl.index if isinstance(k, str) and k.count("|") == 4}
+
+    def passend(k):
+        if not isinstance(k, str) or k.count("|") != 4:
+            return k
+        b, dist, piste, parc, corde = k.split("|")
+        if piste != "?":
+            return k
+        kand = [(zahl[h], h) for h, t in teile.items()
+                if t[2] != "?" and (t[0], t[1], t[3], t[4]) == (b, dist, parc, corde)]
+        return max(kand)[1] if kand else k
+    return heute.map(passend)
 
 
 def harville_platz(p, plaetze: int, l2: float = HARVILLE_L2, l3: float = HARVILLE_L3) -> np.ndarray:
@@ -861,7 +880,29 @@ def programm(tag: date, session: requests.Session | None = None, *, nur_flach: b
     if meets is None:
         raise RuntimeError(f"PMU-Programm nicht erreichbar ({pmu.LETZTER_FEHLER})")
     races, runners = pmu.starter(tag, s, meets, pause=pause)
+    races = bahnart_nachladen(races, tag, s, pause=pause)
     return pd.DataFrame(races), pd.DataFrame(runners)
+
+
+def bahnart_nachladen(races: list[dict], tag: date, s: requests.Session, *, pause: float = 0.3) -> list[dict]:
+    """Bahnart (typePiste) und fehlenden Parcours aus der Detailseite jedes Rennens ergänzen – das Tagesprogramm
+    liefert sie nicht, pmu_basis (Historie) holt sie dort. Ohne sie passt der Konfigurationsschlüssel
+    (Startbox, Standardzeiten) nicht zur Historie. Nicht erreichbar: Feld bleibt leer (Rückfall in baue_daten)."""
+    import pmu_basis
+    d = tag.strftime("%d%m%Y")
+    for z in races:
+        if z.get("track_type"):
+            continue
+        try:
+            det = pmu_basis._hole(s, pmu_basis.RACE_PFAD.format(d=d, r=z["reunion"], c=z["race_no"])) or {}
+        except Exception:                                        # Netz/Antwort kaputt: Rückfall greift
+            det = {}
+        if isinstance(det, dict):
+            z["track_type"] = det.get("typePiste") or z.get("track_type")
+            if not z.get("parcours") and det.get("parcours"):
+                z["parcours"] = det["parcours"]
+        time.sleep(pause)
+    return races
 
 
 # --------------------------------------------------------------------------
@@ -1381,6 +1422,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     for c in ["horse", "jockey", "trainer", "owner", "breeder"]:
         ru[c + "_key"] = norm_name(ru[c]) if c in ru else pd.Series(pd.NA, index=ru.index, dtype="string")
     rh["konfig"] = konfig_schluessel(rh) if len(rh) else None
+    if len(rh) and "konfig" in h:                          # Bahnart fehlt heute: an die Historie angleichen
+        rh["konfig"] = konfig_angleichen(rh["konfig"], h["konfig"])
     ru = abstammung_keys(ru)
     ru["horse_id"] = ru["horse_key"].fillna("?") + "|" + ru["sire_key"].fillna("?")
     ids = set(ru["horse_id"])
