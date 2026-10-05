@@ -315,6 +315,9 @@ und werden mit Python geparst.
 
 - **Claude Code:** In Sitzungen auf diesem Repo steht der Skill automatisch zur Verfügung.
 - **claude.ai:** Dort wird er weiterhin als `.skill`/ZIP hochgeladen. Die Datei hier ist die versionierte Vorlage.
+- **Pflege:** Neue Erkenntnisse aus Analysen kommen als knappe Regel an die passende Stelle des Rasters (A/B/C), nicht als
+  neuer Abschnitt. Nach jeder Anpassung wird konsolidiert: Doppeltes zusammenführen und Erklärungen kürzen, die die
+  Claude-JSON schon vorrechnet. Der Umfang soll nicht wachsen (Stand 05.10.2026: rund 60.000 Zeichen).
 
 **Claude-Version der Karte** (`claude_export.py`): Neben `racecard_JJJJMMTT.html` schreibt `racecard.run` die Datei
 `racecard_JJJJMMTT_claude.json` (abschalten mit `claude=False`).

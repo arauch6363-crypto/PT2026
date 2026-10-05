@@ -38,11 +38,17 @@ nicht durchgegangen, es sei denn, der Nutzer will sie nachbesprechen.
 Nichtstarter (`nr: true`) werden gestrichen, bevor irgendetwas gerechnet
 wird. `declared` minus Starter ergibt die Zahl der Nichtstarter.
 
-**Lesereihenfolge schützt vor Anker.** Prognose-Rang und cote probable
-sofort; Prognose-Text, Cribles und Tipps erst in B11; Ratings erst in
-B13. Wer Kommentare oder Ratings zuerst liest, liest die Formzeilen nur
-noch auf Bestätigung hin und findet genau das, was ohnehin eingepreist
-ist.
+**Lesereihenfolge.**
+- Prognose-Rang, cote probable und der Rennkommentar der PMU dürfen am
+  Anfang stehen, als Orientierung: Was sieht die Öffentlichkeit, und
+  welche Pferde nennt sie?
+- Auch den Crible eines Pferdes darf man zu Beginn seines Durchgangs
+  lesen.
+- Pflicht bleibt B11: Jedes eigene Argument wird ausdrücklich gegen Text,
+  Crible und Tipps gehalten, mit dem Ergebnis *eingepreist*, *teilweise*
+  oder *nicht erkannt*. Wer den Crible zuerst liest, sucht in den
+  Formzeilen gezielt das, was er **nicht** nennt.
+- Ratings kommen weiter erst in B13.
 
 **Fehlende Information ist eine Lücke, kein Negativbefund.** Statistiken
 mit kleiner Fallzahl werden als solche gekennzeichnet. Was die Karte
@@ -71,6 +77,11 @@ folgen Lücken, die vor dem Durchgang bekannt sein müssen:
   fini courageusement* gilt das Original in `comment`.
 - **Laufstil, Tempo und Sektionalwerte brauchen Tracking.** Pferde ohne
   getrackte Läufe stehen in `pace.unknown` und haben kein `style`.
+- **Auslandspferde.** Ein ausländischer Stall (Trainer oder Jockey aus
+  Spanien, Belgien …) zusammen mit großer `luecke` heißt meist: Die
+  fehlenden Starts liefen im Ausland. Dann ist auch `days` vermutlich zu
+  lang, und die französische Trainerstatistik beruht auf wenigen Läufen.
+  Beides nur unter Vorbehalt lesen.
 - **Boden kann angenommen sein** (`going_assumed: true`): siehe A.
 - **Araber und Anglo-Araber** sind eigene Populationen (A, Rennart).
 
@@ -227,7 +238,9 @@ offizielle Bodenangabe; angenommen ist Fast.** Dann gilt:
 **Woher der Boden kommt, steht in `going_source`:**
 
 - `PMU` — offizielle Angabe. Sie hat immer Vorrang.
-- `manuell` — PMU hat noch nichts; der Nutzer hat den Boden der Bahn selbst eingetragen (`boden_manuell.json`). Er gilt wie eine Angabe, nicht als Annahme (`going_assumed: false`). Ein Angle, der am Boden hängt, bekommt trotzdem die Bedingung „gilt bei …“ mit dem eingetragenen Begriff, und der Nutzer gleicht ihn vor der Wette mit dem offiziellen Boden ab.
+- `manuell` — vom Nutzer eingetragen (`boden_manuell.json`). Gilt wie
+  eine Angabe. Ein Angle, der am Boden hängt, bekommt trotzdem die
+  Bedingung „gilt bei …“.
 - `PSF` — PMU hat noch nichts, das Rennen ist laut Bahnart PSF.
 - `Annahme` — weder PMU noch ein Eintrag; es gilt Fast, siehe oben.
 
@@ -270,24 +283,22 @@ wenige Starter eine Valeur haben (Zweijährige, Araber).
   schon das Tempobild unsicher. Ein Angle, der auf dem Tempo beruht,
   steht dann in der Tabelle (C2) **höchstens mit der Sicherheit
   „spekulativ"**, auch wenn beide Bedingungen oben erfüllt sind.
-- **Bias** aus `bias`: `bias.bias` = `iv_front` − `iv_back`. **Maßstab
-  ist nicht 1 zu 1, sondern der Schnitt aller Bahnen** (`DATA.bias_all`):
-  Frontrenner sind überall im Vorteil (derzeit +0,69). Erst die
-  Abweichung davon ist ein Signal — innerhalb von etwa ±0,25 „wie
-  überall", darüber „vorne stärker im Vorteil als sonst", darunter
-  „abwartend Gerittene hier besser als sonst". Ein Bias von +0,16 ist
-  also kein neutraler Wert, sondern ein Kurs, der Spätstarter
-  begünstigt.
-- **Stichprobe mitlesen:** `bias.races` (Anzahl Rennen) und
-  `bias.basis` — `exakt` für Bahn und Distanz, `gruppe` für Bahn und
-  Distanzgruppe. Unter etwa 50 Rennen ist der Bias eine Andeutung.
+- **Bias** = `iv_front` − `iv_back`. Frontrenner sind überall im
+  Vorteil. Das Signal ist deshalb `bias_rel`, die Abweichung vom Schnitt
+  aller Bahnen (`bias_all`):
+  - innerhalb ±0,25: wie überall
+  - darüber: vorne stärker im Vorteil
+  - darunter: abwartend Gerittene hier besser
+  - Ein absoluter Bias von +0,16 begünstigt also Spätstarter.
+- **Stichprobe** `bias.races`: Unter etwa 50 Rennen ist der Bias eine
+  Andeutung (`basis`: `exakt` = Bahn und Distanz, `gruppe` = Bahn und
+  Distanzgruppe).
 - Der Bias wird nur bei einem Pferd herangezogen, dessen Laufstil dazu
   passt — nicht pauschal auf das ganze Feld.
 - **Tempo und Bias immer zusammen lesen.** Ein langsam erwartetes Rennen
   ohne echtes Frontpferd (`pace.groups.F` leer) verstärkt einen
   Frontbias: Wer nachweislich vorne gehen kann (Beleg wie oben), hat es
-  doppelt gut, die Spätstarter
-  doppelt schwer. Ein schnelles Rennen mit mehreren Führenden auf einem
+  doppelt gut, die Spätstarter doppelt schwer. Ein schnelles Rennen mit mehreren Führenden auf einem
   Kurs, der abwartend Gerittene ohnehin begünstigt, ist umgekehrt die
   beste Lage für die Gruppe H.
 
@@ -391,14 +402,13 @@ Prognose steht, eher ein Kandidat für Überschätzung.
 
 ### B3 — Formzeilen filtern
 
-**Aufbau von `form_lines`.**
-
-Die ersten sieben Zeilen sind die letzten sieben Läufe (`extra: null`). Jede Zeile trägt in `same` die Merkmale, in denen sie dem heutigen Rennen entspricht:
-- `K`: gleicher Kurs mit gleichem Belag (PSF gegen Gras)
-- `D`: Distanz ±100 m
-- `B`: gleiche Bodengruppe
-
-Fehlt unter den sieben ein Lauf mit einem dieser Merkmale, hängt die Karte **bis zu drei ältere Läufe** an. Es ist jeweils der letzte Lauf mit diesem Merkmal; in `extra` steht, wofür er dazukam, etwa `["K", "D"]`. Diese Zeilen sind älter als alle anderen und nicht Teil der jüngsten Form. Sie zeigen, wie das Pferd unter heutigen Bedingungen zuletzt lief, und werden für B6 gelesen, nicht für B0.
+**Aufbau von `form_lines`:**
+- Die letzten sieben Läufe; `same` nennt, worin eine Zeile heute
+  entspricht: `K` Kurs mit gleichem Belag, `D` Distanz ±100 m, `B`
+  Bodengruppe.
+- Fehlt ein Merkmal unter den sieben, folgen bis zu drei ältere Läufe
+  mit diesem Merkmal (`extra`, etwa `["K"]`). Sie sind nicht Teil der
+  jüngsten Form und zählen für B6, nicht für B0.
 
 Die Zeilen werden nicht alle gleich gelesen. Zuerst aussortieren:
 
@@ -428,6 +438,12 @@ Die Zeilen werden nicht alle gleich gelesen. Zuerst aussortieren:
 - **Saisondebüt verzeihen.** Ein klar geschlagener erster Jahresstart
   nach der Winterpause wird nicht als Formaussage gelesen, wenn danach
   ordentliche Läufe kommen — vor allem nicht bei unveränderter Marke.
+- **Ausreißer zwischen guten Läufen: erst die Bedingungen prüfen.** Bevor
+  ein schwacher Lauf zwischen zwei guten als Inkonstanz gilt, Distanz,
+  Boden, Belag und Klasse dieses Laufs gegen die guten halten. Beispiel
+  Azimuts (Le Mans, 05.10.2026): Siege über 1600 und 1850 m, geschlagen
+  über 2100 und 2200 m. Das ist eine Distanzgrenze und keine Inkonstanz.
+  Ein Duell aus so einem Lauf (B9) zählt dann wenig.
 - Bei vielen Starts pro Pferd reicht es, gezielt nach den
   **vergleichbaren Bedingungen** zu suchen — gleiche Distanz, gleicher
   Boden, ähnliche Klasse — statt alle Zeilen der Reihe nach zu würdigen.
@@ -535,11 +551,18 @@ Gegner (`ran`).
   Starts praktisch nichts.
 - **Gewichtsaufschlag nach einem Sieg.** Ein frischer Sieger trägt mehr.
   Dann lautet die Frage: Ist über den Aufschlag hinaus noch Spielraum?
+- **Erstes Handicap** (noch keine `hcp_mark`, Formzeilen aus Claimer,
+  Conditions oder Qualifikation): Passt die erste Marke zu dem, was das
+  Pferd gezeigt hat? Gewonnene Claimer und Qualifikationen mit klarem
+  Abstand gegen eine moderate Marke sind ein Plus. Ein Pferd mit wenigen
+  Starts kann darüber hinaus noch zulegen (B1).
 - **Startbox.** `draw` und `draw_stat`, immer zusammen mit dem
-  Laufstil. Aussagekräftig nur, wenn `sig` gesetzt ist (mindestens zwei
-  Standardfehler) und `dev` mindestens 0,05 von 0 abweicht; sonst gilt
-  die Box als neutral. Box 1 ist für einen Frontrenner günstig, für einen
-  Spätstarter weniger relevant.
+  Laufstil.
+  - Aussagekräftig ist sie nur, wenn `sig` gesetzt ist (mindestens zwei
+    Standardfehler und `dev` mindestens 0,05).
+  - Ohne Urteil gilt die Box als neutral. Eine Randbox (ganz innen oder
+    ganz außen) darf dann nur als schwacher Hinweis passend zum Laufstil
+    stehen, etwa ganz außen für einen Mittelfeldläufer.
 - **Distanzbilanz** aus `pref.horse.distance` (Gruppen in 200-m-Schritten,
   Eintrag mit `today: true`). **Immer gegen die beste Distanzgruppe des
   Pferdes stellen**: 0 Siege, 1 Platz aus 5 über die heutige Distanz
@@ -576,53 +599,61 @@ Gegner (`ran`).
 Endquoten erwarteten Plätze (Marge herausgerechnet). 1,0 heißt „wie vom
 Markt erwartet", ab 1,10 auffällig gut, bis 0,90 schwach; unter zehn
 Starts (bei Vorlieben fünf) dünn. `ae_win` ist das Gegenstück auf Sieg —
-wichtiger für die Siegwette, aber rauschiger. `trend` ist `hot` oder
-`cold`, wenn die letzten 30 Tage mindestens 0,25 über oder unter dem
-Jahreswert liegen (ab fünf Starts).
+wichtiger für die Siegwette, aber rauschiger.
 
-Der Ablauf: `ae.trainer.d365` und `ae.jockey.d365` als Grundniveau,
-`d30` und `trend` für die aktuelle Form, dann die Spezialisierungen —
-`pref.trainer.course` (auf dieser Bahn), `pref.trainer.racetype` (in
-dieser Rennart), `pref.trainer.age` (mit dieser Altersklasse, siehe
-`age_label`), `pref.trainer.jockey` und `pref.jockey.trainer`
-(Kombination), `pref.jockey.course` und `pref.jockey.horse` (der Jockey
-auf genau diesem Pferd). Ein Trainer kann in Handicaps stark sein, aber
-nicht mit Dreijährigen; auf der Bahn erfolgreich, aber nicht in
-Handicaps. Diese Unterscheidungen ernst nehmen, statt eine Gesamtquote
-zu lesen. Kleine Stichproben, etwa zwei Siege aus neun, sind nicht
-signifikant und werden auch nicht so behandelt.
+**Ablauf:**
+1. `ae.trainer.d365` und `ae.jockey.d365` als Grundniveau.
+2. `d30` und `trend` für die aktuelle Form. `trend` ist `hot`/`cold` bei
+   mindestens 0,25 Abstand zum Jahreswert, ab fünf Starts. **Unter etwa
+   15 Starts in 30 Tagen zählt `d90`**, der Trend ist dann nur ein
+   Hinweis (Beispiel: 0,71 aus 13 Starts, aber `d90` 1,14 ist kein
+   kalter Stall).
+3. Die Spezialisierungen:
+   - `pref.trainer.course`, `.racetype`, `.age` (siehe `age_label`) und
+     `.jockey`
+   - `pref.jockey.course`, `.trainer` und `.horse`
 
-**Die Karte nimmt diese Prüfung ab: `dev` an jeder Vorliebe** von Trainer, Jockey, Vater und Muttervater (`pref.trainer.*`, `pref.jockey.*`, `pref.sire.*`, `pref.dam_sire.*`). Verglichen wird das A/E der Spezialisierung mit dem A/E derselben Person bzw. Linie aus ihren **übrigen** Läufen im selben Zeitraum: Trainer und Jockey 2 Jahre, Vater und Muttervater die gesamte Historie.
+   Ein Trainer kann in Handicaps stark sein, aber nicht mit
+   Dreijährigen. Diese Unterscheidungen ernst nehmen, statt eine
+   Gesamtquote zu lesen.
 
-Felder:
-- `base`: A/E der übrigen Läufe
-- `ratio`: A/E der Vorliebe ÷ `base`
-- `z`: Abstand in Standardfehlern
-- `rest`: Zahl der übrigen Läufe
-- `dir`: +1 oder −1
+**Ob eine Spezialisierung trägt, sagt `dev`** an jeder Vorliebe von
+Trainer, Jockey, Vater und Muttervater. Verglichen wird das A/E mit dem
+derselben Person bzw. Linie aus ihren **übrigen** Läufen im selben
+Zeitraum: Trainer und Jockey 2 Jahre, Vater und Muttervater die gesamte
+Historie. Felder: `base` (A/E übrige Läufe), `ratio`, `z`
+(Standardfehler), `rest` (übrige Läufe), `dir`. `sig: true` (in der
+Karte ▲ / ▼) heißt: mindestens ×1,2 bzw. ×0,8, mindestens 2
+Standardfehler und mindestens 20 übrige Läufe. Lesart:
 
-`sig: true` (in der Karte ▲ / ▼) heißt: mindestens ×1,2 bzw. ×0,8, mindestens 2 Standardfehler und mindestens 20 übrige Läufe. Lesart:
-- **Nur eine Spezialisierung mit `sig` ist ein belastbares Argument.** Ein hohes A/E ohne `sig` ist eine Andeutung, auch wenn es grün ist.
-- Ein ▲ beim Trainer auf dieser Bahn oder in dieser Rennart ist genau die Unterscheidung, die die Gesamtquote verdeckt. Steht sie nicht im Crible, ist sie ein *nicht erkanntes* Argument (B11).
-- Ein ▼ beim Prognose-Favoriten (etwa Trainer mit dieser Altersklasse) ist ein unabhängiges Fragezeichen im Sinne von B12.
-- Bei `pref.jockey.horse` ist der Vergleich nur ungefähr: Die Läufe auf dem Pferd zählen über die ganze Historie, der Jockey sonst nur über 2 Jahre.
+- **Nur `sig` ist ein belastbares Argument.** Ein hohes A/E ohne `sig`
+  (etwa 2 Siege aus 9 oder 0 aus 4 auf der Bahn) ist eine Andeutung und
+  wird nicht angekreidet oder gefeiert.
+- Ein ▲ auf dieser Bahn oder in dieser Rennart, das der Crible nicht
+  nennt, ist ein *nicht erkanntes* Argument (B11). Ein ▼ beim
+  Prognose-Favoriten ist ein unabhängiges Fragezeichen (B12).
+- `pref.jockey.horse` ist nur ungefähr verglichen: Die Läufe auf dem
+  Pferd zählen über die ganze Historie, die übrigen Läufe des Jockeys
+  über 2 Jahre. Viele gemeinsame Ritte mit guter Quote zeigen ein
+  eingespieltes Paar.
 
-`epr_idx` (€/L+, 100 = Durchschnitt) sagt, auf welchem **Niveau** ein
-Stall oder Jockey unterwegs ist, nicht wie gut er gerade läuft. Ein
-großer Stall mit hohem €/L+ in einem kleinen Claimer ist ein
-Klassensignal; ein Jockey mit hohem €/L+ auf einem Außenseiter ist eine
-bewusste Buchung. Die Besitzerstatistik (`ae.owner`) ist eine
-Randnotiz.
+`epr_idx` (€/L+, 100 = Durchschnitt) zeigt das **Niveau** eines Stalls
+oder Jockeys, nicht seine Form. Ein großer Stall mit hohem €/L+ in einem
+kleinen Claimer ist ein Klassensignal. Ein Jockey mit hohem €/L+ auf
+einem Außenseiter ist eine bewusste Buchung. Die Besitzerstatistik
+(`ae.owner`) ist eine Randnotiz.
 
 - **Trainerform wiegt umso schwerer, je kürzer die Prognose.** Bei
   einem 25:1-Pferd ist ein kalter Stall eine Randnotiz; beim
   Prognose-Favoriten ist er ein echtes Argument gegen die Position.
 - Ein guter Jockey gleicht einen kalten Trainer nicht aus — er wird
   benannt, aber das Fragezeichen beim Stall bleibt.
-- **Stallgefährten.** Kommen mehrere vordere Prognose-Pferde aus
-  demselben Stall, hängt ihre Einschätzung an derselben Trainerform.
-  Ist dieser Stall kalt, betrifft das beide zugleich — ein Grund, die
-  Pferde dahinter besonders genau anzusehen.
+- **Stallgefährten.**
+  - Kommen mehrere vordere Prognose-Pferde aus demselben Stall, hängt
+    ihre Einschätzung an derselben Trainerform.
+  - Laufen mehrere Pferde eines Stalls, verrät die **Jockey-Buchung**
+    die Stallpräferenz: Der stärkere Jockey (A/E, €/L+) sitzt meist auf
+    dem Pferd, dem der Stall mehr zutraut.
 
 ### B8 — Abstammung auf die heutige Bedingung
 
@@ -679,6 +710,14 @@ Die Schlüsselläufe verschiedener Starter direkt gegeneinander stellen:
 Klasse, Dotierung, ARR und wie das Rennen gelaufen ist. Erst dadurch
 wird aus zwei isolierten vierten Plätzen eine Rangfolge.
 
+**Messlatte vom Favoriten.** Beim ersten Pferd (meist dem
+Prognose-Favoriten) aus seinem besten Lauf unter heutigen Bedingungen
+TR (`tr_heute`) und ARR (`arr_adj`) notieren. Jeder folgende Schlüssellauf
+wird daran gemessen, zusammen mit Distanz, Klasse und Gewicht.
+Beispiel: Messlatte TR 105, ARR 32,9 über 1600 m. Ein Konkurrent mit
+TR 84 und ARR 29,2 über 1400 m muss über die längere Strecke deutlich
+zulegen.
+
 **Laufende Rangfolge.** Der Querbezug passiert nicht erst am Ende,
 sondern nach jedem Pferd: „vor den beiden Favoriten", „knapp hinter
 Liseo". So entsteht während des Durchgangs eine eigene Reihenfolge, die
@@ -688,8 +727,9 @@ Edge-Kandidat.
 
 ### B11 — Abgleich mit der Prognose: gesehen oder übersehen?
 
-Erst jetzt, mit eigenem Urteil zum Pferd, werden Prognose-Text, Crible
-und Tipps gelesen. Drei Fragen:
+Mit eigenem Urteil zum Pferd werden Prognose-Text, Crible, Tipps und
+Konsens jetzt systematisch abgeglichen, auch wenn sie zur Orientierung
+schon gelesen wurden (Grundregeln). Drei Fragen:
 
 1. **Liegt die eigene grobe Einschätzung über oder unter der
    Prognose-Chance?** Eine starke Abweichung ist ein Anlass, die eigene
@@ -754,6 +794,15 @@ dazu:
   dabei nur mit Beleg nach A4), auch ohne spektakuläre
   Formzeile — der schwächere Angle-Typ neben „der Markt hat einen Lauf
   übersehen".
+- **Typischer übersehener Angle: Formtief erklärt, heute passt alles.**
+  Die schwachen letzten Zeilen kamen unter falschen Bedingungen
+  (Distanz, Boden) oder in klar stärkeren Rennen. Der letzte Lauf hat
+  eine Entschuldigung (behindert, nicht frei gekommen). Heute passen
+  Distanz, Boden und Ausrüstung laut Bilanz, und das Rennen ist deutlich
+  leichter. Die Musique sieht schlecht aus, deshalb steht das Pferd
+  hinten in der Prognose. Gegenprobe: Ist die Marke seit der letzten
+  guten Form gesunken oder nur leicht gefallen?
+  Beispiel: Ciccio Boy (Le Mans, 05.10.2026).
 - **Auch bei einem guten Pferd gehört die Frage dazu, ob es heute
   gewinnen soll.** Schwache Trainerform, eine Trainer-Jockey-Kombination
   ohne Erfolge und eine Bahn, auf der der Stall nie auffällt, können
@@ -801,14 +850,12 @@ Rang im Feld:
   vorderen Drittel des Einlaufs, gewichteter Ø.
 - **RTR** (`rtr.adj`): laufendes Elo-artiges Rating nach dem letzten
   Rennen.
-- **Valeur bereinigt** (`rating_adj` = Valeur − heutiges Gewicht + 55,
-  Rang `rating_rank` von `rating_n`): die offizielle Einstufung, auf das
-  heutige Gewicht umgerechnet wie ARR und RTR. Im Handicap ist sie im
-  Feld fast flach — das Gewicht gleicht die Valeur ja gerade aus; ein
-  Pferd, das bereinigt klar vorne steht, trägt weniger, als seine
-  Einstufung verlangt (Erlaubnis, Gewichtsgrenze). In Conditions-,
-  Listed- und Gruppenrennen ist sie das direkte Klassenmaß gegen das
-  Feld (A1). Fehlt das Gewicht, ist `rating_adj` leer.
+- **Valeur bereinigt** (`rating_adj` = Valeur − Gewicht + 55, Rang
+  `rating_rank`):
+  - **Im Handicap** ist sie flach, weil das Gewicht die Valeur
+    ausgleicht. Nur Abweichungen zählen (Erlaubnis, Gewichtsgrenze).
+  - **In Conditions-, Listed- und Gruppenrennen** ist sie das direkte
+    Klassenmaß (A1).
 - Ergänzend **ΔL600 A / ΔB200 A** (`summary.dl600_a`, `summary.db200_a`
   mit Rang): Schlussvermögen gegenüber der Erwartung — ein Maß für den
   Speed im Finish, unabhängig vom Ergebnis.
@@ -988,31 +1035,22 @@ Buchmachers halten kann.
 ## Arbeitsweise im Gespräch
 
 **Bevorzugt: die Claude-Version `racecard_JJJJMMTT_claude.json`.** Sie
-entsteht neben der HTML-Karte. Sie enthält **alle Daten der Karte**,
-auch Detailinfos, die in diesem Raster nicht vorkommen. Wer mehr wissen
-will, findet es dort. Unterschiede zu `DATA`:
+enthält **alle Daten der Karte**, auch solche, die dieses Raster nicht
+nutzt. Unterschiede zu `DATA`:
 
 - **Weggelassen sind nur:**
-  - die Trikots und `odds` / `odds_morning` der Starter. Historische
-    Endquoten in den Formzeilen und bei den Gegnern bleiben.
-  - je Formzeile die volle Gegnerliste `rivals`.
-  - die Zwischenwerte der Berechnung, etwa Rohtempo, Klassenkorrektur,
-    Bestandteile des TR und Perzentile für die Farbe. Die Ergebnisse
-    (`dl600_a`, `db200_a`, `tr`, `tr_heute`, `cls_*_idx` …) bleiben.
-- **Starter in `runners`** stehen bereits in Prognose-Reihenfolge.
-- **Nichtstarter** stehen vollständig getrennt in `nichtstarter`; ihre
-  Nummern stehen in `nr`. Mit ihnen wird nichts gerechnet.
-- **Je Formzeile** stehen statt aller Gegner `rivals_nah` (je zwei
-  Gegner direkt davor und dahinter, mit ihrem nächsten Start) und
-  `rivals_stat` (Bilanz über alle wieder gelaufenen Gegner, B5).
-- **`offen`:** `true` für Rennen mit Status `PROGRAMMEE`. Gelaufene
-  Rennen (`false`) sind vollständig enthalten, werden aber nur als eine
-  Zeile ausgegeben.
+  - Trikots und `odds` / `odds_morning`
+  - je Formzeile die volle Gegnerliste; dafür gibt es `rivals_nah` (je
+    zwei Gegner direkt davor und dahinter, mit nächstem Start) und
+    `rivals_stat` (B5)
+  - die Zwischenwerte der Berechnung (die Ergebnisse wie `dl600_a`,
+    `tr_heute`, `cls_*_idx` bleiben)
+- **Starter** stehen in Prognose-Reihenfolge. Nichtstarter stehen
+  getrennt in `nichtstarter`, ihre Nummern in `nr`.
+- **Gelaufene Rennen** haben `offen: false`.
 - **Vorgerechnet:**
-  - `vorgerechnet` je Rennen: `marge`, `reihenfolge` (Startnummern) und
-    `bias_rel` (Bias minus Schnitt aller Bahnen).
-  - Je Starter: `p_prog` (Prognose-Chance nach der Potenzmethode, P2)
-    und `luecke` (`starts` − Datenbank-Läufe, D).
+  - `vorgerechnet` je Rennen: `marge`, `reihenfolge`, `bias_rel`
+  - je Starter: `p_prog` (P2) und `luecke` (D)
 
 Diese Werte direkt übernehmen, nicht neu rechnen:
 
@@ -1033,8 +1071,13 @@ Rennens ausgeben und lesen, statt die ganze Datei zu durchsuchen.
 
 **Rückfall: nur die HTML-Karte.** Sie hat ein eingebettetes
 `const DATA = {...}` (mehrere MB). Mit Python parsen, nicht als Text
-lesen. Gleich zu Beginn offene Rennen, Prognose-Chancen und die Lücken
-aus D berechnen; `odds` und `odds_morning` dabei nicht anfassen:
+lesen, und `odds` / `odds_morning` nicht anfassen. Die vorgerechneten
+Werte fehlen dort; sie werden selbst gerechnet:
+- Nichtstarter (`nr: true`) streichen.
+- `p_prog`: Potenzmethode wie in P2.
+- `marge`: Σ 1/`cote_dec`.
+- `bias_rel`: `bias.bias` − `bias_all.bias`.
+- `luecke`: `starts` − `career.all.runs`.
 
 ```python
 import json
@@ -1042,34 +1085,12 @@ s = open(pfad, encoding="utf-8").read()
 i = s.index("const DATA =") + len("const DATA =")
 DATA, _ = json.JSONDecoder().raw_decode(s[i:].lstrip())
 
-def potenz_normierung(q):                 # q = {no: 1/cote_dec}
-    lo, hi = 0.5, 4.0
-    for _ in range(60):
+def potenz_normierung(q):                 # q = {no: 1/cote_dec}; Σ q^k = 1
+    lo, hi = 0.2, 6.0
+    for _ in range(80):
         k = (lo + hi) / 2
         lo, hi = (k, hi) if sum(v ** k for v in q.values()) > 1 else (lo, k)
     return {no: v ** k for no, v in q.items()}
-
-bias_alle = DATA["bias_all"]["bias"]
-offen = {rid: r for rid, r in DATA["races"].items()
-         if r["status"] == "PROGRAMMEE"}
-for rid, r in offen.items():
-    starter = [x for x in r["runners"] if not x["nr"]]
-    roh = {x["no"]: 1 / x["prono"]["sel"]["cote_dec"]
-           for x in starter if (x.get("prono") or {}).get("sel")}
-    marge = sum(roh.values())             # typisch 1,15–1,50
-    p_prog = potenz_normierung(roh)
-    reihenfolge = sorted(starter, key=lambda x:
-        ((x.get("prono") or {}).get("sel") or {}).get("rank", 99))
-    boden_angenommen = r["going_assumed"]
-    boden_quelle = r.get("going_source")  # PMU / manuell / PSF / Annahme (A2)
-    konsens = {x["no"]: (x.get("prono") or {}).get("konsens") for x in starter}
-    alte_zeilen = {x["no"]: [f for f in x["form_lines"] if f.get("extra")]
-                   for x in starter}      # angehängte ältere Läufe (B3)
-    bias_rel = r["bias"]["bias"] - bias_alle   # ±0,25 = wie überall
-    luecken = {x["no"]: x["starts"] - x["career"]["all"]["runs"]
-               for x in starter
-               if x["starts"] - x["career"]["all"]["runs"] >= 2}
-# Edge je Kandidat: p_eigen / p_prog[no] - 1
 ```
 
 ## Anhang — Beispiel aus der Praxis (Argentan, 01.10.2026, Rennen 5)
