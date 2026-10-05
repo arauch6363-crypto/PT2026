@@ -29,14 +29,14 @@ Grundlagen
 Arbeitsweise mit Python (statt Rohdaten auszudrucken)
 - Gib nie die ganze Datei oder ganze Formzeilen aller Pferde aus. Lies gezielt
   DATA["races"][rid] und gib je Schritt nur die Felder aus, die das Raster gerade braucht.
-- Lesereihenfolge strikt einhalten (Schutz vor Anker):
-  Teil 1 – Rennkopf und je Starter (in der Reihenfolge von runners = Prognose-Rang) nur:
-           prono.sel (Rang, cote probable), p_prog, Stammdaten, starts/career/luecke, days, changes, badges,
-           form_lines (mit same/extra, rivals_nah, rivals_stat), pref, ae, duels, indirect, draw/draw_stat,
-           hcp_mark. Noch KEINE Prognose-Texte, Tipps, Cribles, Konsens und KEINE Ratings.
-           Danach das eigene Urteil je Pferd bilden (B0–B10).
-  Teil 2 – erst jetzt Prognose-Text (prono.text/text_de), tips/konsens, crible je Pferd,
-           cribles_ohne → B11 (eingepreist?).
+- Lesereihenfolge (Grundregeln des Skills):
+  Teil 1 – Rennkopf mit PMU-Rennkommentar (prono.text_de) als Orientierung, dann je Starter
+           (in der Reihenfolge von runners = Prognose-Rang): prono.sel, p_prog, Crible, Stammdaten,
+           starts/career/luecke, days, changes, badges, form_lines (mit same/extra, rivals_nah,
+           rivals_stat), pref, ae, duels, indirect, draw/draw_stat, hcp_mark. Noch KEINE Ratings.
+           Eigenes Urteil je Pferd bilden (B0–B10), mit Messlatte vom Favoriten (B10).
+  Teil 2 – Abgleich B11: jedes eigene Argument gegen Text, Crible, tips/konsens und cribles_ohne
+           halten (eingepreist / teilweise / nicht erkannt).
   Teil 3 – erst jetzt die Ratings: tr, arr, rtr, rating_adj (je mit Rang), summary.dl600_a/db200_a → B13.
 - Einzelne Rohfelder (etwa ein Gegner aus rivals_nah, ein Duell) nur bei Bedarf nachschlagen.
 
