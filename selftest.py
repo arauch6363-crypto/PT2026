@@ -519,6 +519,21 @@ def regel_backtest_pruefen() -> None:
     erst = m.drop_duplicates("horse_id")
     pruefe((erst["n_vor"] == 0).all() and erst["tage"].isna().all() and erst["tr_vor"].isna().all(),
            "Regel-Backtest: Merkmale nur aus früheren Läufen (erster Lauf ohne Vorwerte)")
+    # Rennverlauf: Rennen, in dem die ersten drei früh vorne lagen -> „vorne begünstigt“; Pferd von hinten = „gegen“
+    zz = []
+    for k in range(40):
+        ep = rng.permutation(10) / 9
+        pos = np.arange(1, 11) if k == 39 else rng.permutation(10) + 1
+        if k == 39:
+            ep = np.r_[0.0, 0.05, 0.1, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0]
+        for i in range(10):
+            zz.append(dict(race_id=f"R{k}", early_pct=ep[i], finish_pos=pos[i], course_key="B", distance_m=1600,
+                           dist_bucket="mile"))
+    v = rb.rennverlauf(pd.DataFrame(zz), pd.DataFrame(zz[:390]))
+    r39 = v[v["race_id"] == "R39"].set_index("finish_pos")
+    pruefe(r39["verlauf_kl"].iloc[0] == "vorne" and r39.loc[10, "verlauf_pferd"] == "gegen"
+           and r39.loc[1, "verlauf_pferd"] == "mit",
+           "Rennverlauf: vorne gewonnen -> Vorne-Rennen; Pferd von hinten läuft gegen, Führender mit dem Verlauf")
 
 
 def racecard_pruefen() -> None:
