@@ -20,15 +20,11 @@ diesen Durchgang uninteressant.
 ## Grundregeln vorab
 
 **Prognose statt Kurs.** Die Karte enthält keine aktuellen Kurse; der
-Maßstab ist die PMU-Prognose (P). Die **historischen Endquoten** in
-`form_lines` und `rivals` sind Formmaß und Hinweis auf die
-Stallerwartung (B4). Der Nutzer wettet meist zu Festkurs: Ob ein Pferd Value hat,
+Maßstab ist die PMU-Prognose (P). Der Nutzer wettet meist zu Festkurs: Ob ein Pferd Value hat,
 entscheidet sich erst, wenn er seinen Festkurs gegen die Mindestquote (C)
 hält.
 
-**Status und Nichtstarter.** Nur Rennen mit `status` `PROGRAMMEE`
-(`offen: true`) werden durchgegangen; gelaufene stehen als eine Zeile,
-außer der Nutzer will sie nachbesprechen. Nichtstarter (`nr`) werden vor
+**Status und Nichtstarter.** Nichtstarter (`nr`) werden vor
 jeder Rechnung gestrichen.
 
 **Lesereihenfolge.**
@@ -67,7 +63,6 @@ Sektionalzeiten) stammen aus französischen Flachrennen ab
   (B4). `comment_de` ist eine Übersetzung, für Nuancen gilt `comment`.
 - **Laufstil, Tempo und Sektionalwerte brauchen Tracking.** Pferde ohne
   getrackte Läufe stehen in `pace.unknown` und haben kein `style`.
-- **Boden kann angenommen sein** (A2).
 
 Eine Lücke wird beim Pferd in einem Halbsatz genannt und in der
 Sicherheitsstufe (C1) berücksichtigt, aber nicht als Argument gegen das
