@@ -329,6 +329,8 @@ def main() -> int:
     standardzeiten_pruefen()
     print("\n10) PMU-Basis: Rennen, Starter, Dividenden, Zeiten")
     pmu_basis_pruefen()
+    print("\n11) Regel-Backtest: Skill-Regeln gegen den Markt")
+    regel_backtest_pruefen()
 
     pt.read_pages = requests_session_orig
     print("\n" + ("Alle Prüfungen bestanden." if not fehler else f"{len(fehler)} Prüfung(en) fehlgeschlagen:"))
@@ -479,6 +481,44 @@ def pmu_basis_pruefen() -> None:
         ru2 = tp.lade("pmu_runners", base).set_index("saddle_no")
         pruefe(ru2.loc[1, "horse"] == "NEU 1" and ru2.loc[1, "comment"] == "A bien fini (1)." and "time_s" in ru2,
                "Pipeline überschreibt die Starter, behält aber Kommentar und Zeiten aus pmu_basis")
+
+
+def regel_backtest_pruefen() -> None:
+    """Zufallsdaten mit eingebautem Effekt: Wallache gewinnen im Claimer häufiger, als ihre Quote sagt."""
+    import io, contextlib
+    import numpy as np
+    import regel_backtest as rb
+    rng = np.random.default_rng(7)
+    zeilen, pferde = [], [f"P{i}" for i in range(300)]
+    for d in range(200):
+        dt = pd.Timestamp("2025-01-01") + pd.Timedelta(days=d)
+        for c, typ in enumerate(["Claimer", "Handicap"]):
+            n = 10
+            hs, odds = rng.choice(pferde, n, replace=False), rng.uniform(2, 20, n)
+            sex = rng.choice(["HONGRES", "MALES", "FEMELLES"], n)
+            w = (np.flatnonzero(sex == "HONGRES")[:1] if typ == "Claimer" and (sex == "HONGRES").any() and rng.random() < .5
+                 else rng.choice(n, 1))[0]
+            pos = np.r_[[1], rng.permutation(n - 1) + 2]
+            pos = np.roll(pos, w)
+            for i in range(n):
+                zeilen.append(dict(race_id=f"{dt:%Y%m%d}R1C{c + 1}", date=dt, saddle_no=i + 1, horse_id=hs[i] + "|V",
+                                   finish_pos=pos[i], odds_final=odds[i], starts=5, distance_m=1600, going_pmu="FAST",
+                                   trainer_key="T", blinkers="SANS_OEILLERES", sex=sex[i], early_pct=rng.random(),
+                                   n_runners=n, pace_ratio=100.0, weg_med=0.0, pos_gain_800_finish=0, d_L600_A=0.0,
+                                   cls_epr=1000.0, tr=80.0, arr=40.0, rtr=30.0, konfig=f"K{c}|1600", draw=i + 1,
+                                   rel_place=(n - pos[i]) / (n - 1), course_key="BAHN", dist_bucket="mile",
+                                   sire_key="S", age=4, valeur=30.0, racetype=typ, exp_place=0.3))
+    h = pd.DataFrame(zeilen)
+    h["won"], h["placed"] = (h["finish_pos"] == 1).astype(int), (h["finish_pos"] <= 3).astype(int)
+    h["odds_rank"] = h.groupby("race_id")["odds_final"].rank(method="min")
+    with contextlib.redirect_stdout(io.StringIO()):
+        erg = rb.run(hist=h).set_index("gruppe")
+    pruefe(erg.loc["Wallach · Claimer", "ae_sieg"] > 1.5 and 0.7 < erg.loc["Wallach · Handicap", "ae_sieg"] < 1.3,
+           "Regel-Backtest erkennt den eingebauten Effekt (Wallach im Claimer) und nicht im Handicap")
+    m = rb.merkmale(h)
+    erst = m.drop_duplicates("horse_id")
+    pruefe((erst["n_vor"] == 0).all() and erst["tage"].isna().all() and erst["tr_vor"].isna().all(),
+           "Regel-Backtest: Merkmale nur aus früheren Läufen (erster Lauf ohne Vorwerte)")
 
 
 def racecard_pruefen() -> None:
