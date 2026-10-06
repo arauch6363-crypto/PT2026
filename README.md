@@ -72,6 +72,7 @@ Tracking ist eine Eigenschaft von **Renntag und Rennen**, nicht von der Bahn:
 | `standardzeiten.py` | Siegerzeiten aus dem PMU-Programm über lange Historie sammeln, Standardzeiten je Konfiguration des Tages |
 | `timeform_ratings.py` | TR: Zeit-Rating nach Timeform-Art (Standardzeiten, Going Allowance) mit Finishing-Speed-Upgrade, Backtest |
 | `rtr_arr.py` | Ratings aus PT_Vorarbeiten: RTR (Elo-artiges Rating nach dem Rennen) und ARR (Leistung im Rennen) |
+| `regel_backtest.py` | Regeln des Skills gegen die Datenbank prüfen: A/E gegen den Markt (Endquote) je Regel |
 | `racecard_template.html` | Layout der Race Card; die Daten werden als JSON eingesetzt |
 | `selftest.py` | Selbsttest ohne Internet (`python selftest.py`) |
 
@@ -103,6 +104,18 @@ base = Path('daten')
 tp.run('2022-01-01', base=base, pdf_dir=base/'pdfs', max_tage=5)
 "
 ```
+
+## Regel-Backtest (Skill gegen die Datenbank)
+
+```python
+import regel_backtest as rb
+erg = rb.run(BASE)        # Tabelle drucken, CSV nach <BASE>/auswertung/regel_backtest_JJJJMMTT.csv
+```
+
+Je Regel des Skills (Wallach im Claimer, Exposure, Pause, Klassenabstieg, Tempo/Bias, Startbox, Laufbild, Wechsel,
+Favorit mit Fragezeichen, Ratings) und ihren Vergleichsgruppen: Starter, Siege, erwartete Siege nach der Endquote,
+A/E Sieg mit z-Wert, A/E Platz und ROI. Merkmale nur aus früheren Läufen; Box, Bias und Linienqualität werden auf der
+ersten Hälfte der Tage gelernt und auf der zweiten geprüft („Test“). Gruppen unter 50 Startern sind als `duenn` markiert.
 
 ## Wissensbasis aus der PMU-Schnittstelle
 
