@@ -9,6 +9,8 @@ description: Qualitativer Durchgang durch eine französische Galopp-Racecard (Vo
 
 Dieser Skill beschreibt den qualitativen Lesedurchgang durch eine Racecard:
 die Beurteilung Pferd für Pferd aus den Formzeilen und den Daten der Karte.
+Er gilt nur für Vollblüter; Rennen für Araber, Anglo-Araber oder AQPS
+werden nicht durchgegangen.
 
 Die Leitfrage ist nie "läuft das Pferd gut?", sondern **"gibt es hier einen
 Angle?"** — einen konkreten Grund, warum dieses Pferd heute besser
@@ -65,8 +67,7 @@ Sektionalzeiten) stammen aus französischen Flachrennen ab
   (B4). `comment_de` ist eine Übersetzung, für Nuancen gilt `comment`.
 - **Laufstil, Tempo und Sektionalwerte brauchen Tracking.** Pferde ohne
   getrackte Läufe stehen in `pace.unknown` und haben kein `style`.
-- **Boden kann angenommen sein** (A2); **Araber und Anglo-Araber** sind
-  eigene Populationen (A1).
+- **Boden kann angenommen sein** (A2).
 
 Eine Lücke wird beim Pferd in einem Halbsatz genannt und in der
 Sicherheitsstufe (C1) berücksichtigt, aber nicht als Argument gegen das
@@ -171,12 +172,7 @@ ganzen Durchgang schwer wiegen:
   Gewichtserlaubnisse stecken im Gewicht, die Jockeystatistik beruht auf
   kleinen Stichproben. Ein erfahrener Nachwuchsreiter mit guter Form ist
   hier mehr wert als sonst.
-- **Araber und Anglo-Araber** (Vollblutaraber: eigene Rennen, oft
-  `type: "Inconnu"`, „Arabian" im Namen; Anglo-Araber: „AA", vor allem
-  Südwesten) sind eigene Populationen: Valeur, Ratings und Abstammung nur
-  **innerhalb der Rasse** vergleichen; Trainer- und Jockeystatistik mischt
-  die Rassen und ist unschärfer.
-- **`Inconnu`** ohne Araber-Hinweis: aus Name, Dotierung, Alter und
+- **`Inconnu`**: aus Name, Dotierung, Alter und
   Geschlecht erschließen, keine Handicap-Logik unterstellen.
 
 Bei sehr wenigen Starts gilt unabhängig von der Rennart die Variante aus
@@ -211,7 +207,7 @@ Rennstärke als Ø Gewinn je Lauf der Starter im letzten Jahr, ebenfalls
 indexiert. Die Formzeilen tragen dieselben Indizes für das damalige
 Rennen (`cls_val_idx`, `cls_epr_idx`). Damit wird „heute leichter oder
 schwerer" in B0 zur Rechnung statt zum Eindruck. `val` fehlt, wenn zu
-wenige Starter eine Valeur haben (Zweijährige, Araber).
+wenige Starter eine Valeur haben (Zweijährige).
 
 ### A4 — Tempo und Bias
 
@@ -235,7 +231,7 @@ wenige Starter eine Valeur haben (Zweijährige, Araber).
   keinen Angle.
 - **Felder mit wenig gelaufenen Pferden** (Mehrheit unter drei getrackten
   Läufen oder in `pace.unknown`, typisch für Dreijährigen-Conditions,
-  AQPS-Flachrennen, Zweijährige): Schon das Tempobild ist unsicher. Ein
+  Zweijährige): Schon das Tempobild ist unsicher. Ein
   Tempo-Angle steht in C2 dann **höchstens mit der Sicherheit
   „spekulativ"**.
 - **Bias** = `iv_front` − `iv_back`. Frontrenner sind überall im Vorteil,
@@ -796,8 +792,6 @@ Regeln:
 - Große Streuung (`sd`) heißt: Der Schnitt verdeckt ein Pferd, das je
   nach Bedingung sehr unterschiedlich läuft. Dann zählt der Wert unter
   heutigen Bedingungen, nicht der Ø.
-- Bei Arabern und Anglo-Arabern nur innerhalb des Feldes vergleichen
-  (A1).
 
 
 
