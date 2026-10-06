@@ -308,8 +308,10 @@ Klasse, normaler Abstand —, trägt die letzte Form direkt. Je mehr sich
 **Maßstab ist `starts`** (PMU-Gesamtzahl), nicht `career.all.runs` — die
 Datenbank-Karriere kann deutlich kürzer sein (D). Viele Starts heißt
 exposed: das Pferd hat gezeigt, was es kann, Steigerungspotenzial ist
-unwahrscheinlich. In Dreijährigen-Handicaps ist das ein Minuspunkt;
-wenige Starts sind ein Pluspunkt.
+unwahrscheinlich, ein Minuspunkt. **Wenige Starts heißen
+Entwicklungspotenzial, in jeder Rennart ein Plus**, umso mehr, je
+stärker das Pferd schon gelaufen ist (Klasse der Rennen, Gegner) und je
+besser die Abstammung (`max_val3_idx`, B8). Cribles nennen das selten.
 
 **Der Maßstab ist feldrelativ.** Zwölf Starts sind bei Dreijährigen viel
 und in einem Feld mit Pferden über 50 Starts wenig. In einem Feld, in
@@ -523,6 +525,8 @@ Gegner (`ran`).
   Fragezeichen, weil die Form nicht frisch belegt ist und der Stall es
   vielleicht erst heranführt. Allein kein Ausschluss, zusammen mit einem
   zweiten Fragezeichen (Distanz, Belag, kalter Stall) aber gewichtig.
+  Nicht bei Pferden mit wenigen Starts: Dort sind sechs bis zehn Wochen
+  zwischen den Starts normal.
 - **Starts in der laufenden Saison** (`career.d365.runs`, feldrelativ;
   Auslandsstarts fehlen). Wenige Starts heißt frischer, aber weniger
   Beleg. Zehn und mehr bis Herbst werfen die Frage auf, ob nach einem
