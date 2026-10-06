@@ -525,8 +525,6 @@ Gegner (`ran`).
   Fragezeichen, weil die Form nicht frisch belegt ist und der Stall es
   vielleicht erst heranführt. Allein kein Ausschluss, zusammen mit einem
   zweiten Fragezeichen (Distanz, Belag, kalter Stall) aber gewichtig.
-  Nicht bei Pferden mit wenigen Starts: Dort sind sechs bis zehn Wochen
-  zwischen den Starts normal.
 - **Starts in der laufenden Saison** (`career.d365.runs`, feldrelativ;
   Auslandsstarts fehlen). Wenige Starts heißt frischer, aber weniger
   Beleg. Zehn und mehr bis Herbst werfen die Frage auf, ob nach einem
