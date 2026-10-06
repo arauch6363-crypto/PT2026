@@ -679,12 +679,11 @@ gelesen wurden. Drei Fragen:
    - *eingepreist* — genau dieses Argument steht dort (etwa „mit
      australischen Scheuklappen"); ebenso C/D/CD-Kennzeichen.
    - *teilweise* — das Pferd wird gelobt, aber aus einem anderen Grund.
-   - *nicht erkannt* — niemand erwähnt es. Typisch: Klassenabstieg
-     (B0), Übereinstimmung der Ratings (B13), Gegneraufwertung,
-     Sektionalwerte, gutes A/E unter heutigen Bedingungen, Marke unter
-     der letzten Platzmarke, ein Duell. Laufbild, Tempo, Bias und
-     Ausrüstungswechsel preist der Markt bis zum Start meist ein; sie
-     zählen nur deutlich ausgeprägt.
+   - *nicht erkannt* — niemand erwähnt es. Typisch: Gegneraufwertung,
+     Laufbild und Tempo des Herkunftsrennens, Sektionalwerte, Bias- und
+     Tempopassung heute, gutes A/E unter heutigen Bedingungen, Marke unter
+     der letzten Platzmarke, Ausrüstungsänderung mit guter Vorbilanz,
+     Trainerwechsel, ein Duell.
 3. **Wie ist die Publikumslage** (P3)?
 
 Die Leitfrage ist, warum das Pferd besser abschneidet, **als der Markt
@@ -740,10 +739,10 @@ klarer Angle, kein klarer Angle oder dagegen. Regeln:
 wird, ob die kurze cote probable trägt:
 - **Unabhängige Fragezeichen zählen:** Pause, unsichere Distanz,
   Belagwechsel, kalter Stall, Boden nur angenommen bei klarer
-  Bodenabhängigkeit. **Fragezeichen allein geben dem Favoriten keinen
-  negativen Edge:** Favoriten gewinnen öfter, als ihre Quote sagt, auch
-  mit zwei Fragezeichen (Backtest). Negativ wird er erst mit einem
-  Gegenbeweis, etwa einer schwachen Bilanz unter genau diesen Bedingungen.
+  Bodenabhängigkeit. Eines hat fast jedes Pferd; **zwei unabhängige** beim
+  Favoriten sind Anlass für „Favoritenposition fraglich" (mit Gründen),
+  aber noch kein negativer Edge. Den gibt es erst mit einem Gegenbeweis,
+  etwa einer schwachen Bilanz unter genau diesen Bedingungen.
 - **Sieglos nach vielen Starts** (0 aus 15 auf Prognoseplatz zwei) ist ein
   Fragezeichen für die Siegwette; `ae_win` deutlich unter dem Platz-A/E
   bestätigt das.
@@ -874,8 +873,7 @@ Festkurs: darüber eine Wette, darunter nicht.
      ehrlich gegenlesen. Ein großer Edge aus *nicht erkannten* Argumenten
      ist der eigentliche Fund.
    - Ein deutlich negativer Edge beim Favoriten wird benannt: eher ein
-     Pferd, gegen das man spielt. Favoriten werden eher unterschätzt:
-     ihre Chance nicht ohne Gegenbeweis (B12) unter `p_prog` setzen.
+     Pferd, gegen das man spielt.
 6. **Angle-Stufe aus dem Edge:** ++ über +50 % (nur wenn der Edge auf
    *nicht erkannten* Argumenten steht, sonst höchstens +), + +20 bis
    +50 %, 0 ±20 %, − −20 bis −50 %, −− unter −50 %. Ohne `p_prog` (PMU-

@@ -113,7 +113,8 @@ erg = rb.run(BASE)        # Tabelle drucken, CSV nach <BASE>/auswertung/regel_ba
 ```
 
 Je Regel des Skills (Wallach im Claimer, Exposure, Pause, Klassenabstieg, Tempo/Bias, Startbox, Laufbild, Wechsel,
-Favorit mit Fragezeichen, Ratings) und ihren Vergleichsgruppen: Starter, Siege, erwartete Siege nach der Endquote,
+Favorit mit Fragezeichen, Ratings; Belagwechsel Gras ↔ PSF mit Formübertragung und Vorlieben von Pferd, Vater und
+Muttervater) und ihren Vergleichsgruppen: Starter, Siege, erwartete Siege nach der Endquote,
 A/E Sieg mit z-Wert, A/E Platz und ROI. Merkmale nur aus früheren Läufen; Box, Bias und Linienqualität werden auf der
 ersten Hälfte der Tage gelernt und auf der zweiten geprüft („Test“). Gruppen unter 50 Startern sind als `duenn` markiert.
 
@@ -330,7 +331,7 @@ und werden mit Python geparst.
 - **claude.ai:** Dort wird er weiterhin als `.skill`/ZIP hochgeladen. Die Datei hier ist die versionierte Vorlage.
 - **Pflege:** Neue Erkenntnisse aus Analysen kommen als knappe Regel an die passende Stelle des Rasters (A/B/C), nicht als
   neuer Abschnitt. Nach jeder Anpassung wird konsolidiert: Doppeltes zusammenführen und Erklärungen kürzen, die die
-  Claude-JSON schon vorrechnet. Der Umfang soll nicht wachsen (Stand 06.10.2026: rund 54.700 Zeichen).
+  Claude-JSON schon vorrechnet. Der Umfang soll nicht wachsen (Stand 06.10.2026: rund 54.500 Zeichen).
 
 **Claude-Version der Karte** (`claude_export.py`): Neben `racecard_JJJJMMTT.html` schreibt `racecard.run` die Datei
 `racecard_JJJJMMTT_claude.json` (abschalten mit `claude=False`).
