@@ -114,9 +114,10 @@ erg = rb.run(BASE)        # Tabelle drucken, CSV nach <BASE>/auswertung/regel_ba
 
 Je Regel des Skills (Wallach im Claimer, Exposure, Pause, Klassenabstieg, Tempo/Bias, Startbox, Laufbild, Wechsel,
 Favorit mit Fragezeichen, Ratings; Belagwechsel Gras ↔ PSF mit Formübertragung und Vorlieben von Pferd, Vater und
-Muttervater) und ihren Vergleichsgruppen: Starter, Siege, erwartete Siege nach der Endquote,
+Muttervater; Rennverlauf des letzten Laufs: mit oder gegen den Verlauf) und ihren Vergleichsgruppen: Starter, Siege, erwartete Siege nach der Endquote,
 A/E Sieg mit z-Wert, A/E Platz und ROI. Merkmale nur aus früheren Läufen; Box, Bias und Linienqualität werden auf der
-ersten Hälfte der Tage gelernt und auf der zweiten geprüft („Test“). Gruppen unter 50 Startern sind als `duenn` markiert.
+ersten Hälfte der Tage gelernt und auf der zweiten geprüft („Test“). Rennverlauf je Rennen = Ø frühe Position der ersten drei − Ø des Feldes (negativ = vorne gewonnen),
+gegen die Norm der Bahn/Distanz; die 20 % extremsten Rennen gelten als Vorne- bzw. Hinten-Rennen, ab 8 Startern. Gruppen unter 50 Startern sind als `duenn` markiert.
 
 ## Wissensbasis aus der PMU-Schnittstelle
 
