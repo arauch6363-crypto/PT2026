@@ -60,6 +60,10 @@ def merkmale(h: pd.DataFrame) -> pd.DataFrame:
     h["dchg"] = h["distance_m"] - g["distance_m"].shift()
     h["psf"] = h["going_pmu"].eq("PSF")
     h["belagwechsel"] = g["psf"].shift().notna() & (h["psf"] != g["psf"].shift())
+    psf_vor = g["psf"].shift()
+    h["gras_psf"] = psf_vor.eq(False) & h["psf"]
+    h["psf_gras"] = psf_vor.eq(True) & ~h["psf"]
+    h["psf_laeufe_vor"] = h["psf"].astype(int).groupby(h["horse_id"]).cumsum() - h["psf"].astype(int)
     if "trainer_key" in h:
         tv = g["trainer_key"].shift()
         h["trainerwechsel"] = tv.notna() & h["trainer_key"].notna() & (tv != h["trainer_key"])
@@ -115,7 +119,7 @@ def lernen_testen(h: pd.DataFrame) -> pd.DataFrame:
         je = lern[lern["age"] == 3].groupby(["sire_key", "horse_id"])["valeur"].max().dropna()
         q = je.groupby(level=0).agg(["mean", "size"])
         q = q[q["size"] >= rc.POP_MIN_PFERDE]["mean"]
-        h["linie_top"] = h["sire_key"].map(q >= q.quantile(0.75)).fillna(False).astype(bool) if len(q) else False
+        h["linie_top"] = h["sire_key"].map((q >= q.quantile(0.75)).to_dict()).eq(True) if len(q) else False
     else:
         h["linie_top"] = False
     return h
@@ -196,6 +200,12 @@ def regeln(h: pd.DataFrame) -> list[tuple[str, str, pd.Series]]:
     add("B6 Distanz", "Distanz −300 m oder mehr", h["dchg"] <= -300)
     add("B6 Distanz", "Distanz +300 m oder mehr", h["dchg"] >= 300)
     add("B6 Belag", "Belagwechsel Gras ↔ PSF", h["belagwechsel"])
+    add("B6 Belag", "Gras → PSF", h["gras_psf"])
+    add("B6 Belag", "Gras → PSF · erstmals PSF", h["gras_psf"] & (h["psf_laeufe_vor"] == 0) & (h["n_vor"] > 0))
+    add("B6 Belag", "Gras → PSF · schon PSF gelaufen", h["gras_psf"] & (h["psf_laeufe_vor"] > 0))
+    add("B6 Belag", "PSF → Gras", h["psf_gras"])
+    add("B6 Belag", "Gras → PSF · zuletzt platziert", h["gras_psf"] & (h["finish_pos_vor"] <= 3))
+    add("B6 Belag", "PSF → Gras · zuletzt platziert", h["psf_gras"] & (h["finish_pos_vor"] <= 3))
     # B12 Favorit mit Fragezeichen
     fz = ((tg >= 56).astype(int) + (h["dchg"].abs() >= 300).astype(int) + h["belagwechsel"].astype(int))
     for k, name in [(0, "0"), (1, "1"), (2, "≥ 2")]:
