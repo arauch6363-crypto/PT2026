@@ -1,16 +1,16 @@
 ---
 name: "rennkarten-durchgang"
-description: Qualitativer Durchgang durch eine französische Galopp-Racecard (Vollblut), Pferd für Pferd in Reihenfolge der PMU-Prognose (cote probable), mit dem Ziel, pro Starter einen Wett-Angle zu bejahen oder zu verneinen, zu prüfen, ob die Öffentlichkeit ihn über Prognose, Cribles und Presse-Tipps schon wahrgenommen und eingepreist hat, daraus den Edge zu berechnen und für jedes Pferd mit Angle eine Mindestquote (Festkurs) zu nennen. Live-, Morgen- oder Totokurse werden nicht verwendet, auch wenn sie noch im DATA-Block steht.  Verwenden, wann immer eine Racecard durchgegangen, Kandidaten gesucht oder Mindestquoten bestimmt werden sollen.
+description: Qualitativer Durchgang durch eine französische Galopp-Racecard (Vollblut), Pferd für Pferd in Reihenfolge der PMU-Prognose (cote probable), mit dem Ziel, pro Starter einen Wett-Angle zu bejahen oder zu verneinen, zu prüfen, ob die Öffentlichkeit ihn über Prognose, Cribles und Presse-Tipps schon wahrgenommen und eingepreist hat, daraus den Edge zu berechnen und für jedes Pferd mit Angle eine Mindestquote (Festkurs) zu nennen. Verwenden, wann immer eine Racecard durchgegangen, Kandidaten gesucht oder Mindestquoten bestimmt werden sollen.
 ---
 
 # Rennkarten-Durchgang
 
 ## Zweck und Abgrenzung
 
-Dieser Skill beschreibt den qualitativen Lesedurchgang durch eine Racecard.
-Er ersetzt nicht den Skill `rennanalyse` mit seinem Script, sondern läuft
-daneben: das Script liefert Rennprofil und statistische Angles, dieser
-Durchgang liefert die Beurteilung Pferd für Pferd aus den Formzeilen.
+Dieser Skill beschreibt den qualitativen Lesedurchgang durch eine Racecard:
+die Beurteilung Pferd für Pferd aus den Formzeilen und den Daten der Karte.
+Er gilt nur für Vollblüter; Rennen für Araber, Anglo-Araber oder AQPS
+werden nicht durchgegangen.
 
 Die Leitfrage ist nie "läuft das Pferd gut?", sondern **"gibt es hier einen
 Angle?"** — einen konkreten Grund, warum dieses Pferd heute besser
@@ -19,13 +19,10 @@ diesen Durchgang uninteressant.
 
 ## Grundregeln vorab
 
-**Prognose statt Kurs.** Morgen- und Totokurs (`odds`, `odds_morning`) sind
-nur Zwischenstände und verleiten zum Anker: Sie werden **vollständig
-ignoriert** (nicht für die Reihenfolge, nicht als Kontrolle, nicht in der
-Ausgabe); die Claude-Version enthält sie nicht. Die **historischen
-Endquoten** in `form_lines` und `rivals` bleiben Formmaß und Hinweis auf
-die Stallerwartung (B4). An die Stelle der Kurse tritt die PMU-Prognose
-(P). Der Nutzer wettet meist zu Festkurs: Ob ein Pferd Value hat,
+**Prognose statt Kurs.** Die Karte enthält keine aktuellen Kurse; der
+Maßstab ist die PMU-Prognose (P). Die **historischen Endquoten** in
+`form_lines` und `rivals` sind Formmaß und Hinweis auf die
+Stallerwartung (B4). Der Nutzer wettet meist zu Festkurs: Ob ein Pferd Value hat,
 entscheidet sich erst, wenn er seinen Festkurs gegen die Mindestquote (C)
 hält.
 
@@ -70,8 +67,7 @@ Sektionalzeiten) stammen aus französischen Flachrennen ab
   (B4). `comment_de` ist eine Übersetzung, für Nuancen gilt `comment`.
 - **Laufstil, Tempo und Sektionalwerte brauchen Tracking.** Pferde ohne
   getrackte Läufe stehen in `pace.unknown` und haben kein `style`.
-- **Boden kann angenommen sein** (A2); **Araber und Anglo-Araber** sind
-  eigene Populationen (A1).
+- **Boden kann angenommen sein** (A2).
 
 Eine Lücke wird beim Pferd in einem Halbsatz genannt und in der
 Sicherheitsstufe (C1) berücksichtigt, aber nicht als Argument gegen das
@@ -176,12 +172,7 @@ ganzen Durchgang schwer wiegen:
   Gewichtserlaubnisse stecken im Gewicht, die Jockeystatistik beruht auf
   kleinen Stichproben. Ein erfahrener Nachwuchsreiter mit guter Form ist
   hier mehr wert als sonst.
-- **Araber und Anglo-Araber** (Vollblutaraber: eigene Rennen, oft
-  `type: "Inconnu"`, „Arabian" im Namen; Anglo-Araber: „AA", vor allem
-  Südwesten) sind eigene Populationen: Valeur, Ratings und Abstammung nur
-  **innerhalb der Rasse** vergleichen; Trainer- und Jockeystatistik mischt
-  die Rassen und ist unschärfer.
-- **`Inconnu`** ohne Araber-Hinweis: aus Name, Dotierung, Alter und
+- **`Inconnu`**: aus Name, Dotierung, Alter und
   Geschlecht erschließen, keine Handicap-Logik unterstellen.
 
 Bei sehr wenigen Starts gilt unabhängig von der Rennart die Variante aus
@@ -216,7 +207,7 @@ Rennstärke als Ø Gewinn je Lauf der Starter im letzten Jahr, ebenfalls
 indexiert. Die Formzeilen tragen dieselben Indizes für das damalige
 Rennen (`cls_val_idx`, `cls_epr_idx`). Damit wird „heute leichter oder
 schwerer" in B0 zur Rechnung statt zum Eindruck. `val` fehlt, wenn zu
-wenige Starter eine Valeur haben (Zweijährige, Araber).
+wenige Starter eine Valeur haben (Zweijährige).
 
 ### A4 — Tempo und Bias
 
@@ -240,7 +231,7 @@ wenige Starter eine Valeur haben (Zweijährige, Araber).
   keinen Angle.
 - **Felder mit wenig gelaufenen Pferden** (Mehrheit unter drei getrackten
   Läufen oder in `pace.unknown`, typisch für Dreijährigen-Conditions,
-  AQPS-Flachrennen, Zweijährige): Schon das Tempobild ist unsicher. Ein
+  Zweijährige): Schon das Tempobild ist unsicher. Ein
   Tempo-Angle steht in C2 dann **höchstens mit der Sicherheit
   „spekulativ"**.
 - **Bias** = `iv_front` − `iv_back`. Frontrenner sind überall im Vorteil,
@@ -261,7 +252,7 @@ wenige Starter eine Valeur haben (Zweijährige, Araber).
 ## Abschnitt B — Raster je Starter
 
 **Reihenfolge: nach Prognose-Rang (`prono.sel.rank`), von den Favoriten
-abwärts** — nicht nach Startnummer, nicht nach `odds`. Pferde ohne
+abwärts** — nicht nach Startnummer. Pferde ohne
 Prognose-Eintrag kommen ans Ende. Die großen Außenseiter dürfen
 übersprungen werden, sobald klar ist, dass sie die Entscheidung nicht
 mehr berühren — **aber nicht ungelesen, wenn eine Tippquelle sie vorne
@@ -801,8 +792,6 @@ Regeln:
 - Große Streuung (`sd`) heißt: Der Schnitt verdeckt ein Pferd, das je
   nach Bedingung sehr unterschiedlich läuft. Dann zählt der Wert unter
   heutigen Bedingungen, nicht der Ø.
-- Bei Arabern und Anglo-Arabern nur innerhalb des Feldes vergleichen
-  (A1).
 
 
 
@@ -946,7 +935,7 @@ Buchmachers halten kann.
 **Bevorzugt: die Claude-Version `racecard_JJJJMMTT_claude.json`.** Sie
 enthält **alle Daten der Karte**, auch solche, die dieses Raster nicht
 nutzt. Unterschiede zu `DATA`:
-- **Weggelassen:** Trikots, `odds` / `odds_morning`, je Formzeile die volle
+- **Weggelassen:** Trikots, je Formzeile die volle
   Gegnerliste (dafür `rivals_nah` mit je zwei Gegnern davor und dahinter
   samt nächstem Start, und `rivals_stat`, B5) und die Zwischenwerte der
   Berechnung (Ergebnisse wie `dl600_a`, `tr_heute`, `cls_*_idx` bleiben).
@@ -971,28 +960,9 @@ for rid, r in offen.items():
 Für ein einzelnes Rennen reicht `DATA["races"][rid]`: den Block des Rennens
 ausgeben und lesen, nicht die ganze Datei durchsuchen.
 
-**Rückfall: nur die HTML-Karte** (eingebettetes `const DATA = {...}`, mehrere
-MB; mit Python parsen, `odds` / `odds_morning` nicht anfassen). Die
-vorgerechneten Werte fehlen dann: Nichtstarter (`nr: true`) streichen,
-`p_prog` nach P2, `marge` = Σ 1/`cote_dec`, `bias_rel` = `bias.bias` −
-`bias_all.bias`, `luecke` = `starts` − `career.all.runs`.
-
-```python
-import json
-s = open(pfad, encoding="utf-8").read()
-i = s.index("const DATA =") + len("const DATA =")
-DATA, _ = json.JSONDecoder().raw_decode(s[i:].lstrip())
-```
-
-# Edge je Kandidat: p_eigen / x["p_prog"] - 1
-```
-
-Für ein einzelnes Rennen reicht `DATA["races"][rid]`. Den Block des
-Rennens ausgeben und lesen, statt die ganze Datei zu durchsuchen.
-
 **Rückfall: nur die HTML-Karte.** Sie hat ein eingebettetes
 `const DATA = {...}` (mehrere MB). Mit Python parsen, nicht als Text
-lesen, und `odds` / `odds_morning` nicht anfassen. Die vorgerechneten
+lesen. Die vorgerechneten
 Werte fehlen dort; sie werden selbst gerechnet:
 - Nichtstarter (`nr: true`) streichen.
 - `p_prog`: Potenzmethode wie in P2.

@@ -6,8 +6,8 @@ weil nicht ausgewählt, sondern nur ausgelassen wird (selftest prüft das).
 
 Ausgelassen wird nur, was keine Information für die Analyse trägt oder ausdrücklich nicht genutzt werden soll:
 * Trikots (`silks`, base64-Bilder),
-* Morgen- und Totokurs (`odds`, `odds_morning` des Starters; die Karte zeigt sie nicht, der Skill soll sie nicht
-  nutzen). Historische Endquoten in den Formzeilen und bei den Gegnern bleiben.
+* Morgen- und Totokurs (`odds`, `odds_morning`) nur noch als Sicherheitsnetz: Die Karte enthält seit 10/2026 keine
+  aktuellen Kurse mehr. Historische Endquoten in den Formzeilen und bei den Gegnern bleiben.
 * je Formzeile die volle Gegnerliste (statt dessen `rivals_nah` und `rivals_stat`) und die Zwischenwerte der
   Berechnung (OHNE_FORMZEILE: Rohtempo, Klassenkorrektur, Bestandteile des TR, Perzentile für die Farbe …).
 
@@ -24,7 +24,7 @@ import copy
 import json
 from pathlib import Path
 
-OHNE_STARTER = {"silks", "odds", "odds_morning"}     # Trikots, Morgen-/Totokurs
+OHNE_STARTER = {"silks", "odds", "odds_morning"}     # Trikots; Kurse nur Sicherheitsnetz (nicht mehr in der Karte)
 GEGNER_NAH = 2                                       # rivals_nah: so viele Gegner davor und dahinter
 OFFEN = "PROGRAMMEE"
 # Formzeile: volle Gegnerliste (dafür rivals_nah + rivals_stat) und Zwischenwerte der Berechnung weglassen

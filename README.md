@@ -193,7 +193,7 @@ Je Starter:
 * **Startbox**: unter der Box die Abweichung der Ø relativen Platzierung (Starter − Platz) / (Starter − 1) aus
   dieser Box auf derselben Konfiguration (Bahn | Distanz | track_type | parcours_norm | Corde) von 0,5.
 * **Übersicht**: Läufe-Siege-Plätze neben der Musique, Besitzer mit A/E, Scheuklappen-Symbol (klassisch /
-  australisch), rechts nur die cote probable der PMU-Prognose (kein Morgen- oder Totokurs). RTR, ΔL600 A und ΔB200 A nur hier.
+  australisch), rechts nur die cote probable der PMU-Prognose. Aktuelle Kurse (Morgen-/Totokurs) enthält die Karte nicht, auch nicht im DATA-Block. RTR, ΔL600 A und ΔB200 A nur hier.
 * **Formzeilen** zusätzlich mit Valeur, Scheuklappen-Symbol und Endquote; ARR, TR und Klasse (Val, €/L) farbig im
   Vergleich zu allen früheren Läufen der heutigen Starter, ±800 und Weg m bei auffälligen Werten farbig.
 * **Übersicht**: Karriere mit €/Lauf neben der Musique; Rating mit letzter Sieg- bzw. Platzmarke im Handicap;
@@ -331,13 +331,13 @@ und werden mit Python geparst.
 - **claude.ai:** Dort wird er weiterhin als `.skill`/ZIP hochgeladen. Die Datei hier ist die versionierte Vorlage.
 - **Pflege:** Neue Erkenntnisse aus Analysen kommen als knappe Regel an die passende Stelle des Rasters (A/B/C), nicht als
   neuer Abschnitt. Nach jeder Anpassung wird konsolidiert: Doppeltes zusammenführen und Erklärungen kürzen, die die
-  Claude-JSON schon vorrechnet. Der Umfang soll nicht wachsen (Stand 06.10.2026: rund 55.100 Zeichen).
+  Claude-JSON schon vorrechnet. Der Umfang soll nicht wachsen (Stand 06.10.2026: rund 53.400 Zeichen).
 
 **Claude-Version der Karte** (`claude_export.py`): Neben `racecard_JJJJMMTT.html` schreibt `racecard.run` die Datei
 `racecard_JJJJMMTT_claude.json` (abschalten mit `claude=False`).
 
 - **Inhalt:** **alle Daten der Karte**, auch Detailinfos, die der Skill heute nicht nutzt. Neue Felder der Karte kommen automatisch mit; ein Selbsttest prüft die Vollständigkeit.
-- **Weggelassen** sind nur Trikots, Morgen-/Totokurs, je Formzeile die volle Gegnerliste (es bleiben `rivals_nah` mit den zwei Gegnern davor und dahinter und `rivals_stat`) und die Zwischenwerte der Berechnung (`claude_export.OHNE_FORMZEILE`).
+- **Weggelassen** sind nur Trikots, je Formzeile die volle Gegnerliste (es bleiben `rivals_nah` mit den zwei Gegnern davor und dahinter und `rivals_stat`) und die Zwischenwerte der Berechnung (`claude_export.OHNE_FORMZEILE`).
 - **Umgeordnet:** Starter nach Prognose-Rang, Nichtstarter getrennt (`nichtstarter`, Nummern in `nr`).
 - **Vorgerechnet:** Prognose-Chance nach der Potenzmethode (`p_prog`), `marge`, `reihenfolge`, `bias_rel` gegen den Schnitt aller Bahnen, `luecke` (PMU-Starts − Datenbank-Läufe).
 - **Größe:** etwa ein Drittel der HTML-Karte (02.10.: 2,8 statt 8,2 MB).
