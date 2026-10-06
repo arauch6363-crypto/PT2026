@@ -118,6 +118,9 @@ ergeben die Publikumslage:
 - **Übersehen:** hinten in der Prognose, in keinem Tipp, kein Crible. Der
   Kurs liegt eher über der cote probable.
 
+Hebt der Rennkommentar (`prono.text`) ein Pferd hervor, zählt das wie ein
+wohlwollender Crible; ignoriert er ein Pferd, spricht das für „übersehen".
+
 Mit nur einer Tippquelle (`of: 1`, derzeit der Normalfall) ist die
 Tipp-Ebene dünn und wird auch so benannt. Alles hier ist eine Tendenz.
 
