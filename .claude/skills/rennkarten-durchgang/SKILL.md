@@ -1,16 +1,14 @@
 ---
 name: "rennkarten-durchgang"
-description: Qualitativer Durchgang durch eine französische Galopp-Racecard (Vollblut), Pferd für Pferd in Reihenfolge der PMU-Prognose (cote probable), mit dem Ziel, pro Starter einen Wett-Angle zu bejahen oder zu verneinen, zu prüfen, ob die Öffentlichkeit ihn über Prognose, Cribles und Presse-Tipps schon wahrgenommen und eingepreist hat, daraus den Edge zu berechnen und für jedes Pferd mit Angle eine Mindestquote (Festkurs) zu nennen. Live-, Morgen- oder Totokurse werden nicht verwendet, auch wenn sie noch im DATA-Block steht.  Verwenden, wann immer eine Racecard durchgegangen, Kandidaten gesucht oder Mindestquoten bestimmt werden sollen.
+description: Qualitativer Durchgang durch eine französische Galopp-Racecard (Vollblut), Pferd für Pferd in Reihenfolge der PMU-Prognose (cote probable), mit dem Ziel, pro Starter einen Wett-Angle zu bejahen oder zu verneinen, zu prüfen, ob die Öffentlichkeit ihn über Prognose, Cribles und Presse-Tipps schon wahrgenommen und eingepreist hat, daraus den Edge zu berechnen und für jedes Pferd mit Angle eine Mindestquote (Festkurs) zu nennen. Verwenden, wann immer eine Racecard durchgegangen, Kandidaten gesucht oder Mindestquoten bestimmt werden sollen.
 ---
 
 # Rennkarten-Durchgang
 
 ## Zweck und Abgrenzung
 
-Dieser Skill beschreibt den qualitativen Lesedurchgang durch eine Racecard.
-Er ersetzt nicht den Skill `rennanalyse` mit seinem Script, sondern läuft
-daneben: das Script liefert Rennprofil und statistische Angles, dieser
-Durchgang liefert die Beurteilung Pferd für Pferd aus den Formzeilen.
+Dieser Skill beschreibt den qualitativen Lesedurchgang durch eine Racecard:
+die Beurteilung Pferd für Pferd aus den Formzeilen und den Daten der Karte.
 
 Die Leitfrage ist nie "läuft das Pferd gut?", sondern **"gibt es hier einen
 Angle?"** — einen konkreten Grund, warum dieses Pferd heute besser
@@ -19,13 +17,10 @@ diesen Durchgang uninteressant.
 
 ## Grundregeln vorab
 
-**Prognose statt Kurs.** Morgen- und Totokurs (`odds`, `odds_morning`) sind
-nur Zwischenstände und verleiten zum Anker: Sie werden **vollständig
-ignoriert** (nicht für die Reihenfolge, nicht als Kontrolle, nicht in der
-Ausgabe); die Claude-Version enthält sie nicht. Die **historischen
-Endquoten** in `form_lines` und `rivals` bleiben Formmaß und Hinweis auf
-die Stallerwartung (B4). An die Stelle der Kurse tritt die PMU-Prognose
-(P). Der Nutzer wettet meist zu Festkurs: Ob ein Pferd Value hat,
+**Prognose statt Kurs.** Die Karte enthält keine aktuellen Kurse; der
+Maßstab ist die PMU-Prognose (P). Die **historischen Endquoten** in
+`form_lines` und `rivals` sind Formmaß und Hinweis auf die
+Stallerwartung (B4). Der Nutzer wettet meist zu Festkurs: Ob ein Pferd Value hat,
 entscheidet sich erst, wenn er seinen Festkurs gegen die Mindestquote (C)
 hält.
 
@@ -261,7 +256,7 @@ wenige Starter eine Valeur haben (Zweijährige, Araber).
 ## Abschnitt B — Raster je Starter
 
 **Reihenfolge: nach Prognose-Rang (`prono.sel.rank`), von den Favoriten
-abwärts** — nicht nach Startnummer, nicht nach `odds`. Pferde ohne
+abwärts** — nicht nach Startnummer. Pferde ohne
 Prognose-Eintrag kommen ans Ende. Die großen Außenseiter dürfen
 übersprungen werden, sobald klar ist, dass sie die Entscheidung nicht
 mehr berühren — **aber nicht ungelesen, wenn eine Tippquelle sie vorne
@@ -946,7 +941,7 @@ Buchmachers halten kann.
 **Bevorzugt: die Claude-Version `racecard_JJJJMMTT_claude.json`.** Sie
 enthält **alle Daten der Karte**, auch solche, die dieses Raster nicht
 nutzt. Unterschiede zu `DATA`:
-- **Weggelassen:** Trikots, `odds` / `odds_morning`, je Formzeile die volle
+- **Weggelassen:** Trikots, je Formzeile die volle
   Gegnerliste (dafür `rivals_nah` mit je zwei Gegnern davor und dahinter
   samt nächstem Start, und `rivals_stat`, B5) und die Zwischenwerte der
   Berechnung (Ergebnisse wie `dl600_a`, `tr_heute`, `cls_*_idx` bleiben).
@@ -971,28 +966,9 @@ for rid, r in offen.items():
 Für ein einzelnes Rennen reicht `DATA["races"][rid]`: den Block des Rennens
 ausgeben und lesen, nicht die ganze Datei durchsuchen.
 
-**Rückfall: nur die HTML-Karte** (eingebettetes `const DATA = {...}`, mehrere
-MB; mit Python parsen, `odds` / `odds_morning` nicht anfassen). Die
-vorgerechneten Werte fehlen dann: Nichtstarter (`nr: true`) streichen,
-`p_prog` nach P2, `marge` = Σ 1/`cote_dec`, `bias_rel` = `bias.bias` −
-`bias_all.bias`, `luecke` = `starts` − `career.all.runs`.
-
-```python
-import json
-s = open(pfad, encoding="utf-8").read()
-i = s.index("const DATA =") + len("const DATA =")
-DATA, _ = json.JSONDecoder().raw_decode(s[i:].lstrip())
-```
-
-# Edge je Kandidat: p_eigen / x["p_prog"] - 1
-```
-
-Für ein einzelnes Rennen reicht `DATA["races"][rid]`. Den Block des
-Rennens ausgeben und lesen, statt die ganze Datei zu durchsuchen.
-
 **Rückfall: nur die HTML-Karte.** Sie hat ein eingebettetes
 `const DATA = {...}` (mehrere MB). Mit Python parsen, nicht als Text
-lesen, und `odds` / `odds_morning` nicht anfassen. Die vorgerechneten
+lesen. Die vorgerechneten
 Werte fehlen dort; sie werden selbst gerechnet:
 - Nichtstarter (`nr: true`) streichen.
 - `p_prog`: Potenzmethode wie in P2.

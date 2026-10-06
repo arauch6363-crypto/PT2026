@@ -1588,7 +1588,6 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "starts": starts, "wins": _num(p.get("wins"), 0),
                 "places": _num(p.get("places"), 0), "earnings": earn,
                 "earn_per_start": _num(earn / starts, 0) if earn and starts else None,
-                "odds": _num(p.get("odds_final"), 1), "odds_morning": _num(p.get("odds_morning"), 1),
                 "nr": "NON_PARTANT" in (status, inc),
                 "days": int((heute - vorher.iloc[0]["date"]).days) if len(vorher) else None,
                 "badges": badges,
