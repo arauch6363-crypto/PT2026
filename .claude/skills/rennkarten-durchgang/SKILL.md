@@ -161,7 +161,6 @@ ganzen Durchgang schwer wiegen:
   (Klassenindizes in B0). Trainer- und Besitzerwechsel (B2) sind hier
   häufig — oft nach einem Claim — und verdienen einen Blick. Eine
   vorhandene Handicapmarke ist ein brauchbares Klassenmaß gegen das Feld.
-  Wallache sind im Claimer ein mildes Plus.
 - **Conditions, Listed und Gruppenrennen:** "Wer hat die Klasse, und was
   kostet sie heute an Gewicht?" Ohne Handicap fällt die Marke-Frage aus
   B6 weg; an ihre Stelle treten die gewichtsbereinigte Valeur
@@ -297,7 +296,10 @@ gelesen wird:
 - **Rennniveau:** heute leichter oder schwerer als zuletzt, gemessen an
   `class.val_idx` / `class.epr_idx` heute gegen `cls_val_idx` /
   `cls_epr_idx` der Formzeile, dazu die Dotierung. 30 Indexpunkte
-  Unterschied sind ein klarer Klassenschritt.
+  Unterschied sind ein klarer Klassenschritt. **Kommt das Pferd aus
+  einem deutlich stärkeren Rennen, ist das in jeder Rennart das stärkste
+  Plus, das der Markt nur teilweise einpreist** (Backtest der Datenbank gegen
+  die Endquote, 10/2026).
 
 Bleibt das Delta klein — gleiche Distanz, gleicher Belag, ähnliche
 Klasse, normaler Abstand —, trägt die letzte Form direkt. Je mehr sich
@@ -308,10 +310,10 @@ Klasse, normaler Abstand —, trägt die letzte Form direkt. Je mehr sich
 **Maßstab ist `starts`** (PMU-Gesamtzahl), nicht `career.all.runs` — die
 Datenbank-Karriere kann deutlich kürzer sein (D). Viele Starts heißt
 exposed: das Pferd hat gezeigt, was es kann, Steigerungspotenzial ist
-unwahrscheinlich, ein Minuspunkt. **Wenige Starts heißen
-Entwicklungspotenzial, in jeder Rennart ein Plus**, umso mehr, je
-stärker das Pferd schon gelaufen ist (Klasse der Rennen, Gegner) und je
-besser die Abstammung (`max_val3_idx`, B8). Cribles nennen das selten.
+unwahrscheinlich, ein Minuspunkt. Wenige Starts heißen
+Entwicklungspotenzial; das preist der Markt im Schnitt ein. Ein Plus
+wird es erst, wenn das Pferd schon in stärkeren Rennen konkurrenzfähig
+war, unterstützt durch eine gute Abstammung (`max_val3_idx`, B8).
 
 **Der Maßstab ist feldrelativ.** Zwölf Starts sind bei Dreijährigen viel
 und in einem Feld mit Pferden über 50 Starts wenig. In einem Feld, in
@@ -523,8 +525,8 @@ Gegner (`ran`).
   Handicappern im Saisonbetrieb sind zwei bis fünf Wochen normal. Ab
   etwa acht bis neun Wochen kommt das Pferd **aus einer Pause** — ein
   Fragezeichen, weil die Form nicht frisch belegt ist und der Stall es
-  vielleicht erst heranführt. Allein kein Ausschluss, zusammen mit einem
-  zweiten Fragezeichen (Distanz, Belag, kalter Stall) aber gewichtig.
+  vielleicht erst heranführt. Das gilt vor allem für erfahrene Pferde;
+  bei wenig gelaufenen ist eine Pause kaum ein Nachteil (Backtest).
 - **Starts in der laufenden Saison** (`career.d365.runs`, feldrelativ;
   Auslandsstarts fehlen). Wenige Starts heißt frischer, aber weniger
   Beleg. Zehn und mehr bis Herbst werfen die Frage auf, ob nach einem
@@ -738,9 +740,9 @@ wird, ob die kurze cote probable trägt:
 - **Unabhängige Fragezeichen zählen:** Pause, unsichere Distanz,
   Belagwechsel, kalter Stall, Boden nur angenommen bei klarer
   Bodenabhängigkeit. Eines hat fast jedes Pferd; **zwei unabhängige** beim
-  Favoriten reichen für „Favoritenposition nicht nachvollziehbar" (mit
-  Gründen). Das spricht für die Pferde dahinter und gibt dem Favoriten in
-  C1 einen negativen Edge.
+  Favoriten sind Anlass für „Favoritenposition fraglich" (mit Gründen),
+  aber noch kein negativer Edge. Den gibt es erst mit einem Gegenbeweis,
+  etwa einer schwachen Bilanz unter genau diesen Bedingungen.
 - **Sieglos nach vielen Starts** (0 aus 15 auf Prognoseplatz zwei) ist ein
   Fragezeichen für die Siegwette; `ae_win` deutlich unter dem Platz-A/E
   bestätigt das.
@@ -754,9 +756,10 @@ wird, ob die kurze cote probable trägt:
 **Frühestens am Ende der Beurteilung eines Pferdes.** Ein kurzer Blick darf
 das Fazit zum einzelnen Pferd abschließen („TR und ARR gut, trotzdem fehlt
 oben etwas"), der Vergleich über das ganze Feld kommt am Ende des
-Durchgangs. Die Ratings prüfen die gefundenen Kandidaten und sollen keine
-finden: Sie entstehen unabhängig von der eigenen Lesart, deshalb sind sie
-als Gegenprobe wertvoll.
+Durchgangs. Die Ratings entstehen unabhängig von der eigenen Lesart und
+sind deshalb als Gegenprobe wertvoll. Stehen **mindestens zwei von TR,
+ARR und RTR in den Top 2**, ist das zugleich ein eigenes Plus (vor allem
+für Platz); TR wiegt am meisten (Backtest).
 
 Alle sind auf das **heutige Gewicht** umgerechnet und tragen einen
 Rang im Feld:

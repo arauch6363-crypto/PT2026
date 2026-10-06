@@ -60,6 +60,21 @@ def merkmale(h: pd.DataFrame) -> pd.DataFrame:
     h["dchg"] = h["distance_m"] - g["distance_m"].shift()
     h["psf"] = h["going_pmu"].eq("PSF")
     h["belagwechsel"] = g["psf"].shift().notna() & (h["psf"] != g["psf"].shift())
+    psf_vor = g["psf"].shift()
+    h["gras_psf"] = psf_vor.eq(False) & h["psf"]
+    h["psf_gras"] = psf_vor.eq(True) & ~h["psf"]
+    h["psf_laeufe_vor"] = h["psf"].astype(int).groupby(h["horse_id"]).cumsum() - h["psf"].astype(int)
+    # Eigene Belagbilanz vor dem Rennen: Ø relative Platzierung auf dem heutigen und dem anderen Belag
+    rp = h["rel_place"].fillna(0.5)
+    for name, m in [("psf", h["psf"]), ("gras", ~h["psf"])]:
+        n = m.astype(int).groupby(h["horse_id"]).cumsum() - m.astype(int)
+        s = (rp * m).groupby(h["horse_id"]).cumsum() - rp * m
+        h[f"n_{name}"], h[f"rp_{name}"] = n, (s / n).where(n > 0)
+    heute_rp = np.where(h["psf"], h["rp_psf"], h["rp_gras"])
+    ander_rp = np.where(h["psf"], h["rp_gras"], h["rp_psf"])
+    genug = (np.where(h["psf"], h["n_psf"], h["n_gras"]) >= 2) & (np.where(h["psf"], h["n_gras"], h["n_psf"]) >= 2)
+    diff = pd.Series(heute_rp - ander_rp, index=h.index).where(genug)
+    h["pferd_belag"] = np.select([diff >= 0.1, diff <= -0.1, diff.notna()], ["besser", "schlechter", "gleich"], "unbekannt")
     if "trainer_key" in h:
         tv = g["trainer_key"].shift()
         h["trainerwechsel"] = tv.notna() & h["trainer_key"].notna() & (tv != h["trainer_key"])
@@ -115,9 +130,26 @@ def lernen_testen(h: pd.DataFrame) -> pd.DataFrame:
         je = lern[lern["age"] == 3].groupby(["sire_key", "horse_id"])["valeur"].max().dropna()
         q = je.groupby(level=0).agg(["mean", "size"])
         q = q[q["size"] >= rc.POP_MIN_PFERDE]["mean"]
-        h["linie_top"] = h["sire_key"].map(q >= q.quantile(0.75)).fillna(False).astype(bool) if len(q) else False
+        h["linie_top"] = h["sire_key"].map((q >= q.quantile(0.75)).to_dict()).eq(True) if len(q) else False
     else:
         h["linie_top"] = False
+    # Belagneigung von Vater und Muttervater: Ø rel. Platzierung der Nachkommen auf PSF − auf Gras (gelernt)
+    for rolle in ("sire", "dam_sire"):
+        k = rolle + "_key"
+        if k not in h:
+            h[rolle + "_belag"] = "neutral"
+            continue
+        a = lern.dropna(subset=[k, "rel_place"]).groupby([k, "psf"])["rel_place"].agg(["mean", "size"]).unstack("psf")
+        ok = (a[("size", True)] >= 30) & (a[("size", False)] >= 30) if ("size", True) in a and ("size", False) in a else None
+        if ok is None or not ok.any():
+            h[rolle + "_belag"] = "neutral"
+            continue
+        neig = (a[("mean", True)] - a[("mean", False)])[ok]
+        hi, lo = neig.quantile(0.75), neig.quantile(0.25)
+        lab = {s: ("psf" if v >= hi else "gras" if v <= lo else "neutral") for s, v in neig.items()}
+        nl = h[k].map(lab).fillna("neutral")
+        h[rolle + "_belag"] = np.select([nl.eq("neutral"), nl.eq(np.where(h["psf"], "psf", "gras"))],
+                                        ["neutral", "passt"], "passt nicht")
     return h
 
 
@@ -196,6 +228,32 @@ def regeln(h: pd.DataFrame) -> list[tuple[str, str, pd.Series]]:
     add("B6 Distanz", "Distanz −300 m oder mehr", h["dchg"] <= -300)
     add("B6 Distanz", "Distanz +300 m oder mehr", h["dchg"] >= 300)
     add("B6 Belag", "Belagwechsel Gras ↔ PSF", h["belagwechsel"])
+    add("B6 Belag", "Gras → PSF", h["gras_psf"])
+    add("B6 Belag", "Gras → PSF · erstmals PSF", h["gras_psf"] & (h["psf_laeufe_vor"] == 0) & (h["n_vor"] > 0))
+    add("B6 Belag", "Gras → PSF · schon PSF gelaufen", h["gras_psf"] & (h["psf_laeufe_vor"] > 0))
+    add("B6 Belag", "PSF → Gras", h["psf_gras"])
+    add("B6 Belag", "Gras → PSF · zuletzt platziert", h["gras_psf"] & (h["finish_pos_vor"] <= 3))
+    add("B6 Belag", "PSF → Gras · zuletzt platziert", h["psf_gras"] & (h["finish_pos_vor"] <= 3))
+    # Übertragbarkeit guter Form: zuletzt platziert, heute gleicher Belag oder Wechsel
+    gleich = h["belagwechsel"].eq(False) & (h["n_vor"] > 0)
+    for fn, fm in [("zuletzt Sieg", h["finish_pos_vor"] == 1), ("zuletzt platziert", h["finish_pos_vor"] <= 3),
+                   ("zuletzt unplatziert", h["finish_pos_vor"] > 3)]:
+        add("B6 Belag Form", f"{fn} · gleicher Belag", fm & gleich)
+        add("B6 Belag Form", f"{fn} · Gras → PSF", fm & h["gras_psf"])
+        add("B6 Belag Form", f"{fn} · PSF → Gras", fm & h["psf_gras"])
+    # Vorlieben bei Belagwechsel: eigene Bilanz, Vater, Muttervater (Abstammung: Test)
+    wechsel = h["belagwechsel"]
+    for lab in ["besser", "gleich", "schlechter", "unbekannt"]:
+        add("B6 Belag Pferd", f"Wechsel · eigene Bilanz heutiger Belag {lab}", wechsel & h["pferd_belag"].eq(lab))
+    for rolle, rn in [("sire", "Vater"), ("dam_sire", "Muttervater")]:
+        for lab in ["passt", "neutral", "passt nicht"]:
+            add("B6 Belag Abst. (Test)", f"Wechsel · {rn} {lab}", wechsel & h[rolle + "_belag"].eq(lab) & h["test"])
+        add("B6 Belag Abst. (Test)", f"erstmals PSF · {rn} passt", h["gras_psf"] & (h["psf_laeufe_vor"] == 0)
+            & (h["n_vor"] > 0) & h[rolle + "_belag"].eq("passt") & h["test"])
+        add("B6 Belag Abst. (Test)", f"erstmals PSF · {rn} passt nicht", h["gras_psf"] & (h["psf_laeufe_vor"] == 0)
+            & (h["n_vor"] > 0) & h[rolle + "_belag"].eq("passt nicht") & h["test"])
+    beide = h["sire_belag"].eq("passt") & h["dam_sire_belag"].eq("passt")
+    add("B6 Belag Abst. (Test)", "Wechsel · Vater und Muttervater passen", wechsel & beide & h["test"])
     # B12 Favorit mit Fragezeichen
     fz = ((tg >= 56).astype(int) + (h["dchg"].abs() >= 300).astype(int) + h["belagwechsel"].astype(int))
     for k, name in [(0, "0"), (1, "1"), (2, "≥ 2")]:
