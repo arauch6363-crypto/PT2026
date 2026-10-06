@@ -161,6 +161,7 @@ ganzen Durchgang schwer wiegen:
   (Klassenindizes in B0). Trainer- und Besitzerwechsel (B2) sind hier
   häufig — oft nach einem Claim — und verdienen einen Blick. Eine
   vorhandene Handicapmarke ist ein brauchbares Klassenmaß gegen das Feld.
+  Wallache sind im Claimer ein mildes Plus.
 - **Conditions, Listed und Gruppenrennen:** "Wer hat die Klasse, und was
   kostet sie heute an Gewicht?" Ohne Handicap fällt die Marke-Frage aus
   B6 weg; an ihre Stelle treten die gewichtsbereinigte Valeur
@@ -835,10 +836,9 @@ Charakter ausdrücklich.
 
 ## Abschnitt C — Empfehlung
 
-Aus den Startern mit bejahtem Angle entsteht eine kurze Kandidatenliste,
-meist zwei bis drei Pferde. Der Prognose-Favorit (Rang 1) kommt immer
-dazu — auch wenn seine Argumente als eingepreist gelten. Er ist der
-Maßstab, gegen den die Kandidaten bewertet werden.
+Jeder Starter bekommt eine Siegchance; die Mitten ergeben zusammen etwa
+100 %. Kandidaten sind die Pferde mit Angle + oder ++ (Skala in C1),
+meist zwei bis drei. Der Prognose-Favorit (Rang 1) ist der Maßstab.
 
 ### C1 — Mindestquote je Kandidat (das Hauptergebnis)
 
@@ -869,6 +869,10 @@ Festkurs: darüber eine Wette, darunter nicht.
      ist der eigentliche Fund.
    - Ein deutlich negativer Edge beim Favoriten wird benannt: eher ein
      Pferd, gegen das man spielt.
+6. **Angle-Stufe aus dem Edge:** ++ über +50 % (nur wenn der Edge auf
+   *nicht erkannten* Argumenten steht, sonst höchstens +), + +20 bis
+   +50 %, 0 ±20 %, − −20 bis −50 %, −− unter −50 %. Ohne `p_prog` (PMU-
+   Selection leer): Stufe grob gegen Konsens und Tipps, Zusatz „unsicher".
 
 Die Mindestquote wird **aus der eigenen Einschätzung abgeleitet, nicht aus
 der Prognose**. Liegt die eigene faire Quote weit unter der cote probable
@@ -879,9 +883,9 @@ der Prognose**. Liegt die eigene faire Quote weit unter der cote probable
 erwarteten Tempo oder an einer Lücke (D), steht die Bedingung bei der Zahl
 („gilt bei Bon/Bon souple"); ändert sie sich, fällt die Zahl.
 
-Der Favorit bekommt ebenfalls eine Mindestquote und ist nicht automatisch
-ausgeschlossen. Zu einem Pferd ohne Angle wird keine genannt: Eine Zahl
-ohne Begründung lädt zu einer Wette ohne Grund ein.
+Eine Mindestquote bekommen nur Pferde mit 0, + oder ++ und der Favorit
+(auch bei −). Bei − und −− steht „–": Eine Zahl ohne Begründung lädt zu
+einer Wette ohne Grund ein.
 
 **Rennen dürfen als schwach befunden werden** (typisch: fast alle Pferde
 exposed, Gruppenrennen mit treffsicherer Prognose). Das wird benannt, statt
@@ -904,22 +908,22 @@ Pro Rennen, kurz und in dieser Form:
   oder „offen, sechs Pferde unter 10/1").
 - Zwei bis drei Sätze zur Renncharakteristik und zum Ergebnis des
   Durchgangs.
-- Tabelle der Kandidaten plus Favorit:
+- Tabelle über **alle Starter**, sortiert nach eigener Siegchance:
 
-| Pferd | Angle in einem Satz | eingepreist? | Prognose (cote / Chance) | Siegchance | Edge | faire Quote | **Mindestquote** | Sicherheit |
-|---|---|---|---|---|---|---|---|---|
+| Pferd | Prognose (cote / p_prog) | Siegchance | faire Quote | **Mindestquote** | Angle | Grund |
+|---|---|---|---|---|---|---|
 
-  „eingepreist?" ist *ja*, *teilweise* oder *nein* aus B11, bei Bedarf
-  mit Publikumslage (etwa „nein, übersehen"). Die Mindestquote ist das
-  Ergebnis, mit Bedingung, falls eine gilt; Prognose und Edge sind die
-  Begründung.
+  Angle = Stufe −− bis ++ (C1); Grund = wenige Worte. Die Mindestquote
+  steht mit Bedingung, falls eine gilt („4,0 (wenn er die Meile hält)").
+  Darunter je Kandidat (+/++) ein Satz: Angle, eingepreist? (*ja*,
+  *teilweise*, *nein* aus B11), Edge, Sicherheit.
 - Ist ein Rennen schwach: kein Angle, keine Mindestquote — mit einem Satz
   Begründung.
 
 Bereits gelaufene oder laufende Rennen stehen nur als eine Zeile.
 
-Am Ende des Renntags eine Übersicht aller Mindestquoten über alle
-Rennen mit Edge, „eingepreist?" und Bedingung, sortiert nach
+Am Ende des Renntags eine Übersicht der Kandidaten (+/++) über alle
+Rennen mit Mindestquote, Edge, „eingepreist?" und Bedingung, sortiert nach
 Sicherheitsstufe, damit der Nutzer sie direkt gegen die Festkurse seines
 Buchmachers halten kann.
 
