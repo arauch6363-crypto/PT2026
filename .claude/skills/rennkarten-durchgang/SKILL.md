@@ -491,6 +491,10 @@ Gegner (`ran`).
   Laufstil.
   - Aussagekräftig ist sie nur, wenn `sig` gesetzt ist (mindestens zwei
     Standardfehler und `dev` mindestens 0,05).
+  - **Vorzeichen:** `mean` ist die relative Platzierung (1 = Sieger,
+    0 = Letzter). `dev` und `z` **positiv = gute Box (Plus)**, **negativ =
+    schlechte Box (Minus)**. Beispiel: `z` −2,7 bei n = 28 ist eine
+    auffällig schlechte Box.
   - Ohne Urteil gilt die Box als neutral. Eine Randbox (ganz innen oder
     ganz außen) darf dann nur als schwacher Hinweis passend zum Laufstil
     stehen, etwa ganz außen für einen Mittelfeldläufer.
