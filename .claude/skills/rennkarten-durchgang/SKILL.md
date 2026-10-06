@@ -385,7 +385,10 @@ Nicht alle Zeilen werden gleich gelesen. Zuerst aussortieren:
 - **Belagwechsel PSF ↔ Turf.** Kommt die jüngere Form vom anderen Belag,
   wird sie nur so weit übertragen, wie die Bilanz auf dem heutigen Belag es
   hergibt (`pref.horse.going`), auch wenn die Abstammung (B8) keinen
-  Nachteil erwarten lässt.
+  Nachteil erwarten lässt. Nach einem Belagwechsel überträgt sich gute
+  Form spürbar schlechter (etwa ein Sechstel weniger Platzquote). Hat das
+  Pferd auf dem heutigen Belag bisher klar besser abgeschnitten als auf
+  dem anderen, ist das ein leichtes Plus, das der Markt unterschätzt.
 - **Saisondebüt verzeihen:** Ein klar geschlagener erster Jahresstart nach
   der Winterpause ist keine Formaussage, wenn danach ordentliche Läufe
   kommen.
@@ -602,6 +605,12 @@ Distanz und den heutigen Boden: `pref.sire.distance`, `pref.sire.going`,
 `pref.dam_sire.distance`, `pref.dam_sire.going` (bei Zwei- und
 Dreijährigen auch `.age`). Ein schwacher Vater kann durch einen
 passenden Muttervater ausgeglichen werden.
+
+Beim **Belagwechsel** (Gras ↔ PSF) zählt die Belagneigung beider Linien
+(`pref.sire.going`, `pref.dam_sire.going`, Eintrag PSF bzw. Gras, ▲/▼)
+besonders: Der Markt preist sie nur teilweise ein, den Muttervater noch
+weniger als den Vater. Passen beide, ist das ein Plus; passt eine nicht,
+besonders beim ersten Start auf PSF, ein Minus (Backtest, Hinweis).
 
 Die **Neigung** einer Linie zu Distanz, Boden oder Alter ist das, was `dev` (B7) misst: ▲ heißt, die Nachkommen laufen unter dieser Bedingung deutlich und signifikant besser als unter den übrigen. Das ist die eigentliche Aussage „die Linie mag weichen Boden“. Ein hohes A/E ohne `sig` kann auch nur eine gute Linie insgesamt sein. Die Distanz der Vorlieben bleibt in 200-m-Gruppen (`dist_group`), anders als die ±100 m der Formzeilen-Kennzeichen (B3).
 
