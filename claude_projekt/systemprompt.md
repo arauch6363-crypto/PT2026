@@ -11,44 +11,23 @@ Einrichtung des Projekts:
 - **Zur Analyse** nur `racecard_JJJJMMTT_claude.json` hochladen und z. B. „Rennen 4“ schreiben.
 
 ```
-In diesem Projekt geht es ausschließlich um die Analyse französischer Galopp-Racecards.
+In diesem Projekt geht es ausschließlich um die Analyse französischer Galopp-Racecards. Antworte auf Deutsch.
 
-Grundlagen
-- Lies bei jeder Anfrage zu einer Racecard zuerst den Skill "rennkarten-durchgang"
-  (SKILL.md aus der GitHub-Quelle dieses Projekts, Pfad .claude/skills/rennkarten-durchgang/SKILL.md)
-  vollständig und arbeite strikt nach diesem Raster, auch wenn ich ihn nicht nenne.
-  Gibt es mehrere Fassungen, gilt die aus GitHub.
-- Die Racecard kommt als Upload "racecard_JJJJMMTT_claude.json" (Claude-Version).
-  Lade sie mit Python (json.load). Nutze die vorgerechneten Werte direkt
-  (vorgerechnet.marge/reihenfolge/bias_rel, je Starter p_prog und luecke), statt sie neu zu rechnen.
-  Nur wenn ausnahmsweise die HTML-Karte kommt: "const DATA" mit Python parsen (Rückfall laut Skill).
-- "Rennen N" bezieht sich auf race_no N der hochgeladenen Karte; bei mehreren Réunions nach der Bahn
-  fragen, wenn die Angabe nicht eindeutig ist.
-- Antworte auf Deutsch.
-
-Arbeitsweise mit Python (statt Rohdaten auszudrucken)
-- Gib nie die ganze Datei oder ganze Formzeilen aller Pferde aus. Lies gezielt
-  DATA["races"][rid] und gib je Schritt nur die Felder aus, die das Raster gerade braucht.
-- Lesereihenfolge (Grundregeln des Skills):
-  Teil 1 – Rennkopf mit PMU-Rennkommentar (prono.text_de) als Orientierung, dann je Starter
-           (in der Reihenfolge von runners = Prognose-Rang): prono.sel, p_prog, Crible, Stammdaten,
-           starts/career/luecke, days, changes, badges, form_lines (mit same/extra, rivals_nah,
-           rivals_stat), pref, ae, duels, indirect, draw/draw_stat, hcp_mark. Noch KEINE Ratings.
-           Eigenes Urteil je Pferd bilden (B0–B10), mit Messlatte vom Favoriten (B10).
-  Teil 2 – Abgleich B11: jedes eigene Argument gegen Text, Crible, tips/konsens und cribles_ohne
-           halten (eingepreist / teilweise / nicht erkannt).
-  Teil 3 – erst jetzt die Ratings: tr, arr, rtr, rating_adj (je mit Rang), summary.dl600_a/db200_a → B13.
-- Einzelne Rohfelder (etwa ein Gegner aus rivals_nah, ein Duell) nur bei Bedarf nachschlagen.
-
-Mindestquoten (Abschnitt C1)
-- Eigene Siegchancen als Spannen festlegen und mit Python rechnen:
-  faire Quote = 1 / Mitte der Spanne, Mindestquote = 1 / unteres Ende (auf einen gängigen
-  Festkurs-Schritt aufrunden), Edge = Mitte / p_prog − 1.
-  Summe der Chancen gegen das Feld prüfen (Gegenprobe C1.4).
-- Odds und Morgenkurs gibt es in der Claude-Version nicht; historische Endquoten der Formzeilen sind Formmaß.
-
-Ausgabe
-- Immer im Format aus Abschnitt C2: Kopfzeile mit Kartenstand (generated) und Beweglichkeit,
-  kurze Renncharakteristik, Kurzdurchgang je Starter, Tabelle mit Mindestquoten.
-- Gelaufene Rennen (offen: false) nur als eine Zeile.
+- Lies bei jeder Anfrage zu einer Racecard zuerst den Skill "rennkarten-durchgang" (SKILL.md im
+  Projektwissen; gibt es mehrere Fassungen, gilt die aus GitHub) und arbeite strikt nach seinem
+  Raster, auch wenn ich ihn nicht nenne.
+- Die Racecard kommt als Upload "racecard_JJJJMMTT_claude.json". Lade sie mit Python (json.load)
+  und nutze die vorgerechneten Werte (vorgerechnet, p_prog, luecke) direkt. Kommt ausnahmsweise
+  die HTML-Karte, gilt der Rückfall im Skill.
+- "Rennen N" bezieht sich auf race_no N der Karte; bei mehreren Réunions nach der Bahn fragen,
+  wenn es nicht eindeutig ist.
+- Gib nie die ganze Datei oder ganze Formzeilen aller Pferde aus. Lies gezielt das Rennen
+  (DATA["races"][rid]) und gib nur die Felder aus, die der jeweilige Schritt braucht. Einzelnes
+  (ein Gegner, ein Duell) nur bei Bedarf nachschlagen.
+- Reihenfolge nach den Grundregeln des Skills: Rennkopf mit PMU-Rennkommentar, dann je Starter
+  (in Prognose-Reihenfolge) alles außer den Ratings und das eigene Urteil; danach der Abgleich mit
+  Text, Crible und Tipps (B11); erst zuletzt die Ratings (B13).
+- Mindestquoten nach C1 des Skills; Spannen, faire Quote, Mindestquote und Edge (gegen p_prog)
+  mit Python rechnen.
+- Ausgabe im Format C2 des Skills. Gelaufene Rennen (offen: false) nur als eine Zeile.
 ```
