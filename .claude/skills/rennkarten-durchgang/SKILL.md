@@ -19,144 +19,116 @@ diesen Durchgang uninteressant.
 
 ## Grundregeln vorab
 
-**Prognose statt Kurs.** Die Karte zeigt keine Live-Kurse; Morgen- und
-Totokurs sind nur Zwischenstände vom Zeitpunkt der Kartenerstellung und
-verleiten zum Anker. Stehen `odds` oder `odds_morning` noch im
-`DATA`-Block, werden sie **vollständig ignoriert** — nicht für die
-Reihenfolge, nicht als Markteinschätzung, nicht als Kontrolle, nicht in
-der Ausgabe. Nicht betroffen sind die **historischen Endquoten** in
-`form_lines` und `rivals`: Sie bleiben Formmaß und Hinweis auf die
-Stallerwartung (B4). An die Stelle der Kurse tritt die PMU-Prognose
-(Abschnitt P). Der Nutzer wettet meist zu Festkurs; ob ein Pferd Value
-hat, entscheidet sich erst, wenn er seinen Festkurs gegen die
-Mindestquote aus Abschnitt C hält.
+**Prognose statt Kurs.** Morgen- und Totokurs (`odds`, `odds_morning`) sind
+nur Zwischenstände und verleiten zum Anker: Sie werden **vollständig
+ignoriert** (nicht für die Reihenfolge, nicht als Kontrolle, nicht in der
+Ausgabe); die Claude-Version enthält sie nicht. Die **historischen
+Endquoten** in `form_lines` und `rivals` bleiben Formmaß und Hinweis auf
+die Stallerwartung (B4). An die Stelle der Kurse tritt die PMU-Prognose
+(P). Der Nutzer wettet meist zu Festkurs: Ob ein Pferd Value hat,
+entscheidet sich erst, wenn er seinen Festkurs gegen die Mindestquote (C)
+hält.
 
-**Status und Nichtstarter.** `DATA.generated` sagt nur, welche Rennen noch
-offen sind. Rennen mit `status` ungleich `PROGRAMMEE` (etwa `ARRIVEE_…`
-mit gefülltem `result`) stehen in der Ausgabe als eine Zeile und werden
-nicht durchgegangen, es sei denn, der Nutzer will sie nachbesprechen.
-Nichtstarter (`nr: true`) werden gestrichen, bevor irgendetwas gerechnet
-wird. `declared` minus Starter ergibt die Zahl der Nichtstarter.
+**Status und Nichtstarter.** Nur Rennen mit `status` `PROGRAMMEE`
+(`offen: true`) werden durchgegangen; gelaufene stehen als eine Zeile,
+außer der Nutzer will sie nachbesprechen. Nichtstarter (`nr`) werden vor
+jeder Rechnung gestrichen.
 
 **Lesereihenfolge.**
-- Prognose-Rang, cote probable und der Rennkommentar der PMU dürfen am
-  Anfang stehen, als Orientierung: Was sieht die Öffentlichkeit, und
-  welche Pferde nennt sie?
-- Auch den Crible eines Pferdes darf man zu Beginn seines Durchgangs
-  lesen.
-- Pflicht bleibt B11: Jedes eigene Argument wird ausdrücklich gegen Text,
-  Crible und Tipps gehalten, mit dem Ergebnis *eingepreist*, *teilweise*
-  oder *nicht erkannt*. Wer den Crible zuerst liest, sucht in den
-  Formzeilen gezielt das, was er **nicht** nennt.
-- Ratings kommen weiter erst in B13.
+- Prognose-Rang, cote probable, der PMU-Rennkommentar und der Crible eines
+  Pferdes dürfen zur Orientierung am Anfang stehen: Was sieht die
+  Öffentlichkeit?
+- Pflicht bleibt B11: Jedes eigene Argument wird gegen Text, Crible und
+  Tipps gehalten (*eingepreist*, *teilweise*, *nicht erkannt*). Wer den
+  Crible zuerst liest, sucht in den Formzeilen gezielt das, was er
+  **nicht** nennt.
+- Ratings kommen erst in B13.
 
-**Fehlende Information ist eine Lücke, kein Negativbefund.** Statistiken
-mit kleiner Fallzahl werden als solche gekennzeichnet. Was die Karte
-grundsätzlich nicht weiß, steht im nächsten Abschnitt.
+**Fehlende Information ist eine Lücke, kein Negativbefund.** Kleine
+Fallzahlen werden als solche gekennzeichnet (D).
 
 ## Abschnitt D — Was die Karte weiß und was nicht
 
 Alle berechneten Werte (`career`, `pref`, `ae`, `days`, Duelle, Ratings,
-Sektionalzeiten) stammen aus einer Datenbank **französischer
-Flachrennen ab `DATA.history.from`** (derzeit Oktober 2022). Daraus
-folgen Lücken, die vor dem Durchgang bekannt sein müssen:
+Sektionalzeiten) stammen aus französischen Flachrennen ab
+`history.from` (derzeit Oktober 2022). Daraus folgen Lücken:
 
-- **`starts`, `wins`, `places` sind die PMU-Gesamtbilanz**, inklusive
-  älterer Läufe, Auslandsstarts und Hindernisrennen. `career.all` kennt
-  nur die Datenbank. Liegt `starts` deutlich über `career.all.runs`,
-  fehlen Läufe. Die **Musique** (`form`) zeigt alle Starts; Buchstaben
-  außer `p` (etwa `h`, `s`) sind Hindernisläufe, Jahreszahlen in
-  Klammern trennen Saisons.
-- **`days` zählt seit dem letzten Lauf in der Datenbank.** Ist das Pferd
-  zwischendurch im Ausland oder über Hindernisse gelaufen, ist die Pause
-  kürzer als angezeigt — vor einem Pausen-Fragezeichen (B6a) die Musique
-  prüfen.
-- **Kommentare gibt es fast nur zum letzten, selten zum vorletzten Lauf.**
-  Ältere Formzeilen werden über Laufposition, Weg und Sektionalwerte
-  gelesen (B4). `comment_de` ist eine Übersetzung; für Nuancen wie *a
-  fini courageusement* gilt das Original in `comment`.
+- **`starts`, `wins`, `places` sind die PMU-Gesamtbilanz** (mit Auslands-
+  und Hindernisstarts), `career.all` nur die Datenbank. Liegt `starts`
+  deutlich über `career.all.runs` (`luecke`), fehlen Läufe. Die **Musique**
+  (`form`) zeigt alle Starts; Buchstaben außer `p` sind Hindernisläufe,
+  Jahreszahlen in Klammern trennen Saisons.
+- **`days` zählt seit dem letzten Lauf in der Datenbank.** Bei Auslands-
+  oder Hindernisstarts dazwischen ist die Pause kürzer: vor einem
+  Pausen-Fragezeichen (B6a) die Musique prüfen.
+- **Auslandspferde.** Ausländischer Stall (Trainer oder Jockey aus
+  Spanien, Belgien …) plus große `luecke`: Die fehlenden Starts liefen
+  vermutlich im Ausland. `days` ist dann vermutlich zu lang, die
+  französische Trainerstatistik dünn; beides nur unter Vorbehalt lesen.
+- **Kommentare gibt es fast nur zum letzten, selten zum vorletzten Lauf**;
+  ältere Zeilen werden über Laufposition, Weg und Sektionalwerte gelesen
+  (B4). `comment_de` ist eine Übersetzung, für Nuancen gilt `comment`.
 - **Laufstil, Tempo und Sektionalwerte brauchen Tracking.** Pferde ohne
   getrackte Läufe stehen in `pace.unknown` und haben kein `style`.
-- **Auslandspferde.** Ein ausländischer Stall (Trainer oder Jockey aus
-  Spanien, Belgien …) zusammen mit großer `luecke` heißt meist: Die
-  fehlenden Starts liefen im Ausland. Dann ist auch `days` vermutlich zu
-  lang, und die französische Trainerstatistik beruht auf wenigen Läufen.
-  Beides nur unter Vorbehalt lesen.
-- **Boden kann angenommen sein** (`going_assumed: true`): siehe A.
-- **Araber und Anglo-Araber** sind eigene Populationen (A, Rennart).
+- **Boden kann angenommen sein** (A2); **Araber und Anglo-Araber** sind
+  eigene Populationen (A1).
 
-Eine dieser Lücken wird beim betroffenen Pferd in einem Halbsatz genannt
-und in der Sicherheitsstufe (C1) berücksichtigt — sie wird nicht als
-Argument gegen das Pferd gewertet.
+Eine Lücke wird beim Pferd in einem Halbsatz genannt und in der
+Sicherheitsstufe (C1) berücksichtigt, aber nicht als Argument gegen das
+Pferd gewertet.
 
 ## Abschnitt P — Die Prognose als Wahrnehmung der Öffentlichkeit
 
 ### P1 — Die Felder
 
-Rennebene, `races[id].prono`:
-
+Rennebene `races[id].prono`:
 - `text` / `text_de`: Rennkommentar des Pronostiqueurs.
 - `selection[]`: je Pferd `no`, `rank`, `cote` (cote probable als Bruch,
-  etwa „4/1" oder „2.4/1") und `cote_dec` (dezimal, Bruch plus 1). Die
-  Auswahl umfasst inzwischen in der Regel **das ganze Feld**, in feinen
-  Stufen und **ohne Deckel** (auch 50/1 oder 80/1).
-- `tips[]`: Tippreihen weiterer Quellen mit `source` und `nos` in
-  Tippreihenfolge (meist sechs bis sieben Namen); `consensus` fasst sie
-  nach Borda zusammen.
-- `cribles_ohne`: Pferdekommentare ohne Zuordnung — trotzdem lesen.
+  etwa „4/1") und `cote_dec` (dezimal, Bruch plus 1). Sie umfasst in der
+  Regel das ganze Feld, ohne Deckel (auch 50/1 oder 80/1).
+- `tips[]`: Tippreihen weiterer Quellen (`source`, `nos`); `consensus`
+  fasst sie nach Borda zusammen.
+- `cribles_ohne`: Pferdekommentare ohne Zuordnung, trotzdem lesen.
 
-Pferdeebene, `runners[].prono`:
-
-- `sel`: Rang und cote probable dieses Pferdes.
-- `tips`: in `n` von `of` Tippreihen genannt, davon `top3`-mal unter den
-  ersten drei, Ø-Platz `avg`. Fehlt der Eintrag, nennt keine Quelle das
-  Pferd.
-- `konsens`: Platz des Pferdes im Konsens aller Tippreihen (Borda) —
-  `pos` (Platz, gleiche Punkte = gleicher Platz), `of` (Zahl der
-  überhaupt getippten Pferde), `pts` (Punkte). Die Karte zeigt ihn in der
-  Prognose-Kachel als „Tipp 2./9“. Fehlt der Eintrag, steht das Pferd in
-  keiner Tippreihe.
+Pferdeebene `runners[].prono`:
+- `sel`: Rang und cote probable.
+- `tips`: in `n` von `of` Tippreihen genannt, `top3`-mal unter den ersten
+  drei, Ø-Platz `avg`. Fehlt der Eintrag, nennt keine Quelle das Pferd.
+- `konsens`: Platz im Konsens aller Tippreihen: `pos` (gleiche Punkte =
+  gleicher Platz), `of` (Zahl der getippten Pferde), `pts` (Borda-Punkte);
+  in der Karte „Tipp 2./9". Fehlt er, steht das Pferd in keiner Tippreihe.
 - `crible` / `crible_de`: Kurzkommentar zum Pferd, nicht bei jedem.
 
 ### P2 — Prognose-Chance
 
-Die cote probable trägt eine **deutliche Marge**: Die Summe von
-1 / `cote_dec` liegt typischerweise bei 115–150 %, in kleinen Feldern
-eher oben. Die Normierung entscheidet deshalb spürbar über den Edge.
+Die cote probable trägt eine **deutliche Marge** (Σ 1 / `cote_dec`
+typisch 115–150 %, in kleinen Feldern eher oben); die Normierung
+entscheidet also spürbar über den Edge. Normiert wird mit der
+**Potenzmethode**: Exponent k mit Σ (1 / `cote_dec`)^k = 1, dann
+p = (1 / `cote_dec`)^k. Sie zieht die Marge stärker bei Außenseitern ab
+als beim Favoriten, so wie Quotenmärkte sie verteilen (bei 149 % im
+Achterfeld: Favorit 2.4/1 33 statt 28 %, ein 16/1-Pferd 2,9 statt 4,2 %).
+Die JSON liefert `p_prog` schon.
 
-Normiert wird mit der **Potenzmethode**: den Exponenten k suchen, für den
-Σ (1 / `cote_dec`)^k = 1 ist, und p = (1 / `cote_dec`)^k setzen. Sie
-zieht die Marge stärker bei den Außenseitern ab als beim Favoriten — so,
-wie Quotenmärkte die Marge tatsächlich verteilen. Bei einem Achterfeld
-mit 149 % Summe macht das beim Favoriten (2.4/1) 33 statt 28 % und bei
-einem 16/1-Pferd 2,9 statt 4,2 % aus; der Edge eines Außenseiters
-verschiebt sich damit um fast die Hälfte. In großen Feldern mit
-geringerer Marge ist der Unterschied klein.
-
-Bei großen Außenseitern bleibt die Prognose-Chance eine Größenordnung —
-die cote probable ist eine Redaktionsschätzung, kein Markt. Edges dort
-mit entsprechender Vorsicht lesen.
+Bei großen Außenseitern ist die Prognose-Chance nur eine Größenordnung
+(Redaktionsschätzung, kein Markt); Edges dort mit Vorsicht lesen.
 
 ### P3 — Wie stark wird die Öffentlichkeit das Pferd spielen?
 
 Prognose-Rang (`sel.rank`) und Tipp-Konsens (`konsens.pos`) zusammen
-ergeben die Publikumslage. Weichen beide um mehrere Plätze voneinander
-ab, ist das der Fall „Quellen uneins“:
+ergeben die Publikumslage:
 
 - **Publikumspferd:** vorne in der Prognose und in den Tipps, mit
-  wohlwollendem Crible. Der Festkurs wird bis zum Start tendenziell
-  unter der cote probable liegen.
-- **Quellen uneins:** Prognose vorne, Tipps hinten oder ohne — oder
-  umgekehrt, etwa ein 25/1-Pferd, das eine Zeitung an erster Stelle
-  tippt. Der Kurs ist offener; der Widerspruch ist ein Hinweis, das Pferd
-  genau anzusehen.
-- **Übersehen:** hinten in der Prognose, in keinem Tipp, kein Crible.
-  Das Publikum spielt es kaum; der Kurs liegt eher über der cote
-  probable.
+  wohlwollendem Crible. Der Festkurs liegt bis zum Start tendenziell unter
+  der cote probable.
+- **Quellen uneins:** Prognose und Tipps weichen um mehrere Plätze ab
+  (etwa ein 25/1-Pferd, das eine Zeitung an erster Stelle tippt). Der Kurs
+  ist offener; das Pferd genau ansehen.
+- **Übersehen:** hinten in der Prognose, in keinem Tipp, kein Crible. Der
+  Kurs liegt eher über der cote probable.
 
 Mit nur einer Tippquelle (`of: 1`, derzeit der Normalfall) ist die
-Tipp-Ebene dünn und wird auch so benannt. Alles hier ist eine Tendenz,
-keine Gesetzmäßigkeit.
+Tipp-Ebene dünn und wird auch so benannt. Alles hier ist eine Tendenz.
 
 ## Abschnitt A — Renncharakteristik
 
@@ -200,49 +172,41 @@ ganzen Durchgang schwer wiegen:
 - **Zweijährigen-Rennen, Maiden oder Conditions mit Debütanten:** "Wer
   ist frühreif genug, und wem traut der Stall etwas zu?" Es gilt das
   eigene Raster in Abschnitt B-2J, auch bei Zweijährigen-Claimern.
-- **Nachwuchsreiter-Rennen** (Apprentis, Jeunes Jockeys, oft „Course à
-  conditions"): Die Gewichtserlaubnisse stecken im Gewicht, die
-  Jockeystatistik beruht auf kleinen Stichproben. Ein erfahrener
-  Nachwuchsreiter mit guter Form ist hier mehr wert als sonst.
-- **Araber und Anglo-Araber.** Vollblutaraber laufen in eigenen Rennen
-  (oft `type: "Inconnu"`, Name mit „Arabian", Formzeilen „Qualification
-  Accaf"); Anglo-Araber tragen „AA" im Namen und laufen vor allem im
-  Südwesten. Beide sind eigene Populationen: Valeur, Ratings und
-  Abstammungsstatistik nur **innerhalb der Rasse** vergleichen, nie gegen
-  Vollblut-Werte. Trainer- und Jockeystatistik mischt die Rassen und ist
-  entsprechend unschärfer.
-- **Rennart unbekannt (`Inconnu`)** ohne Araber-Hinweis: aus Name,
-  Dotierung, Alter und Geschlecht erschließen; keine Handicap-Logik
-  unterstellen.
+- **Nachwuchsreiter-Rennen** (Apprentis, Jeunes Jockeys): Die
+  Gewichtserlaubnisse stecken im Gewicht, die Jockeystatistik beruht auf
+  kleinen Stichproben. Ein erfahrener Nachwuchsreiter mit guter Form ist
+  hier mehr wert als sonst.
+- **Araber und Anglo-Araber** (Vollblutaraber: eigene Rennen, oft
+  `type: "Inconnu"`, „Arabian" im Namen; Anglo-Araber: „AA", vor allem
+  Südwesten) sind eigene Populationen: Valeur, Ratings und Abstammung nur
+  **innerhalb der Rasse** vergleichen; Trainer- und Jockeystatistik mischt
+  die Rassen und ist unschärfer.
+- **`Inconnu`** ohne Araber-Hinweis: aus Name, Dotierung, Alter und
+  Geschlecht erschließen, keine Handicap-Logik unterstellen.
 
 Bei sehr wenigen Starts gilt unabhängig von der Rennart die Variante aus
 B3: die ganze Karriere als Entwicklungsverlauf lesen.
 
 ### A2 — Boden
 
-Alle Berechnungen nutzen Bodengruppen: Lourd, Très lourd, Collant =
-Very slow · Souple, Très souple = Slow · Bon souple, Bon = Fast · Léger
-und härter = Very fast · PSF. Der Penetrometer-Wert ist nur Anzeige.
+Alle Berechnungen nutzen Bodengruppen: Lourd, Très lourd, Collant = Very
+slow · Souple, Très souple = Slow · Bon souple, Bon = Fast · Léger und
+härter = Very fast · PSF. Der Penetrometer-Wert ist nur Anzeige.
 
-**`going_assumed: true` heißt: Zum Kartenstand gab es noch keine
-offizielle Bodenangabe; angenommen ist Fast.** Dann gilt:
+`going_source` sagt, woher der Boden kommt: `PMU` (offiziell, hat immer
+Vorrang), `manuell` (vom Nutzer eingetragen, `boden_manuell.json`, gilt
+wie eine Angabe), `PSF` (PMU hat noch nichts, das Rennen ist laut Bahnart
+PSF) oder `Annahme` (weder PMU noch Eintrag: **angenommen ist Fast**,
+`going_assumed: true`).
 
-- Jede Bodenbilanz mit `today: true` bezieht sich auf die Annahme. Beim
-  Pferd zusätzlich die Zeile der Nachbargruppe lesen (meist Slow) — ein
-  Pferd mit klar besserer Fast- als Slow-Bilanz hängt am Wetter.
+Bei Annahme und bei manuellem Boden gilt:
+- Jede Bodenbilanz mit `today: true` bezieht sich auf diesen Boden. Beim
+  Pferd zusätzlich die Nachbargruppe lesen (meist Slow): Ein Pferd mit klar
+  besserer Fast- als Slow-Bilanz hängt am Wetter.
 - Ein Angle, der am Boden hängt, bekommt in der Ausgabe die Bedingung
-  „gilt bei Bon/Bon souple" — und der Nutzer den Hinweis, den
-  offiziellen Boden vor der Wette zu prüfen.
+  „gilt bei Bon/Bon souple" (bzw. dem eingetragenen Begriff), und der
+  Nutzer den Hinweis, den offiziellen Boden vor der Wette zu prüfen.
 - PSF ist nie angenommen; dort entfällt das.
-
-**Woher der Boden kommt, steht in `going_source`:**
-
-- `PMU` — offizielle Angabe. Sie hat immer Vorrang.
-- `manuell` — vom Nutzer eingetragen (`boden_manuell.json`). Gilt wie
-  eine Angabe. Ein Angle, der am Boden hängt, bekommt trotzdem die
-  Bedingung „gilt bei …“.
-- `PSF` — PMU hat noch nichts, das Rennen ist laut Bahnart PSF.
-- `Annahme` — weder PMU noch ein Eintrag; es gilt Fast, siehe oben.
 
 ### A3 — Klasse
 
@@ -256,51 +220,43 @@ wenige Starter eine Valeur haben (Zweijährige, Araber).
 
 ### A4 — Tempo und Bias
 
-- **Tempo** aus `pace`: `label` (langsam, normal, schnell), erwartete
-  Pace gegen die Norm der Distanzgruppe, Zahl der Tempomacher
-  (`n_front`) und die Gruppen F/V/M/H (führend, vorne dabei, Mittelfeld,
-  hinten — aus der Ø frühen Position der letzten fünf getrackten Läufe).
-  Pferde in `pace.unknown` sind im Tempobild nicht enthalten; läuft
-  darunter ein möglicher Führender, ist das Szenario offener.
-- **Ein Tempo-Angle braucht einen Beleg.** „Einziges Frontpferd" oder
-  „kann unbedrängt führen" gilt nur, wenn beide Bedingungen erfüllt sind:
-  1. Das Pferd hat **mindestens drei getrackte Läufe mit früher
-     Position** (Formzeilen mit `early_pos`), und die frühe Position war
-     dort überwiegend vorne. Eine Einordnung in F oder V aus ein oder
-     zwei Läufen reicht nicht.
-  2. **Kein Pferd aus `pace.unknown` könnte das Profil ebenfalls
-     haben.** Ein Pferd ohne Tracking ist kein belegter Spätstarter,
-     sondern unbekannt. Deshalb bei diesen Pferden Musique, Kommentare
-     (*vite en tête*, *aux avant-postes*, *a mené*) und, bei Debütanten,
-     den Stall prüfen. Ist ein möglicher Führender darunter, ist das
-     Pferd nicht das einzige Frontpferd.
+- **Tempo** aus `pace`: `label` (langsam, normal, schnell), erwartete Pace
+  gegen die Norm der Distanzgruppe, Zahl der Tempomacher (`n_front`) und
+  die Gruppen F/V/M/H (führend, vorne dabei, Mittelfeld, hinten, aus der Ø
+  frühen Position der letzten fünf getrackten Läufe). Pferde in
+  `pace.unknown` fehlen im Tempobild; läuft darunter ein möglicher
+  Führender, ist das Szenario offener.
+- **Ein Tempo-Angle braucht einen Beleg.** „Einziges Frontpferd" oder „kann
+  unbedrängt führen" gilt nur, wenn
+  1. das Pferd **mindestens drei getrackte Läufe mit früher Position**
+     hat (`early_pos`), überwiegend vorne (F oder V aus ein oder zwei
+     Läufen reicht nicht), und
+  2. **kein Pferd aus `pace.unknown` das Profil ebenfalls haben könnte.**
+     Ein Pferd ohne Tracking ist unbekannt, kein belegter Spätstarter:
+     Musique, Kommentare (*vite en tête*, *a mené*) und bei Debütanten den
+     Stall prüfen.
 
-  Fehlt eine der beiden Bedingungen, bleibt das Tempo ein Nebenargument
-  und trägt allein keinen Angle.
-- **Felder mit wenig gelaufenen Pferden.** Hat die Mehrheit der Starter
-  weniger als drei getrackte Läufe oder steht in `pace.unknown` (typisch
-  für Dreijährigen-Conditions, AQPS-Flachrennen und Zweijährige), ist
-  schon das Tempobild unsicher. Ein Angle, der auf dem Tempo beruht,
-  steht dann in der Tabelle (C2) **höchstens mit der Sicherheit
-  „spekulativ"**, auch wenn beide Bedingungen oben erfüllt sind.
-- **Bias** = `iv_front` − `iv_back`. Frontrenner sind überall im
-  Vorteil. Das Signal ist deshalb `bias_rel`, die Abweichung vom Schnitt
-  aller Bahnen (`bias_all`):
-  - innerhalb ±0,25: wie überall
-  - darüber: vorne stärker im Vorteil
-  - darunter: abwartend Gerittene hier besser
-  - Ein absoluter Bias von +0,16 begünstigt also Spätstarter.
-- **Stichprobe** `bias.races`: Unter etwa 50 Rennen ist der Bias eine
-  Andeutung (`basis`: `exakt` = Bahn und Distanz, `gruppe` = Bahn und
-  Distanzgruppe).
-- Der Bias wird nur bei einem Pferd herangezogen, dessen Laufstil dazu
-  passt — nicht pauschal auf das ganze Feld.
-- **Tempo und Bias immer zusammen lesen.** Ein langsam erwartetes Rennen
-  ohne echtes Frontpferd (`pace.groups.F` leer) verstärkt einen
-  Frontbias: Wer nachweislich vorne gehen kann (Beleg wie oben), hat es
-  doppelt gut, die Spätstarter doppelt schwer. Ein schnelles Rennen mit mehreren Führenden auf einem
-  Kurs, der abwartend Gerittene ohnehin begünstigt, ist umgekehrt die
-  beste Lage für die Gruppe H.
+  Fehlt eine Bedingung, ist das Tempo ein Nebenargument und trägt allein
+  keinen Angle.
+- **Felder mit wenig gelaufenen Pferden** (Mehrheit unter drei getrackten
+  Läufen oder in `pace.unknown`, typisch für Dreijährigen-Conditions,
+  AQPS-Flachrennen, Zweijährige): Schon das Tempobild ist unsicher. Ein
+  Tempo-Angle steht in C2 dann **höchstens mit der Sicherheit
+  „spekulativ"**.
+- **Bias** = `iv_front` − `iv_back`. Frontrenner sind überall im Vorteil,
+  das Signal ist deshalb `bias_rel`, die Abweichung vom Schnitt aller
+  Bahnen (`bias_all`): innerhalb ±0,25 wie überall, darüber vorne stärker im
+  Vorteil, darunter abwartend Gerittene besser (ein absoluter Bias von
+  +0,16 begünstigt also Spätstarter). Unter etwa 50 Rennen (`bias.races`)
+  ist er nur eine Andeutung (`basis`: `exakt` = Bahn und Distanz, `gruppe`
+  = Bahn und Distanzgruppe). Er zählt nur bei einem Pferd, dessen Laufstil
+  dazu passt.
+- **Tempo und Bias zusammen lesen.** Ein langsam erwartetes Rennen ohne
+  echtes Frontpferd (`pace.groups.F` leer) verstärkt einen Frontbias: Wer
+  nachweislich vorne gehen kann, hat es doppelt gut, die Spätstarter
+  doppelt schwer. Ein schnelles Rennen mit mehreren Führenden auf einem
+  Kurs, der abwartend Gerittene begünstigt, ist die beste Lage für die
+  Gruppe H.
 
 ## Abschnitt B — Raster je Starter
 
@@ -311,12 +267,11 @@ Prognose-Eintrag kommen ans Ende. Die großen Außenseiter dürfen
 mehr berühren — **aber nicht ungelesen, wenn eine Tippquelle sie vorne
 nennt** (P3). Bei gleicher cote probable ist die Reihenfolge frei.
 
-Die Punkte B0 bis B13 sind eine Checkliste, keine starre Abfolge. In der
-Praxis läuft der Durchgang je Pferd ungefähr so: letzter Lauf und was
-sich heute ändert (B0) → Datenlage und Wechsel (B2) → Bilanz unter den
-heutigen Bedingungen (B6) → Frische und Saisonbelastung (B6a) → Trainer
-und Jockey (B7) → Crible (B11) → Fazit mit Einordnung in die laufende
-Rangfolge (B12, B10) → kurzer Blick auf die Ratings (B13).
+Die Punkte B0 bis B13 sind eine Checkliste, keine starre Abfolge. Je Pferd
+ungefähr: letzter Lauf und Delta zu heute (B0) → Datenlage und Wechsel
+(B2) → Bilanz unter heutigen Bedingungen (B6, B6a) → Trainer und Jockey
+(B7) → Crible (B11) → Fazit mit Einordnung in die laufende Rangfolge (B12,
+B10) → kurzer Blick auf die Ratings (B13).
 
 ### B0 — Einstieg: der letzte Lauf und was sich heute ändert
 
@@ -402,112 +357,88 @@ Prognose steht, eher ein Kandidat für Überschätzung.
 
 ### B3 — Formzeilen filtern
 
-**Aufbau von `form_lines`:**
-- Die letzten sieben Läufe; `same` nennt, worin eine Zeile heute
-  entspricht: `K` Kurs mit gleichem Belag, `D` Distanz ±100 m, `B`
-  Bodengruppe.
-- Fehlt ein Merkmal unter den sieben, folgen bis zu drei ältere Läufe
-  mit diesem Merkmal (`extra`, etwa `["K"]`). Sie sind nicht Teil der
-  jüngsten Form und zählen für B6, nicht für B0.
+**Aufbau von `form_lines`:** die letzten sieben Läufe; `same` nennt, worin
+eine Zeile dem heutigen Rennen entspricht (`K` Kurs mit gleichem Belag, `D`
+Distanz ±100 m, `B` Bodengruppe). Fehlt ein Merkmal unter den sieben,
+folgen bis zu drei ältere Läufe mit diesem Merkmal (`extra`, etwa
+`["K"]`). Sie sind nicht Teil der jüngsten Form, zählen für B6 und nicht
+für B0, und ihr Alter ist in der Sicherheit zu berücksichtigen.
 
-Die Zeilen werden nicht alle gleich gelesen. Zuerst aussortieren:
-
-- Klar geschlagene Läufe, etwa Zehnter von zwölf mit neun Längen
-  Rückstand. `unreliable: true` markiert Läufe mit mehr als zehn Längen
-  Rückstand — vermutlich ausgeritten, abhaken. Läufe mit `incident`
-  (gestürzt, angehalten, disqualifiziert, am Start stehen geblieben)
-  sind keine Formaussage.
-- Läufe unter stark abweichenden Bedingungen — andere Distanzkategorie,
-  anderer Boden, andere Rennart. Als nicht repräsentativ markieren,
-  nicht als schlechte Form werten.
-- **`tr_cap: true`** heißt: Das Rennen ist „falsch gelaufen", der
-  Schlussabschnitt war extrem schnell oder langsam gegen das Optimum.
-  Platz und Rückstand sagen dann wenig über die Leistungsfähigkeit — in
-  beide Richtungen.
-- **Eine Bedingung darf man streichen, wenn die Bilanz es rechtfertigt.**
-  Ist ein Pferd auf PSF 0 aus 8 ohne Platzierung, sind die PSF-Läufe
-  keine Aussage über seine Form, sondern über die Unterlage. Erst die
-  Bilanz begründet das Streichen, nicht der Wunsch, eine schlechte Zeile
-  loszuwerden.
-- **Belagwechsel PSF ↔ Turf.** Kommt die gesamte jüngere Form von der
-  PSF und läuft das Pferd heute auf Gras (oder umgekehrt), wird diese
-  Form nur so weit übertragen, wie die Bilanz auf dem heutigen Belag es
-  hergibt (`pref.horse.going`). Ist die PSF-Bilanz klar besser, ist die
-  gute letzte Form heute ein schwächeres Argument — auch wenn die
-  Abstammung keinen Nachteil auf Gras erwarten lässt (B8).
-- **Saisondebüt verzeihen.** Ein klar geschlagener erster Jahresstart
-  nach der Winterpause wird nicht als Formaussage gelesen, wenn danach
-  ordentliche Läufe kommen — vor allem nicht bei unveränderter Marke.
-- **Ausreißer zwischen guten Läufen: erst die Bedingungen prüfen.** Bevor
-  ein schwacher Lauf zwischen zwei guten als Inkonstanz gilt, Distanz,
-  Boden, Belag und Klasse dieses Laufs gegen die guten halten. Beispiel
+Nicht alle Zeilen werden gleich gelesen. Zuerst aussortieren:
+- **Klar geschlagen oder kein Lauf.** `unreliable: true` (mehr als zehn
+  Längen Rückstand) = vermutlich ausgeritten, abhaken. Läufe mit `incident`
+  (gestürzt, angehalten, disqualifiziert, stehen geblieben) sind keine
+  Formaussage.
+- **Stark abweichende Bedingungen** (andere Distanzkategorie, Boden,
+  Rennart): nicht repräsentativ, nicht als schlechte Form werten.
+- **`tr_cap: true`:** Das Rennen ist „falsch gelaufen" (Schlussabschnitt
+  extrem schnell oder langsam gegen das Optimum); Platz und Rückstand sagen
+  wenig, in beide Richtungen.
+- **Eine Bedingung streichen** nur, wenn die Bilanz es rechtfertigt: Ein
+  Pferd mit PSF 0 aus 8 ohne Platzierung zeigt auf PSF nichts über seine
+  Form, sondern über die Unterlage.
+- **Belagwechsel PSF ↔ Turf.** Kommt die jüngere Form vom anderen Belag,
+  wird sie nur so weit übertragen, wie die Bilanz auf dem heutigen Belag es
+  hergibt (`pref.horse.going`), auch wenn die Abstammung (B8) keinen
+  Nachteil erwarten lässt.
+- **Saisondebüt verzeihen:** Ein klar geschlagener erster Jahresstart nach
+  der Winterpause ist keine Formaussage, wenn danach ordentliche Läufe
+  kommen.
+- **Ausreißer zwischen guten Läufen: erst die Bedingungen prüfen**
+  (Distanz, Boden, Belag, Klasse), bevor man Inkonstanz annimmt. Beispiel
   Azimuts (Le Mans, 05.10.2026): Siege über 1600 und 1850 m, geschlagen
-  über 2100 und 2200 m. Das ist eine Distanzgrenze und keine Inkonstanz.
-  Ein Duell aus so einem Lauf (B9) zählt dann wenig.
-- Bei vielen Starts pro Pferd reicht es, gezielt nach den
-  **vergleichbaren Bedingungen** zu suchen — gleiche Distanz, gleicher
-  Boden, ähnliche Klasse — statt alle Zeilen der Reihe nach zu würdigen.
-  `same` nimmt die Suche ab: Zeilen mit zwei oder drei Kennzeichen sind
-  die ersten Kandidaten. Steht nur in einer angehängten `extra`-Zeile
-  ein Lauf unter heutigen Bedingungen, ist das Material dafür alt — das
-  Alter mitlesen und in der Sicherheit berücksichtigen.
+  über 2100 und 2200 m, also eine Distanzgrenze. Ein Duell aus so einem
+  Lauf (B9) zählt dann wenig.
+- **Bei vielen Starts** gezielt nach vergleichbaren Bedingungen suchen
+  (gleiche Distanz, gleicher Boden, ähnliche Klasse); `same` nimmt die
+  Suche ab, Zeilen mit zwei oder drei Kennzeichen zuerst.
 
-**Variante bei wenig Starts:** Hat ein Pferd nur drei bis vier Läufe,
-entfällt das Filtern. Stattdessen den Entwicklungsverlauf vom Debüt
-bis heute durchgehen — die Richtung ist dann die Information.
+**Variante bei wenig Starts:** Bei nur drei bis vier Läufen entfällt das
+Filtern; stattdessen den Entwicklungsverlauf vom Debüt bis heute lesen.
 
 ### B4 — Die relevanten Läufe genau lesen
 
 Für jede verbliebene Zeile:
-
-- Platz, Feldgröße, Rückstand in Längen.
-- Den Kommentar, falls vorhanden (D). *A fini courageusement* heißt, das
-  Pferd hat gekämpft — das relativiert eine mäßige Platzierung nach oben.
-- **Die damalige Quote ist zweierlei:** ein Formmaß und ein Hinweis auf
-  die Stallerwartung. Ein vierter Platz zu 15:1 ist eine positive
-  Überraschung; ein fünfter Platz zu 5,9:1 heißt, dass sich jemand mehr
-  ausgerechnet und es nicht eingelöst hat. `odds_rank` und `fav` zeigen
-  die Stellung im damaligen Markt.
-- **Das Laufbild** (nur mit Tracking): frühe Position (`early_pos`) →
-  Position 400 m vor dem Ziel (`pos_before`, `fifth` als Fünftel des
-  Feldes, 1 = vorne) → Ziel; `pos_gain` = Plätze gutgemacht ab 800 m.
-- **`weg_med`**: Meter mehr (+) oder weniger (−) als der Median des
-  Feldes, rund 2,4 m je Länge. Negativ heißt kürzerer, günstiger Trip —
-  die Leistung nach unten relativieren.
-- **Umgekehrt aufwerten:** Positiver `weg_med` zusammen mit großem
-  `pos_gain` — von hinten gekommen, in der Geraden viele Plätze gutgemacht
-  und dabei Umweg in Kauf genommen — ist mehr wert, als Platz und
-  Rückstand zeigen. Ein Sieg oder knapper Platz unter diesen Umständen
-  war vermutlich nicht am Limit.
-- **Tempo des damaligen Rennens** über `pace_ratio` (frühe Phase ÷
-  Schlussphase × 100; unter 100 = langsam angegangen, Sprintfinish; über
-  100 = schnell angegangen). Wer in einem langsam angegangenen Rennen
-  von hinten kam, hatte es gegen sich; wer in einem schnell angegangenen
-  Rennen vorne durchhielt, auch. Beides wird aufgewertet. Den Gegenfall
-  — vorne im Bummelrennen, hinten im Hetzrennen — nach unten relativieren.
-- **Schlussabschnitt:** `fs` (Finishing Speed des Pferdes in %) gegen
-  `fs_opt` (Optimum für Kurs, Distanz und Boden); `dl600_a` und
-  `db200_a` (km/h gegenüber der Erwartung, klassenbereinigt, + =
-  schneller). Ein Pferd, das wiederholt über der Erwartung beendet, aber
-  nur knapp platziert war, hat Reserven, die das Ergebnis nicht zeigt —
-  oft ein Hinweis auf eine zu kurze Distanz oder ein zu langsames
-  Tempo. Deutlich unter dem Optimum heißt: Es ging am Ende die Luft aus.
-- **Laufbehinderung.** Ein Kommentar wie *n'a pas eu les coudées
-  franches* oder *n'a pu s'exprimer* entschuldigt eine Platzierung —
-  aber genau das steht oft auch im Crible und ist dann eingepreist (B11).
-- **Startbox damals:** `draw_stat` der Formzeile — war die Box auf
-  dieser Konfiguration signifikant schlecht (`sig`), ist das eine
-  Entschuldigung.
-- **Klasse des Herkunftsrennens** über `cls_val_idx`, `cls_epr_idx` und
-  `prize` (A3). Ein vierter Platz in einem 96.000-Euro-Rennen ist etwas
-  anderes als einer in einem 19.000er.
-- **Aber immer mit dem damaligen Gewicht gegenlesen.** Wer im großen
-  Rennen nur 54 Kilo trug und heute Top-Weight schleppt, hat den
-  Klassenvorteil teilweise wieder abgegeben.
-- **ARR-Werte über Läufe hinweg vergleichen.** Der ARR eines Laufes
-  (`arr_adj`, auf das heutige Gewicht bereinigt) lässt sich direkt
-  gegen den eines anderen Starters stellen — die härteste Währung für
-  den Querbezug in B10.
+- Platz, Feldgröße, Rückstand in Längen; der Kommentar, falls vorhanden
+  (D). *A fini courageusement* relativiert eine mäßige Platzierung nach
+  oben.
+- **Die damalige Quote ist zweierlei:** Formmaß und Hinweis auf die
+  Stallerwartung. Ein vierter Platz zu 15:1 ist eine positive
+  Überraschung; ein fünfter zu 5,9:1 heißt, dass sich jemand mehr
+  ausgerechnet und es nicht eingelöst hat. `odds_rank` und `fav` zeigen die
+  Stellung im damaligen Markt.
+- **Laufbild** (nur mit Tracking): `early_pos` → Position 400 m vor dem
+  Ziel (`pos_before`, `fifth` = Fünftel des Feldes, 1 = vorne) → Ziel;
+  `pos_gain` = Plätze gutgemacht ab 800 m.
+- **`weg_med`:** Meter mehr (+) oder weniger (−) als der Median des Feldes
+  (rund 2,4 m je Länge). Negativ = kürzerer, günstiger Trip: die Leistung
+  nach unten relativieren. Positiv zusammen mit großem `pos_gain` (von
+  hinten, viele Plätze gutgemacht, Umweg in Kauf genommen) ist mehr wert,
+  als Platz und Rückstand zeigen; ein Sieg oder knapper Platz so war
+  vermutlich nicht am Limit.
+- **Tempo des damaligen Rennens** (`pace_ratio` = frühe Phase ÷
+  Schlussphase × 100; unter 100 langsam angegangen, Sprintfinish; über 100
+  schnell angegangen). Von hinten in einem langsamen Rennen oder vorne
+  durchgehalten in einem schnellen wird aufgewertet; der Gegenfall (vorne
+  im Bummelrennen, hinten im Hetzrennen) nach unten relativiert.
+- **Schlussabschnitt:** `fs` (Finishing Speed in %) gegen `fs_opt`
+  (Optimum für Kurs, Distanz, Boden); `dl600_a` / `db200_a` (km/h gegenüber
+  der Erwartung, klassenbereinigt, + = schneller). Wiederholt über der
+  Erwartung beendet, aber nur knapp platziert: Reserven, die das Ergebnis
+  nicht zeigt (oft zu kurze Distanz oder zu langsames Tempo). Deutlich
+  unter dem Optimum: Es ging am Ende die Luft aus.
+- **Entschuldigungen:** Ein Kommentar wie *n'a pas eu les coudées franches*
+  oder *n'a pu s'exprimer* entschuldigt eine Platzierung, steht aber oft
+  auch im Crible und ist dann eingepreist (B11). Ebenso eine signifikant
+  schlechte Box damals (`draw_stat` mit `sig`).
+- **Klasse des Herkunftsrennens** (`cls_val_idx`, `cls_epr_idx`, `prize`,
+  A3): Ein vierter Platz in einem 96.000-Euro-Rennen ist etwas anderes als
+  einer in einem 19.000er. **Immer mit dem damaligen Gewicht gegenlesen:**
+  Wer im großen Rennen nur 54 kg trug und heute Top-Weight schleppt, hat
+  den Klassenvorteil teilweise abgegeben.
+- **ARR über Läufe vergleichen:** `arr_adj` (auf das heutige Gewicht
+  bereinigt) lässt sich direkt gegen den eines anderen Starters stellen,
+  die härteste Währung für B10.
 
 ### B5 — Gegneraufwertung
 
@@ -728,116 +659,97 @@ Edge-Kandidat.
 ### B11 — Abgleich mit der Prognose: gesehen oder übersehen?
 
 Mit eigenem Urteil zum Pferd werden Prognose-Text, Crible, Tipps und
-Konsens jetzt systematisch abgeglichen, auch wenn sie zur Orientierung
-schon gelesen wurden (Grundregeln). Drei Fragen:
+Konsens systematisch abgeglichen, auch wenn sie zur Orientierung schon
+gelesen wurden. Drei Fragen:
 
 1. **Liegt die eigene grobe Einschätzung über oder unter der
    Prognose-Chance?** Eine starke Abweichung ist ein Anlass, die eigene
-   Beurteilung noch einmal zu prüfen, kein Beweis.
-2. **Sind die eigenen Argumente öffentlich?** Jedes Argument für den
-   Angle gegen Text und Crible halten:
-   - *eingepreist* — Text oder Crible nennen genau dieses Argument
-     (etwa „mit australischen Scheuklappen" oder „hat schon in dieser
-     Gewichtszone gewonnen"); ebenso C/D/CD-Kennzeichen.
+   Beurteilung zu prüfen, kein Beweis.
+2. **Sind die eigenen Argumente öffentlich?** Jedes Argument gegen Text und
+   Crible halten:
+   - *eingepreist* — genau dieses Argument steht dort (etwa „mit
+     australischen Scheuklappen"); ebenso C/D/CD-Kennzeichen.
    - *teilweise* — das Pferd wird gelobt, aber aus einem anderen Grund.
-   - *nicht erkannt* — niemand erwähnt das Argument. Typisch dafür sind
-     Gegneraufwertung, Laufbild und Tempo des Herkunftsrennens,
-     Sektionalwerte, Bias- und Tempopassung heute, eine Bilanz unter
-     heutigen Bedingungen mit gutem A/E, die Marke unter der letzten
-     Platzmarke, eine Ausrüstungsänderung mit guter Vorbilanz, ein
-     Trainerwechsel oder ein Duell.
+   - *nicht erkannt* — niemand erwähnt es. Typisch: Gegneraufwertung,
+     Laufbild und Tempo des Herkunftsrennens, Sektionalwerte, Bias- und
+     Tempopassung heute, gutes A/E unter heutigen Bedingungen, Marke unter
+     der letzten Platzmarke, Ausrüstungsänderung mit guter Vorbilanz,
+     Trainerwechsel, ein Duell.
 3. **Wie ist die Publikumslage** (P3)?
 
-Die Leitfrage des Durchgangs ist, warum das Pferd besser abschneidet,
-**als der Markt erwartet**. Ein Argument, das die Prognose schon
-ausspricht, beantwortet diese Frage nicht mehr. Das Pferd kann trotzdem
-eine Wette sein — dann aber nur, weil die eigene Gewichtung deutlich
-stärker ist, und das muss im Fazit so stehen. Der wertvollere Angle ist
-der, den niemand sieht.
+Die Leitfrage ist, warum das Pferd besser abschneidet, **als der Markt
+erwartet**. Ein Argument, das die Prognose schon ausspricht, beantwortet
+das nicht mehr. Das Pferd kann trotzdem eine Wette sein, aber nur, weil die
+eigene Gewichtung deutlich stärker ist, und das muss im Fazit stehen. Der
+wertvollere Angle ist der, den niemand sieht.
 
 Umgekehrt: Lobt der Crible ein Pferd mit einem Argument, das die eigene
-Analyse widerlegt hat, ist das ein Hinweis auf ein **überschätztes**
-Publikumspferd — relevant vor allem für den Prognose-Favoriten.
-Typische Fälle:
+Analyse widerlegt hat, ist es ein **überschätztes** Publikumspferd (vor
+allem der Favorit). Typisch:
+- Der Crible stützt sich auf Form vom **anderen Belag** („battu de peu sur
+  la PSF"), heute ist Turf und die Turf-Bilanz schwächer.
+- Er stützt sich auf einen Lauf über eine **andere Distanz**, die heutige
+  ist laut Bilanz nicht die beste.
+- Er verschweigt eine **Pause**, einen kalten Stall oder ein
+  BF-Kennzeichen.
+- Er lobt einen Sieg aus einem **Bummelrennen von vorne** oder aus einem
+  Rennen, das laut B5 nicht aufgewertet ist.
 
-- Der Crible stützt sich auf Form vom **anderen Belag** („battu de peu
-  sur la PSF"), heute ist aber Turf und die Turf-Bilanz schwächer.
-- Der Crible stützt sich auf einen Lauf über eine **andere Distanz**,
-  und die heutige Distanz ist laut Bilanz nicht die beste.
-- Der Crible erwähnt eine **Pause**, einen kalten Stall oder ein
-  BF-Kennzeichen nicht.
-- Der Crible lobt einen Sieg aus einem **Bummelrennen von vorne** oder
-  aus einem Rennen, das laut B5 nicht aufgewertet ist.
-
-Dieselbe Frage „eingepreist?" gilt also auch für die eigenen
-**Gegenargumente**: Ein Fragezeichen, das die Prognose nicht anspricht,
-ist beim Favoriten genauso wertvoll wie ein übersehenes Plus bei einem
-Außenseiter.
+„Eingepreist?" gilt auch für die **Gegenargumente**: Ein Fragezeichen, das
+die Prognose nicht anspricht, ist beim Favoriten so wertvoll wie ein
+übersehenes Plus bei einem Außenseiter.
 
 ### B12 — Fazit je Starter: Angle ja oder nein
 
-Ein Satz, der die Argumente dafür und dagegen benennt, und dann die
-Entscheidung: klarer Angle, kein klarer Angle, oder dagegen. Regeln
-dazu:
+Ein Satz mit den Argumenten dafür und dagegen, dann die Entscheidung:
+klarer Angle, kein klarer Angle oder dagegen. Regeln:
+- **Mindestschwelle.** Ein Pferd muss erst einen Ansatz zeigen. Ein Elfter
+  von zwölf mit achtzehn Längen Rückstand nach langer Pause wird
+  abgehakt, nicht diskutiert.
+- **Derselbe Faktor kann gegenteilig zu werten sein:** Ein Distanzrückgang
+  ist ein Plus, wenn Abstammung oder Sektionalwerte ihn stützen, sonst ein
+  Fragezeichen. Nie mechanisch als gut oder schlecht ablegen.
+- **Viele passende Bedingungen zusammen können ein Angle werden**
+  (Distanz, Boden, Bahn, Startbox, Laufstil, Tempo, Bias, Trainer- und
+  Jockeyform in dieselbe Richtung; Laufstil und Tempo nur mit Beleg nach
+  A4), der schwächere Typ neben „der Markt hat einen Lauf übersehen".
+- **Typischer übersehener Angle: Formtief erklärt, heute passt alles.** Die
+  schwachen letzten Zeilen kamen unter falschen Bedingungen (Distanz,
+  Boden) oder in klar stärkeren Rennen, der letzte Lauf hat eine
+  Entschuldigung (behindert, nicht frei gekommen), heute passen Distanz,
+  Boden und Ausrüstung laut Bilanz, und das Rennen ist deutlich leichter.
+  Die Musique sieht schlecht aus, deshalb steht das Pferd hinten.
+  Gegenprobe: Ist die Marke seit der letzten guten Form gesunken oder nur
+  leicht gefallen? Beispiel: Ciccio Boy (Le Mans, 05.10.2026).
+- **Soll es heute gewinnen?** Schwache Trainerform, eine
+  Trainer-Jockey-Kombination ohne Erfolge und eine Bahn, auf der der Stall
+  nie auffällt, können auf Vorbereitung für ein höher dotiertes Ziel
+  deuten. Das ist eine Lesart, darf aber ein Fazit tragen.
 
-- **Mindestschwelle.** Ein Pferd muss erst einen Ansatz zeigen, bevor
-  es Aufmerksamkeit bekommt. Ein Elfter von zwölf mit achtzehn Längen
-  Rückstand nach langer Pause wird abgehakt, nicht diskutiert.
-- **Derselbe Faktor kann gegenteilig zu werten sein.** Ein
-  Distanzrückgang ist ein Plus, wenn die Abstammung oder die
-  Sektionalwerte ihn stützen, und ein Fragezeichen, wenn nicht.
-  Faktoren werden nie mechanisch als gut oder schlecht abgelegt.
-- **Passende Bedingungen sind noch kein Angle — aber viele zusammen
-  können einer werden.** Wenn Distanz, Boden, Bahn, Startbox, Laufstil,
-  Tempo, Bias sowie Trainer- und Jockeyform alle in dieselbe Richtung
-  zeigen, ist das ein eigenständiges Argument (Laufstil und Tempo zählen
-  dabei nur mit Beleg nach A4), auch ohne spektakuläre
-  Formzeile — der schwächere Angle-Typ neben „der Markt hat einen Lauf
-  übersehen".
-- **Typischer übersehener Angle: Formtief erklärt, heute passt alles.**
-  Die schwachen letzten Zeilen kamen unter falschen Bedingungen
-  (Distanz, Boden) oder in klar stärkeren Rennen. Der letzte Lauf hat
-  eine Entschuldigung (behindert, nicht frei gekommen). Heute passen
-  Distanz, Boden und Ausrüstung laut Bilanz, und das Rennen ist deutlich
-  leichter. Die Musique sieht schlecht aus, deshalb steht das Pferd
-  hinten in der Prognose. Gegenprobe: Ist die Marke seit der letzten
-  guten Form gesunken oder nur leicht gefallen?
-  Beispiel: Ciccio Boy (Le Mans, 05.10.2026).
-- **Auch bei einem guten Pferd gehört die Frage dazu, ob es heute
-  gewinnen soll.** Schwache Trainerform, eine Trainer-Jockey-Kombination
-  ohne Erfolge und eine Bahn, auf der der Stall nie auffällt, können
-  darauf hindeuten, dass der Start Vorbereitung auf ein höher dotiertes
-  Ziel ist. Das ist eine Lesart, keine Feststellung — aber sie darf ein
-  Fazit tragen.
-
-**Bei den vorderen Prognose-Pferden zusätzlich: Ist die Position
-nachvollziehbar?** Hier wird nicht nach einem Angle gesucht, sondern
-geprüft, ob die kurze cote probable trägt:
-
-- **Fragezeichen zählen, und zwar unabhängige.** Pause, unsichere
-  Distanz, Belagwechsel, kalter Stall, Boden nur angenommen bei klarer
-  Bodenabhängigkeit sind voneinander unabhängig. Eines davon hat fast
-  jedes Pferd. **Zwei unabhängige Fragezeichen** beim Favoriten reichen
-  für „Favoritenposition nicht nachvollziehbar" — mit den Gründen. Das
-  spricht für die Pferde dahinter und gibt dem Favoriten in C1 einen
-  negativen Edge.
-- **Sieglos nach vielen Starts.** Ein Pferd mit 0 Siegen aus 15 Starts
-  auf Platz zwei der Prognose ist ein Fragezeichen für die Siegwette,
-  auch bei guter Platzform. Ein `ae_win` deutlich unter dem Platz-A/E
-  bestätigt das Muster.
-- **Handicapmarke im Verhältnis zum Leistungsvermögen.** Läuft ein
-  Pferd ordentlich, kommt aber über eine bestimmte Marke nicht hinaus
-  („ganz oben scheint etwas zu fehlen"), ist es ein Platzpferd, kein
-  Siegkandidat — es sei denn, das heutige Rennen ist deutlich leichter.
+**Vordere Prognose-Pferde: Ist die Position nachvollziehbar?** Geprüft
+wird, ob die kurze cote probable trägt:
+- **Unabhängige Fragezeichen zählen:** Pause, unsichere Distanz,
+  Belagwechsel, kalter Stall, Boden nur angenommen bei klarer
+  Bodenabhängigkeit. Eines hat fast jedes Pferd; **zwei unabhängige** beim
+  Favoriten reichen für „Favoritenposition nicht nachvollziehbar" (mit
+  Gründen). Das spricht für die Pferde dahinter und gibt dem Favoriten in
+  C1 einen negativen Edge.
+- **Sieglos nach vielen Starts** (0 aus 15 auf Prognoseplatz zwei) ist ein
+  Fragezeichen für die Siegwette; `ae_win` deutlich unter dem Platz-A/E
+  bestätigt das.
+- **Marke im Verhältnis zum Leistungsvermögen:** Ein Pferd, das ordentlich
+  läuft, aber über eine bestimmte Marke nicht hinauskommt („oben fehlt
+  etwas"), ist ein Platzpferd, kein Siegkandidat, außer das Rennen ist
+  deutlich leichter.
 
 ### B13 — Gegenprobe über die Ratings
 
-**Frühestens am Ende der Beurteilung eines Pferdes, nie vorher.** Ein
-kurzer Blick auf die Ratings darf das Fazit zum einzelnen Pferd
-abschließen — etwa „TR und ARR gut, trotzdem fehlt oben etwas". Der
-Vergleich über das ganze Feld kommt am Ende des Durchgangs. In beiden
-Fällen dienen die Ratings nicht dazu, Kandidaten zu finden, sondern die
-gefundenen zu prüfen.
+**Frühestens am Ende der Beurteilung eines Pferdes.** Ein kurzer Blick darf
+das Fazit zum einzelnen Pferd abschließen („TR und ARR gut, trotzdem fehlt
+oben etwas"), der Vergleich über das ganze Feld kommt am Ende des
+Durchgangs. Die Ratings prüfen die gefundenen Kandidaten und sollen keine
+finden: Sie entstehen unabhängig von der eigenen Lesart, deshalb sind sie
+als Gegenprobe wertvoll.
 
 Alle sind auf das **heutige Gewicht** umgerechnet und tragen einen
 Rang im Feld:
@@ -873,61 +785,49 @@ Regeln:
 - Bei Arabern und Anglo-Arabern nur innerhalb des Feldes vergleichen
   (A1).
 
-Die Ratings bekommen bewusst keinen Platz weiter vorne im Raster. Als
-Gegenprobe am Schluss sind sie wertvoll, weil sie unabhängig von der
-eigenen Lesart entstanden sind.
+
 
 ## Abschnitt B-2J — Variante für Zweijährige und Debütanten
 
-Bei Zweijährigen mit null bis drei Starts ersetzt dieses Raster die
-Punkte B1, B3, B6 (Marke) und B9 weitgehend. Reihenfolge bleibt nach
-Prognose-Rang. Gerade bei Debütanten stützt sich die Prognose oft nur auf
-Stall und Abstammung — dieselben Informationen, die auch hier vorliegen.
-Ein eigenes Argument darüber hinaus ist deshalb selten; das im Fazit
-ehrlich sagen.
+Bei Zweijährigen mit null bis drei Starts ersetzt dieses Raster B1, B3, B6
+(Marke) und B9 weitgehend; die Reihenfolge bleibt nach Prognose-Rang. Bei
+Debütanten stützt sich die Prognose oft nur auf Stall und Abstammung,
+dieselben Informationen, die hier vorliegen. Ein eigenes Argument darüber
+hinaus ist selten; das im Fazit ehrlich sagen.
 
-- **2J-1 — Jeden Start lesen.** Mit so wenig Material wird jeder Lauf
-  gewürdigt, auch ein weit geschlagener. Ein Vierter von zwölf mit zehn
-  Längen Rückstand kann positiv sein, wenn dahinter noch ein halbes Feld
-  lag. Die Frage ist nicht „wie weit geschlagen?", sondern „wen hat er
-  hinter sich gelassen, und ist es ein Anfang?". Laufbild und
-  Sektionalwerte (B4) sind hier besonders wertvoll: Ein Debütant, der
-  unerfahren hinten lag und im Finish über der Erwartung lief, hat mehr
-  gezeigt als sein Platz.
-- **2J-2 — Dotierung und Quote des Debütrennens als Stallerwartung.**
-  Hohe Dotierung heißt: Der Stall hat das Pferd bewusst in ein gutes
-  Rennen gestellt. Eine sehr hohe Quote im selben Rennen heißt: Der
-  Markt, oft auch der Stall, hat nicht viel erwartet. Die Kombination
-  wird benannt, nicht aufgelöst.
-- **2J-3 — Trainer mit Zweijährigen.** `pref.trainer.age` (bei
-  `age_label` „2j") gezielt prüfen, nicht die Gesamtform. Ein Stall mit
-  vielen Zweijährigen-Siegern ist ein Plus, einer mit 2 aus 33 ein
-  Fragezeichen. Dazu die Bahnstärke des Stalls.
-- **2J-4 — Abstammung auf Frühreife, Qualität und Distanz.** Hier trägt
-  die Abstammung am meisten. `pref.sire.age` zeigt, wie die Linie mit
-  Zweijährigen läuft; `ae.pedigree.sire.max_val3_idx`, wie gut ihre
-  Nachkommen werden. 1800 oder 2000 m sind für Zweijährige weit — das
-  muss von Vater- oder Muttervaterseite (`pref.*.distance`) getragen
-  werden. Die Mutterseite kann eine schwache Vaterlinie aufwerten.
-- **2J-5 — Debütanten.** Es bleiben Abstammung, Trainer mit
-  Zweijährigen, Trainer-Jockey-Kombination und Bahnstatistik. Kein
-  Laufstil, also kein Platz im Tempobild (`pace.unknown`). Mehr ist
-  nicht seriös zu sagen.
-- **2J-6 — Abstand zum Favoriten aus gemeinsamem Rennen.** Sind zwei
-  heutige Starter schon gegeneinander gelaufen, ist der Abstand eines
-  der stärksten Argumente (B9, auch indirekt). Anderthalb Längen hinter
-  dem heutigen Favoriten, zu einer deutlich höheren Quote heute, ist ein
-  Ansatz.
-- **2J-7 — Distanzschritt.** Ein Schritt nach oben kann bei Zweijährigen
-  ausdrücklich positiv sein, wenn die Abstammung ihn trägt. Stützt sie
-  ihn nicht, bleibt ein Fragezeichen.
-- **2J-8 — Mindestschwelle.** Ein Pferd mit einem klar geschlagenen
-  Start ohne weiteres Signal wird nicht weiter verfolgt — erst der zweite
-  Start zeigt, ob etwas zu erwarten ist.
+- **2J-1 Jeden Start lesen**, auch einen weit geschlagenen: Ein Vierter von
+  zwölf mit zehn Längen Rückstand kann positiv sein, wenn dahinter noch ein
+  halbes Feld lag. Die Frage ist „wen hat er hinter sich gelassen, und ist
+  es ein Anfang?". Laufbild und Sektionalwerte (B4) sind hier besonders
+  wertvoll: Ein Debütant, der unerfahren hinten lag und im Finish über der
+  Erwartung lief, hat mehr gezeigt als sein Platz.
+- **2J-2 Dotierung und Quote des Debütrennens als Stallerwartung:** Hohe
+  Dotierung = bewusst in ein gutes Rennen gestellt; sehr hohe Quote = Markt
+  und oft Stall erwarteten nicht viel. Die Kombination wird benannt, nicht
+  aufgelöst.
+- **2J-3 Trainer mit Zweijährigen:** `pref.trainer.age` (bei `age_label`
+  „2j") statt der Gesamtform. Viele Zweijährigen-Sieger sind ein Plus, 2
+  aus 33 ein Fragezeichen; dazu die Bahnstärke des Stalls.
+- **2J-4 Abstammung** trägt hier am meisten: `pref.sire.age` zeigt, wie die
+  Linie mit Zweijährigen läuft, `ae.pedigree.sire.max_val3_idx`, wie gut die
+  Nachkommen werden. 1800 oder 2000 m sind für Zweijährige weit und müssen
+  von Vater- oder Muttervaterseite getragen werden (`pref.*.distance`); die
+  Mutterseite kann eine schwache Vaterlinie aufwerten. Ein Distanzschritt
+  nach oben ist positiv, wenn die Abstammung ihn trägt, sonst ein
+  Fragezeichen.
+- **2J-5 Debütanten:** Es bleiben Abstammung, Trainer mit Zweijährigen,
+  Trainer-Jockey-Kombination und Bahnstatistik; kein Laufstil, also kein
+  Platz im Tempobild (`pace.unknown`). Mehr ist nicht seriös zu sagen.
+- **2J-6 Abstand zum Favoriten aus gemeinsamem Rennen** (B9, auch indirekt)
+  ist eines der stärksten Argumente: Anderthalb Längen hinter dem heutigen
+  Favoriten, zu deutlich höherer Quote, ist ein Ansatz.
+- **2J-7 Mindestschwelle:** Ein klar geschlagener Start ohne weiteres Signal
+  wird nicht weiter verfolgt; erst der zweite Start zeigt, ob etwas zu
+  erwarten ist.
 
 **Grundhaltung:** Zweijährigen-Rennen sind spekulativer als Handicaps.
-Kandidaten dürfen genannt werden, aber das Fazit benennt den spekulativen
-Charakter ausdrücklich, statt Sicherheit zu suggerieren.
+Kandidaten dürfen genannt werden, das Fazit benennt den spekulativen
+Charakter ausdrücklich.
 
 ## Abschnitt C — Empfehlung
 
@@ -938,71 +838,58 @@ Maßstab, gegen den die Kandidaten bewertet werden.
 
 ### C1 — Mindestquote je Kandidat (das Hauptergebnis)
 
-Der letzte Schritt beantwortet die Frage des Nutzers: **Bis zu welcher
-Quote ist dieses Pferd noch interessant?** Der Nutzer hält diese Zahl
-später gegen seinen Festkurs. Liegt der Festkurs darüber, ist es eine
-Wette; liegt er darunter, nicht.
+Der letzte Schritt beantwortet die Frage des Nutzers: **Bis zu welcher Quote
+ist dieses Pferd noch interessant?** Er hält die Zahl gegen seinen
+Festkurs: darüber eine Wette, darunter nicht.
 
-1. **Siegchance als Spanne schätzen**, aus der Analyse heraus — zum
-   Beispiel 15–20 %. Ein spekulativer Fall (Zweijährige, Debütanten,
-   dünne Datenlage, Lücken aus D, ein Tempo-Angle in einem Feld wenig
-   gelaufener Pferde nach A4) bekommt eine breitere und vorsichtigere
-   Spanne.
-2. **Faire Quote** aus der Mitte der Spanne: 1 / Chance. Bei 17,5 % also
-   etwa 5,7.
-3. **Mindestquote** aus dem unteren Ende: bei 15 % also 6,7. Das untere
-   Ende ist der eingebaute Sicherheitsabstand — wer nur zur fairen Quote
-   wettet, gewinnt langfristig nichts, auch wenn die Einschätzung
-   stimmt. Auf einen gängigen Festkurs-Schritt aufrunden, nicht abrunden.
-4. **Gegenprobe über das Feld.** Die geschätzten Chancen von Favorit und
-   Kandidaten müssen zusammen plausibel bleiben und dem Rest des Feldes
-   Raum lassen. Kommen drei Pferde zusammen auf 80 %, ist die Schätzung
-   zu großzügig.
-5. **Edge gegen die Prognose.** Edge = eigene Chance (Mitte der Spanne) /
-   Prognose-Chance (P2, Potenzmethode) − 1. Bei 17,5 % gegen 10 % also
-   +75 %. Der Edge sagt, wie weit die eigene Sicht von der Wahrnehmung
-   der Öffentlichkeit abweicht — nicht, ob der Festkurs am Ende passt.
-   - Ein Edge unter etwa +20 % liegt innerhalb der eigenen
-     Schätzunsicherheit und trägt allein keine Kandidatur.
-   - Ein großer Edge, der fast nur auf *eingepreisten* Argumenten steht,
-     ist verdächtig: Die eigene Analyse hat dieselben Gründe gefunden wie
-     die Prognose, sie aber stärker gewichtet. Ehrlich gegenlesen. Ein
-     großer Edge aus *nicht erkannten* Argumenten ist der eigentliche
-     Fund.
-   - Ein deutlich negativer Edge beim Prognose-Favoriten wird benannt —
-     er ist dann eher ein Pferd, gegen das man spielt.
+1. **Siegchance als Spanne schätzen**, etwa 15–20 %. Ein spekulativer Fall
+   (Zweijährige, Debütanten, dünne Datenlage, Lücken aus D, Tempo-Angle in
+   einem Feld wenig gelaufener Pferde nach A4) bekommt eine breitere,
+   vorsichtigere Spanne.
+2. **Faire Quote** = 1 / Mitte der Spanne (17,5 % → etwa 5,7).
+3. **Mindestquote** = 1 / unteres Ende (15 % → 6,7), auf einen gängigen
+   Festkurs-Schritt **aufrunden**. Das untere Ende ist der
+   Sicherheitsabstand: Wer nur zur fairen Quote wettet, gewinnt langfristig
+   nichts.
+4. **Gegenprobe über das Feld:** Die Chancen von Favorit und Kandidaten
+   müssen zusammen plausibel bleiben und dem Rest des Feldes Raum lassen
+   (drei Pferde zusammen 80 % sind zu großzügig).
+5. **Edge** = eigene Chance (Mitte) / Prognose-Chance (`p_prog`) − 1 (17,5 %
+   gegen 10 % = +75 %). Er sagt, wie weit die eigene Sicht von der der
+   Öffentlichkeit abweicht, nicht, ob der Festkurs passt.
+   - Unter etwa +20 % liegt er innerhalb der Schätzunsicherheit und trägt
+     allein keine Kandidatur.
+   - Ein großer Edge, der fast nur auf *eingepreisten* Argumenten steht, ist
+     verdächtig (dieselben Gründe wie die Prognose, nur stärker gewichtet):
+     ehrlich gegenlesen. Ein großer Edge aus *nicht erkannten* Argumenten
+     ist der eigentliche Fund.
+   - Ein deutlich negativer Edge beim Favoriten wird benannt: eher ein
+     Pferd, gegen das man spielt.
 
-Die Mindestquote wird **aus der eigenen Einschätzung abgeleitet, nicht
-aus der Prognose**. Liegt die eigene faire Quote weit unter der cote
-probable (eigene 4,0 gegen Prognose 15/1), ist das entweder der Fund des
-Tages oder eine Überschätzung — die Argumente noch einmal gegenlesen und
-das Ergebnis benennen.
+Die Mindestquote wird **aus der eigenen Einschätzung abgeleitet, nicht aus
+der Prognose**. Liegt die eigene faire Quote weit unter der cote probable
+(eigene 4,0 gegen 15/1), ist das der Fund des Tages oder eine
+Überschätzung: Argumente noch einmal gegenlesen und das Ergebnis benennen.
 
-**Bedingte Mindestquote.** Hängt der Angle am angenommenen Boden (A2),
-am erwarteten Tempo oder an einer Lücke (D), wird die Bedingung zur
-Mindestquote geschrieben („gilt bei Bon/Bon souple"). Ändert sich die
-Bedingung, fällt die Zahl.
+**Bedingte Mindestquote.** Hängt der Angle am angenommenen Boden (A2), am
+erwarteten Tempo oder an einer Lücke (D), steht die Bedingung bei der Zahl
+(„gilt bei Bon/Bon souple"); ändert sie sich, fällt die Zahl.
 
-Der Favorit bekommt ebenfalls eine Mindestquote. Er ist nicht
-automatisch ausgeschlossen: Liegt der Festkurs über seiner Mindestquote,
-ist er eine Option wie jede andere. Gibt es zu einem Pferd keinen Angle,
-wird keine Mindestquote genannt — eine Zahl ohne Begründung lädt zu
-einer Wette ohne Grund ein.
+Der Favorit bekommt ebenfalls eine Mindestquote und ist nicht automatisch
+ausgeschlossen. Zu einem Pferd ohne Angle wird keine genannt: Eine Zahl
+ohne Begründung lädt zu einer Wette ohne Grund ein.
 
-**Rennen dürfen als schwach befunden werden.** Es ist ein legitimes und
-wichtiges Ergebnis, dass ein Rennen keine klaren Angles hergibt —
-typisch für Felder, in denen fast alle Pferde exposed sind, und für
-Gruppenrennen mit treffsicherer Prognose. Dann wird das benannt, statt
-einen Kandidaten zu konstruieren, mit Sicherheitsstufe auch im Vergleich
-zu anderen Rennen des Tages.
+**Rennen dürfen als schwach befunden werden** (typisch: fast alle Pferde
+exposed, Gruppenrennen mit treffsicherer Prognose). Das wird benannt, statt
+einen Kandidaten zu konstruieren, mit Sicherheitsstufe auch im Vergleich zu
+anderen Rennen des Tages.
 
-**Erwartete Kursrichtung aus der Publikumslage — als Hinweis zum
-Zeitpunkt, nicht als Value-Urteil.** Ein Publikumspferd (P3) wird bis
-zum Start eher kürzer; liegt der Festkurs jetzt über der Mindestquote,
-spricht das dafür, ihn früh zu nehmen. Ein übersehenes Pferd hat es
-nicht eilig. Liegt die Mindestquote eines Publikumspferdes schon über
-seiner cote probable, ist realistisch kaum ein passender Festkurs zu
-erwarten; das so sagen.
+**Kursrichtung aus der Publikumslage** (Hinweis zum Zeitpunkt, kein
+Value-Urteil): Ein Publikumspferd (P3) wird bis zum Start eher kürzer;
+liegt der Festkurs jetzt über der Mindestquote, spricht das für frühes
+Nehmen. Ein übersehenes Pferd hat es nicht eilig. Liegt die Mindestquote
+eines Publikumspferdes schon über seiner cote probable, ist kaum ein
+passender Festkurs zu erwarten; das so sagen.
 
 ### C2 — Ausgabe
 
@@ -1037,22 +924,15 @@ Buchmachers halten kann.
 **Bevorzugt: die Claude-Version `racecard_JJJJMMTT_claude.json`.** Sie
 enthält **alle Daten der Karte**, auch solche, die dieses Raster nicht
 nutzt. Unterschiede zu `DATA`:
-
-- **Weggelassen sind nur:**
-  - Trikots und `odds` / `odds_morning`
-  - je Formzeile die volle Gegnerliste; dafür gibt es `rivals_nah` (je
-    zwei Gegner direkt davor und dahinter, mit nächstem Start) und
-    `rivals_stat` (B5)
-  - die Zwischenwerte der Berechnung (die Ergebnisse wie `dl600_a`,
-    `tr_heute`, `cls_*_idx` bleiben)
-- **Starter** stehen in Prognose-Reihenfolge. Nichtstarter stehen
-  getrennt in `nichtstarter`, ihre Nummern in `nr`.
-- **Gelaufene Rennen** haben `offen: false`.
-- **Vorgerechnet:**
-  - `vorgerechnet` je Rennen: `marge`, `reihenfolge`, `bias_rel`
-  - je Starter: `p_prog` (P2) und `luecke` (D)
-
-Diese Werte direkt übernehmen, nicht neu rechnen:
+- **Weggelassen:** Trikots, `odds` / `odds_morning`, je Formzeile die volle
+  Gegnerliste (dafür `rivals_nah` mit je zwei Gegnern davor und dahinter
+  samt nächstem Start, und `rivals_stat`, B5) und die Zwischenwerte der
+  Berechnung (Ergebnisse wie `dl600_a`, `tr_heute`, `cls_*_idx` bleiben).
+- **Starter** stehen in Prognose-Reihenfolge, Nichtstarter getrennt in
+  `nichtstarter` (Nummern in `nr`); gelaufene Rennen haben `offen: false`.
+- **Vorgerechnet:** je Rennen `vorgerechnet` (`marge`, `reihenfolge`,
+  `bias_rel`), je Starter `p_prog` (P2) und `luecke` (D). Direkt
+  übernehmen, nicht neu rechnen.
 
 ```python
 import json
@@ -1063,6 +943,25 @@ for rid, r in offen.items():
     for x in r["runners"]:                # schon in Prognose-Reihenfolge
         p, luecke = x["p_prog"], x["luecke"]
         alte_zeilen = [f for f in x["form_lines"] if f.get("extra")]
+# Edge je Kandidat: p_eigen / x["p_prog"] - 1
+```
+
+Für ein einzelnes Rennen reicht `DATA["races"][rid]`: den Block des Rennens
+ausgeben und lesen, nicht die ganze Datei durchsuchen.
+
+**Rückfall: nur die HTML-Karte** (eingebettetes `const DATA = {...}`, mehrere
+MB; mit Python parsen, `odds` / `odds_morning` nicht anfassen). Die
+vorgerechneten Werte fehlen dann: Nichtstarter (`nr: true`) streichen,
+`p_prog` nach P2, `marge` = Σ 1/`cote_dec`, `bias_rel` = `bias.bias` −
+`bias_all.bias`, `luecke` = `starts` − `career.all.runs`.
+
+```python
+import json
+s = open(pfad, encoding="utf-8").read()
+i = s.index("const DATA =") + len("const DATA =")
+DATA, _ = json.JSONDecoder().raw_decode(s[i:].lstrip())
+```
+
 # Edge je Kandidat: p_eigen / x["p_prog"] - 1
 ```
 
@@ -1096,34 +995,26 @@ def potenz_normierung(q):                 # q = {no: 1/cote_dec}; Σ q^k = 1
 ## Anhang — Beispiel aus der Praxis (Argentan, 01.10.2026, Rennen 5)
 
 Prix Elisabeth Mussat, Handicap 4j+, 1900 m, guter Boden, elf Starter.
-Prognose: Jonin (3) 3/1, Aurora Borealis (8) 5/1, Maizières (5) und
-Liseo (4) je 8/1. Beide Favoriten aus demselben Stall, Trainer d30 kalt.
-Der Durchgang des Nutzers, verkürzt:
+Prognose: Jonin (3) 3/1, Aurora Borealis (8) 5/1, Maizières (5) und Liseo
+(4) je 8/1; beide Favoriten aus demselben Stall, Trainer d30 kalt. Der
+Durchgang, verkürzt:
 
-- **Jonin (3), Favorit:** zuletzt Zweiter, eine halbe Länge, zu 5:1 —
-  gut gelaufen. Aber: heute 300 m weiter (1600 → 1900), Bilanz über
-  1800–2000 m 0/1/5 gegen 2/5/6 über 1400–1600 m; 65 Tage Pause; Stall
-  kalt, auf der Bahn ohne Erfolg, in Handicaps nur Durchschnitt. Zwei
-  unabhängige Fragezeichen plus kalter Stall → Favoritenposition nicht
-  nachvollziehbar. Der Crible nennt keines davon.
-- **Aurora Borealis (8):** sieglos nach 15 Starts. Die gute Form der
-  letzten vier Läufe kam komplett auf PSF, Turf-Bilanz schwächer;
-  bisherige Läufe eher über kürzere Wege. Erster Jahresstart auf Gras
-  verziehen, Marke seither konstant. Abstammung sieht keinen
-  Turf-Nachteil, aber die eigene Bilanz zählt. Der Crible stützt sich auf
-  die PSF-Form → eher überschätzt.
-- **Liseo (4):** zuletzt Fünfter von 13 in Saint-Cloud, 2000 m, ähnlicher
-  Boden, *fini courageusement*, Rennen nicht aufgewertet. Distanz passt
-  (2 Siege, 5 Plätze), auf der Bahn einmal gelaufen und platziert,
-  Ausrüstung unverändert, Jockey in Form, Trainer kalt, Kombination gut,
-  heute leichteres Rennen. Marke um 31, oben scheint etwas zu fehlen.
-  Eingeordnet **vor beiden Favoriten** — interessantester Kandidat.
-- **Maizières (5):** 35 Starts, letzter Sieg von 35,5 (2024, also alt).
-  Sieg am 16.08. in Deauville über 2000 m von hinten, zehn Plätze in der
-  Geraden gutgemacht, Umweg in Kauf genommen → aufwerten; Rennen leicht
-  aufgewertet. Danach Fünfter auf PSF. 13 Starts in dieser Saison und
-  Aufschlag nach dem Sieg — kommt noch ein Schritt? Crible lobt sie.
-  Eingeordnet knapp **hinter Liseo**, weil weniger belastet besser ist.
+- **Jonin (3), Favorit:** zuletzt Zweiter, eine halbe Länge, zu 5:1. Aber:
+  heute 300 m weiter (1600 → 1900), Bilanz über 1800–2000 m 0/1/5 gegen
+  2/5/6 über 1400–1600 m; 65 Tage Pause; Stall kalt, auf der Bahn ohne
+  Erfolg. Zwei unabhängige Fragezeichen plus kalter Stall →
+  Favoritenposition nicht nachvollziehbar. Der Crible nennt keines davon.
+- **Aurora Borealis (8):** sieglos nach 15 Starts; die gute Form der letzten
+  vier Läufe kam komplett auf PSF, die Turf-Bilanz ist schwächer. Der
+  Crible stützt sich auf die PSF-Form → eher überschätzt.
+- **Liseo (4):** zuletzt Fünfter von 13 über 2000 m, ähnlicher Boden,
+  *fini courageusement*, Rennen nicht aufgewertet. Distanz passt (2 Siege,
+  5 Plätze), auf der Bahn platziert, Jockey in Form, Kombination gut, heute
+  leichteres Rennen; oben scheint etwas zu fehlen. Eingeordnet **vor beiden
+  Favoriten**, interessantester Kandidat.
+- **Maizières (5):** letzter Sieg von 35,5 (2024, also alt); Sieg am 16.08.
+  von hinten, zehn Plätze in der Geraden gutgemacht, Umweg in Kauf genommen
+  → aufwerten. 13 Starts in dieser Saison plus Aufschlag nach dem Sieg:
+  kommt noch ein Schritt? Knapp **hinter Liseo**, weil weniger belastet
+  besser ist.
 
-Die Muster daraus stehen in B0, B2, B3, B4, B5, B6, B6a, B7, B8, B10,
-B11 und B12.
