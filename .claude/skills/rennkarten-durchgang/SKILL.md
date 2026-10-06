@@ -1,6 +1,6 @@
 ---
 name: "rennkarten-durchgang"
-description: Qualitativer Durchgang durch eine französische Galopp-Racecard (Vollblut, Araber, Anglo-Araber), Pferd für Pferd in Reihenfolge der PMU-Prognose (cote probable), mit dem Ziel, pro Starter einen Wett-Angle zu bejahen oder zu verneinen, zu prüfen, ob die Öffentlichkeit ihn über Prognose, Cribles und Presse-Tipps schon wahrgenommen und eingepreist hat, daraus den Edge zu berechnen und für jedes Pferd mit Angle eine Mindestquote (Festkurs) zu nennen. Live-, Morgen- oder Totokurse werden nicht verwendet, auch wenn sie noch im DATA-Block stehen. Ergänzt den Skill "rennanalyse", der das quantitative Rennprofil liefert. Verwenden, wann immer eine Racecard durchgegangen, Kandidaten gesucht oder Mindestquoten bestimmt werden sollen.
+description: Qualitativer Durchgang durch eine französische Galopp-Racecard (Vollblut), Pferd für Pferd in Reihenfolge der PMU-Prognose (cote probable), mit dem Ziel, pro Starter einen Wett-Angle zu bejahen oder zu verneinen, zu prüfen, ob die Öffentlichkeit ihn über Prognose, Cribles und Presse-Tipps schon wahrgenommen und eingepreist hat, daraus den Edge zu berechnen und für jedes Pferd mit Angle eine Mindestquote (Festkurs) zu nennen. Live-, Morgen- oder Totokurse werden nicht verwendet, auch wenn sie noch im DATA-Block steht.  Verwenden, wann immer eine Racecard durchgegangen, Kandidaten gesucht oder Mindestquoten bestimmt werden sollen.
 ---
 
 # Rennkarten-Durchgang
