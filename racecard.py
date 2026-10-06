@@ -777,6 +777,48 @@ def bahn_bias(h: pd.DataFrame) -> dict:
             "gesamt": _bias(t)}
 
 
+VERLAUF_MIN_STARTER = 8      # Rennverlauf erst ab so vielen Startern mit früher Position
+VERLAUF_MIN_RENNEN = 15      # Norm je Bahn/Distanz ab so vielen Rennen, sonst Bahn/Distanzgruppe, sonst alle
+VERLAUF_ANTEIL = 0.2         # je so viele Rennen (unten/oben) gelten als „vorne“ bzw. „hinten begünstigt“
+VERLAUF_VORNE, VERLAUF_HINTEN = 0.25, 0.6   # frühe Position des Pferdes: vorne bis / hinten ab
+
+
+def rennverlauf(h: pd.DataFrame, lern: pd.DataFrame) -> pd.DataFrame:
+    """Wer hat im Rennen gewonnen – die vorne oder die hinten? Je Rennen: Ø frühe Position der ersten drei im Ziel
+    minus Ø frühe Position des Feldes (negativ = vorne gewonnen), gegen die Norm der Bahn/Distanz (gelernt auf `lern`).
+    Je Starter: mit dem Verlauf (Position passte zum Verlauf) oder gegen den Verlauf."""
+    def je_rennen(d: pd.DataFrame) -> pd.DataFrame:
+        t = d[d["early_pct"].notna() & d["finish_pos"].notna()]
+        g = t.groupby("race_id")
+        r = pd.DataFrame({"n": g.size(), "feld": g["early_pct"].mean(),
+                          "top3": t[t["finish_pos"] <= 3].groupby("race_id")["early_pct"].mean()})
+        r = r[r["n"] >= VERLAUF_MIN_STARTER].dropna()
+        r["verlauf"] = r["top3"] - r["feld"]
+        info = d.drop_duplicates("race_id").set_index("race_id")[["course_key", "distance_m", "dist_bucket"]]
+        return r.join(info)
+    alle, gelernt = je_rennen(h), je_rennen(lern)
+    if alle.empty or gelernt.empty:
+        for c in ["verlauf", "verlauf_rel", "verlauf_kl", "verlauf_pferd"]:
+            h[c] = np.nan if c in ("verlauf", "verlauf_rel") else None
+        return h
+    def norm(keys):
+        s = gelernt.groupby(keys)["verlauf"].agg(["mean", "size"])
+        return s[s["size"] >= VERLAUF_MIN_RENNEN]["mean"]
+    n1, n2, n0 = norm(["course_key", "distance_m"]), norm(["course_key", "dist_bucket"]), gelernt["verlauf"].mean()
+    erw = [n1.get((c, d), n2.get((c, b), n0)) for c, d, b in zip(alle["course_key"], alle["distance_m"], alle["dist_bucket"])]
+    alle["verlauf_rel"] = alle["verlauf"] - np.array(erw, dtype=float)
+    lo, hi = gelernt["verlauf"].sub(gelernt["verlauf"].mean()).quantile([VERLAUF_ANTEIL, 1 - VERLAUF_ANTEIL])
+    alle["verlauf_kl"] = np.select([alle["verlauf_rel"] <= lo, alle["verlauf_rel"] >= hi], ["vorne", "hinten"], "neutral")
+    h = h.drop(columns=[c for c in ["verlauf", "verlauf_rel", "verlauf_kl"] if c in h]).merge(
+        alle[["verlauf", "verlauf_rel", "verlauf_kl"]], left_on="race_id", right_index=True, how="left")
+    vorne, hinten = h["early_pct"] <= VERLAUF_VORNE, h["early_pct"] >= VERLAUF_HINTEN
+    kl = h["verlauf_kl"]
+    h["verlauf_pferd"] = np.select(
+        [(kl.eq("vorne") & hinten) | (kl.eq("hinten") & vorne), (kl.eq("vorne") & vorne) | (kl.eq("hinten") & hinten),
+         kl.notna() & h["early_pct"].notna()], ["gegen", "mit", "neutral"], None)
+    return h
+
+
 def pace_szenario(stile: list[dict], dist_bucket: str | None, kal: dict) -> dict:
     """Erwartetes Tempo aus den Laufstilen der heutigen Starter."""
     bekannt = [x for x in stile if x["style"]]
@@ -944,6 +986,11 @@ def _formzeile(z, gewicht_heute=None) -> dict:
         "rtr": _num(z.get("rtr"), 1), "rtr_adj": _adj(z.get("rtr"), gewicht_heute),
         "arr": _num(z.get("arr"), 1), "arr_adj": _adj(z.get("arr"), gewicht_heute),
         "rating_filled": bool(pd.isna(z.get("rating")) and pd.notna(z.get("rating_filled"))),
+        # Rennverlauf: wer gewann (vorne/hinten/neutral, Wert gegen die Norm der Bahn) und lief das Pferd mit/gegen ihn
+        "verlauf": _txt(z.get("verlauf_kl")), "verlauf_wert": _num(z.get("verlauf_rel"), 2),
+        "verlauf_pferd": _txt(z.get("verlauf_pferd")),
+        "verlauf_plus": bool(z.get("verlauf_pferd") == "gegen" and pd.notna(z.get("finish_pos"))
+                             and (z["finish_pos"] <= 3 or (pd.notna(z.get("rel_place")) and z["rel_place"] >= 0.6))),
     }
 
 
@@ -1332,6 +1379,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     silks = silks or {}
     prognosen = prognosen or {}
     h = hist[hist["date"] < heute].copy() if not hist.empty else hist
+    if len(h) and "early_pct" in h:                     # Rennverlauf je früherem Rennen (Norm aus der ganzen Historie)
+        h = rennverlauf(h, h)
     if h.empty:
         h = pd.DataFrame(columns=["date", "horse_id", "trainer_key", "jockey_key", "sire_key", "dam_sire_key",
                                   "cross_key", "course_key", "going_pmu", "dist_bucket", "dist_group", "racetype", "age_grp",

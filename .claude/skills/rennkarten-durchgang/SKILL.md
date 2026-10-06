@@ -418,6 +418,13 @@ Für jede verbliebene Zeile:
   schnell angegangen). Von hinten in einem langsamen Rennen oder vorne
   durchgehalten in einem schnellen wird aufgewertet; der Gegenfall (vorne
   im Bummelrennen, hinten im Hetzrennen) nach unten relativiert.
+- **Rennverlauf** (`verlauf`, `verlauf_pferd`, in der Karte „gegen V."):
+  Ist ein Pferd gegen den Verlauf gelaufen (von hinten in einem
+  Vorne-Rennen oder von vorne in einem Hinten-Rennen) und trotzdem im
+  vorderen Feld gelandet (`verlauf_plus`), ist das ein unterschätztes Plus,
+  am stärksten von vorne knapp geschlagen in einem Hinten-Rennen. Gegen den
+  Verlauf und trotzdem hinten entschuldigt nichts. Mit dem Verlauf gewonnen
+  ist kein Minus (Backtest).
 - **Schlussabschnitt:** `fs` (Finishing Speed in %) gegen `fs_opt`
   (Optimum für Kurs, Distanz, Boden); `dl600_a` / `db200_a` (km/h gegenüber
   der Erwartung, klassenbereinigt, + = schneller). Wiederholt über der
