@@ -779,7 +779,7 @@ def bahn_bias(h: pd.DataFrame) -> dict:
 
 VERLAUF_MIN_STARTER = 8      # Rennverlauf erst ab so vielen Startern mit früher Position
 VERLAUF_MIN_RENNEN = 15      # Norm je Bahn/Distanz ab so vielen Rennen, sonst Bahn/Distanzgruppe, sonst alle
-VERLAUF_ANTEIL = 0.2         # je so viele Rennen (unten/oben) gelten als „vorne“ bzw. „hinten begünstigt“
+VERLAUF_ANTEIL = 1 / 3      # je so viele Rennen (unten/oben) gelten als „vorne“ bzw. „hinten begünstigt“ (Drittel)
 VERLAUF_VORNE, VERLAUF_HINTEN = 0.25, 0.6   # frühe Position des Pferdes: vorne bis / hinten ab
 
 
