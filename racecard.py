@@ -780,6 +780,7 @@ def bahn_bias(h: pd.DataFrame) -> dict:
 VERLAUF_MIN_STARTER = 8      # Rennverlauf erst ab so vielen Startern mit früher Position
 VERLAUF_MIN_RENNEN = 15      # Norm je Bahn/Distanz ab so vielen Rennen, sonst Bahn/Distanzgruppe, sonst alle
 VERLAUF_ANTEIL = 0.2         # je so viele Rennen (unten/oben) gelten als „vorne“ bzw. „hinten begünstigt“
+VERLAUF_STARK = 0.1          # … und so viele (unten/oben) als stark (in der Karte „++“)
 VERLAUF_VORNE, VERLAUF_HINTEN = 0.25, 0.6   # frühe Position des Pferdes: vorne bis / hinten ab
 
 
@@ -800,6 +801,7 @@ def rennverlauf(h: pd.DataFrame, lern: pd.DataFrame) -> pd.DataFrame:
     if alle.empty or gelernt.empty:
         for c in ["verlauf", "verlauf_rel", "verlauf_kl", "verlauf_pferd"]:
             h[c] = np.nan if c in ("verlauf", "verlauf_rel") else None
+        h["verlauf_stark"] = False
         return h
     def norm(keys):
         s = gelernt.groupby(keys)["verlauf"].agg(["mean", "size"])
@@ -809,8 +811,11 @@ def rennverlauf(h: pd.DataFrame, lern: pd.DataFrame) -> pd.DataFrame:
     alle["verlauf_rel"] = alle["verlauf"] - np.array(erw, dtype=float)
     lo, hi = gelernt["verlauf"].sub(gelernt["verlauf"].mean()).quantile([VERLAUF_ANTEIL, 1 - VERLAUF_ANTEIL])
     alle["verlauf_kl"] = np.select([alle["verlauf_rel"] <= lo, alle["verlauf_rel"] >= hi], ["vorne", "hinten"], "neutral")
-    h = h.drop(columns=[c for c in ["verlauf", "verlauf_rel", "verlauf_kl"] if c in h]).merge(
-        alle[["verlauf", "verlauf_rel", "verlauf_kl"]], left_on="race_id", right_index=True, how="left")
+    lo2, hi2 = gelernt["verlauf"].sub(gelernt["verlauf"].mean()).quantile([VERLAUF_STARK, 1 - VERLAUF_STARK])
+    alle["verlauf_stark"] = (alle["verlauf_rel"] <= lo2) | (alle["verlauf_rel"] >= hi2)
+    spalten = ["verlauf", "verlauf_rel", "verlauf_kl", "verlauf_stark"]
+    h = h.drop(columns=[c for c in spalten if c in h]).merge(alle[spalten], left_on="race_id", right_index=True, how="left")
+    h["verlauf_stark"] = h["verlauf_stark"].eq(True)
     vorne, hinten = h["early_pct"] <= VERLAUF_VORNE, h["early_pct"] >= VERLAUF_HINTEN
     kl = h["verlauf_kl"]
     h["verlauf_pferd"] = np.select(
@@ -988,7 +993,7 @@ def _formzeile(z, gewicht_heute=None) -> dict:
         "rating_filled": bool(pd.isna(z.get("rating")) and pd.notna(z.get("rating_filled"))),
         # Rennverlauf: wer gewann (vorne/hinten/neutral, Wert gegen die Norm der Bahn) und lief das Pferd mit/gegen ihn
         "verlauf": _txt(z.get("verlauf_kl")), "verlauf_wert": _num(z.get("verlauf_rel"), 2),
-        "verlauf_pferd": _txt(z.get("verlauf_pferd")),
+        "verlauf_pferd": _txt(z.get("verlauf_pferd")), "verlauf_stark": bool(z.get("verlauf_stark") is True),
         "verlauf_plus": bool(z.get("verlauf_pferd") == "gegen" and pd.notna(z.get("finish_pos"))
                              and (z["finish_pos"] <= 3 or (pd.notna(z.get("rel_place")) and z["rel_place"] >= 0.6))),
     }

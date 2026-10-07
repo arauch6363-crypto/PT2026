@@ -116,7 +116,7 @@ def lernen_testen(h: pd.DataFrame) -> pd.DataFrame:
     # Rennverlauf je Rennen und Starter, dazu der Stand des letzten Laufs
     h = rennverlauf(h.sort_values(["date", "race_id", "saddle_no"]).reset_index(drop=True), lern)
     g = h.groupby("horse_id", sort=False)
-    for c in ["verlauf_pferd", "verlauf_kl", "rel_place"]:
+    for c in ["verlauf_pferd", "verlauf_kl", "verlauf_stark", "rel_place"]:
         h[c + "_vor"] = g[c].shift()
     h["lengths_behind_vor"] = g["lengths_behind"].shift() if "lengths_behind" in h else np.nan
     # Startbox
@@ -270,6 +270,9 @@ def regeln(h: pd.DataFrame) -> list[tuple[str, str, pd.Series]]:
         add("B4 Verlauf (Test)", f"zuletzt {name}", m & h["test"])
         add("B4 Verlauf (Test)", f"zuletzt {name} · vorderes Feld", m & gut & h["test"])
         add("B4 Verlauf (Test)", f"zuletzt {name} · hinteres Feld", m & ~gut & h["test"])
+    st = h["verlauf_stark_vor"].eq(True)
+    add("B4 Verlauf (Test)", "zuletzt gegen · vorderes Feld · stark (10 %)", vp.eq("gegen") & gut & st & h["test"])
+    add("B4 Verlauf (Test)", "zuletzt gegen · vorderes Feld · nicht stark", vp.eq("gegen") & gut & ~st & h["test"])
     for kl, name in [("vorne", "Vorne-Rennen"), ("hinten", "Hinten-Rennen")]:
         k = h["verlauf_kl_vor"].eq(kl) & h["test"]
         add("B4 Verlauf (Test)", f"{name} · zuletzt gegen, ≤ 3 L geschlagen", k & vp.eq("gegen") & (h["lengths_behind_vor"] <= 3))

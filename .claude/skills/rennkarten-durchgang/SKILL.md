@@ -418,7 +418,8 @@ Für jede verbliebene Zeile:
   schnell angegangen). Von hinten in einem langsamen Rennen oder vorne
   durchgehalten in einem schnellen wird aufgewertet; der Gegenfall (vorne
   im Bummelrennen, hinten im Hetzrennen) nach unten relativiert.
-- **Rennverlauf** (`verlauf`, `verlauf_pferd`, in der Karte „gegen V."):
+- **Rennverlauf** (`verlauf`, `verlauf_pferd`, `verlauf_stark` = extremste
+  10 %; in der Karte grün „von hinten/vorne +/++"):
   Ist ein Pferd gegen den Verlauf gelaufen (von hinten in einem
   Vorne-Rennen oder von vorne in einem Hinten-Rennen) und trotzdem im
   vorderen Feld gelandet (`verlauf_plus`), ist das ein unterschätztes Plus,

@@ -531,7 +531,7 @@ def regel_backtest_pruefen() -> None:
                            dist_bucket="mile"))
     v = rb.rennverlauf(pd.DataFrame(zz), pd.DataFrame(zz[:390]))
     r39 = v[v["race_id"] == "R39"].set_index("finish_pos")
-    pruefe(r39["verlauf_kl"].iloc[0] == "vorne" and r39.loc[10, "verlauf_pferd"] == "gegen"
+    pruefe(r39["verlauf_kl"].iloc[0] == "vorne" and bool(r39["verlauf_stark"].iloc[0]) and r39.loc[10, "verlauf_pferd"] == "gegen"
            and r39.loc[1, "verlauf_pferd"] == "mit",
            "Rennverlauf: vorne gewonnen -> Vorne-Rennen; Pferd von hinten läuft gegen, Führender mit dem Verlauf")
 
@@ -597,7 +597,7 @@ def racecard_pruefen() -> None:
                              "finish_pos": None}])
     d = rc.baue_daten(hist, heute_r, heute_s, tag)
     x, y = d["races"][f"{tag:%Y%m%d}R1C1"]["runners"]
-    pruefe({"verlauf", "verlauf_wert", "verlauf_pferd", "verlauf_plus"} <= set(x["form_lines"][0])
+    pruefe({"verlauf", "verlauf_wert", "verlauf_pferd", "verlauf_plus", "verlauf_stark"} <= set(x["form_lines"][0])
            and x["form_lines"][0]["verlauf_plus"] is False,
            "Formzeile mit Rennverlauf (zu kleines Feld: kein Urteil, kein „gegen V.“)")
     pruefe(not {"odds", "odds_morning"} & set(x) and x["form_lines"][0]["odds"] is not None,

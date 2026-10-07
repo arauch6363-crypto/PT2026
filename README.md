@@ -196,7 +196,7 @@ Je Starter:
 * **Übersicht**: Läufe-Siege-Plätze neben der Musique, Besitzer mit A/E, Scheuklappen-Symbol (klassisch /
   australisch), rechts nur die cote probable der PMU-Prognose. Aktuelle Kurse (Morgen-/Totokurs) enthält die Karte nicht, auch nicht im DATA-Block. RTR, ΔL600 A und ΔB200 A nur hier.
 * **Rennverlauf** je Formzeile (`verlauf`, `verlauf_pferd`, `verlauf_plus`): Ø frühe Position der ersten drei gegen das Feld,
-  verglichen mit der Norm der Bahn/Distanz (Vorne-/Hinten-Rennen = extremste 20 %, ab 8 Startern). „gegen V.“ beim Platz,
+  verglichen mit der Norm der Bahn/Distanz (Vorne-/Hinten-Rennen = extremste 20 %, ab 8 Startern). „von hinten +“ bzw. „von vorne +“ (++ = extremste 10 %) beim Platz,
   wenn das Pferd gegen den Verlauf lief und trotzdem vorne landete (Backtest: A/E Sieg 1,17, Platz 1,13).
 * **Formzeilen** zusätzlich mit Valeur, Scheuklappen-Symbol und Endquote; ARR, TR und Klasse (Val, €/L) farbig im
   Vergleich zu allen früheren Läufen der heutigen Starter, ±800 und Weg m bei auffälligen Werten farbig.
