@@ -105,46 +105,7 @@ def merkmale(h: pd.DataFrame) -> pd.DataFrame:
     return h
 
 
-VERLAUF_MIN_STARTER = 8      # Rennverlauf erst ab so vielen Startern mit früher Position
-VERLAUF_MIN_RENNEN = 15      # Norm je Bahn/Distanz ab so vielen Rennen, sonst Bahn/Distanzgruppe, sonst alle
-VERLAUF_ANTEIL = 0.2         # je so viele Rennen (unten/oben) gelten als „vorne“ bzw. „hinten begünstigt“
-VERLAUF_VORNE, VERLAUF_HINTEN = 0.25, 0.6   # frühe Position des Pferdes: vorne bis / hinten ab
-
-
-def rennverlauf(h: pd.DataFrame, lern: pd.DataFrame) -> pd.DataFrame:
-    """Wer hat im Rennen gewonnen – die vorne oder die hinten? Je Rennen: Ø frühe Position der ersten drei im Ziel
-    minus Ø frühe Position des Feldes (negativ = vorne gewonnen), gegen die Norm der Bahn/Distanz (gelernt auf `lern`).
-    Je Starter: mit dem Verlauf (Position passte zum Verlauf) oder gegen den Verlauf."""
-    def je_rennen(d: pd.DataFrame) -> pd.DataFrame:
-        t = d[d["early_pct"].notna() & d["finish_pos"].notna()]
-        g = t.groupby("race_id")
-        r = pd.DataFrame({"n": g.size(), "feld": g["early_pct"].mean(),
-                          "top3": t[t["finish_pos"] <= 3].groupby("race_id")["early_pct"].mean()})
-        r = r[r["n"] >= VERLAUF_MIN_STARTER].dropna()
-        r["verlauf"] = r["top3"] - r["feld"]
-        info = d.drop_duplicates("race_id").set_index("race_id")[["course_key", "distance_m", "dist_bucket"]]
-        return r.join(info)
-    alle, gelernt = je_rennen(h), je_rennen(lern)
-    if alle.empty or gelernt.empty:
-        for c in ["verlauf", "verlauf_rel", "verlauf_kl", "verlauf_pferd"]:
-            h[c] = np.nan if c in ("verlauf", "verlauf_rel") else None
-        return h
-    def norm(keys):
-        s = gelernt.groupby(keys)["verlauf"].agg(["mean", "size"])
-        return s[s["size"] >= VERLAUF_MIN_RENNEN]["mean"]
-    n1, n2, n0 = norm(["course_key", "distance_m"]), norm(["course_key", "dist_bucket"]), gelernt["verlauf"].mean()
-    erw = [n1.get((c, d), n2.get((c, b), n0)) for c, d, b in zip(alle["course_key"], alle["distance_m"], alle["dist_bucket"])]
-    alle["verlauf_rel"] = alle["verlauf"] - np.array(erw, dtype=float)
-    lo, hi = gelernt["verlauf"].sub(gelernt["verlauf"].mean()).quantile([VERLAUF_ANTEIL, 1 - VERLAUF_ANTEIL])
-    alle["verlauf_kl"] = np.select([alle["verlauf_rel"] <= lo, alle["verlauf_rel"] >= hi], ["vorne", "hinten"], "neutral")
-    h = h.drop(columns=[c for c in ["verlauf", "verlauf_rel", "verlauf_kl"] if c in h]).merge(
-        alle[["verlauf", "verlauf_rel", "verlauf_kl"]], left_on="race_id", right_index=True, how="left")
-    vorne, hinten = h["early_pct"] <= VERLAUF_VORNE, h["early_pct"] >= VERLAUF_HINTEN
-    kl = h["verlauf_kl"]
-    h["verlauf_pferd"] = np.select(
-        [(kl.eq("vorne") & hinten) | (kl.eq("hinten") & vorne), (kl.eq("vorne") & vorne) | (kl.eq("hinten") & hinten),
-         kl.notna() & h["early_pct"].notna()], ["gegen", "mit", "neutral"], None)
-    return h
+rennverlauf = rc.rennverlauf          # Rennverlauf je Rennen und Starter (racecard)
 
 
 def lernen_testen(h: pd.DataFrame) -> pd.DataFrame:
