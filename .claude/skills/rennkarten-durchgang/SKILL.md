@@ -935,6 +935,22 @@ Rennen mit Mindestquote, Edge, „eingepreist?" und Bedingung, sortiert nach
 Sicherheitsstufe, damit der Nutzer sie direkt gegen die Festkurse seines
 Buchmachers halten kann.
 
+**Ganz am Ende ein Protokoll-Block** für die Auswertung (`tipp_auswertung`),
+ein ```json-Block mit **allen Startern** aller durchgegangenen Rennen:
+
+```json
+{"tipps": [{"race_id": "20261007R4C8", "no": 6, "p": 0.26, "stufe": "++",
+  "mq": 5.0, "sicherheit": "mittel", "eingepreist": "nein",
+  "angles": ["duell", "bilanz", "trainer"]}]}
+```
+
+`p` = eigene Siegchance (Mitte), `mq` = Mindestquote oder `null`,
+`eingepreist`/`sicherheit` nur bei +/++. `angles` = Kürzel der tragenden
+Argumente (auch für − die Gegenargumente): `klasse`, `ratings`, `duell`,
+`bilanz`, `abstammung`, `exposure`, `marke`, `trainer`, `jockey`, `tempo`,
+`bias`, `box`, `verlauf`, `laufbild`, `belag`, `distanz`, `pause`,
+`ausruestung`, `prognose`, `sonstiges`.
+
 ## Arbeitsweise im Gespräch
 
 **Bevorzugt: die Claude-Version `racecard_JJJJMMTT_claude.json`.** Sie

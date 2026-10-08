@@ -72,6 +72,7 @@ Tracking ist eine Eigenschaft von **Renntag und Rennen**, nicht von der Bahn:
 | `standardzeiten.py` | Siegerzeiten aus dem PMU-Programm über lange Historie sammeln, Standardzeiten je Konfiguration des Tages |
 | `timeform_ratings.py` | TR: Zeit-Rating nach Timeform-Art (Standardzeiten, Going Allowance) mit Finishing-Speed-Upgrade, Backtest |
 | `rtr_arr.py` | Ratings aus PT_Vorarbeiten: RTR (Elo-artiges Rating nach dem Rennen) und ARR (Leistung im Rennen) |
+| `tipp_auswertung.py` | Claude-Tipps (Ausgabe des Skills) gegen die Ergebnisse: Treffsicherheit, Stufen, Angle-Typen, Wett-Ergebnis |
 | `regel_backtest.py` | Regeln des Skills gegen die Datenbank prüfen: A/E gegen den Markt (Endquote) je Regel |
 | `racecard_template.html` | Layout der Race Card; die Daten werden als JSON eingesetzt |
 | `selftest.py` | Selbsttest ohne Internet (`python selftest.py`) |
@@ -104,6 +105,23 @@ base = Path('daten')
 tp.run('2022-01-01', base=base, pdf_dir=base/'pdfs', max_tage=5)
 "
 ```
+
+## Tipp-Auswertung (Skill gegen die Ergebnisse)
+
+Die Ausgabe von Claude je Renntag (Markdown mit dem Protokoll-Block ```json {"tipps": [...]}``` am Ende, Skill C2) in
+`<BASE>/tipps/` legen; ältere Dateien ohne Block werden aus den Tabellen gelesen (ohne Angle-Typen).
+
+```python
+import tipp_auswertung as ta
+erg = ta.run(BASE)        # Notebook Abschnitt 4
+```
+
+Verbindet die Tipps mit Einlauf und Endquote (`pmu_runners`), Sieg-Dividende (`pmu_dividends`) und Prognose-Chance
+(`racecards/racecard_JJJJMMTT_claude.json`); das Ergebnis eines Renntags liegt ab dem Folgetag vor. Laufendes Protokoll
+`auswertung/tipps_protokoll.parquet` (+ .csv). Bericht: Log-Loss/Brier Claude gegen Prognose, Siege/Plätze gegen die
+Erwartung je Stufe, je Angle-Typ (Kandidat/Abwertung), je Prognose-Rang und Rennart, Wett-Ergebnis der Kandidaten
+(alle bzw. nur bei Endquote ≥ Mindestquote). Skill-Änderungen erst, wenn ein Muster über rund 100 Kandidaten hält
+oder der Regel-Backtest es bestätigt.
 
 ## Regel-Backtest (Skill gegen die Datenbank)
 
@@ -335,7 +353,7 @@ und werden mit Python geparst.
 - **claude.ai:** Dort wird er weiterhin als `.skill`/ZIP hochgeladen. Die Datei hier ist die versionierte Vorlage.
 - **Pflege:** Neue Erkenntnisse aus Analysen kommen als knappe Regel an die passende Stelle des Rasters (A/B/C), nicht als
   neuer Abschnitt. Nach jeder Anpassung wird konsolidiert: Doppeltes zusammenführen und Erklärungen kürzen, die die
-  Claude-JSON schon vorrechnet. Der Umfang soll nicht wachsen (Stand 06.10.2026: rund 53.700 Zeichen).
+  Claude-JSON schon vorrechnet. Der Umfang soll nicht wachsen (Stand 06.10.2026: rund 54.400 Zeichen).
 
 **Claude-Version der Karte** (`claude_export.py`): Neben `racecard_JJJJMMTT.html` schreibt `racecard.run` die Datei
 `racecard_JJJJMMTT_claude.json` (abschalten mit `claude=False`).
