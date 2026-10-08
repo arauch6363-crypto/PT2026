@@ -333,6 +333,8 @@ def main() -> int:
     regel_backtest_pruefen()
     print("\n12) Tipp-Auswertung: Claude-Ausgabe gegen Ergebnis")
     tipp_auswertung_pruefen()
+    print("\n13) Hypothesen-Backtest: bedingtes Logit")
+    hypothesen_pruefen()
 
     pt.read_pages = requests_session_orig
     print("\n" + ("Alle Prüfungen bestanden." if not fehler else f"{len(fehler)} Prüfung(en) fehlgeschlagen:"))
@@ -483,6 +485,25 @@ def pmu_basis_pruefen() -> None:
         ru2 = tp.lade("pmu_runners", base).set_index("saddle_no")
         pruefe(ru2.loc[1, "horse"] == "NEU 1" and ru2.loc[1, "comment"] == "A bien fini (1)." and "time_s" in ru2,
                "Pipeline überschreibt die Starter, behält aber Kommentar und Zeiten aus pmu_basis")
+
+
+def hypothesen_pruefen() -> None:
+    import numpy as np
+    import hypothesen_backtest as hb
+    rng = np.random.default_rng(0)
+    z = []
+    for r in range(3000):                         # wahrer Markt-Koeffizient 1,0, Zusatzeffekt 0,5
+        q, x = rng.dirichlet(np.ones(10) * 2), (rng.random(10) < 0.2).astype(float)
+        u = np.log(q) + 0.5 * x
+        w = rng.choice(10, p=np.exp(u) / np.exp(u).sum())
+        z += [{"race_id": r, "ln_p": np.log(q[i]), "x": x[i], "selten": float(i == 0 and r < 5), "won": int(i == w)}
+              for i in range(10)]
+    k = hb.clogit(pd.DataFrame(z), ["x", "selten"]).set_index("variable")
+    pruefe(abs(k.loc["ln p_mkt (Markt)", "koef"] - 1) < 0.1 and abs(k.loc["x", "koef"] - 0.5) < 0.12
+           and np.isnan(k.loc["selten", "koef"]) and k.loc["selten", "n_aktiv"] == 5,
+           "Bedingtes Logit findet Markt- und Zusatzeffekt; zu seltene Merkmale werden nicht geschätzt")
+    pruefe(bool(hb.PECH.search("A été enfermé dans la ligne droite")) and bool(hb.PECH.search("a manqué de place"))
+           and not hb.PECH.search("a fini fort"), "Pech im Kommentar erkannt (enfermé, manqué de place)")
 
 
 def tipp_auswertung_pruefen() -> None:

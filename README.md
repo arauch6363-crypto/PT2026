@@ -73,6 +73,7 @@ Tracking ist eine Eigenschaft von **Renntag und Rennen**, nicht von der Bahn:
 | `timeform_ratings.py` | TR: Zeit-Rating nach Timeform-Art (Standardzeiten, Going Allowance) mit Finishing-Speed-Upgrade, Backtest |
 | `rtr_arr.py` | Ratings aus PT_Vorarbeiten: RTR (Elo-artiges Rating nach dem Rennen) und ARR (Leistung im Rennen) |
 | `tipp_auswertung.py` | Claude-Tipps (Ausgabe des Skills) gegen die Ergebnisse: Treffsicherheit, Stufen, Angle-Typen, Wett-Ergebnis |
+| `hypothesen_backtest.py` | Hypothesen H1–H5 (Rennverlauf, Überreaktion, Handicap-Erhöhung, Tempo × Stil, Presse-Konsens) per A/E und bedingtem Logit |
 | `regel_backtest.py` | Regeln des Skills gegen die Datenbank prüfen: A/E gegen den Markt (Endquote) je Regel |
 | `racecard_template.html` | Layout der Race Card; die Daten werden als JSON eingesetzt |
 | `selftest.py` | Selbsttest ohne Internet (`python selftest.py`) |
@@ -122,6 +123,20 @@ Verbindet die Tipps mit Einlauf und Endquote (`pmu_runners`), Sieg-Dividende (`p
 Erwartung je Stufe, je Angle-Typ (Kandidat/Abwertung), je Prognose-Rang und Rennart, Wett-Ergebnis der Kandidaten
 (alle bzw. nur bei Endquote ≥ Mindestquote). Skill-Änderungen erst, wenn ein Muster über rund 100 Kandidaten hält
 oder der Regel-Backtest es bestätigt.
+
+## Hypothesen-Backtest
+
+```python
+import hypothesen_backtest as hb
+erg = hb.run(BASE)        # oder hb.run(BASE, hist=hist)
+```
+
+Je Hypothese A/E-Gruppen gegen die Endquote und ein bedingtes Logit je Rennen (P(Sieg) ∝ exp(β·ln p_mkt + γ·x)): γ > 0
+= zu wenig gewettet. H1 Rennverlauf gegen das Pferd (≤ 60 Tage, Tracking, nicht ausgeritten; abgestuft gegen Pech im
+Kommentar), H2 Überreaktion auf das Vorrennen (Marktchance, geschlagene Favoriten, Überraschungssieger; zusammen mit H1),
+H3 Handicap-Erhöhung nach Sieg (Stufen 0–1,5/2–3,5/≥ 4; ARR des Siegrennens gegen neue Marke, Dreijährige), H4 Führende ×
+erwartetes Tempo × Frontvorteil der Bahn, H5 Presse-Konsens nur vorwärts aus `racecards/*_claude.json`. H1/H4 im Testteil
+(Norm, Pace-Kalibrierung, Bias auf der ersten Hälfte gelernt). CSV nach `auswertung/hypothesen_*_JJJJMMTT.csv`.
 
 ## Regel-Backtest (Skill gegen die Datenbank)
 
