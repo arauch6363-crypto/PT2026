@@ -358,7 +358,9 @@ Je Starter:
   A/E aus ihren übrigen Läufen im selben Zeitraum, mindestens 2 Standardfehler und mindestens 20 übrige Läufe –
   wie beim Box-Urteil.
 * **Laufstil** je Pferd (F / V / M / H), **Pace-Szenario** aus Tempomachern und Feldgröße,
-  **Bahn-Bias** vorne gegen hinten je Bahn und Distanz.
+  **Bahn-Bias** vorne gegen hinten je Bahn und Distanz, angezeigt relativ zum Schnitt aller Bahnen (0 = wie überall;
+  Rohwert darunter). Pace-Modell: +x je Tempomacher und +y je Starter gegenüber 10 Startern (aus früheren Rennen
+  geschätzt; mehr Starter = schnelleres Tempo). Beim Scrollen bleibt eine Kurzzeile des Rennens oben fixiert.
 * Racing-Post-Kürzel **C / D / CD / BF**, Tage seit dem letzten Lauf, Gewicht, Rating, Startbox.
 
 ## Skill Rennkarten-Durchgang
