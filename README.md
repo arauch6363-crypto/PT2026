@@ -224,8 +224,8 @@ Je Starter:
   besser oder schlechter war als der Rang ihrer Quote; der Knopf zeigt besser / (besser + schlechter).
 * **Heutige Gegner · frühere Duelle**: Rennen, in denen das Pferd schon auf heutige Gegner traf – Platz
   beider, Abstand, Gewichte damals und die Verschiebung des Gewichtsunterschieds bis heute. Eingeschränkt wie die
-  indirekten Duelle: letzte 120 Tage, Distanz ±200 m zu heute, Boden innerhalb einer Stufe, beide Pferde in der
-  vorderen Feldhälfte (`DUELL_TAGE`, `DUELL_DIST_M`, `DUELL_BODEN`, `DUELL_REL_MIN`).
+  indirekten Duelle: letzte 120 Tage, Distanz ±200 m zu heute, Boden innerhalb einer Stufe (`DUELL_TAGE`,
+  `DUELL_DIST_M`, `DUELL_BODEN`); anders als dort zählen alle Platzierungen.
 * **Startbox**: unter der Box die Abweichung der Ø relativen Platzierung (Starter − Platz) / (Starter − 1) aus
   dieser Box auf derselben Konfiguration (Bahn | Distanz | track_type | parcours_norm | Corde) von 0,5.
 * **Übersicht**: Läufe-Siege-Plätze neben der Musique, Besitzer mit A/E, Scheuklappen-Symbol (klassisch /

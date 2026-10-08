@@ -634,7 +634,7 @@ Abstand (`diff_l`), Gewichtsunterschied damals (`w_then`) und heute
 Verschiebung, 1 kg = 1 Länge; positiv = vor dem Gegner).
 `duels_sum` fasst je Gegner das letzte Duell zusammen. Die Karte zeigt
 nur Duelle der letzten 120 Tage über ±200 m zur heutigen Distanz, mit
-Boden innerhalb einer Stufe und beiden Pferden in der vorderen Feldhälfte.
+Boden innerhalb einer Stufe.
 
 **Indirekt** (`indirect`): Vergleich über gemeinsame frühere Gegner —
 nur Rennen der letzten 120 Tage, ±200 m, Boden innerhalb einer Stufe,

@@ -78,8 +78,7 @@ INDIREKT_DIST_M = 200           # … Distanz höchstens so weit auseinander
 INDIREKT_REL_MIN = 0.5          # … alle drei Pferde in der vorderen Hälfte: rel. Platzierung > 0,5
 DUELL_TAGE = 120                # Heutige Gegner · frühere Duelle, eingeschränkt wie die indirekten: nur Rennen der
 DUELL_DIST_M = 200              # letzten DUELL_TAGE, Distanz höchstens DUELL_DIST_M von heute, Boden innerhalb einer
-DUELL_REL_MIN = 0.5             # Stufe (DUELL_BODEN), beide Pferde in der vorderen Feldhälfte (rel. Platz. > DUELL_REL_MIN)
-DUELL_BODEN = True
+DUELL_BODEN = True              # Stufe (DUELL_BODEN); anders als dort zählen alle Platzierungen
 BOX_SD = 0.289                  # Streuung der relativen Platzierung bei Zufall (Gleichverteilung 0…1)
 BOX_Z = 2.0                     # Startbox auffällig: |Ø − 0,5| mindestens BOX_Z Standardfehler …
 BOX_MIN_ABW = 0.05              # … und mindestens so weit von 0,5 entfernt
@@ -1155,7 +1154,7 @@ def _duelle(eigen: pd.DataFrame, rennen: dict, heute_gew: dict, hid) -> list[dic
     w_ich = heute_gew.get(hid, {}).get("weight")
     for _, z in eigen.iterrows():
         feld = rennen.get(z["race_id"])
-        if feld is None or hid not in set(feld["horse_id"]):   # Pferd selbst nicht in der Auswahl (hintere Hälfte)
+        if feld is None:
             continue
         for _, g in feld.iterrows():
             if g["horse_id"] == hid:
@@ -1508,7 +1507,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         heute_gew = {z["horse_id"]: {"weight": _num(z.get("weight_kg"), 1), "no": _num(z.get("saddle_no"), 0)}
                      for _, z in feld_heute[~nr_heute].iterrows()}
         treffen = hh[hh["horse_id"].isin(set(heute_gew)) & (hh["date"] >= heute - timedelta(days=DUELL_TAGE))
-                     & (hh["rel_place"] > DUELL_REL_MIN)]
+                     ]
         if dist is not None and len(treffen):
             treffen = treffen[(treffen["distance_m"] - dist).abs() <= DUELL_DIST_M]
         if DUELL_BODEN and len(treffen):

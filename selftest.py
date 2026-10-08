@@ -907,12 +907,12 @@ def racecard_pruefen() -> None:
            f"Rennstärke €/L+: Ø Gewinn je Lauf der Teilnehmer ÷ Ø aller früheren Rennen (heute {kl['epr_idx']})")
     pruefe(f["cls_val_idx"] == 100 and d["params"]["pop"]["rennen_val"] == 40.0,
            "Val+: Ø Valeur der Teilnehmer ÷ Ø aller früheren Rennen (einziges Rennen mit Valeur -> 100)")
-    pruefe(x["duels"] == [] and x["duels_sum"] is None,
-           "Direkte Duelle eingeschränkt wie indirekte: Y im letzten Duell hintere Hälfte, älteres Duell andere Distanz/Boden")
-    alt = (rc.DUELL_TAGE, rc.DUELL_DIST_M, rc.DUELL_REL_MIN, rc.DUELL_BODEN)
-    rc.DUELL_TAGE, rc.DUELL_DIST_M, rc.DUELL_REL_MIN, rc.DUELL_BODEN = 365, 10_000, -1.0, False   # Rechnung ohne Filter
+    pruefe(len(x["duels"]) == 1 and x["duels"][0]["date"] == str(tag - timedelta(days=10)),
+           "Direkte Duelle: nur ≤ 120 Tage, ±200 m zu heute, Boden innerhalb einer Stufe (Duell über 2000 m Lourd fällt weg)")
+    alt = (rc.DUELL_TAGE, rc.DUELL_DIST_M, rc.DUELL_BODEN)
+    rc.DUELL_TAGE, rc.DUELL_DIST_M, rc.DUELL_BODEN = 365, 10_000, False          # Rechnung ohne Filter
     x_d = rc.baue_daten(hist, heute_r, heute_s, tag)["races"][f"{tag:%Y%m%d}R1C1"]["runners"][0]
-    rc.DUELL_TAGE, rc.DUELL_DIST_M, rc.DUELL_REL_MIN, rc.DUELL_BODEN = alt
+    rc.DUELL_TAGE, rc.DUELL_DIST_M, rc.DUELL_BODEN = alt
     ds_ = x_d["duels_sum"]
     pruefe(ds_["n"] == 1 and ds_["ahead"] == 1 and ds_["rivals"][0]["exp_l"] == 2.0 and ds_["rivals"][0]["n"] == 2,
            "Duell-Bilanz: letztes Duell je Gegner, Abstand ± Gewichtsverschiebung (1 kg = 1 L) -> vorne erwartet")
