@@ -446,10 +446,10 @@ Für jede verbliebene Zeile:
 
 ### B5 — Gegneraufwertung
 
-Über `rivals[].next` (in der Claude-Version `rivals_nah[].next`: die
-Gegner direkt davor und dahinter) und `rivals_stat` (alle wieder
-gelaufenen Gegner) prüfen, ob die damaligen Gegner
-seither ihre Form bestätigt haben. Das Urteil `verdict` ist
+Über `rivals_nah[].next` (je zwei wieder gelaufene Gegner direkt davor
+und dahinter, mit `epr_idx`/`val_idx` des nächsten Rennens) und
+`rivals_stat` (das ganze Feld) prüfen, ob die damaligen Gegner seither
+ihre Form bestätigt haben. Das Urteil `verdict` ist
 **marktrelativ**: „besser" heißt, der Gegner lief im nächsten Start
 besser als sein Quotenrang, „schlechter" schlechter, „wie erwartet"
 entsprechend. `rivals_stat` zählt das über alle wieder gelaufenen

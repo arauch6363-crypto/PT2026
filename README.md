@@ -220,7 +220,8 @@ Je Starter:
 * **Formzeilen** der letzten 7 Läufe mit Fünftel-Position 400 m vor dem Ziel, Pace-Ratio,
   Finish-Index (roh und bereinigt), ±800, Weg gegenüber dem Median des Feldes, ΔL600 A und
   ΔB200 A und der Klasse des Rennens (Kl.: Ø Valeur und Ø Gewinn je Lauf der Teilnehmer in den
-  365 Tagen davor). Je Lauf lassen sich alle Gegner aufklappen, mit Platz im nächsten Start und ob der
+  365 Tagen davor). Je Lauf lassen sich die je zwei wieder gelaufenen Gegner direkt davor und dahinter aufklappen
+  (Bilanz am Knopf über das ganze Feld), mit Platz und Klasse (€/L+, Val+) im nächsten Start und ob der
   besser oder schlechter war als der Rang ihrer Quote; der Knopf zeigt besser / (besser + schlechter).
 * **Heutige Gegner · frühere Duelle**: Rennen, in denen das Pferd schon auf heutige Gegner traf – Platz
   beider, Abstand, Gewichte damals und die Verschiebung des Gewichtsunterschieds bis heute. Eingeschränkt wie die

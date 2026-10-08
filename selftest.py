@@ -710,11 +710,19 @@ def racecard_pruefen() -> None:
     pruefe(y["form_lines"][0]["weg_med"] == 6.7, "Weg: Meter gegenüber dem Median des Feldes (13,31 − 6,66)")
     pruefe(x["days"] == 10 and len(x["form_lines"]) == 2, "10 Tage seit dem letzten Lauf, 2 Formzeilen")
     g = x["form_lines"][1]["rivals"]
-    pruefe(len(g) == 2 and g[0]["horse"] == "Y" and g[0]["next"]["pos"] == 2 and g[0]["next"]["odds_rank"] == 1
-           and g[0]["next"]["verdict"] == "schlechter" and g[1]["horse"] == "Z" and g[1]["next"] is None
+    pruefe(len(g) == 1 and g[0]["horse"] == "Y" and g[0]["next"]["pos"] == 2 and g[0]["next"]["odds_rank"] == 1
+           and g[0]["next"]["verdict"] == "schlechter" and "epr_idx" in g[0]["next"] and "val_idx" in g[0]["next"]
            and x["form_lines"][1]["rivals_stat"] == {"better": 0, "worse": 1, "same": 0, "ran": 1, "n": 2},
-           "Gegner: alle aufgeführt – Y (danach Platz 2 bei Quotenrang 1 -> schlechter), Z ohne weiteren Start; "
-           "Bilanz 0 besser / 1 schlechter")
+           "Gegner: gezeigt nur wieder gelaufene (Y, danach Platz 2 bei Quotenrang 1 -> schlechter, mit €/L+/Val+), "
+           "Z ohne weiteren Start nicht; Bilanz über das ganze Feld 0 besser / 1 schlechter")
+    nx_ = {"pos": 1}
+    feld_ = [{"horse": c, "pos": p_, "next": nx_ if c != "C" else None} for c, p_ in
+             [("A", 1), ("B", 2), ("C", 3), ("D", 4), ("E", 6), ("F", 7), ("G", 8)]]
+    pruefe([z_["horse"] for z_ in rc.gegner_auswahl(feld_, 5)] == ["B", "D", "E", "F"]
+           and [z_["horse"] for z_ in rc.gegner_auswahl(feld_, 8)] == ["E", "F", "G"],
+           "Gegner-Auswahl: je 2 wieder gelaufene direkt davor und dahinter (C ohne Start übersprungen)")
+    pruefe(f["top3_fifth"][0] == f["fifth"] and len(f["top3_fifth"]) == 3,
+           "Pos. vor Finish: Fünftel des 1., 2., 3. im Ziel je Formzeile (Sieger X = eigenes Fünftel)")
     k = x["career"]["all"]
     pruefe((k["runs"], k["wins"], k["places"], k["earn"], k["epr"]) == (2, 1, 2, 16350, 8175)
            and x["career"]["d365"]["runs"] == 2,

@@ -16,7 +16,8 @@ Umgeordnet und vorgerechnet, damit Claude nicht selbst rechnen muss:
   (vollständig) und ihre Nummern in `nr`,
 * `vorgerechnet`: Marge der cote probable, Reihenfolge nach Prognose-Rang, Bias gegen den Schnitt aller Bahnen,
 * je Starter `p_prog` (Prognose-Chance nach der Potenzmethode) und `luecke` (PMU-Starts − Datenbank-Läufe),
-* je Formzeile `rivals_nah`: die zwei Gegner direkt davor und dahinter (mit ihrem nächsten Start).
+* je Formzeile `rivals_nah`: die zwei wieder gelaufenen Gegner direkt davor und dahinter (mit ihrem nächsten Start und
+  dessen Klasse epr_idx/val_idx; die Race Card zeigt schon nur diese, rivals_stat zählt über das ganze Feld).
 """
 from __future__ import annotations
 
