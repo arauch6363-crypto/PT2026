@@ -331,6 +331,8 @@ def main() -> int:
     pmu_basis_pruefen()
     print("\n11) Regel-Backtest: Skill-Regeln gegen den Markt")
     regel_backtest_pruefen()
+    print("\n12) Tipp-Auswertung: Claude-Ausgabe gegen Ergebnis")
+    tipp_auswertung_pruefen()
 
     pt.read_pages = requests_session_orig
     print("\n" + ("Alle Prüfungen bestanden." if not fehler else f"{len(fehler)} Prüfung(en) fehlgeschlagen:"))
@@ -481,6 +483,39 @@ def pmu_basis_pruefen() -> None:
         ru2 = tp.lade("pmu_runners", base).set_index("saddle_no")
         pruefe(ru2.loc[1, "horse"] == "NEU 1" and ru2.loc[1, "comment"] == "A bien fini (1)." and "time_s" in ru2,
                "Pipeline überschreibt die Starter, behält aber Kommentar und Zeiten aus pmu_basis")
+
+
+def tipp_auswertung_pruefen() -> None:
+    import io, contextlib, json as _json, tempfile
+    import tipp_auswertung as ta
+    base = Path(tempfile.mkdtemp())
+    (base / "tipps").mkdir(); (base / "racecards").mkdir()
+    (base / "parquet" / "pmu_runners").mkdir(parents=True)
+    block = {"tipps": [{"race_id": "20261007R4C1", "no": 1, "p": 0.5, "stufe": "0", "mq": 2.5, "angles": ["ratings"]},
+                       {"race_id": "20261007R4C1", "no": 2, "p": 0.3, "stufe": "++", "mq": 4.0, "angles": ["klasse", "duell"]},
+                       {"race_id": "20261007R4C1", "no": 3, "p": 0.2, "stufe": "−", "mq": None, "angles": ["pause"]}]}
+    (base / "tipps" / "neu.md").write_text("Text\n```json\n" + _json.dumps(block) + "\n```\n", encoding="utf-8")
+    alt = ("# Renntag 07.10.2026 – Réunion 4 – TEST\n\n## Rennen 2 – X\n\n| Pferd | a | b | c | d | e | f |\n"
+           "| #5 ALPHA | 2/1 / 33% | 40% (35–45) | 2.5 | **3.0** | + (Edge +20%) | x |\n"
+           "| #6 BETA | 3/1 / 25% | 60% (55–65) | 1.7 | **–** | − (Edge -5%) | y |\n")
+    (base / "tipps" / "alt.md").write_text(alt, encoding="utf-8")
+    pd.DataFrame([{"race_id": "20261007R4C1", "saddle_no": n, "finish_pos": f, "odds_final": o}
+                  for n, f, o in [(1, 2, 2.0), (2, 1, 5.0), (3, 3, 6.0)]]
+                 + [{"race_id": "20261007R4C2", "saddle_no": n, "finish_pos": f, "odds_final": o}
+                    for n, f, o in [(5, 2, 3.0), (6, 1, 2.0)]]).to_parquet(base / "parquet" / "pmu_runners" / "20261007.parquet")
+    karte = {"races": {"20261007R4C1": {"type": "Handicap", "runners": [
+        {"no": 1, "p_prog": 0.5, "prono": {"sel": {"rank": 1}}}, {"no": 2, "p_prog": 0.2, "prono": {"sel": {"rank": 2}}},
+        {"no": 3, "p_prog": 0.3, "prono": {"sel": {"rank": 3}}}]}}}
+    (base / "racecards" / "racecard_20261007_claude.json").write_text(_json.dumps(karte), encoding="utf-8")
+    with contextlib.redirect_stdout(io.StringIO()):
+        erg = ta.run(base)
+    p = pd.read_parquet(base / "auswertung" / "tipps_protokoll.parquet")
+    st = erg["stufe"].set_index("stufe")
+    w = erg["wetten"].set_index("wetten")
+    pruefe(len(p) == 5 and set(p["quelle"]) == {"block", "tabelle"} and st.loc["++", "siege"] == 1
+           and st.loc["+", "n"] == 1 and {"klasse", "duell"} <= set(erg["angle"]["angle"])
+           and w.iloc[0]["n"] == 2 and abs(w.iloc[0]["ergebnis"] - 3.0) < 1e-9,
+           "Tipp-Auswertung: Protokoll-Block und alte Tabelle gelesen, Stufen, Angle-Typen und Wett-Ergebnis stimmen")
 
 
 def regel_backtest_pruefen() -> None:
