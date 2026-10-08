@@ -235,6 +235,9 @@ Je Starter:
   verglichen mit der Norm der Bahn/Distanz (Vorne-/Hinten-Rennen = extremste 25 %, ab 8 Startern). „gegen V.“ beim Platz,
   wenn das Pferd gegen den Verlauf lief und trotzdem vorne landete (grün; Backtest: A/E Sieg 1,17, Platz 1,13);
   grau umrandet „gegen V.“ ohne vordere Platzierung und „mit V.“ – im Backtest ohne Effekt, nur zur Einordnung.
+* **Video**: „▶ Video“ je früherem Lauf und „▶ PMU“ beim heutigen Rennen öffnen die Rennseite bei PMU
+  (pmu.fr/turf/TTMMJJJJ/rX/cY/) mit dem Replay in einem neuen Tab. Einbetten geht nicht zuverlässig (PMU lässt die Seite
+  nicht in fremden Seiten laden, das Video braucht deren Player).
 * **Pausen** in den letzten Läufen: eigene Zeile „⏸ Pause n Tage“ zwischen zwei Läufen (bzw. „seit dem letzten Lauf“
   bis heute), ab 56 Tagen (8 Wochen, wie die Pausenregel im Skill).
 * **Formzeilen** zusätzlich mit Valeur, Scheuklappen-Symbol und Endquote; ARR, TR und Klasse (Val, €/L) farbig im

@@ -40,6 +40,8 @@ button,select{font:inherit;color:inherit}
 .top h1{margin:0;font:700 34px/1 var(--f-display);letter-spacing:.01em;text-transform:uppercase}
 .top h1 span{color:var(--accent)}
 .top .meta{font-size:12px;color:var(--ink-2)}
+.pmu-link{font-size:12px;color:var(--accent);text-decoration:none;white-space:nowrap}
+.pmu-link:hover{text-decoration:underline}
 .race-kurz{font-size:12px;line-height:1.35;color:var(--ink-2);overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .race-kurz[hidden]{display:none}
 .race-kurz b{color:var(--ink);font-weight:600}
@@ -273,6 +275,9 @@ const fx = (v, d=1) => v == null ? "–" : Number(v).toFixed(d);
 const sgn = (v, d=2) => v == null ? "" : (v > 0 ? "+" : v < 0 ? "−" : "±") + Math.abs(v).toFixed(d);
 // Großbuchstabe am Wortanfang – auch nach Punkt (M.GRANDIN -> M.Grandin), Apostroph, Klammer, Schrägstrich
 const title = s => s ? String(s).toLowerCase().replace(/(^|[\s\-'’.(/])(\p{L})/gu, (m,a,b) => a + b.toUpperCase()) : "";
+// Link zur Rennseite bei PMU (mit Video/Replay): race_id JJJJMMTTRxCy -> pmu.fr/turf/TTMMJJJJ/rx/cy/
+const pmuUrl = rid => { const m = /^(\d{4})(\d{2})(\d{2})R(\d+)C(\d+)$/.exec(rid || ""); return m ? `https://www.pmu.fr/turf/${m[3]}${m[2]}${m[1]}/r${m[4]}/c${m[5]}/` : null; };
+const pmuLink = (rid, text = "▶ Video") => { const u = pmuUrl(rid); return u ? `<a class="pmu-link" href="${u}" target="_blank" rel="noopener" title="Rennseite bei PMU mit Video (neuer Tab)" onclick="event.stopPropagation()">${text}</a>` : ""; };
 const dt = s => { if (!s) return "–"; const [y,m,d] = s.split("-"); return `${+d} ${MON[+m-1]} ${y}`; };
 const prize = v => v == null ? "–" : v >= 1e6 ? (v/1e6).toFixed(1).replace(/\.0$/,"") + "m" : Math.round(v/1000) + "k";
 const pct = (w, r) => r ? Math.round(100*w/r) + "%" : "–";
@@ -380,7 +385,7 @@ function renderRace(){
   $("#race").innerHTML = `
     <div class="race-head">
       <div class="race-time">${esc(r.time || "")}</div>
-      <h2 class="race-title">R${r.reunion} C${r.race_no} · ${esc(title(r.name))}</h2>
+      <h2 class="race-title">R${r.reunion} C${r.race_no} · ${esc(title(r.name))} ${pmuLink(r.race_id, "▶ PMU")}</h2>
       <div class="race-sub">${tags.map(([k,v,t]) => `<span class="tag"${t ? ` title="${esc(t)}"` : ""}><i>${k}</i>${v && v.html != null ? v.html : esc(v)}</span>`).join("")}</div>
       ${r.result ? `<div class="result">Einlauf: <span class="num">${esc(r.result)}</span></div>` : ""}
     </div>
@@ -908,7 +913,7 @@ function formTable(rows, no, wHeute, rHeute, tageHeute = null){
     const sep = f.extra && !(rows[i - 1] || {}).extra
       ? `<tr class="extra-sep"><td colspan="12">Ältere Läufe – nicht unter den letzten ${DATA.params.form_runs}: letzter Lauf mit gleichem ${rows.slice(i).flatMap(r => r.extra || []).map(k => SAME_NAME[k]).join(" / ")}</td></tr>` : "";
     return `${pause}${sep}<tr class="${f.unreliable ? "unrel" : ""} ${cmt ? "hascmt" : ""} ${f.extra ? "extra" : ""}">
-      <td class="fl-date">${dt(f.date)}${sameTags(f)}${f.extra ? `<br><span class="muted" title="Zusätzlich gezeigt: letzter Lauf mit gleichem ${f.extra.map(k => SAME_NAME[k]).join(" / ")}">letzter auf ${f.extra.map(k => ({K: "Kurs", D: "Distanz", B: "Boden"})[k]).join(" + ")}</span>` : ""}<br><span class="muted">${markIf(sameHas(f, "K"), esc(title(f.course)), "K")}</span><br>${btn}</td>
+      <td class="fl-date">${dt(f.date)}${sameTags(f)}${f.extra ? `<br><span class="muted" title="Zusätzlich gezeigt: letzter Lauf mit gleichem ${f.extra.map(k => SAME_NAME[k]).join(" / ")}">letzter auf ${f.extra.map(k => ({K: "Kurs", D: "Distanz", B: "Boden"})[k]).join(" + ")}</span>` : ""}<br><span class="muted">${markIf(sameHas(f, "K"), esc(title(f.course)), "K")}</span> ${pmuLink(f.race_id)}<br>${btn}</td>
       <td class="fl-cond num">${markIf(sameHas(f, "D"), `${f.dist ?? "–"}m`, "D")} ${markIf(sameHas(f, "B"), esc(f.going || "–"), "B")} ${f.prize != null ? `<span class="ae" style="${verlauf(poolLage("prize", f.prize))}" title="${esc(`Preisgeld €${(f.prize).toLocaleString("de-DE")} – Farbe: Lage unter allen früheren Läufen der heutigen Starter (rot = niedrigstes, grün = höchstes Preisgeld für dieses Rennen)`)}">${prize(f.prize)}</span>` : "–"}${boxForm(f)}<br><span class="muted">${esc(f.type || "")}</span>${kl}</td>
       <td class="fl-pos">${pos} ${mg ? `(${mg})` : ""}${verlaufForm(f)}${blinkIcon(f.blinkers)} <span class="num">${f.weight != null ? fx(f.weight,1).replace(/\.0$/,"") + "kg" : ""}</span><br><span class="muted">${esc(title(f.jockey) || "")} · <span class="num" title="Endquote (odds_final)${f.odds_rank ? `, Quotenrang ${f.odds_rank}` : ""}">Q ${f.odds != null ? fx(f.odds,1) : "–"}${f.fav ? " F" : ""}</span></span>${f.unreliable ? `<br><span class="muted" title="Mehr als ${DATA.params.beaten_l} Längen geschlagen – vermutlich ausgeritten, zählt nicht in den Schnitt">ausgeritten?</span>` : ""}</td>
       ${valCell(f.valeur, rHeute)}
