@@ -632,10 +632,9 @@ Abstand (`diff_l`), Gewichtsunterschied damals (`w_then`) und heute
 (`w_today`) und deren Verschiebung (`shift`). Die Karte rechnet daraus
 **`exp_l`, den heute erwarteten Abstand** (Abstand damals minus
 Verschiebung, 1 kg = 1 Länge; positiv = vor dem Gegner).
-`duels_sum` fasst je Gegner das letzte Duell zusammen. **Duelle, die
-älter als etwa sechs Monate sind, gelten als nicht repräsentativ** — die
-Karte zeigt bis zu einem Jahr, also nach Datum filtern. Bei Dreijährigen
-hat sich in einem halben Jahr zu viel verändert.
+`duels_sum` fasst je Gegner das letzte Duell zusammen. Die Karte zeigt
+nur Duelle der letzten 120 Tage über ±200 m zur heutigen Distanz, mit
+Boden innerhalb einer Stufe.
 
 **Indirekt** (`indirect`): Vergleich über gemeinsame frühere Gegner —
 nur Rennen der letzten 120 Tage, ±200 m, Boden innerhalb einer Stufe,

@@ -685,9 +685,9 @@ function detailHTML(x, race){
       <div class="panel"><h4>Pferd nach Scheuklappen (gesamt)</h4>${prefTable(P.horse.blinkers, "Scheuklappen")}</div>
       <div class="panel"><h4>Pferd nach Trainer (gesamt)</h4>${trainerTable(P.horse.trainer)}</div>
     </div>
-    <div class="panel"><h4>Heutige Gegner · frühere Duelle (letzte ${DATA.params.duel_days} Tage)</h4>${x.duels.length
+    <div class="panel"><h4>Heutige Gegner · frühere Duelle (letzte ${DATA.params.duel_days} Tage, ±${DATA.params.duel_dist} m, ähnlicher Boden)</h4>${x.duels.length
       ? `<button class="riv-btn ${vorneCls(x.duels_sum)}" type="button" data-duel="1" data-k="${dk}" aria-expanded="${dOffen}" title="Grün: gegen mindestens die Hälfte der heutigen Gegner vorne erwartet, rot: gegen weniger">${dOffen ? "▾" : "▸"} ${duelKnopf(x.duels_sum, x.duels.length)}</button>${dOffen ? duelsHTML(x.duels, race) : ""}`
-      : `<p class="muted">Kein heutiger Gegner ist in den letzten ${DATA.params.duel_days} Tagen schon gegen ${esc(title(x.horse))} gelaufen.</p>`}</div>
+      : `<p class="muted">Kein passendes Duell mit einem heutigen Gegner (letzte ${DATA.params.duel_days} Tage, ±${DATA.params.duel_dist} m zu heute, Boden innerhalb einer Stufe).</p>`}</div>
     <div class="panel"><h4>Heutige Gegner · indirekte Duelle (letzte ${DATA.params.ind_days} Tage)</h4>${indirektHTML(x, race)}</div>
     <div class="panel"><h4>Letzte Läufe</h4>${formTable(x.form_lines, x.no, x.weight, x.rating)}</div>
   </div>`;
