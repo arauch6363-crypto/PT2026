@@ -220,7 +220,8 @@ Je Starter:
 * **Formzeilen** der letzten 7 Läufe mit Fünftel-Position 400 m vor dem Ziel, Pace-Ratio,
   Finish-Index (roh und bereinigt), ±800, Weg gegenüber dem Median des Feldes, ΔL600 A und
   ΔB200 A und der Klasse des Rennens (Kl.: Ø Valeur und Ø Gewinn je Lauf der Teilnehmer in den
-  365 Tagen davor). Je Lauf lassen sich alle Gegner aufklappen, mit Platz im nächsten Start und ob der
+  365 Tagen davor). Je Lauf lassen sich die je zwei wieder gelaufenen Gegner direkt davor und dahinter aufklappen
+  (Bilanz am Knopf über das ganze Feld), mit Platz und Klasse (€/L+, Val+) im nächsten Start und ob der
   besser oder schlechter war als der Rang ihrer Quote; der Knopf zeigt besser / (besser + schlechter).
 * **Heutige Gegner · frühere Duelle**: Rennen, in denen das Pferd schon auf heutige Gegner traf – Platz
   beider, Abstand, Gewichte damals und die Verschiebung des Gewichtsunterschieds bis heute. Eingeschränkt wie die
@@ -232,7 +233,8 @@ Je Starter:
   australisch), rechts nur die cote probable der PMU-Prognose. Aktuelle Kurse (Morgen-/Totokurs) enthält die Karte nicht, auch nicht im DATA-Block. RTR, ΔL600 A und ΔB200 A nur hier.
 * **Rennverlauf** je Formzeile (`verlauf`, `verlauf_pferd`, `verlauf_plus`): Ø frühe Position der ersten drei gegen das Feld,
   verglichen mit der Norm der Bahn/Distanz (Vorne-/Hinten-Rennen = extremste 25 %, ab 8 Startern). „gegen V.“ beim Platz,
-  wenn das Pferd gegen den Verlauf lief und trotzdem vorne landete (Backtest: A/E Sieg 1,17, Platz 1,13).
+  wenn das Pferd gegen den Verlauf lief und trotzdem vorne landete (grün; Backtest: A/E Sieg 1,17, Platz 1,13);
+  grau umrandet „gegen V.“ ohne vordere Platzierung und „mit V.“ – im Backtest ohne Effekt, nur zur Einordnung.
 * **Formzeilen** zusätzlich mit Valeur, Scheuklappen-Symbol und Endquote; ARR, TR und Klasse (Val, €/L) farbig im
   Vergleich zu allen früheren Läufen der heutigen Starter, ±800 und Weg m bei auffälligen Werten farbig.
 * **Übersicht**: Karriere mit €/Lauf neben der Musique; Rating mit letzter Sieg- bzw. Platzmarke im Handicap;

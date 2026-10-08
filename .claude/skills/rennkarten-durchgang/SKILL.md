@@ -418,7 +418,7 @@ Für jede verbliebene Zeile:
   schnell angegangen). Von hinten in einem langsamen Rennen oder vorne
   durchgehalten in einem schnellen wird aufgewertet; der Gegenfall (vorne
   im Bummelrennen, hinten im Hetzrennen) nach unten relativiert.
-- **Rennverlauf** (`verlauf`, `verlauf_pferd`, in der Karte „gegen V."):
+- **Rennverlauf** (`verlauf`, `verlauf_pferd`; Karte: grün „gegen V.", grau „gegen V."/„mit V."):
   Ist ein Pferd gegen den Verlauf gelaufen (von hinten in einem
   Vorne-Rennen oder von vorne in einem Hinten-Rennen) und trotzdem im
   vorderen Feld gelandet (`verlauf_plus`), ist das ein unterschätztes Plus,
@@ -446,10 +446,10 @@ Für jede verbliebene Zeile:
 
 ### B5 — Gegneraufwertung
 
-Über `rivals[].next` (in der Claude-Version `rivals_nah[].next`: die
-Gegner direkt davor und dahinter) und `rivals_stat` (alle wieder
-gelaufenen Gegner) prüfen, ob die damaligen Gegner
-seither ihre Form bestätigt haben. Das Urteil `verdict` ist
+Über `rivals_nah[].next` (je zwei wieder gelaufene Gegner direkt davor
+und dahinter, mit `epr_idx`/`val_idx` des nächsten Rennens) und
+`rivals_stat` (das ganze Feld) prüfen, ob die damaligen Gegner seither
+ihre Form bestätigt haben. Das Urteil `verdict` ist
 **marktrelativ**: „besser" heißt, der Gegner lief im nächsten Start
 besser als sein Quotenrang, „schlechter" schlechter, „wie erwartet"
 entsprechend. `rivals_stat` zählt das über alle wieder gelaufenen

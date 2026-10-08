@@ -564,6 +564,9 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     h["early_pct"] = ((h["early_pos"] - 1) / (h["n_runners"] - 1).where(h["n_runners"] > 1)).clip(0, 1)
     ok = h["pos_before"].notna() & (h["n_runners"] > 0)
     h["fifth"] = np.where(ok, np.ceil(h["pos_before"] / h["n_runners"].clip(lower=1) * 5).clip(1, 5), np.nan)
+    for k in (1, 2, 3):                                   # Fünftel der ersten drei im Ziel (für die Formzeile)
+        top = h[h["finish_pos"] == k].drop_duplicates("race_id").set_index("race_id")["fifth"]
+        h[f"fifth_p{k}"] = h["race_id"].map(top)
 
     # Weg: gelaufene Meter gegenüber dem Median aller Starter im Rennen (nicht gegenüber dem Sieger)
     h["weg_med"] = h["dist_vs_winner_m"] - h.groupby("race_id")["dist_vs_winner_m"].transform("median")
@@ -972,6 +975,7 @@ def _formzeile(z, gewicht_heute=None) -> dict:
         "early_pos": _num(z.get("early_pos"), 0),
         "pos_before": _num(z["pos_before"], 0), "pos_before_m": _num(z["pos_before_m"], 0),
         "fifth": _num(z["fifth"], 0), "pace_ratio": _num(z["pace_ratio"], 1),
+        "top3_fifth": [_num(z.get(f"fifth_p{k}"), 0) for k in (1, 2, 3)],   # Fünftel des 1., 2., 3. im Ziel
         "finish_index": _num(z["finish_index"], 1), "fi_adj": _num(z.get("fi_adj"), 1),
         "weg_med": _num(z.get("weg_med"), 1), "pos_gain": _num(z["pos_gain_800_finish"], 0),
         "l600": _num(z["speed_last600_kmh"], 2), "b200": _num(z.get("best200_kmh"), 2),
@@ -1128,7 +1132,8 @@ def _gegner(z, h_rennen: dict, h_pferde: dict, heute: pd.Timestamp) -> list[dict
             nxt = {"date": n["date"].strftime("%Y-%m-%d"), "course": _txt(n["hippodrome"]),
                    "dist": _num(n["distance_m"], 0), "pos": _num(n["finish_pos"], 0),
                    "ran": _num(n["n_runners"], 0), "odds_rank": _num(n["odds_rank"], 0),
-                   "odds": _num(n["odds_final"], 1), "verdict": urteil}
+                   "odds": _num(n["odds_final"], 1), "verdict": urteil,
+                   "cls_epr": _num(n.get("cls_epr"), 0), "cls_val": _num(n.get("cls_val"), 1)}
         out.append({
             "horse": _txt(g["horse"]), "pos": _num(g["finish_pos"], 0), "odds": _num(g["odds_final"], 1),
             "weight": _num(g["weight_kg"], 1),
@@ -1136,6 +1141,22 @@ def _gegner(z, h_rennen: dict, h_pferde: dict, heute: pd.Timestamp) -> list[dict
             "next": nxt, "more": int(len(spaeter) - 1) if nxt else 0,
         })
     return out
+
+
+GEGNER_ZEIGEN = 2               # je Formzeile gezeigt: so viele wieder gelaufene Gegner direkt davor und dahinter
+
+
+def gegner_auswahl(liste: list[dict] | None, pos) -> list[dict] | None:
+    """Für die Anzeige: die GEGNER_ZEIGEN Gegner direkt vor und hinter dem Pferd, die seitdem wieder gelaufen sind
+    (die Bilanz rivals_stat zählt weiter über das ganze Feld)."""
+    if liste is None:
+        return None
+    wieder = [g for g in liste if g.get("next")]
+    if pos is None or (isinstance(pos, float) and np.isnan(pos)):
+        return wieder[:2 * GEGNER_ZEIGEN]
+    vor = [g for g in wieder if g.get("pos") is not None and g["pos"] < pos][-GEGNER_ZEIGEN:]
+    nach = [g for g in wieder if g.get("pos") is None or g["pos"] >= pos][:GEGNER_ZEIGEN]
+    return vor + nach
 
 
 def _gegner_bilanz(liste: list[dict] | None) -> dict | None:
@@ -1544,7 +1565,11 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 if extra and z["race_id"] not in h_rennen:         # ältere Läufe: Feld und Gegner nachladen
                     _feld_nachladen(z["race_id"], h, h_rennen, h_pferde)
                 f["rivals"] = _gegner(z, h_rennen, h_pferde, heute) if n < GEGNER_LAEUFE or extra else None
-                f["rivals_stat"] = _gegner_bilanz(f["rivals"])
+                f["rivals_stat"] = _gegner_bilanz(f["rivals"])     # Bilanz über das ganze Feld
+                f["rivals"] = gegner_auswahl(f["rivals"], f["pos"])  # gezeigt: je 2 wieder gelaufene davor/dahinter
+                for g_ in f["rivals"] or []:                         # Klasse des nächsten Starts als Index
+                    nx = g_["next"]
+                    nx["epr_idx"], nx["val_idx"] = index(nx.pop("cls_epr"), epr_rennen), index(nx.pop("cls_val"), val_rennen)
                 bz = (box.loc[(z["konfig"], z["draw"])] if pd.notna(z.get("draw")) and pd.notna(z.get("konfig"))
                       and (z["konfig"], z["draw"]) in box.index else None)
                 f["draw_stat"] = box_urteil(bz["mean"], bz["count"]) if bz is not None else None
