@@ -528,7 +528,7 @@ def tipp_auswertung_pruefen() -> None:
     (base / "tipps").mkdir(); (base / "racecards").mkdir()
     (base / "parquet" / "pmu_runners").mkdir(parents=True)
     block = {"tipps": [{"race_id": "20261007R4C1", "no": 1, "p": 0.5, "stufe": "0", "mq": 2.5, "angles": ["ratings"]},
-                       {"race_id": "20261007R4C1", "no": 2, "p": 0.3, "stufe": "++", "mq": 4.0, "angles": ["klasse", "duell"]},
+                       {"race_id": "20261007R4C1", "no": 2, "p": 0.3, "stufe": "++", "mq": 4.0, "angles": ["klasse", "duell"], "fk": 6.0, "value": None},
                        {"race_id": "20261007R4C1", "no": 3, "p": 0.2, "stufe": "−", "mq": None, "angles": ["pause"]}]}
     (base / "tipps" / "neu.md").write_text("Text\n```json\n" + _json.dumps(block) + "\n```\n", encoding="utf-8")
     alt = ("# Renntag 07.10.2026 – Réunion 4 – TEST\n\n## Rennen 2 – X\n\n| Pferd | a | b | c | d | e | f |\n"
@@ -550,8 +550,12 @@ def tipp_auswertung_pruefen() -> None:
     w = erg["wetten"].set_index("wetten")
     pruefe(len(p) == 5 and set(p["quelle"]) == {"block", "tabelle"} and st.loc["++", "siege"] == 1
            and st.loc["+", "n"] == 1 and {"klasse", "duell"} <= set(erg["angle"]["angle"])
-           and w.iloc[0]["n"] == 2 and abs(w.iloc[0]["ergebnis"] - 3.0) < 1e-9,
-           "Tipp-Auswertung: Protokoll-Block und alte Tabelle gelesen, Stufen, Angle-Typen und Wett-Ergebnis stimmen")
+           and w.iloc[0]["n"] == 2 and abs(w.iloc[0]["ergebnis"] - 3.0) < 1e-9
+           and w.loc["Festkurs ≥ Mindestquote (zum Festkurs)", "ergebnis"] == 5.0
+           and w.loc["Festkurs mit value > 0 (zum Festkurs)", "n"] == 1
+           and abs(p.loc[p["no"] == 2, "value"].iloc[0] - (0.3 * 6.0 - 1)) < 1e-9,
+           "Tipp-Auswertung: Protokoll-Block und alte Tabelle gelesen, Stufen, Angle-Typen und Wett-Ergebnis stimmen; "
+           "nachgetragener Festkurs (fk) wird zum Festkurs gewertet, value = p × fk − 1")
 
 
 def regel_backtest_pruefen() -> None:

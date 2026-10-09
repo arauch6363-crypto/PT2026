@@ -121,7 +121,9 @@ Verbindet die Tipps mit Einlauf und Endquote (`pmu_runners`), Sieg-Dividende (`p
 (`racecards/racecard_JJJJMMTT_claude.json`); das Ergebnis eines Renntags liegt ab dem Folgetag vor. Laufendes Protokoll
 `auswertung/tipps_protokoll.parquet` (+ .csv). Bericht: Log-Loss/Brier Claude gegen Prognose, Siege/Plätze gegen die
 Erwartung je Stufe, je Angle-Typ (Kandidat/Abwertung), je Prognose-Rang und Rennart, Wett-Ergebnis der Kandidaten
-(alle bzw. nur bei Endquote ≥ Mindestquote). Skill-Änderungen erst, wenn ein Muster über rund 100 Kandidaten hält
+(alle bzw. nur bei Endquote ≥ Mindestquote). Je Tipp stehen `fk` (genommener Festkurs) und `value` (= p × fk − 1)
+zunächst auf `null`; nach der Analyse in der Tipp-Datei nachgetragen, wertet der Bericht die Kandidaten zusätzlich zum
+Festkurs (Festkurs ≥ Mindestquote bzw. value > 0). Skill-Änderungen erst, wenn ein Muster über rund 100 Kandidaten hält
 oder der Regel-Backtest es bestätigt.
 
 ## Hypothesen-Backtest

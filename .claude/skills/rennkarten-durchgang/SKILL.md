@@ -951,10 +951,12 @@ ein ```json-Block mit **allen Startern** aller durchgegangenen Rennen:
 ```json
 {"tipps": [{"race_id": "20261007R4C8", "no": 6, "p": 0.26, "stufe": "++",
   "mq": 5.0, "sicherheit": "mittel", "eingepreist": "nein",
-  "angles": ["duell", "bilanz", "trainer"]}]}
+  "angles": ["duell", "bilanz", "trainer"], "fk": null, "value": null}]}
 ```
 
 `p` = eigene Siegchance (Mitte), `mq` = Mindestquote oder `null`,
+`fk` (Festkurs) und `value` (= p × fk − 1) bei jedem Starter immer
+`null` – sie werden später nachgetragen,
 `eingepreist`/`sicherheit` nur bei +/++. `angles` = Kürzel der tragenden
 Argumente (auch für − die Gegenargumente): `klasse`, `ratings`, `duell`,
 `bilanz`, `abstammung`, `exposure`, `marke`, `trainer`, `jockey`, `tempo`,
