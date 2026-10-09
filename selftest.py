@@ -502,6 +502,21 @@ def hypothesen_pruefen() -> None:
     pruefe(abs(k.loc["ln p_mkt (Markt)", "koef"] - 1) < 0.1 and abs(k.loc["x", "koef"] - 0.5) < 0.12
            and np.isnan(k.loc["selten", "koef"]) and k.loc["selten", "n_aktiv"] == 5,
            "Bedingtes Logit findet Markt- und Zusatzeffekt; zu seltene Merkmale werden nicht geschätzt")
+    T = pd.Timestamp("2026-09-01")
+    rennen_ = [("P1", 30, [("A", 1, None), ("B", 2, 2.0), ("F1", 3, 4.0), ("F2", 4, 6.0)]),
+               ("P2", 20, [("B", 1, None), ("C", 2, 1.0), ("F3", 3, 3.0), ("F4", 4, 5.0)]),
+               ("HEUTE", 0, [("A", None, None), ("B", None, None), ("C", None, None)])]
+    hd = pd.DataFrame([{"race_id": rid_, "date": T - pd.Timedelta(days=t_), "horse_id": hn, "horse": hn, "saddle_no": i + 1,
+                        "weight_kg": 57.0, "distance_m": 1600, "going": "Bon", "going_pmu": "FAST", "finish_pos": pos,
+                        "lengths_behind": lb, "n_runners": len(feld), "hippodrome": "X", "racetype": "Handicap",
+                        "rel_place": (len(feld) - pos) / (len(feld) - 1) if pos else np.nan}
+                       for rid_, t_, feld in rennen_ for i, (hn, pos, lb) in enumerate(feld)])
+    dm = hb.duell_merkmale(hd, hd["race_id"] == "HEUTE", log_alle=0)
+    dh = dm.join(hd["horse"]).dropna(subset=["duel_rank"]).set_index("horse")
+    pruefe(list(dh.sort_values("duel_rank").index) == ["A", "B", "C"] and (dh["duel_of"] == 3).all()
+           and abs(dh.loc["A", "duel_score"] - dh.loc["B", "duel_score"] - 2.0) < 0.15,
+           "H6: Duell-Rangfolge im Backtest aus früheren Läufen nachgerechnet (A schlägt B 2 L, B schlägt C 1 L, "
+           "A–C indirekt über B -> A, B, C)")
     pruefe(bool(hb.PECH.search("A été enfermé dans la ligne droite")) and bool(hb.PECH.search("a manqué de place"))
            and not hb.PECH.search("a fini fort"), "Pech im Kommentar erkannt (enfermé, manqué de place)")
 
