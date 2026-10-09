@@ -512,6 +512,11 @@ Gegner (`ran`).
   Unsicherheit — auch bei einem Favoriten.
 - **Bodenbilanz** aus `pref.horse.going`, bei angenommenem Boden mit der
   Nachbargruppe (A2).
+- Bevor eine Distanz- oder Bodenbilanz als Fragezeichen zählt, die Läufe
+  darin ansehen: Liefen sie unter anderen ungünstigen Bedingungen
+  (falscher Boden, stärkeres Rennen, ausgeritten), sagen sie über die
+  Distanz nichts. Maßgeblich ist dann der letzte Lauf mit passender
+  Distanz und passendem Boden (`same` mit D und B).
 - **Bahnbilanz** aus `pref.horse.course`. Ein einziger Lauf auf der Bahn
   ist eine Andeutung, keine Bilanz.
 - **Die Bilanzzeilen tragen ein A/E** (`ae`, Plätze gegen die aus den
