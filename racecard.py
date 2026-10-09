@@ -73,6 +73,11 @@ HARVILLE_L2, HARVILLE_L3 = 0.8, 0.65   # Stauchung p^λ für Platz 2 und 3 (Lo /
 POP_MIN_LAEUFE = 5              # Population für €/L+: nur Personen/Linien mit so vielen Läufen
 POP_MIN_PFERDE = 3              # Population für max Val+: nur Linien mit so vielen 3-jährigen Nachkommen
 KLASSE_TAGE = 365               # Klasse: Ø Gewinnsumme je Lauf der Teilnehmer in so vielen Tagen davor
+# Rennstärke €/L+: eigenes €/L nur für Pferde, deren erster Start so viele Tage zurückliegt; sonst gewichtetes €/L
+# der Verbindungen (je KLASSE_TAGE davor, ab KLASSE_VERB_MIN Läufen). Gemittelt wird log(1 + €/L).
+KLASSE_ERFAHREN_TAGE = 365
+KLASSE_VERBINDUNG = {"trainer": 0.5, "owner": 0.3, "breeder": 0.2}
+KLASSE_VERB_MIN = 5
 INDIREKT_TAGE = 120             # indirekte Duelle: Vergleichsrennen höchstens so alt (für beide Seiten)
 INDIREKT_DIST_M = 200           # … Distanz höchstens so weit auseinander
 INDIREKT_REL_MIN = 0.5          # … alle drei Pferde in der vorderen Hälfte: rel. Platzierung > 0,5
@@ -435,6 +440,73 @@ def gewinn_vorher(h: pd.DataFrame, tage: int = KLASSE_TAGE) -> pd.DataFrame:
     return h
 
 
+def epr_vorher(h: pd.DataFrame, schluessel: str, tage: int = KLASSE_TAGE) -> tuple[np.ndarray, np.ndarray]:
+    """Je Lauf: Läufe und Gewinn je Lauf der Gruppe `schluessel` (Trainer, Besitzer …) in den `tage` Tagen
+    vor dem Renntag (ohne den Renntag selbst)."""
+    runs, epr = np.full(len(h), np.nan), np.full(len(h), np.nan)
+    if h.empty or schluessel not in h:
+        return runs, epr
+    x = h[[schluessel, "date", "prize_won"]].copy()
+    x["_i"] = np.arange(len(x))
+    x = x[x[schluessel].notna()].sort_values([schluessel, "date"], kind="stable")
+    if x.empty:
+        return runs, epr
+    roll = x.set_index("date").groupby(schluessel, sort=False)["prize_won"].rolling(f"{tage}D", closed="left")
+    summe, anzahl = np.nan_to_num(roll.sum().to_numpy()), np.nan_to_num(roll.count().to_numpy())
+    i = x["_i"].to_numpy()
+    runs[i] = anzahl
+    epr[i] = np.where(anzahl > 0, summe / np.maximum(anzahl, 1), np.nan)
+    return runs, epr
+
+
+def verbindung_log(runs: dict, epr: dict) -> np.ndarray:
+    """Gewichtetes log(1 + €/L) aus Trainer, Besitzer, Züchter (KLASSE_VERBINDUNG); wer weniger als KLASSE_VERB_MIN
+    Läufe hat, fällt weg, die übrigen Gewichte werden hochgerechnet."""
+    summe = gewicht = 0.0
+    for rolle, g in KLASSE_VERBINDUNG.items():
+        r_, e_ = np.asarray(runs[rolle], dtype=float), np.asarray(epr[rolle], dtype=float)
+        ok = (r_ >= KLASSE_VERB_MIN) & ~np.isnan(e_)
+        summe = summe + np.where(ok, g * np.log1p(np.where(ok, e_, 0.0)), 0.0)
+        gewicht = gewicht + np.where(ok, g, 0.0)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return np.where(gewicht > 0, summe / np.where(gewicht > 0, gewicht, 1.0), np.nan)
+
+
+def ist_erfahren(datum, erster_start, beginn, alter) -> np.ndarray:
+    """Erster Start mindestens KLASSE_ERFAHREN_TAGE vor dem Rennen. Reicht die Historie dafür nicht zurück
+    (Rennen im ersten Jahr der Sammlung), zählt ersatzweise das Alter: ab 4 Jahren erfahren."""
+    tage = KLASSE_ERFAHREN_TAGE
+    datum, erster_start = pd.to_datetime(pd.Series(datum)), pd.to_datetime(pd.Series(erster_start))
+    alter = pd.to_numeric(pd.Series(alter), errors="coerce").to_numpy()
+    lang = ((datum - erster_start).dt.days >= tage).to_numpy()
+    unbekannt = ((datum - pd.Timestamp(beginn)).dt.days < tage).to_numpy()
+    return lang | (unbekannt & (alter >= 4))
+
+
+def klassen_wert(h: pd.DataFrame) -> pd.DataFrame:
+    """Je Lauf der Beitrag des Pferdes zur Rennstärke, als log(1 + €/L): das eigene €/L der KLASSE_TAGE davor,
+    wenn der erste Start mindestens ein Jahr zurückliegt; sonst (oder ohne Lauf in dieser Zeit) das gewichtete
+    €/L von Trainer 50 %, Besitzer 30 % und Züchter 20 % -> epr_kl, epr_eigen."""
+    h = h.copy()
+    if h.empty:
+        h["epr_kl"], h["epr_eigen"] = np.nan, False
+        return h
+    erfahren = ist_erfahren(h["date"], h.groupby("horse_id")["date"].transform("min"), h["date"].min(), h["age"])
+    runs, epr = {}, {}
+    for rolle in KLASSE_VERBINDUNG:
+        runs[rolle], epr[rolle] = epr_vorher(h, rolle + "_key")
+    eigen = np.log1p(h["epr_prev"].to_numpy(dtype=float))
+    h["epr_eigen"] = erfahren & ~np.isnan(eigen)
+    h["epr_kl"] = np.where(h["epr_eigen"], eigen, verbindung_log(runs, epr))
+    return h
+
+
+def epr_aus_log(werte) -> float | None:
+    """Ø von log(1 + €/L) zurück in Euro (geometrisches Mittel von 1 + €/L, minus 1)."""
+    w = pd.to_numeric(pd.Series(werte, dtype=float), errors="coerce").dropna()
+    return float(np.expm1(w.mean())) if len(w) else None
+
+
 # --------------------------------------------------------------------------
 # Historie vorbereiten
 # --------------------------------------------------------------------------
@@ -501,9 +573,10 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     h["age_grp"] = h["age"].map(alter_gruppe)
     h["valeur"] = pd.to_numeric(h["rating"], errors="coerce") if "rating" in h else np.nan
     # Klasse des Rennens: Ø Valeur der Teilnehmer und Ø ihres Gewinns je Lauf in den KLASSE_TAGE davor
-    h = gewinn_vorher(h)
+    # (log-gemittelt; Pferde unter einem Jahr seit dem ersten Start mit dem €/L ihrer Verbindungen)
+    h = klassen_wert(gewinn_vorher(h))
     h["cls_val"] = h.groupby("race_id")["valeur"].transform("mean")
-    h["cls_epr"] = h.groupby("race_id")["epr_prev"].transform("mean")
+    h["cls_epr"] = np.expm1(h.groupby("race_id")["epr_kl"].transform("mean")).round(0)
     fav = h.groupby("race_id")["odds_final"].transform("min")
     h["odds_rank"] = h.groupby("race_id")["odds_final"].rank(method="min")   # Rang der Eventualquote
     h["favourite"] = (h["odds_final"] == fav) & h["odds_final"].notna()
@@ -1459,8 +1532,13 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     rennen_kl = h.drop_duplicates("race_id") if len(h) else h
     kl_vert = {c: np.sort(pd.to_numeric(rennen_kl[c], errors="coerce").dropna().to_numpy())
                if c in rennen_kl else np.array([]) for c in ("cls_val", "cls_epr")}
-    # Rennstärke: Ø (über alle früheren Rennen) des Ø-Gewinns je Lauf der Teilnehmer in den KLASSE_TAGE davor
-    epr_rennen = float(kl_vert["cls_epr"].mean()) if len(kl_vert["cls_epr"]) else None
+    # Rennstärke: Ø (über alle früheren Rennen, log-gemittelt) des Ø-Gewinns je Lauf der Teilnehmer
+    epr_rennen = epr_aus_log(np.log1p(kl_vert["cls_epr"]))
+    # Klasse heute: €/L der Verbindungen in den KLASSE_TAGE davor, erster Start je Pferd, Beginn der Historie
+    h_kl = h[h["date"] >= heute - timedelta(days=KLASSE_TAGE)]
+    verb_epr = {rolle: h_kl.groupby(rolle + "_key")["prize_won"].agg(["count", "mean"]) if rolle + "_key" in h_kl
+                else pd.DataFrame(columns=["count", "mean"]) for rolle in KLASSE_VERBINDUNG}
+    beginn = h["date"].min() if len(h) else heute
     val_rennen = float(kl_vert["cls_val"].mean()) if len(kl_vert["cls_val"]) else None
     pop["rennen_epr"], pop["rennen_val"] = epr_rennen, val_rennen
 
@@ -1535,19 +1613,33 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             treffen = treffen[np.array([_boden_nah(b, gb) for b in treffen["going_pmu"]], dtype=bool)]
         duell_rennen = {k: g for k, g in treffen.groupby("race_id") if g["horse_id"].nunique() >= 2}
         indirekt = _indirekte_duelle(ind_basis, heute_gew, r.get("going"), r.get("distance_m"))
-        # Klasse des heutigen Rennens: Ø Valeur und Ø Gewinn je Lauf (KLASSE_TAGE) der Starter
-        epr_heute = []
-        for hid_ in heute_gew:
-            v_ = per_pferd.get(hid_)
-            if v_ is not None:
+        # Klasse des heutigen Rennens: Ø Valeur und Ø Gewinn je Lauf (KLASSE_TAGE) der Starter wie klassen_wert
+        epr_heute, epr_eigen = [], 0
+        for _, z in feld_heute[~nr_heute].iterrows():
+            v_ = per_pferd.get(z["horse_id"])
+            eigen = None
+            if v_ is not None and len(v_) and ist_erfahren([heute], [v_["date"].min()], beginn, [z.get("age")])[0]:
                 v_ = v_[v_["date"] >= heute - timedelta(days=KLASSE_TAGE)]
                 if len(v_):
-                    epr_heute.append(float(v_["prize_won"].sum()) / len(v_))
+                    eigen = float(np.log1p(float(v_["prize_won"].sum()) / len(v_)))
+            if eigen is not None:
+                epr_heute.append(eigen)
+                epr_eigen += 1
+                continue
+            runs_, epr_ = {}, {}
+            for rolle, tab in verb_epr.items():
+                k_ = z.get(rolle + "_key")
+                ok_ = pd.notna(k_) and k_ in tab.index
+                runs_[rolle], epr_[rolle] = (tab.loc[k_, "count"], tab.loc[k_, "mean"]) if ok_ else (0, np.nan)
+            w_ = float(verbindung_log(runs_, epr_))
+            if not np.isnan(w_):
+                epr_heute.append(w_)
         val_heute = pd.to_numeric(feld_heute.loc[~nr_heute, "rating"], errors="coerce").dropna() \
             if "rating" in feld_heute else pd.Series(dtype=float)
+        epr_k = epr_aus_log(epr_heute)
         klasse = {"val": _num(val_heute.mean(), 1) if len(val_heute) else None, "val_n": int(len(val_heute)),
-                  "epr": _num(float(np.mean(epr_heute)), 0) if epr_heute else None, "epr_n": len(epr_heute),
-                  "n": len(heute_gew)}
+                  "epr": _num(epr_k, 0) if epr_k is not None else None, "epr_n": len(epr_heute),
+                  "epr_own": epr_eigen, "n": len(heute_gew)}
         klasse["val_pct"] = _perzentil(kl_vert["cls_val"], klasse["val"])
         klasse["epr_pct"] = _perzentil(kl_vert["cls_epr"], klasse["epr"])
         klasse["epr_idx"] = index(klasse["epr"], epr_rennen)
