@@ -2,7 +2,8 @@
 
 Eingang (alles in <BASE>):
 * `tipps/*.md` (oder .json/.txt): die Ausgabe von Claude je Renntag. Gelesen wird der Protokoll-Block
-  (```json {"tipps": [...]}``` mit race_id, no, p, stufe, mq, sicherheit, eingepreist, angles, siehe Skill C2).
+  (```json {"tipps": [...]}``` mit race_id, no, p, stufe, mq, sicherheit, eingepreist, angles, fk, value, siehe Skill C2;
+  fk = Festkurs und value = p × fk − 1 werden nach der Analyse nachgetragen).
   Ältere Dateien ohne Block: Ersatz aus den Markdown-Tabellen („## Rennen N“, Zeilen „| #Nr Name | … |“).
 * `racecards/racecard_JJJJMMTT_claude.json`: Prognose-Chance p_prog und Prognose-Rang je Starter.
 * `parquet/pmu_runners/JJJJMMTT.parquet`: Einlauf und Endquote; `parquet/pmu_dividends/…`: Sieg-Dividende.
@@ -82,6 +83,10 @@ def tipps_aus_text(text: str) -> pd.DataFrame:
     df["p"] = pd.to_numeric(df["p"], errors="coerce")
     df["p"] = np.where(df["p"] > 1, df["p"] / 100, df["p"])           # 26 statt 0,26
     df["mq"] = pd.to_numeric(df.get("mq"), errors="coerce")
+    # Festkurs (fk) und value (= p × fk − 1) werden nachgetragen; fehlt value, wird es aus fk gerechnet
+    df["fk"] = pd.to_numeric(df["fk"], errors="coerce") if "fk" in df else np.nan
+    df["value"] = pd.to_numeric(df["value"], errors="coerce") if "value" in df else np.nan
+    df["value"] = df["value"].fillna(df["p"] * df["fk"] - 1)
     df["stufe"] = df["stufe"].map(_stufe)
     return df
 
@@ -203,7 +208,8 @@ def treffsicherheit(p: pd.DataFrame) -> pd.DataFrame:
 
 
 def wetten(p: pd.DataFrame) -> pd.DataFrame:
-    """Kandidaten (+/++) zur Mindestquote: gewettet, wenn die Endquote sie erreicht (Sieg = Toto-Dividende, sonst Endquote)."""
+    """Kandidaten (+/++) zur Mindestquote: gewettet, wenn die Endquote sie erreicht (Sieg = Toto-Dividende, sonst Endquote).
+    Mit nachgetragenem Festkurs (fk) zusätzlich: gewettet zum Festkurs, wenn er die Mindestquote erreicht."""
     k = p[p["stufe"].isin(KANDIDAT) & p["mq"].notna()].copy()
     if k.empty:
         return pd.DataFrame()
@@ -216,6 +222,13 @@ def wetten(p: pd.DataFrame) -> pd.DataFrame:
         gewinn = (g["W"] * g["quote"]).sum() - len(g)
         z.append({"wetten": name, "n": len(g), "siege": int(g["W"].sum()), "einsatz": len(g),
                   "ergebnis": round(float(gewinn), 2), "roi": round(float(gewinn / len(g)), 2) if len(g) else np.nan})
+    if "fk" in k and k["fk"].notna().any():
+        for name, m in [("Festkurs ≥ Mindestquote (zum Festkurs)", k["fk"] >= k["mq"]),
+                        ("Festkurs mit value > 0 (zum Festkurs)", k["value"] > 0)]:
+            g = k[m & k["fk"].notna()]
+            gewinn = (g["W"] * g["fk"]).sum() - len(g)
+            z.append({"wetten": name, "n": len(g), "siege": int(g["W"].sum()), "einsatz": len(g),
+                      "ergebnis": round(float(gewinn), 2), "roi": round(float(gewinn / len(g)), 2) if len(g) else np.nan})
     return pd.DataFrame(z)
 
 
