@@ -83,7 +83,10 @@ button,select{font:inherit;color:inherit}
 .badge.bf{background:var(--bad-soft)}
 .line2{font-size:12.5px;color:var(--ink-2);display:flex;flex-wrap:wrap;gap:2px 14px}
 .line2 em{font-style:normal;color:var(--ink-3)}
-.facts{display:grid;grid-template-columns:repeat(3,minmax(38px,auto)) repeat(5,minmax(46px,auto)) auto;gap:2px 12px;text-align:right;align-items:start}
+/* feste Spalten, damit die Kacheln bei allen Pferden untereinander stehen: Gew., Rating, Tage, RTR, ARR, TR, Duell,
+   ΔL600, ΔB200, Prognose (immer ganz rechts) */
+.facts{display:grid;grid-template-columns:42px 84px 38px 70px 70px 56px 50px 62px 62px 86px;gap:2px 12px;text-align:right;align-items:start}
+.facts > .oddsbox{grid-column:-2/-1;grid-row:1/span 2}
 .fact i{display:block;font-style:normal;font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
 .fact span{font:500 14px var(--f-mono);font-variant-numeric:tabular-nums}
 .fact .odds{font-weight:500;color:var(--accent)}
@@ -241,13 +244,15 @@ td.num,.adj,.ae{white-space:nowrap}
   .row{grid-template-columns:40px 34px minmax(0,1fr)}
   .facts{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));text-align:left}
   .metric{justify-items:start}
-  .oddsbox{grid-column:1/-1;grid-auto-flow:column;justify-content:space-between}
+  .oddsbox,.facts > .oddsbox{grid-column:1/-1;grid-row:auto;grid-auto-flow:column;justify-content:space-between}
   .panels.two,.panels.three,.panels.four{grid-template-columns:minmax(0,1fr)}
   .detail{padding-left:14px}
   .panels,.pref,.panels.one .pref{grid-template-columns:minmax(0,1fr)}
   .race-time{font-size:34px}.race-title{font-size:21px}
 }
 @media (max-width:1050px) and (min-width:761px){ .panels.one .pref{grid-template-columns:repeat(2,minmax(0,1fr))} }
+/* mittlere Breite: Kacheln unter Name/Jockey, damit die Namensspalte nicht zusammengedrückt wird */
+@media (max-width:1250px) and (min-width:761px){ .facts{grid-column:1/-1;justify-content:end} }
 @media (prefers-reduced-motion:no-preference){ .row{transition:background .12s} }
 </style>
 
