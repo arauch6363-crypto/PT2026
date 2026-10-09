@@ -561,7 +561,7 @@ def regel_backtest_pruefen() -> None:
                                    finish_pos=pos[i], odds_final=odds[i], starts=5, distance_m=1600, going_pmu="FAST",
                                    trainer_key="T", blinkers="SANS_OEILLERES", sex=sex[i], early_pct=rng.random(),
                                    n_runners=n, pace_ratio=100.0, weg_med=0.0, pos_gain_800_finish=0, d_L600_A=0.0,
-                                   cls_epr=1000.0, tr=80.0, arr=40.0, rtr=30.0, konfig=f"K{c}|1600", draw=i + 1,
+                                   cls_epr_kl=1000.0, tr=80.0, arr=40.0, rtr=30.0, konfig=f"K{c}|1600", draw=i + 1,
                                    rel_place=(n - pos[i]) / (n - 1), course_key="BAHN", dist_bucket="mile",
                                    sire_key="S", age=4, valeur=30.0, racetype=typ, exp_place=0.3))
     h = pd.DataFrame(zeilen)
@@ -728,11 +728,16 @@ def racecard_pruefen() -> None:
            and x["career"]["d365"]["runs"] == 2,
            "Karriere aus der Datenbank: 2-1-2, Preisgeld 27000 × 50 % + 15000 × 19 % = 16350, je Lauf 8175")
     hx_a = hist[(hist["race_id"] == rid(10, 1)) & (hist["horse"] == "X")].iloc[0]
-    pruefe(hx_a["cls_epr"] == (2850 + 7500) / 2 and np.isnan(hist.loc[hist["race_id"] == rid(100, 1), "cls_epr"]).all(),
-           "Klasse früherer Rennen: Ø Gewinn je Lauf der Teilnehmer in den 365 Tagen davor (X 2850, Y 7500)")
+    geo = lambda *w: float(np.expm1(np.mean(np.log1p(w))))
+    pruefe(hx_a["cls_epr"] == (2850 + 7500) / 2 and np.isnan(hist.loc[hist["race_id"] == rid(100, 1), "cls_epr"]).all()
+           and hx_a["cls_epr_kl"] == round(geo(2850, 7500)) and bool(hx_a["epr_eigen"])
+           and np.isnan(hist.loc[hist["race_id"] == rid(100, 1), "cls_epr_kl"]).all(),
+           "Klasse früherer Rennen: angezeigt Ø Gewinn je Lauf der Teilnehmer (365 Tage davor, X 2850, Y 7500); "
+           "Basis für €/L+ log-gemittelt (4623), Historie unter einem Jahr: 4-Jährige zählen als erfahren")
     kl = d["races"][f"{tag:%Y%m%d}R1C1"]["class"]
-    pruefe(kl["epr"] == round((8175 + (7500 + 5130) / 2) / 2) and kl["epr_n"] == 2,
-           "Klasse heute: Ø Gewinn je Lauf (365 Tage) der Starter = (8175 + 6315) / 2")
+    pruefe(kl["epr"] == round((8175 + (7500 + 5130) / 2) / 2) and kl["epr_n"] == 2
+           and kl["epr_base"] == round(geo(8175, (7500 + 5130) / 2)) and kl["epr_own"] == 2,
+           "Klasse heute: angezeigt Ø Gewinn je Lauf (365 Tage) der Starter = (8175 + 6315) / 2, Basis €/L+ log-Ø 7185")
     ped = x["ae"]["pedigree"]
     pruefe(ped["dam_sire"]["runs"] == 2 and ped["dam_sire"]["wins"] == 1 and ped["cross"]["runs"] == 2
            and ped["sire"]["runs"] == 5 and y["ae"]["pedigree"]["dam_sire"]["runs"] == 0 and "sire" not in x["ae"],
@@ -750,6 +755,27 @@ def racecard_pruefen() -> None:
            "Gewinn je Lauf im Vergleich zum Feld: Rang und Verhältnis zum Median")
     pruefe(f["cls_epr_pct"] == 100 and kl["epr_pct"] == 100,
            "Klasse eingeordnet als Perzentil aller früheren Rennen")
+    ts_ = pd.Timestamp
+    kz = pd.DataFrame(
+        [{"horse_id": "A", "date": ts_("2025-01-01"), "prize_won": 0.0, "trainer_key": "T2", "owner_key": "O2"},
+         {"horse_id": "A", "date": ts_("2026-03-01"), "prize_won": 500.0, "trainer_key": "T2", "owner_key": "O2"},
+         {"horse_id": "A", "date": ts_("2026-09-01"), "prize_won": 0.0, "trainer_key": "T2", "owner_key": "O2"}]
+        + [{"horse_id": f"H{i}", "date": ts_(f"2026-06-0{i}"), "prize_won": [0, 0, 0, 1200, 1200, 1200][i - 1],
+            "trainer_key": "T", "owner_key": "O" if i < 6 else "O3"} for i in range(1, 7)]
+        + [{"horse_id": "N", "date": ts_(d_), "prize_won": 0.0, "trainer_key": "T", "owner_key": "O"}
+           for d_ in ("2026-08-01", "2026-09-01")]
+        + [{"horse_id": "L", "date": ts_(d_), "prize_won": p_, "trainer_key": "TL", "owner_key": "OL"}
+           for d_, p_ in (("2024-12-01", 900.0), ("2025-01-02", 300.0), ("2026-09-01", 0.0))]).assign(breeder_key=None, age=3)
+    kz = rc.klassen_wert(rc.gewinn_vorher(kz))
+    an = kz[kz["date"] == ts_("2026-09-01")].set_index("horse_id")
+    soll_n = (0.5 * np.log1p(3600 / 7) + 0.3 * np.log1p(2400 / 6)) / 0.8
+    pruefe(bool(an.loc["A", "epr_eigen"]) and abs(an.loc["A", "epr_kl"] - np.log1p(500)) < 1e-9
+           and not an.loc["N", "epr_eigen"] and abs(an.loc["N", "epr_kl"] - soll_n) < 1e-9
+           and bool(an.loc["L", "epr_eigen"]) and abs(an.loc["L", "epr_kl"] - np.log1p(600)) < 1e-9
+           and (kz.loc[(kz["horse_id"] == "A") & (kz["date"] == ts_("2026-03-01")), "epr_kl"] == 0).all(),
+           "Basis €/L+ je Pferd: ab einem Jahr seit dem ersten Start immer das eigene €/L (log; ohne Lauf im letzten "
+           "Jahr über alle früheren Läufe), davor Trainer 50 % / Besitzer 30 % (Züchter fehlt -> hochgerechnet), "
+           "Verbindungen erst ab 5 Läufen")
     ds = x["draw_stat"]
     pruefe(ds["mean"] == 1.0 and ds["dev"] == 0.5 and ds["n"] == 1 and not ds["ok"]
            and y["draw_stat"]["mean"] == 0.0 and y["draw_stat"]["n"] == 1,
@@ -910,9 +936,11 @@ def racecard_pruefen() -> None:
     pruefe(len(pc) == 1 and pc[0]["today"] and {z["label"] for z in ptr} == {"Tr", "And"}
            and not any(z["today"] for z in ptr),
            "Pferd nach Kurs: nur die heutige Bahn; Pferd nach Trainer: alle bisherigen Trainer")
-    pruefe(f["cls_epr_idx"] == 100 and kl["epr_idx"] == round(100 * kl["epr"] / 5175)
-           and d["params"]["pop"]["rennen_epr"] == 5175.0,
-           f"Rennstärke €/L+: Ø Gewinn je Lauf der Teilnehmer ÷ Ø aller früheren Rennen (heute {kl['epr_idx']})")
+    pruefe(f["cls_epr_idx"] == 100 and f["cls_epr"] == 5175 and "cls_epr_kl" not in f
+           and kl["epr_idx"] == round(100 * kl["epr_base"] / round(geo(2850, 7500)))
+           and abs(d["params"]["pop"]["rennen_epr"] - round(geo(2850, 7500))) < 0.01,
+           f"Rennstärke €/L+: log-Ø Gewinn je Lauf der Teilnehmer ÷ Ø aller früheren Rennen (heute {kl['epr_idx']}); "
+           "Formzeile zeigt weiter den einfachen Ø")
     pruefe(f["cls_val_idx"] == 100 and d["params"]["pop"]["rennen_val"] == 40.0,
            "Val+: Ø Valeur der Teilnehmer ÷ Ø aller früheren Rennen (einziges Rennen mit Valeur -> 100)")
     pruefe(len(x["duels"]) == 1 and x["duels"][0]["date"] == str(tag - timedelta(days=10)),
