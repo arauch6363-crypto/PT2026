@@ -646,6 +646,11 @@ Duelle wiegen weniger als direkte; ein einzelner Vergleich über ein
 gemeinsames Pferd ist eine Andeutung, drei übereinstimmende Vergleiche
 sind ein Argument.
 
+**Rangfolge** (`duel_rank` je Starter, `duel_order` je Rennen): alle
+Duelle zusammen als Wert in Längen (`score_l`) und Rang (`rank`/`of`),
+direkt doppelt gewichtet, ältere weniger. Nur innerhalb einer `group`
+vergleichbar; bei kleinem `weight` nur eine Andeutung.
+
 Ein Duell, das ein heutiges Außenseiterpferd vor einem
 Prognose-Favoriten sieht, ist einer der typischen *nicht erkannten*
 Angles (B11).

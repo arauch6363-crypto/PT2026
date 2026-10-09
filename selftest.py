@@ -972,13 +972,33 @@ def racecard_pruefen() -> None:
                       + lf("P", 10, "PSF", 1600, [("R", None, 57), ("C", 9.0, 57), ("F5", 10, 55), ("F6", 11, 55)])
                       + lf("O", 200, "FAST", 1600, [("R", None, 57), ("C", 9.0, 57), ("F7", 10, 55), ("F8", 11, 55)]))
     ib = rc.indirekte_basis(hi, T0)
-    ind = rc._indirekte_duelle(ib, {"H": {"weight": 60.0, "no": 1}, "R": {"weight": 56.0, "no": 2}}, "Bon", 1600)
+    ind = rc._indirekte_duelle(ib, {"H": {"weight": 60.0, "no": 1}, "R": {"weight": 56.0, "no": 2}}, "Bon", 1600, T0)
     e_h, e_r = ind["H"]["rivals"][0], ind["R"]["rivals"][0]
     pruefe(e_h["rival"] == "R" and e_h["n"] == 1 and e_h["common"] == ["C"] and e_h["then_kg"] == 3.4
            and e_h["w_today"] == 4.0 and e_h["exp_kg"] == -0.6 and e_h["exp_l"] == -0.5
            and ind["H"]["behind"] == 1 and e_r["exp_kg"] == 0.6,
            "Indirekte Duelle: über gemeinsamen Gegner (2 L × 1,2 + 2 kg = 4,4 vs 1 L × 1,0 = 1,0 -> 3,4 kg), "
            "heute 4 kg mehr -> 0,6 kg / 0,5 L hinten; PSF-Rennen und Rennen > 120 Tage zählen nicht")
+    pruefe(e_h["days"] == 25, "Indirektes Duell: Alter = Ø der beiden Vergleichsrennen (30 und 20 Tage)")
+    hz = "2026-10-09"
+    dz = lambda no, liste, ind=None: {"no": no, "nr": False, "indirect": ind,
+                                      "duels": [{"rival_no": j, "exp_l": m, "date": d_} for j, m, d_ in liste]}
+    sz = [dz(1, [(2, 2.0, hz)]), dz(2, [(1, -2.0, hz), (3, 1.0, hz)]), dz(3, [(2, -1.0, hz)]), dz(4, []),
+          {"no": 5, "nr": True, "duels": [], "indirect": None}]
+    rz = rc.duell_rangfolge(sz, hz)
+    pruefe(rz == [[1, 2, 3]] and [x["duel_rank"]["rank"] for x in sz[:3]] == [1, 2, 3] and sz[3]["duel_rank"] is None
+           and sz[0]["duel_rank"]["score_l"] - sz[1]["duel_rank"]["score_l"] == 2.0 and sz[1]["duel_rank"]["n_direct"] == 2,
+           "Duell-Rangfolge: A schlägt B um 2 L, B schlägt C um 1 L -> A 1., B 2., C 3. (Abstände bleiben erhalten); "
+           "ohne Duell kein Rang")
+    alt_ = "2026-08-10"                                    # 60 Tage alt: halbes Gewicht
+    sw = [dz(1, [(2, 3.0, alt_)], {"rivals": [{"rival_no": 2, "exp_l": -3.0, "days": 0}]}), dz(2, [])]
+    rc.duell_rangfolge(sw, hz)
+    sg = [dz(1, [(2, 9.0, hz)]), dz(2, []), dz(3, [(4, 1.0, hz)]), dz(4, [])]
+    rg = rc.duell_rangfolge(sg, hz)
+    pruefe(sw[0]["duel_rank"]["score_l"] == 0.0 and sw[0]["duel_rank"]["weight"] == 2.0
+           and sg[0]["duel_rank"]["score_l"] == 2.5 and rg == [[1, 2], [3, 4]] and sg[2]["duel_rank"]["group"] == 2,
+           "Duell-Rangfolge: direktes Duell vor 60 Tagen (2 × ½) wiegt wie ein heutiges indirektes (1); "
+           "Abstand auf 5 L begrenzt; Pferde ohne Verbindung in getrennten Gruppen")
     pruefe(rc._boden_nah("Bon", "Souple") and not rc._boden_nah("Bon", "Lourd") and not rc._boden_nah("PSF", "Bon")
            and rc._boden_nah("Bon léger", "Bon"), "Boden innerhalb einer Stufe, PSF nur mit PSF")
     du = x_d["duels"]

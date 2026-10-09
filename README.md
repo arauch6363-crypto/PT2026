@@ -275,6 +275,11 @@ Je Starter:
   Vergleichsrennen ≤ 120 Tage, ±200 m, Boden innerhalb einer Stufe (PSF nur mit PSF), alle drei Pferde mit
   relativer Platzierung > 0,5. Leistung = Längen × kg je Länge (`rtr_arr.KG_PER_LENGTH`) + Mehrgewicht; heute
   erwartet = Ø Unterschied − heutiges Mehrgewicht. Knopf mit Zusammenfassung, Tabelle je heutigem Gegner.
+* **Duell-Rangfolge** (`racecard.duell_rangfolge`, Kachel „Duell“, Rennkopf „Duell-Rang“, JSON `duel_rank` je
+  Starter und `duel_order` je Rennen): aus allen direkten und indirekten Duellen des heutigen Feldes je Pferd ein
+  Wert in Längen, sodass die Unterschiede möglichst gut alle heute erwarteten Abstände treffen (kleinste Quadrate,
+  Massey; A schlägt B, B schlägt C -> A, B, C). Gewicht: direkt 2, indirekt 1, mal 0,5^(Alter / 60 Tage);
+  Abstände auf ±5 L begrenzt, jedes Paar einmal. Pferde ohne Verbindung untereinander bilden getrennte Gruppen.
 * **Startbox in den früheren Läufen**: „Box 3 ▲/▼“, wenn die Box auf der Konfiguration dieses Rennens auffällig
   gut bzw. schlecht war (Ø relative Platzierung ≥ 0,05 von 0,5 entfernt und ≥ 2 Standardfehler; dieselbe Regel
   färbt die Box in der Übersicht).
@@ -388,7 +393,7 @@ und werden mit Python geparst.
 - **claude.ai:** Dort wird er weiterhin als `.skill`/ZIP hochgeladen. Die Datei hier ist die versionierte Vorlage.
 - **Pflege:** Neue Erkenntnisse aus Analysen kommen als knappe Regel an die passende Stelle des Rasters (A/B/C), nicht als
   neuer Abschnitt. Nach jeder Anpassung wird konsolidiert: Doppeltes zusammenführen und Erklärungen kürzen, die die
-  Claude-JSON schon vorrechnet. Der Umfang soll nicht wachsen (Stand 09.10.2026: rund 55.500 Zeichen).
+  Claude-JSON schon vorrechnet. Der Umfang soll nicht wachsen (Stand 09.10.2026: rund 55.700 Zeichen).
 
 **Claude-Version der Karte** (`claude_export.py`): Neben `racecard_JJJJMMTT.html` schreibt `racecard.run` die Datei
 `racecard_JJJJMMTT_claude.json` (abschalten mit `claude=False`).
