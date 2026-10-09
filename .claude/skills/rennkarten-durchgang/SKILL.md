@@ -649,7 +649,11 @@ sind ein Argument.
 **Rangfolge** (`duel_rank` je Starter, `duel_order` je Rennen): alle
 Duelle zusammen als Wert in Längen (`score_l`) und Rang (`rank`/`of`),
 direkt doppelt gewichtet, ältere weniger. Nur innerhalb einer `group`
-vergleichbar; bei kleinem `weight` nur eine Andeutung.
+vergleichbar; bei kleinem `weight` nur eine Andeutung. Der Markt preist
+die Duelle weitgehend ein (Backtest 10/2026): `score_l` ≥ +2 L ist
+höchstens ein mildes Plus, eher für Platz, und Entscheidungshilfe bei
+sonst gleichwertigen Pferden; ≤ −2 L ein leises Minus. Kein eigener
+Angle.
 
 Ein Duell, das ein heutiges Außenseiterpferd vor einem
 Prognose-Favoriten sieht, ist einer der typischen *nicht erkannten*
