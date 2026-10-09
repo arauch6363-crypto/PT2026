@@ -73,7 +73,7 @@ Tracking ist eine Eigenschaft von **Renntag und Rennen**, nicht von der Bahn:
 | `timeform_ratings.py` | TR: Zeit-Rating nach Timeform-Art (Standardzeiten, Going Allowance) mit Finishing-Speed-Upgrade, Backtest |
 | `rtr_arr.py` | Ratings aus PT_Vorarbeiten: RTR (Elo-artiges Rating nach dem Rennen) und ARR (Leistung im Rennen) |
 | `tipp_auswertung.py` | Claude-Tipps (Ausgabe des Skills) gegen die Ergebnisse: Treffsicherheit, Stufen, Angle-Typen, Wett-Ergebnis |
-| `hypothesen_backtest.py` | Hypothesen H1–H5 (Rennverlauf, Überreaktion, Handicap-Erhöhung, Tempo × Stil, Presse-Konsens) per A/E und bedingtem Logit |
+| `hypothesen_backtest.py` | Hypothesen H1–H6 (Rennverlauf, Überreaktion, Handicap-Erhöhung, Tempo × Stil, Presse-Konsens, Duell-Rangfolge) per A/E und bedingtem Logit |
 | `regel_backtest.py` | Regeln des Skills gegen die Datenbank prüfen: A/E gegen den Markt (Endquote) je Regel |
 | `racecard_template.html` | Layout der Race Card; die Daten werden als JSON eingesetzt |
 | `selftest.py` | Selbsttest ohne Internet (`python selftest.py`) |
@@ -135,8 +135,10 @@ Je Hypothese A/E-Gruppen gegen die Endquote und ein bedingtes Logit je Rennen (P
 = zu wenig gewettet. H1 Rennverlauf gegen das Pferd (≤ 60 Tage, Tracking, nicht ausgeritten; abgestuft gegen Pech im
 Kommentar), H2 Überreaktion auf das Vorrennen (Marktchance, geschlagene Favoriten, Überraschungssieger; zusammen mit H1),
 H3 Handicap-Erhöhung nach Sieg (Stufen 0–1,5/2–3,5/≥ 4; ARR des Siegrennens gegen neue Marke, Dreijährige), H4 Führende ×
-erwartetes Tempo × Frontvorteil der Bahn, H5 Presse-Konsens nur vorwärts aus `racecards/*_claude.json`. H1/H4 im Testteil
-(Norm, Pace-Kalibrierung, Bias auf der ersten Hälfte gelernt). CSV nach `auswertung/hypothesen_*_JJJJMMTT.csv`.
+erwartetes Tempo × Frontvorteil der Bahn, H5 Presse-Konsens nur vorwärts aus `racecards/*_claude.json`, H6
+Duell-Rangfolge (`hb.duell_merkmale`: für jedes Testrennen wie auf der Race Card aus den Läufen davor nachgerechnet –
+Duell-Wert in Längen, Rang 1, letzter Rang; nur Rennen mit ≥ 3 verbundenen Pferden; dauert einige Minuten). H1/H4/H6
+im Testteil (Norm, Pace-Kalibrierung, Bias auf der ersten Hälfte gelernt). CSV nach `auswertung/hypothesen_*_JJJJMMTT.csv`.
 
 ## Regel-Backtest (Skill gegen die Datenbank)
 
@@ -259,13 +261,15 @@ Je Starter:
   100 = Durchschnitt, über 100 überdurchschnittlich; Chips wie A/E: grün ab 110, rot bis 90, blass bei wenig Daten.
 * **Klasse Val+ und €/L+** (Rennkopf und Formzeilen): Ø Valeur bzw. Ø Gewinn je Lauf (365 Tage davor) der
   Teilnehmer ÷ Ø aller früheren Rennen × 100. Nur die Basis des Index €/L+ (`racecard.klassen_wert`,
-  Spalte `cls_epr_kl`) ist anders gerechnet: gemittelt wird log(1 + €/L) (einzelne hohe Preisgelder ziehen den
-  Schnitt nicht hoch); das eigene €/L zählt, sobald der erste Start des Pferdes (in der Datenbank) mindestens ein
-  Jahr zurückliegt – reicht die Historie dafür nicht zurück, ab 4 Jahren –, danach immer (ohne Lauf in den 365
-  Tagen über alle früheren Läufe). Davor gilt das gewichtete €/L der Verbindungen: Trainer 50 %, Besitzer 30 %,
-  Züchter 20 % (je 365 Tage davor, ab 5 Läufen; fehlt einer, werden die Gewichte hochgerechnet). So fallen Rennen
-  mit vielen wenig gelaufenen Pferden nicht künstlich ab. Angezeigte Beträge (€/L, `cls_epr`, `class.epr`) bleiben
-  der einfache Ø der Pferde mit Läufen in den 365 Tagen. In den Formzeilen Farbverlauf nach der Lage unter allen früheren
+  Spalte `cls_epr_kl`) ist anders gerechnet: jedes Preisgeld wird logarithmiert, log(1 + €), und je Pferd
+  gemittelt (einzelne hohe Preisgelder ziehen den Schnitt nicht hoch; Läufe ohne Geld zählen 0, für eigene Läufe
+  wie für die Verbindungen gleich). Das eigene Ø zählt, sobald der erste Start des Pferdes (in der Datenbank)
+  mindestens ein Jahr zurückliegt – reicht die Historie dafür nicht zurück, ab 4 Jahren –, danach immer (ohne Lauf
+  in den 365 Tagen über alle früheren Läufe). Davor gilt das gewichtete Ø der Verbindungen: Trainer 50 %, Besitzer
+  30 %, Züchter 20 %, nur aus Läufen ihrer Pferde im ersten Jahr (je 365 Tage davor, ab 5 Läufen; fehlt einer,
+  werden die Gewichte hochgerechnet). Rennstärke = Ø über die Starter; Index = 100 × Rennstärke ÷ Ø aller früheren
+  Rennen. So fallen Rennen mit vielen wenig gelaufenen Pferden nicht künstlich ab. Angezeigte Beträge
+  (€/L, `cls_epr`, `class.epr`) bleiben der einfache Ø der Pferde mit Läufen in den 365 Tagen. In den Formzeilen Farbverlauf nach der Lage unter allen früheren
   Läufen der heutigen Starter (rot = niedrigster, grün = höchster Wert für dieses Rennen); ebenso das Preisgeld.
 * **Duelle** mit heutigen Gegnern nur aus den letzten 365 Tagen; je Duell „heute erwartet“ = Abstand damals −
   Verschiebung des Gewichtsunterschieds (1 kg = 1 Länge), am Knopf „vorne erwartet gegen x/y“ (je Gegner das letzte Duell).
@@ -273,6 +277,11 @@ Je Starter:
   Vergleichsrennen ≤ 120 Tage, ±200 m, Boden innerhalb einer Stufe (PSF nur mit PSF), alle drei Pferde mit
   relativer Platzierung > 0,5. Leistung = Längen × kg je Länge (`rtr_arr.KG_PER_LENGTH`) + Mehrgewicht; heute
   erwartet = Ø Unterschied − heutiges Mehrgewicht. Knopf mit Zusammenfassung, Tabelle je heutigem Gegner.
+* **Duell-Rangfolge** (`racecard.duell_rangfolge`, Kachel „Duell“, Rennkopf „Duell-Rang“, JSON `duel_rank` je
+  Starter und `duel_order` je Rennen): aus allen direkten und indirekten Duellen des heutigen Feldes je Pferd ein
+  Wert in Längen, sodass die Unterschiede möglichst gut alle heute erwarteten Abstände treffen (kleinste Quadrate,
+  Massey; A schlägt B, B schlägt C -> A, B, C). Gewicht: direkt 2, indirekt 1, mal 0,5^(Alter / 60 Tage);
+  Abstände auf ±5 L begrenzt, jedes Paar einmal. Pferde ohne Verbindung untereinander bilden getrennte Gruppen.
 * **Startbox in den früheren Läufen**: „Box 3 ▲/▼“, wenn die Box auf der Konfiguration dieses Rennens auffällig
   gut bzw. schlecht war (Ø relative Platzierung ≥ 0,05 von 0,5 entfernt und ≥ 2 Standardfehler; dieselbe Regel
   färbt die Box in der Übersicht).
@@ -386,7 +395,7 @@ und werden mit Python geparst.
 - **claude.ai:** Dort wird er weiterhin als `.skill`/ZIP hochgeladen. Die Datei hier ist die versionierte Vorlage.
 - **Pflege:** Neue Erkenntnisse aus Analysen kommen als knappe Regel an die passende Stelle des Rasters (A/B/C), nicht als
   neuer Abschnitt. Nach jeder Anpassung wird konsolidiert: Doppeltes zusammenführen und Erklärungen kürzen, die die
-  Claude-JSON schon vorrechnet. Der Umfang soll nicht wachsen (Stand 09.10.2026: rund 55.500 Zeichen).
+  Claude-JSON schon vorrechnet. Der Umfang soll nicht wachsen (Stand 09.10.2026: rund 55.700 Zeichen).
 
 **Claude-Version der Karte** (`claude_export.py`): Neben `racecard_JJJJMMTT.html` schreibt `racecard.run` die Datei
 `racecard_JJJJMMTT_claude.json` (abschalten mit `claude=False`).

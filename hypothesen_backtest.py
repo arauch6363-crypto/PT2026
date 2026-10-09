@@ -11,6 +11,7 @@ H2 Überreaktion auf das letzte Ergebnis (Marktchance im Vorrennen, geschlagene 
 H3 Erhöhung im Handicap nach einem Sieg (H3a) und ob das Pferd schon über der neuen Marke lief / Dreijährige (H3b).
 H4 Tempo-Szenario × Laufstil (Führende bei erwartet langsamem Tempo, × Frontvorteil der Bahn).
 H5 Presse-Konsens (Herde gegen Figlewski): nur vorwärts aus den gespeicherten Claude-JSONs (Tipps sind nicht archiviert).
+H6 Duell-Rangfolge (racecard.duell_rangfolge) je Testrennen nachgerechnet, nur aus früheren Läufen – dauert einige Minuten.
 
 Colab:
     import hypothesen_backtest as hb
@@ -233,15 +234,82 @@ def h5(h: pd.DataFrame, base: Path | None):
     return gruppen, modelle
 
 
+def duell_merkmale(h: pd.DataFrame, maske: pd.Series | None = None, log_alle: int = 1000) -> pd.DataFrame:
+    """Duell-Rangfolge wie auf der Race Card für jedes Rennen in `maske`, nur aus Läufen vor dem Renntag:
+    direkte Duelle (DUELL_TAGE, ±DUELL_DIST_M, Boden innerhalb einer Stufe) und indirekte (INDIREKT_*), heutige
+    Gewichte aus dem Rennen selbst -> duel_score (L), duel_rank, duel_of, duel_weight je Starter (Index wie h)."""
+    h = h.sort_values("date", kind="stable")
+    ziel = h[maske.reindex(h.index, fill_value=False)] if maske is not None else h
+    # Grundlage der indirekten Duelle einmal für die ganze Historie (vordere Hälfte, kg je Länge), je Tag geschnitten
+    basis = rc.indirekte_basis(h, h["date"].min() + pd.Timedelta(days=rc.INDIREKT_TAGE)).sort_values("date", kind="stable")
+    t_h, t_b = h["date"].to_numpy(), basis["date"].to_numpy()
+    spalten = ["duel_score", "duel_rank", "duel_of", "duel_weight"]
+    zeilen, n = [], 0
+    for tag, rennen in ziel.groupby("date", sort=True):
+        t = np.datetime64(tag)
+        vorher = h.iloc[np.searchsorted(t_h, np.datetime64(tag - pd.Timedelta(days=rc.DUELL_TAGE))):np.searchsorted(t_h, t)]
+        b = basis.iloc[np.searchsorted(t_b, np.datetime64(tag - pd.Timedelta(days=rc.INDIREKT_TAGE))):np.searchsorted(t_b, t)]
+        for _, feld in rennen.groupby("race_id"):
+            n += 1
+            if log_alle and n % log_alle == 0:
+                print(f"  Duelle: {n:,} Rennen …")
+            gew = {z["horse_id"]: {"weight": rc._num(z["weight_kg"], 1), "no": int(z["saddle_no"])}
+                   for _, z in feld.iterrows() if pd.notna(z["saddle_no"])}
+            if len(gew) < 2:
+                continue
+            dist, going = feld["distance_m"].iloc[0], feld["going"].iloc[0] if "going" in feld else None
+            gb = rc.going_klasse(going)
+            treffen = vorher[vorher["horse_id"].isin(set(gew))]
+            if pd.notna(dist) and len(treffen):
+                treffen = treffen[(treffen["distance_m"] - dist).abs() <= rc.DUELL_DIST_M]
+            if rc.DUELL_BODEN and len(treffen):
+                treffen = treffen[np.array([rc._boden_nah(x, gb) for x in treffen["going_pmu"]], dtype=bool)]
+            duell_rennen = {k: g for k, g in treffen.groupby("race_id") if g["horse_id"].nunique() >= 2}
+            indirekt = rc._indirekte_duelle(b, gew, going, dist, tag)
+            starters = []
+            for hid, w in gew.items():
+                eigen = treffen[(treffen["horse_id"] == hid) & treffen["race_id"].isin(set(duell_rennen))]
+                starters.append({"no": w["no"], "nr": False, "hid": hid, "indirect": indirekt.get(hid),
+                                 "duels": rc._duelle(eigen, duell_rennen, gew, hid) if len(eigen) else []})
+            rc.duell_rangfolge(starters, tag)
+            idx = dict(zip(feld["horse_id"], feld.index))
+            for x in starters:
+                d = x["duel_rank"]
+                if d:
+                    zeilen.append((idx[x["hid"]], d["score_l"], d["rank"], d["of"], d["weight"]))
+    out = pd.DataFrame(zeilen, columns=["_i"] + spalten).set_index("_i") if zeilen else pd.DataFrame(columns=spalten)
+    return out.reindex(ziel.index)
+
+
+def h6(h: pd.DataFrame):
+    """Duell-Rangfolge: Zusatzeffekt des Duell-Werts (Längen gegenüber dem Ø der Pferde mit Duellen) und des
+    Duell-Rangs 1 bei gegebenem Markt; nur Rennen mit mindestens drei verbundenen Pferden."""
+    print("H6: Duell-Rangfolge je Testrennen nachrechnen …")
+    d = h[h["test"]].copy()
+    d = d.join(duell_merkmale(h, h["test"]))
+    da = d["duel_rank"].notna() & (d["duel_of"] >= 3)
+    d["duell_da"] = da.astype(float)
+    d["duell_score"] = d["duel_score"].where(da, 0).fillna(0)
+    d["duell_score_sicher"] = d["duell_score"].where(d["duel_weight"] >= 1, 0).fillna(0)
+    d["duell_erster"] = (da & (d["duel_rank"] == 1)).astype(float)
+    gruppen = [("H6", "Duell-Rang 1 (≥ 3 verbundene Pferde)", d["duell_erster"] == 1),
+               ("H6", "… davon Gewicht ≥ 1", (d["duell_erster"] == 1) & (d["duel_weight"] >= 1)),
+               ("H6", "Duell-Rang letzter (≥ 3)", da & (d["duel_rank"] == d["duel_of"])),
+               ("H6", "Duell-Wert ≥ +2 L", da & (d["duel_score"] >= 2)),
+               ("H6", "Duell-Wert ≤ −2 L", da & (d["duel_score"] <= -2))]
+    modelle = [("H6 Duell-Rangfolge", d, ["duell_score", "duell_score_sicher", "duell_erster", "duell_da"])]
+    return gruppen, modelle
+
+
 # --------------------------------------------------------------------------
 def run(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None):
     if hist is None:
         print("Historie laden (wie die Race Card) …")
         hist = rb.laden(Path(base))
     h = merkmale(hist)
-    print(f"{h['race_id'].nunique():,} Rennen, Test ab {h.loc[h['test'], 'date'].min():%d.%m.%Y} (H1, H4 nur im Testteil)")
+    print(f"{h['race_id'].nunique():,} Rennen, Test ab {h.loc[h['test'], 'date'].min():%d.%m.%Y} (H1, H4, H6 nur im Testteil)")
     zeilen, koef = [], []
-    for name, fn in [("H1", h1), ("H2", h2), ("H3", h3), ("H4", h4), ("H5", lambda x: h5(x, base))]:
+    for name, fn in [("H1", h1), ("H2", h2), ("H3", h3), ("H4", h4), ("H5", lambda x: h5(x, base)), ("H6", h6)]:
         try:
             gruppen, modelle = fn(h)
         except Exception as e:                       # eine Hypothese darf die anderen nicht aufhalten

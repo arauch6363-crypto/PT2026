@@ -502,6 +502,21 @@ def hypothesen_pruefen() -> None:
     pruefe(abs(k.loc["ln p_mkt (Markt)", "koef"] - 1) < 0.1 and abs(k.loc["x", "koef"] - 0.5) < 0.12
            and np.isnan(k.loc["selten", "koef"]) and k.loc["selten", "n_aktiv"] == 5,
            "Bedingtes Logit findet Markt- und Zusatzeffekt; zu seltene Merkmale werden nicht geschätzt")
+    T = pd.Timestamp("2026-09-01")
+    rennen_ = [("P1", 30, [("A", 1, None), ("B", 2, 2.0), ("F1", 3, 4.0), ("F2", 4, 6.0)]),
+               ("P2", 20, [("B", 1, None), ("C", 2, 1.0), ("F3", 3, 3.0), ("F4", 4, 5.0)]),
+               ("HEUTE", 0, [("A", None, None), ("B", None, None), ("C", None, None)])]
+    hd = pd.DataFrame([{"race_id": rid_, "date": T - pd.Timedelta(days=t_), "horse_id": hn, "horse": hn, "saddle_no": i + 1,
+                        "weight_kg": 57.0, "distance_m": 1600, "going": "Bon", "going_pmu": "FAST", "finish_pos": pos,
+                        "lengths_behind": lb, "n_runners": len(feld), "hippodrome": "X", "racetype": "Handicap",
+                        "rel_place": (len(feld) - pos) / (len(feld) - 1) if pos else np.nan}
+                       for rid_, t_, feld in rennen_ for i, (hn, pos, lb) in enumerate(feld)])
+    dm = hb.duell_merkmale(hd, hd["race_id"] == "HEUTE", log_alle=0)
+    dh = dm.join(hd["horse"]).dropna(subset=["duel_rank"]).set_index("horse")
+    pruefe(list(dh.sort_values("duel_rank").index) == ["A", "B", "C"] and (dh["duel_of"] == 3).all()
+           and abs(dh.loc["A", "duel_score"] - dh.loc["B", "duel_score"] - 2.0) < 0.15,
+           "H6: Duell-Rangfolge im Backtest aus früheren Läufen nachgerechnet (A schlägt B 2 L, B schlägt C 1 L, "
+           "A–C indirekt über B -> A, B, C)")
     pruefe(bool(hb.PECH.search("A été enfermé dans la ligne droite")) and bool(hb.PECH.search("a manqué de place"))
            and not hb.PECH.search("a fini fort"), "Pech im Kommentar erkannt (enfermé, manqué de place)")
 
@@ -728,16 +743,17 @@ def racecard_pruefen() -> None:
            and x["career"]["d365"]["runs"] == 2,
            "Karriere aus der Datenbank: 2-1-2, Preisgeld 27000 × 50 % + 15000 × 19 % = 16350, je Lauf 8175")
     hx_a = hist[(hist["race_id"] == rid(10, 1)) & (hist["horse"] == "X")].iloc[0]
-    geo = lambda *w: float(np.expm1(np.mean(np.log1p(w))))
+    lpm = lambda *w: float(np.mean(np.log1p(w)))           # Ø log(1 + Preisgeld) je Lauf
     pruefe(hx_a["cls_epr"] == (2850 + 7500) / 2 and np.isnan(hist.loc[hist["race_id"] == rid(100, 1), "cls_epr"]).all()
-           and hx_a["cls_epr_kl"] == round(geo(2850, 7500)) and bool(hx_a["epr_eigen"])
+           and hx_a["cls_epr_kl"] == round(lpm(2850, 7500), 3) and bool(hx_a["epr_eigen"])
            and np.isnan(hist.loc[hist["race_id"] == rid(100, 1), "cls_epr_kl"]).all(),
            "Klasse früherer Rennen: angezeigt Ø Gewinn je Lauf der Teilnehmer (365 Tage davor, X 2850, Y 7500); "
-           "Basis für €/L+ log-gemittelt (4623), Historie unter einem Jahr: 4-Jährige zählen als erfahren")
+           "Basis für €/L+ Ø log-Preisgeld je Lauf, Historie unter einem Jahr: 4-Jährige zählen als erfahren")
     kl = d["races"][f"{tag:%Y%m%d}R1C1"]["class"]
     pruefe(kl["epr"] == round((8175 + (7500 + 5130) / 2) / 2) and kl["epr_n"] == 2
-           and kl["epr_base"] == round(geo(8175, (7500 + 5130) / 2)) and kl["epr_own"] == 2,
-           "Klasse heute: angezeigt Ø Gewinn je Lauf (365 Tage) der Starter = (8175 + 6315) / 2, Basis €/L+ log-Ø 7185")
+           and kl["epr_base"] == round((lpm(13500, 2850) + lpm(5130, 7500)) / 2, 3) and kl["epr_own"] == 2,
+           "Klasse heute: angezeigt Ø Gewinn je Lauf (365 Tage) der Starter = (8175 + 6315) / 2, Basis €/L+ "
+           "Ø log-Preisgeld je Lauf je Pferd, dann Ø der Starter")
     ped = x["ae"]["pedigree"]
     pruefe(ped["dam_sire"]["runs"] == 2 and ped["dam_sire"]["wins"] == 1 and ped["cross"]["runs"] == 2
            and ped["sire"]["runs"] == 5 and y["ae"]["pedigree"]["dam_sire"]["runs"] == 0 and "sire" not in x["ae"],
@@ -768,14 +784,14 @@ def racecard_pruefen() -> None:
            for d_, p_ in (("2024-12-01", 900.0), ("2025-01-02", 300.0), ("2026-09-01", 0.0))]).assign(breeder_key=None, age=3)
     kz = rc.klassen_wert(rc.gewinn_vorher(kz))
     an = kz[kz["date"] == ts_("2026-09-01")].set_index("horse_id")
-    soll_n = (0.5 * np.log1p(3600 / 7) + 0.3 * np.log1p(2400 / 6)) / 0.8
+    soll_n = (0.5 * 3 * np.log1p(1200) / 7 + 0.3 * 2 * np.log1p(1200) / 6) / 0.8
     pruefe(bool(an.loc["A", "epr_eigen"]) and abs(an.loc["A", "epr_kl"] - np.log1p(500)) < 1e-9
            and not an.loc["N", "epr_eigen"] and abs(an.loc["N", "epr_kl"] - soll_n) < 1e-9
-           and bool(an.loc["L", "epr_eigen"]) and abs(an.loc["L", "epr_kl"] - np.log1p(600)) < 1e-9
+           and bool(an.loc["L", "epr_eigen"]) and abs(an.loc["L", "epr_kl"] - lpm(900, 300)) < 1e-9
            and (kz.loc[(kz["horse_id"] == "A") & (kz["date"] == ts_("2026-03-01")), "epr_kl"] == 0).all(),
-           "Basis €/L+ je Pferd: ab einem Jahr seit dem ersten Start immer das eigene €/L (log; ohne Lauf im letzten "
-           "Jahr über alle früheren Läufe), davor Trainer 50 % / Besitzer 30 % (Züchter fehlt -> hochgerechnet), "
-           "Verbindungen erst ab 5 Läufen")
+           "Basis €/L+ je Pferd = Ø log(1 + Preisgeld) je Lauf: ab einem Jahr seit dem ersten Start immer das eigene "
+           "(ohne Lauf im letzten Jahr über alle früheren Läufe), davor Trainer 50 % / Besitzer 30 % aus Läufen ihrer "
+           "Pferde im ersten Jahr (A erfahren zählt nicht mit; Züchter fehlt -> hochgerechnet), erst ab 5 Läufen")
     ds = x["draw_stat"]
     pruefe(ds["mean"] == 1.0 and ds["dev"] == 0.5 and ds["n"] == 1 and not ds["ok"]
            and y["draw_stat"]["mean"] == 0.0 and y["draw_stat"]["n"] == 1,
@@ -937,9 +953,9 @@ def racecard_pruefen() -> None:
            and not any(z["today"] for z in ptr),
            "Pferd nach Kurs: nur die heutige Bahn; Pferd nach Trainer: alle bisherigen Trainer")
     pruefe(f["cls_epr_idx"] == 100 and f["cls_epr"] == 5175 and "cls_epr_kl" not in f
-           and kl["epr_idx"] == round(100 * kl["epr_base"] / round(geo(2850, 7500)))
-           and abs(d["params"]["pop"]["rennen_epr"] - round(geo(2850, 7500))) < 0.01,
-           f"Rennstärke €/L+: log-Ø Gewinn je Lauf der Teilnehmer ÷ Ø aller früheren Rennen (heute {kl['epr_idx']}); "
+           and kl["epr_idx"] == round(100 * kl["epr_base"] / round(lpm(2850, 7500), 3))
+           and abs(d["params"]["pop"]["rennen_epr"] - lpm(2850, 7500)) < 0.05,
+           f"Rennstärke €/L+: Ø log-Preisgeld je Lauf der Teilnehmer ÷ Ø aller früheren Rennen (heute {kl['epr_idx']}); "
            "Formzeile zeigt weiter den einfachen Ø")
     pruefe(f["cls_val_idx"] == 100 and d["params"]["pop"]["rennen_val"] == 40.0,
            "Val+: Ø Valeur der Teilnehmer ÷ Ø aller früheren Rennen (einziges Rennen mit Valeur -> 100)")
@@ -971,13 +987,33 @@ def racecard_pruefen() -> None:
                       + lf("P", 10, "PSF", 1600, [("R", None, 57), ("C", 9.0, 57), ("F5", 10, 55), ("F6", 11, 55)])
                       + lf("O", 200, "FAST", 1600, [("R", None, 57), ("C", 9.0, 57), ("F7", 10, 55), ("F8", 11, 55)]))
     ib = rc.indirekte_basis(hi, T0)
-    ind = rc._indirekte_duelle(ib, {"H": {"weight": 60.0, "no": 1}, "R": {"weight": 56.0, "no": 2}}, "Bon", 1600)
+    ind = rc._indirekte_duelle(ib, {"H": {"weight": 60.0, "no": 1}, "R": {"weight": 56.0, "no": 2}}, "Bon", 1600, T0)
     e_h, e_r = ind["H"]["rivals"][0], ind["R"]["rivals"][0]
     pruefe(e_h["rival"] == "R" and e_h["n"] == 1 and e_h["common"] == ["C"] and e_h["then_kg"] == 3.4
            and e_h["w_today"] == 4.0 and e_h["exp_kg"] == -0.6 and e_h["exp_l"] == -0.5
            and ind["H"]["behind"] == 1 and e_r["exp_kg"] == 0.6,
            "Indirekte Duelle: über gemeinsamen Gegner (2 L × 1,2 + 2 kg = 4,4 vs 1 L × 1,0 = 1,0 -> 3,4 kg), "
            "heute 4 kg mehr -> 0,6 kg / 0,5 L hinten; PSF-Rennen und Rennen > 120 Tage zählen nicht")
+    pruefe(e_h["days"] == 25, "Indirektes Duell: Alter = Ø der beiden Vergleichsrennen (30 und 20 Tage)")
+    hz = "2026-10-09"
+    dz = lambda no, liste, ind=None: {"no": no, "nr": False, "indirect": ind,
+                                      "duels": [{"rival_no": j, "exp_l": m, "date": d_} for j, m, d_ in liste]}
+    sz = [dz(1, [(2, 2.0, hz)]), dz(2, [(1, -2.0, hz), (3, 1.0, hz)]), dz(3, [(2, -1.0, hz)]), dz(4, []),
+          {"no": 5, "nr": True, "duels": [], "indirect": None}]
+    rz = rc.duell_rangfolge(sz, hz)
+    pruefe(rz == [[1, 2, 3]] and [x["duel_rank"]["rank"] for x in sz[:3]] == [1, 2, 3] and sz[3]["duel_rank"] is None
+           and sz[0]["duel_rank"]["score_l"] - sz[1]["duel_rank"]["score_l"] == 2.0 and sz[1]["duel_rank"]["n_direct"] == 2,
+           "Duell-Rangfolge: A schlägt B um 2 L, B schlägt C um 1 L -> A 1., B 2., C 3. (Abstände bleiben erhalten); "
+           "ohne Duell kein Rang")
+    alt_ = "2026-08-10"                                    # 60 Tage alt: halbes Gewicht
+    sw = [dz(1, [(2, 3.0, alt_)], {"rivals": [{"rival_no": 2, "exp_l": -3.0, "days": 0}]}), dz(2, [])]
+    rc.duell_rangfolge(sw, hz)
+    sg = [dz(1, [(2, 9.0, hz)]), dz(2, []), dz(3, [(4, 1.0, hz)]), dz(4, [])]
+    rg = rc.duell_rangfolge(sg, hz)
+    pruefe(sw[0]["duel_rank"]["score_l"] == 0.0 and sw[0]["duel_rank"]["weight"] == 2.0
+           and sg[0]["duel_rank"]["score_l"] == 2.5 and rg == [[1, 2], [3, 4]] and sg[2]["duel_rank"]["group"] == 2,
+           "Duell-Rangfolge: direktes Duell vor 60 Tagen (2 × ½) wiegt wie ein heutiges indirektes (1); "
+           "Abstand auf 5 L begrenzt; Pferde ohne Verbindung in getrennten Gruppen")
     pruefe(rc._boden_nah("Bon", "Souple") and not rc._boden_nah("Bon", "Lourd") and not rc._boden_nah("PSF", "Bon")
            and rc._boden_nah("Bon léger", "Bon"), "Boden innerhalb einer Stufe, PSF nur mit PSF")
     du = x_d["duels"]

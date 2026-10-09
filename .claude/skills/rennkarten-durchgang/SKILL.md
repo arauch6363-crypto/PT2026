@@ -202,8 +202,8 @@ Bei Annahme und bei manuellem Boden gilt:
 `class.val` ist die Ø Valeur der Starter, `class.val_idx` derselbe Wert
 als Index (100 = Ø aller früheren Rennen), `class.epr_idx` die
 Rennstärke als Ø Gewinn je Lauf der Starter im letzten Jahr, ebenfalls
-indexiert (log-gemittelt; Pferde im ersten Jahr seit dem ersten Start
-gehen mit dem €/L ihrer Verbindungen ein, `class.epr_own` zählt die
+indexiert (Preisgelder logarithmiert; Pferde im ersten Jahr seit dem
+ersten Start gehen mit dem Wert ihrer Verbindungen ein, `class.epr_own` zählt die
 Starter mit eigenem €/L). Die Formzeilen tragen dieselben Indizes für das damalige
 Rennen (`cls_val_idx`, `cls_epr_idx`). Damit wird „heute leichter oder
 schwerer" in B0 zur Rechnung statt zum Eindruck. `val` fehlt, wenn zu
@@ -645,6 +645,11 @@ heute erwartete Unterschied, `n` die Zahl der Vergleiche. Indirekte
 Duelle wiegen weniger als direkte; ein einzelner Vergleich über ein
 gemeinsames Pferd ist eine Andeutung, drei übereinstimmende Vergleiche
 sind ein Argument.
+
+**Rangfolge** (`duel_rank` je Starter, `duel_order` je Rennen): alle
+Duelle zusammen als Wert in Längen (`score_l`) und Rang (`rank`/`of`),
+direkt doppelt gewichtet, ältere weniger. Nur innerhalb einer `group`
+vergleichbar; bei kleinem `weight` nur eine Andeutung.
 
 Ein Duell, das ein heutiges Außenseiterpferd vor einem
 Prognose-Favoriten sieht, ist einer der typischen *nicht erkannten*
