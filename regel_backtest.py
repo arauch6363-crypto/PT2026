@@ -98,7 +98,7 @@ def merkmale(h: pd.DataFrame) -> pd.DataFrame:
     h["stil_bekannt"] = h["stil_vor"].notna().groupby(h["race_id"]).transform("sum")
     # letzter Lauf
     for c in ["pace_ratio", "early_pct", "weg_med", "pos_gain_800_finish", "d_L600_A", "finish_pos", "won",
-              "cls_epr", "tr", "arr", "rtr"]:
+              "cls_epr_kl", "tr", "arr", "rtr"]:
         h[c + "_vor"] = g[c].shift() if c in h else np.nan
     for c in ["tr", "arr", "rtr"]:
         h[c + "_rang"] = _rang(h, c + "_vor")
@@ -196,7 +196,7 @@ def regeln(h: pd.DataFrame) -> list[tuple[str, str, pd.Series]]:
         add("B1 Exposure", f"> 10 Starts · {typ}", (s > 10) & m)
     add("B1 Exposure", "1–3 Starts · Top-Linie (Test)", s.between(1, 3) & h["linie_top"] & h["test"])
     add("B1 Exposure", "1–3 Starts · übrige Linien (Test)", s.between(1, 3) & ~h["linie_top"] & h["test"])
-    add("B1 Exposure", "1–3 Starts · letzter Lauf stärkeres Rennen", s.between(1, 3) & (h["cls_epr_vor"] > 1.3 * h["cls_epr"]))
+    add("B1 Exposure", "1–3 Starts · letzter Lauf stärkeres Rennen", s.between(1, 3) & (h["cls_epr_kl_vor"] > 1.3 * h["cls_epr_kl"]))
     add("B1 Exposure", "3j Handicap · ≤ 5 Starts", hcp & (h["age"] == 3) & (s <= 5))
     add("B1 Exposure", "3j Handicap · ≥ 12 Starts", hcp & (h["age"] == 3) & (s >= 12))
     # B6a Pause, getrennt nach Erfahrung
@@ -205,8 +205,8 @@ def regeln(h: pd.DataFrame) -> list[tuple[str, str, pd.Series]]:
                        ("> 90 T", tg > 90)]:
             add("B6a Pause", f"{name} · {tn}", m & tm)
     # A3/B0 Klassenabstieg
-    add("A3 Klasse", "letzter Lauf ≥ 30 % stärkeres Rennen · Claimer", claimer & (h["cls_epr_vor"] > 1.3 * h["cls_epr"]))
-    add("A3 Klasse", "letzter Lauf ≥ 30 % stärkeres Rennen · übrige", ~claimer & (h["cls_epr_vor"] > 1.3 * h["cls_epr"]))
+    add("A3 Klasse", "letzter Lauf ≥ 30 % stärkeres Rennen · Claimer", claimer & (h["cls_epr_kl_vor"] > 1.3 * h["cls_epr_kl"]))
+    add("A3 Klasse", "letzter Lauf ≥ 30 % stärkeres Rennen · übrige", ~claimer & (h["cls_epr_kl_vor"] > 1.3 * h["cls_epr_kl"]))
     # A4 Tempo und Bias (Laufstil aus ≥ 3 getrackten Läufen vor dem Rennen)
     vorne, hinten = h["stil"].isin(["F", "V"]), h["stil"].isin(["M", "H"])
     br = pd.to_numeric(h["bias_rel"], errors="coerce")

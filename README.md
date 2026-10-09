@@ -258,12 +258,14 @@ Je Starter:
   Zeitfenster bzw. alle Väter, Muttervater, Crosses; nur ab 5 Läufen bzw. 3 dreijährigen Nachkommen).
   100 = Durchschnitt, über 100 überdurchschnittlich; Chips wie A/E: grün ab 110, rot bis 90, blass bei wenig Daten.
 * **Klasse Val+ und €/L+** (Rennkopf und Formzeilen): Ø Valeur bzw. Ø Gewinn je Lauf (365 Tage davor) der
-  Teilnehmer ÷ Ø aller früheren Rennen × 100. Rennstärke €/L+ (`racecard.klassen_wert`): gemittelt wird
-  log(1 + €/L), zurückgerechnet in Euro (einzelne hohe Preisgelder ziehen den Schnitt nicht hoch); das eigene €/L
-  zählt nur bei Pferden, deren erster Start (in der Datenbank) mindestens ein Jahr zurückliegt – reicht die
-  Historie dafür nicht zurück, ab 4 Jahren. Für die übrigen (und ohne Lauf in den 365 Tagen) gilt das gewichtete
-  €/L der Verbindungen: Trainer 50 %, Besitzer 30 %, Züchter 20 % (je 365 Tage davor, ab 5 Läufen; fehlt einer,
-  werden die Gewichte hochgerechnet). So fallen Rennen mit vielen wenig gelaufenen Pferden nicht künstlich ab. In den Formzeilen Farbverlauf nach der Lage unter allen früheren
+  Teilnehmer ÷ Ø aller früheren Rennen × 100. Nur die Basis des Index €/L+ (`racecard.klassen_wert`,
+  Spalte `cls_epr_kl`) ist anders gerechnet: gemittelt wird log(1 + €/L) (einzelne hohe Preisgelder ziehen den
+  Schnitt nicht hoch); das eigene €/L zählt, sobald der erste Start des Pferdes (in der Datenbank) mindestens ein
+  Jahr zurückliegt – reicht die Historie dafür nicht zurück, ab 4 Jahren –, danach immer (ohne Lauf in den 365
+  Tagen über alle früheren Läufe). Davor gilt das gewichtete €/L der Verbindungen: Trainer 50 %, Besitzer 30 %,
+  Züchter 20 % (je 365 Tage davor, ab 5 Läufen; fehlt einer, werden die Gewichte hochgerechnet). So fallen Rennen
+  mit vielen wenig gelaufenen Pferden nicht künstlich ab. Angezeigte Beträge (€/L, `cls_epr`, `class.epr`) bleiben
+  der einfache Ø der Pferde mit Läufen in den 365 Tagen. In den Formzeilen Farbverlauf nach der Lage unter allen früheren
   Läufen der heutigen Starter (rot = niedrigster, grün = höchster Wert für dieses Rennen); ebenso das Preisgeld.
 * **Duelle** mit heutigen Gegnern nur aus den letzten 365 Tagen; je Duell „heute erwartet“ = Abstand damals −
   Verschiebung des Gewichtsunterschieds (1 kg = 1 Länge), am Knopf „vorne erwartet gegen x/y“ (je Gegner das letzte Duell).
