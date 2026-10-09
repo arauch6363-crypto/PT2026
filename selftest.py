@@ -822,6 +822,12 @@ def racecard_pruefen() -> None:
            and d3["params"]["pop"]["trainer_d365"] == round(pop_t, 1),
            f"€/L+ = 100 × €/Lauf ÷ Ø der Population (Trainer 365 Tage: {t365['epr_idx']}); "
            "max Val 3j nur aus 3-Jährigen, Val+ erst ab 3 Linien-Pferden")
+    ha = hist.copy()
+    ha["arr"] = np.where(ha["race_id"] == rid(10, 1), 0.0, 20.0)
+    ha["ausgeritten"] = ha["race_id"] == rid(10, 1)
+    xa = rc.baue_daten(ha, heute_r, heute_s, tag)["races"][f"{tag:%Y%m%d}R1C1"]["runners"][0]
+    pruefe(xa["arr"]["avg"] == 20.0 and xa["arr"]["runs"] == 1,
+           "ARR-Kachel ohne ausgerittene Läufe (letzter Lauf ARR 0 und weit geschlagen zählt nicht in den Schnitt)")
     pruefe(f["valeur"] == 40.0 and x["form_lines"][1]["blinkers"] == "OEILLERES_AUSTRALIENNES" and f["odds"] == 4.0,
            "Formzeile mit Valeur, Scheuklappen und Endquote")
     rz = pd.DataFrame([{"race_id": "20260901R1C1", "hippodrome": "DEAUVILLE", "distance_m": 1600, "corde": "CORDE_DROITE",

@@ -1778,13 +1778,16 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 badges.append("BF")
             fr = vorher["early_pct"].dropna().head(STIL_LAEUFE) if len(vorher) else pd.Series(dtype=float)
             rtr_s = vorher["rtr"].dropna() if len(vorher) and "rtr" in vorher else pd.Series(dtype=float)
-            ark = gewichteter_schnitt(vorher, "arr", r.get("distance_m"), gb) if len(vorher) else \
+            # ARR- und TR-Kachel ohne ausgerittene Läufe (weit geschlagen: ARR 0, zählt nicht in den Schnitt)
+            ohne_ausg = (vorher[~vorher["ausgeritten"].fillna(False).astype(bool)]
+                         if len(vorher) and "ausgeritten" in vorher else vorher)
+            ark = gewichteter_schnitt(ohne_ausg, "arr", r.get("distance_m"), gb) if len(ohne_ausg) else \
                 gewichteter_schnitt(pd.DataFrame(), "arr", None, None)
             w_heute = p.get("weight_kg")
             # TR-Kachel: ohne Läufe mit gedeckeltem Upgrade (falsch gelaufene Rennen, TR unsicher)
-            tr_laeufe = (vorher[vorher["tr"].notna() & (vorher["tr_gedeckelt"].fillna(0) != 1
-                                                        if "tr_gedeckelt" in vorher else True)]
-                         if len(vorher) and "tr" in vorher else pd.DataFrame(columns=["tr", "distance_m"]))
+            tr_laeufe = (ohne_ausg[ohne_ausg["tr"].notna() & (ohne_ausg["tr_gedeckelt"].fillna(0) != 1
+                                                              if "tr_gedeckelt" in ohne_ausg else True)]
+                         if len(ohne_ausg) and "tr" in ohne_ausg else pd.DataFrame(columns=["tr", "distance_m"]))
             trk = tr_schnitt(tr_laeufe, r.get("distance_m"), gb)
             early = float(fr.mean()) if len(fr) else None
             st_k, st_l = stil(early)
