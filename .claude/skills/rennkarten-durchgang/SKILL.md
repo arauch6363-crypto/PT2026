@@ -202,8 +202,8 @@ Bei Annahme und bei manuellem Boden gilt:
 `class.val` ist die Ø Valeur der Starter, `class.val_idx` derselbe Wert
 als Index (100 = Ø aller früheren Rennen), `class.epr_idx` die
 Rennstärke als Ø Gewinn je Lauf der Starter im letzten Jahr, ebenfalls
-indexiert (log-gemittelt; Pferde im ersten Jahr seit dem ersten Start
-gehen mit dem €/L ihrer Verbindungen ein, `class.epr_own` zählt die
+indexiert (Preisgelder logarithmiert; Pferde im ersten Jahr seit dem
+ersten Start gehen mit dem Wert ihrer Verbindungen ein, `class.epr_own` zählt die
 Starter mit eigenem €/L). Die Formzeilen tragen dieselben Indizes für das damalige
 Rennen (`cls_val_idx`, `cls_epr_idx`). Damit wird „heute leichter oder
 schwerer" in B0 zur Rechnung statt zum Eindruck. `val` fehlt, wenn zu

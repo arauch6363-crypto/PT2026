@@ -728,16 +728,17 @@ def racecard_pruefen() -> None:
            and x["career"]["d365"]["runs"] == 2,
            "Karriere aus der Datenbank: 2-1-2, Preisgeld 27000 × 50 % + 15000 × 19 % = 16350, je Lauf 8175")
     hx_a = hist[(hist["race_id"] == rid(10, 1)) & (hist["horse"] == "X")].iloc[0]
-    geo = lambda *w: float(np.expm1(np.mean(np.log1p(w))))
+    lpm = lambda *w: float(np.mean(np.log1p(w)))           # Ø log(1 + Preisgeld) je Lauf
     pruefe(hx_a["cls_epr"] == (2850 + 7500) / 2 and np.isnan(hist.loc[hist["race_id"] == rid(100, 1), "cls_epr"]).all()
-           and hx_a["cls_epr_kl"] == round(geo(2850, 7500)) and bool(hx_a["epr_eigen"])
+           and hx_a["cls_epr_kl"] == round(lpm(2850, 7500), 3) and bool(hx_a["epr_eigen"])
            and np.isnan(hist.loc[hist["race_id"] == rid(100, 1), "cls_epr_kl"]).all(),
            "Klasse früherer Rennen: angezeigt Ø Gewinn je Lauf der Teilnehmer (365 Tage davor, X 2850, Y 7500); "
-           "Basis für €/L+ log-gemittelt (4623), Historie unter einem Jahr: 4-Jährige zählen als erfahren")
+           "Basis für €/L+ Ø log-Preisgeld je Lauf, Historie unter einem Jahr: 4-Jährige zählen als erfahren")
     kl = d["races"][f"{tag:%Y%m%d}R1C1"]["class"]
     pruefe(kl["epr"] == round((8175 + (7500 + 5130) / 2) / 2) and kl["epr_n"] == 2
-           and kl["epr_base"] == round(geo(8175, (7500 + 5130) / 2)) and kl["epr_own"] == 2,
-           "Klasse heute: angezeigt Ø Gewinn je Lauf (365 Tage) der Starter = (8175 + 6315) / 2, Basis €/L+ log-Ø 7185")
+           and kl["epr_base"] == round((lpm(13500, 2850) + lpm(5130, 7500)) / 2, 3) and kl["epr_own"] == 2,
+           "Klasse heute: angezeigt Ø Gewinn je Lauf (365 Tage) der Starter = (8175 + 6315) / 2, Basis €/L+ "
+           "Ø log-Preisgeld je Lauf je Pferd, dann Ø der Starter")
     ped = x["ae"]["pedigree"]
     pruefe(ped["dam_sire"]["runs"] == 2 and ped["dam_sire"]["wins"] == 1 and ped["cross"]["runs"] == 2
            and ped["sire"]["runs"] == 5 and y["ae"]["pedigree"]["dam_sire"]["runs"] == 0 and "sire" not in x["ae"],
@@ -768,14 +769,14 @@ def racecard_pruefen() -> None:
            for d_, p_ in (("2024-12-01", 900.0), ("2025-01-02", 300.0), ("2026-09-01", 0.0))]).assign(breeder_key=None, age=3)
     kz = rc.klassen_wert(rc.gewinn_vorher(kz))
     an = kz[kz["date"] == ts_("2026-09-01")].set_index("horse_id")
-    soll_n = (0.5 * np.log1p(3600 / 7) + 0.3 * np.log1p(2400 / 6)) / 0.8
+    soll_n = (0.5 * 3 * np.log1p(1200) / 7 + 0.3 * 2 * np.log1p(1200) / 6) / 0.8
     pruefe(bool(an.loc["A", "epr_eigen"]) and abs(an.loc["A", "epr_kl"] - np.log1p(500)) < 1e-9
            and not an.loc["N", "epr_eigen"] and abs(an.loc["N", "epr_kl"] - soll_n) < 1e-9
-           and bool(an.loc["L", "epr_eigen"]) and abs(an.loc["L", "epr_kl"] - np.log1p(600)) < 1e-9
+           and bool(an.loc["L", "epr_eigen"]) and abs(an.loc["L", "epr_kl"] - lpm(900, 300)) < 1e-9
            and (kz.loc[(kz["horse_id"] == "A") & (kz["date"] == ts_("2026-03-01")), "epr_kl"] == 0).all(),
-           "Basis €/L+ je Pferd: ab einem Jahr seit dem ersten Start immer das eigene €/L (log; ohne Lauf im letzten "
-           "Jahr über alle früheren Läufe), davor Trainer 50 % / Besitzer 30 % (Züchter fehlt -> hochgerechnet), "
-           "Verbindungen erst ab 5 Läufen")
+           "Basis €/L+ je Pferd = Ø log(1 + Preisgeld) je Lauf: ab einem Jahr seit dem ersten Start immer das eigene "
+           "(ohne Lauf im letzten Jahr über alle früheren Läufe), davor Trainer 50 % / Besitzer 30 % aus Läufen ihrer "
+           "Pferde im ersten Jahr (A erfahren zählt nicht mit; Züchter fehlt -> hochgerechnet), erst ab 5 Läufen")
     ds = x["draw_stat"]
     pruefe(ds["mean"] == 1.0 and ds["dev"] == 0.5 and ds["n"] == 1 and not ds["ok"]
            and y["draw_stat"]["mean"] == 0.0 and y["draw_stat"]["n"] == 1,
@@ -937,9 +938,9 @@ def racecard_pruefen() -> None:
            and not any(z["today"] for z in ptr),
            "Pferd nach Kurs: nur die heutige Bahn; Pferd nach Trainer: alle bisherigen Trainer")
     pruefe(f["cls_epr_idx"] == 100 and f["cls_epr"] == 5175 and "cls_epr_kl" not in f
-           and kl["epr_idx"] == round(100 * kl["epr_base"] / round(geo(2850, 7500)))
-           and abs(d["params"]["pop"]["rennen_epr"] - round(geo(2850, 7500))) < 0.01,
-           f"Rennstärke €/L+: log-Ø Gewinn je Lauf der Teilnehmer ÷ Ø aller früheren Rennen (heute {kl['epr_idx']}); "
+           and kl["epr_idx"] == round(100 * kl["epr_base"] / round(lpm(2850, 7500), 3))
+           and abs(d["params"]["pop"]["rennen_epr"] - lpm(2850, 7500)) < 0.05,
+           f"Rennstärke €/L+: Ø log-Preisgeld je Lauf der Teilnehmer ÷ Ø aller früheren Rennen (heute {kl['epr_idx']}); "
            "Formzeile zeigt weiter den einfachen Ø")
     pruefe(f["cls_val_idx"] == 100 and d["params"]["pop"]["rennen_val"] == 40.0,
            "Val+: Ø Valeur der Teilnehmer ÷ Ø aller früheren Rennen (einziges Rennen mit Valeur -> 100)")
