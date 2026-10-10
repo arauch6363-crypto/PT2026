@@ -335,6 +335,8 @@ def main() -> int:
     tipp_auswertung_pruefen()
     print("\n13) Hypothesen-Backtest: bedingtes Logit")
     hypothesen_pruefen()
+    print("\n14) Cache: Sammeldateien und Historie im Speicher")
+    cache_pruefen()
 
     pt.read_pages = requests_session_orig
     print("\n" + ("Alle Prüfungen bestanden." if not fehler else f"{len(fehler)} Prüfung(en) fehlgeschlagen:"))
@@ -485,6 +487,46 @@ def pmu_basis_pruefen() -> None:
         ru2 = tp.lade("pmu_runners", base).set_index("saddle_no")
         pruefe(ru2.loc[1, "horse"] == "NEU 1" and ru2.loc[1, "comment"] == "A bien fini (1)." and "time_s" in ru2,
                "Pipeline überschreibt die Starter, behält aber Kommentar und Zeiten aus pmu_basis")
+
+
+def cache_pruefen() -> None:
+    import os, tempfile, time
+    import pipeline as tp
+    import racecard as rc
+    base = Path(tempfile.mkdtemp(prefix="pt_cache_"))
+    d = base / "parquet" / "pmu_races"
+    d.mkdir(parents=True)
+    tag = lambda n: pd.DataFrame({"race_id": [f"2026090{n}R1C1", f"2026090{n}R1C2"], "x": [n, n * 10]})
+    for n in (1, 2):
+        tag(n).to_parquet(d / f"2026090{n}.parquet")
+    a = tp.lade("pmu_races", base, cache=True)
+    gleich = lambda: tp.lade("pmu_races", base, cache=True).equals(tp.lade("pmu_races", base))
+    ok1 = a.equals(tp.lade("pmu_races", base)) and (base / "cache" / "pmu_races.pkl").exists()
+    tag(3).to_parquet(d / "20260903.parquet")                       # neuer Tag: angehängt
+    ok2 = gleich() and len(tp.lade("pmu_races", base, cache=True)) == 6
+    time.sleep(1.1)
+    tag(9).to_parquet(d / "20260902.parquet")                       # Tag geändert: neu gebaut
+    ok3 = gleich() and 90 in set(tp.lade("pmu_races", base, cache=True)["x"])
+    tag(0).to_parquet(d / "20260900.parquet")                       # älterer Tag nachgetragen: neu gebaut
+    ok4 = gleich() and list(tp.lade("pmu_races", base, cache=True)["x"])[:2] == [0, 0]
+    pruefe(ok1 and ok2 and ok3 and ok4,
+           "Cache je Tabelle: gleiches Ergebnis wie Einzeldateien; neuer Tag angehängt, geänderter oder älterer "
+           "nachgetragener Tag -> neu gebaut")
+    aufrufe = []
+    alt_v = rc.vorbereiten
+    rc.vorbereiten = lambda *a, **k: aufrufe.append(1) or pd.DataFrame({"n": [len(aufrufe)]})
+    rc._HIST_CACHE.clear()
+    try:
+        import contextlib, io
+        with contextlib.redirect_stdout(io.StringIO()):
+            h1, h2 = rc.historie(base), rc.historie(base)
+            tag(4).to_parquet(d / "20260904.parquet")
+            h3 = rc.historie(base)
+    finally:
+        rc.vorbereiten = alt_v
+        rc._HIST_CACHE.clear()
+    pruefe(len(aufrufe) == 2 and h1 is h2 and h3["n"].iloc[0] == 2,
+           "Historie in derselben Sitzung aus dem Speicher; neue Daten -> neu aufbereitet")
 
 
 def hypothesen_pruefen() -> None:

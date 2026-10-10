@@ -212,6 +212,14 @@ Holt das heutige PMU-Programm (französische Flachrennen, auch die noch nicht
 gelaufenen) und kombiniert es mit der gesammelten Historie in `parquet/`.
 Die HTML-Datei ist eigenständig und lässt sich direkt im Browser öffnen.
 
+**Laufzeit.** Die Tabellen der Historie liegen als Tausende Tagesdateien auf Drive. `pipeline.lade(..., cache=True)`
+fasst sie je Tabelle in `<BASE>/cache/<tabelle>.pkl` zusammen und lädt danach nur neue Tage dazu (geänderte oder
+nachträglich eingefügte ältere Tage -> Sammeldatei neu). Die aufbereitete Historie (`racecard.historie`) bleibt in
+der Sitzung im Speicher: eine zweite Karte am selben Tag, `regel_backtest` und `hypothesen_backtest` rechnen sie nicht
+neu, solange sich Daten und Code nicht geändert haben (Neuladen der Module in Zelle 1 leert den Speicher). Der
+Kennzahlen-Backtest „Vorhersage des nächsten Laufs“ läuft nur noch mit `racecard.run(..., pruefen=True)`. Die
+Ausgabe zeigt je Schritt die verstrichene Zeit (`[  123 s] Historie geladen und aufbereitet`).
+
 Je Starter:
 
 * **Übersicht**: Trikot (PMU `urlCasaque`, eingebettet), Musique, Karriere Läufe-Siege-Plätze

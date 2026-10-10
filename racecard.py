@@ -2032,11 +2032,59 @@ def html(daten: dict, template: Path = TEMPLATE, *, eigenstaendig: bool = True) 
     return f'<!doctype html>\n<html lang="de">\n{seite}\n</html>\n' if eigenstaendig else seite
 
 
-def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True,
-        uebersetzen_aktiv: bool = True, claude: bool = True) -> Path:
-    """Race Card für `tag` (Vorgabe: heute) bauen und als HTML speichern; mit claude=True zusätzlich die kompakte
-    Claude-Version racecard_JJJJMMTT_claude.json daneben (claude_export)."""
+_HIST_CACHE: dict = {}      # vorbereitete Historie im Speicher: zweite Karte in derselben Sitzung ohne Neuberechnung
+
+
+def _signatur(base: Path) -> str:
+    """Stand aller Eingangsdateien der Historie (Name, Größe, Änderungszeit) und des Codes, der sie aufbereitet."""
+    import hashlib
+    h = hashlib.sha1()
+    for t in ("pmu_races", "pmu_runners", "tracking_races", "tracking_runners", "tracking_sections", "tracking_leader"):
+        d = base / "parquet" / t
+        for f in sorted(d.glob("*.parquet")) if d.exists() else []:
+            st = f.stat()
+            h.update(f"{t}/{f.name}:{st.st_size}:{int(st.st_mtime)}".encode())
+    sd = standardzeiten.ordner(base)
+    for f in sorted(sd.rglob("*.parquet")) if sd.exists() else []:
+        st = f.stat()
+        h.update(f"{f.relative_to(sd)}:{st.st_size}:{int(st.st_mtime)}".encode())
+    for m in ("racecard.py", "speedfig.py", "timeform_ratings.py", "tempo_delta.py", "rtr_arr.py", "standardzeiten.py"):
+        f = Path(__file__).with_name(m)
+        if f.exists():
+            h.update(f.read_bytes())
+    return h.hexdigest()
+
+
+def historie(base: Path) -> pd.DataFrame:
+    """Vorbereitete Historie (vorbereiten) – aus dem Speicher, wenn sich weder Daten noch Code geändert haben."""
     import pipeline as tp
+    sig = _signatur(base)
+    if _HIST_CACHE.get("sig") == sig:
+        print("Historie unverändert – aus dem Speicher.")
+        for k, v in _HIST_CACHE.get("info", {}).items():
+            setattr(globals()[k], "LETZTE_INFO", dict(v))      # für tempo_delta/timeform_ratings.bericht()
+        return _HIST_CACHE["hist"]
+    std_rennen = standardzeiten.je_rennen(base)
+    print(f"Standardzeiten je Konfiguration: {len(std_rennen):,} Rennen zugeordnet"
+          + ("" if len(std_rennen) else " – keine Sammlung gefunden (standardzeiten.run), TR schätzt sie selbst"))
+    hist = vorbereiten(*(tp.lade(t, base, cache=True) for t in ("pmu_races", "pmu_runners", "tracking_races",
+                                                                 "tracking_runners", "tracking_sections",
+                                                                 "tracking_leader")),
+                       standards=std_rennen)
+    _HIST_CACHE.clear()
+    _HIST_CACHE.update(sig=sig, hist=hist, info={m: dict(globals()[m].LETZTE_INFO)
+                                                 for m in ("tempo_delta", "timeform_ratings")})
+    return hist
+
+
+def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True,
+        uebersetzen_aktiv: bool = True, claude: bool = True, pruefen: bool = False) -> Path:
+    """Race Card für `tag` (Vorgabe: heute) bauen und als HTML speichern; mit claude=True zusätzlich die kompakte
+    Claude-Version racecard_JJJJMMTT_claude.json daneben (claude_export). pruefen=True: zusätzlich den Backtest der
+    Kennzahlen (Vorhersage des nächsten Laufs) ausgeben – dauert, ändert an der Karte nichts."""
+    import time
+    t0 = time.time()
+    schritt = lambda was: print(f"  [{time.time() - t0:5.0f} s] {was}")
     base = Path(base)
     tag = pd.to_datetime(tag).date() if tag else pmu.heute()
     print(f"PMU-Programm {tag} holen …")
@@ -2047,13 +2095,9 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     print(f"{len(races_heute)} Rennen, {len(runners_heute)} Starter. PMU-Prognosen holen …")
     prognosen = pmu.prognosen(tag, requests.Session(), list(zip(races_heute["reunion"], races_heute["race_no"])))
     print(f"Prognosen für {len(prognosen)} von {len(races_heute)} Rennen. Historie laden …")
-    std_rennen = standardzeiten.je_rennen(base)
-    print(f"Standardzeiten je Konfiguration: {len(std_rennen):,} Rennen zugeordnet"
-          + ("" if len(std_rennen) else " – keine Sammlung gefunden (standardzeiten.run), TR schätzt sie selbst"))
-    hist = vorbereiten(tp.lade("pmu_races", base), tp.lade("pmu_runners", base),
-                       tp.lade("tracking_races", base), tp.lade("tracking_runners", base),
-                       tp.lade("tracking_sections", base), tp.lade("tracking_leader", base),
-                       standards=std_rennen)
+    schritt("Programm und Prognosen")
+    hist = historie(base)
+    schritt("Historie geladen und aufbereitet")
     silks = trikots(runners_heute.get("silks_url", pd.Series(dtype=str)).dropna())
     print(f"{len(silks)} Trikots geladen.")
     if not hist.empty:
@@ -2068,14 +2112,17 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
             print(f"Wegfaktor bekannt für {len(pf)} Läufe, Median {pf.median():.3f}")
         print(tempo_delta.bericht())
         print(timeform_ratings.bericht())
-        v = timeform_ratings.validierung(hist)
+        v = timeform_ratings.validierung(hist) if pruefen else pd.DataFrame()
         if len(v):
             print("Backtest – Vorhersage des nächsten Laufs (r mit dem Platzanteil; Top-3-Quote des Bestbewerteten):")
             print(v.to_string(index=False))
+    schritt("Trikots und Berichte")
     daten = baue_daten(hist, races_heute, runners_heute, tag, silks, prognosen)
+    schritt("Karte berechnet")
     mit_k = sum(1 for r in daten["races"].values() for x in r["runners"] for f in x["form_lines"] if f.get("comment"))
     if uebersetzen_aktiv and (mit_k or prognosen):       # Übersetzung: DeepL (DEEPL_API_KEY) -> Google -> MyMemory
         print(f"Kommentare in den Formzeilen: {mit_k}, davon auf Deutsch: {kommentare_uebersetzen(daten, base)}")
+        schritt("Kommentare übersetzt")
     out = Path(out) if out else base / "racecards" / f"racecard_{tag:%Y%m%d}.html"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html(daten), encoding="utf-8")
@@ -2085,6 +2132,7 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
         import claude_export
         cj = claude_export.schreiben(daten, out.with_name(out.stem + "_claude.json"))
         print(f"Claude-Version: {cj}  ({cj.stat().st_size / 1e6:.1f} MB)")
+    schritt("fertig")
     return out
 
 

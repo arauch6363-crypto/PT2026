@@ -131,17 +131,60 @@ def _write_behalten(base: Path, tabelle: str, ymd: str, rows, keys: list[str]) -
     return _write(base, tabelle, ymd, df.to_dict("records"))
 
 
-def lade(tabelle: str, base: Path) -> pd.DataFrame:
-    """Alle Tagesdateien einer Tabelle zu einem DataFrame zusammenfassen."""
+CACHE_ORDNER = "cache"            # <base>/cache: je Tabelle alle Tagesdateien in einer Datei (nur zum Lesen)
+
+
+def _zusammen(dateien: list[Path], start: pd.DataFrame | None = None) -> pd.DataFrame:
+    import warnings
+    teile = ([start] if start is not None and len(start) else []) + [pd.read_parquet(f) for f in dateien]
+    if not teile:
+        return pd.DataFrame()
+    with warnings.catch_warnings():
+        # Tage mit unterschiedlichen, teils leeren Spalten (z. B. Zusatzspalten aus pmu_basis) – gewollt
+        warnings.simplefilter("ignore", FutureWarning)
+        return pd.concat(teile, ignore_index=True)
+
+
+def lade(tabelle: str, base: Path, cache: bool = False) -> pd.DataFrame:
+    """Alle Tagesdateien einer Tabelle zu einem DataFrame zusammenfassen.
+    cache=True (Race Card, Backtests): statt tausender Einzeldateien eine Sammeldatei <base>/cache/<tabelle>.pkl
+    lesen und nur neue Tagesdateien dazuladen. Geänderte, gelöschte oder nachträglich eingefügte ältere Tage
+    -> Sammeldatei neu bauen. Ergebnis identisch mit cache=False."""
     folder = Path(base) / "parquet" / tabelle
     files = sorted(folder.glob("*.parquet")) if folder.exists() else []
     if not files:
         return pd.DataFrame()
-    import warnings
-    with warnings.catch_warnings():
-        # Tage mit unterschiedlichen, teils leeren Spalten (z. B. Zusatzspalten aus pmu_basis) – gewollt
-        warnings.simplefilter("ignore", FutureWarning)
-        return pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
+    if not cache:
+        return _zusammen(files)
+    cdir = Path(base) / CACHE_ORDNER
+    cfile, mfile = cdir / f"{tabelle}.pkl", cdir / f"{tabelle}.json"
+    stand = {}
+    for f in files:
+        st = f.stat()
+        stand[f.name] = [st.st_size, int(st.st_mtime)]
+    try:
+        alt = json.loads(mfile.read_text()) if mfile.exists() and cfile.exists() else None
+    except ValueError:
+        alt = None
+    df = None
+    if alt and all(stand.get(k) == v for k, v in alt.items()):
+        neu = [f for f in files if f.name not in alt]
+        if not neu or neu[0].name > max(alt):                 # nur neuere Tage dazu: anhängen
+            try:
+                df = _zusammen(neu, pd.read_pickle(cfile))
+            except Exception:
+                df = None
+            if df is not None and not neu:
+                return df
+    if df is None:
+        df = _zusammen(files)
+    try:
+        cdir.mkdir(parents=True, exist_ok=True)
+        df.to_pickle(cfile)
+        mfile.write_text(json.dumps(stand))
+    except Exception as e:                                    # Cache ist nur Beschleunigung
+        print(f"Cache {tabelle} nicht geschrieben ({type(e).__name__}: {e})")
+    return df
 
 
 def _bool(spalte: pd.Series) -> pd.Series:

@@ -252,7 +252,7 @@ def laden(base: Path, *, mit_pmu_races: bool = True) -> pd.DataFrame:
     teile = [pd.read_parquet(f) for f in sorted(d.glob("*.parquet"))] if d.exists() else []
     if mit_pmu_races:
         import pipeline
-        teile.append(aus_pmu_races(pipeline.lade("pmu_races", Path(base))))
+        teile.append(aus_pmu_races(pipeline.lade("pmu_races", Path(base), cache=True)))
     teile = [t for t in teile if len(t)]
     return pd.concat(teile, ignore_index=True).drop_duplicates("race_id", keep="last") if teile else pd.DataFrame()
 
