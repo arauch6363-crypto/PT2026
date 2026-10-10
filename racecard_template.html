@@ -525,7 +525,7 @@ function stufeStil(p){
 }
 const lageText = p => p == null ? "" : ` · besser als ${Math.round(p * 100)} % aller früheren Läufe der heutigen Starter`;
 function klasseHTML(k, imRennen = false){
-  if (!k || (k.val == null && k.epr == null)) return "–";
+  if (!k || (k.val == null && k.epr == null && k.epr_idx == null && k.val_idx == null)) return "–";
   const P = DATA.params.pop || {};
   const lage = (key, i) => imRennen ? poolLage(key, i) : null;
   const zusatz = key => imRennen ? ` – Farbe: Lage unter allen früheren Läufen der heutigen Starter (rot = niedrigster, grün = höchster Wert für dieses Rennen)` : "";
@@ -963,8 +963,9 @@ function formTable(rows, no, wHeute, rHeute, tageHeute = null){
     const mg = f.pos ? lengths(f.margin) : "";
     const k = `${no}|${f.race_id}`, offen = state.rivals.has(k);
     const btn = rivBtn(f, k, offen);
-    const kl = f.cls_val != null || f.cls_epr != null
-      ? `<br><span class="cls"><span class="muted" title="Klasse: Ø Valeur der Teilnehmer ${fx(f.cls_val,1)} · Ø Gewinn je Lauf der Teilnehmer in den ${DATA.params.class_days} Tagen davor${f.cls_epr != null ? " €" + fmtEur(f.cls_epr) : " –"}${f.won_eur ? ` · hier gewonnen €${fmtEur(f.won_eur)}` : ""}">Kl.</span> ${klasseHTML({val:f.cls_val, epr:f.cls_epr, epr_idx:f.cls_epr_idx, val_idx:f.cls_val_idx}, true)}</span>` : "";
+    // auch in Debütantenrennen (kein Teilnehmer mit Läufen, also ohne €-Betrag) steht der Index €/L+ über die Verbindungen
+    const kl = f.cls_val != null || f.cls_epr != null || f.cls_epr_idx != null
+      ? `<br><span class="cls"><span class="muted" title="Klasse: Ø Valeur der Teilnehmer ${f.cls_val != null ? fx(f.cls_val,1) : "– (keine Valeur)"} · Ø Gewinn je Lauf der Teilnehmer in den ${DATA.params.class_days} Tagen davor${f.cls_epr != null ? " €" + fmtEur(f.cls_epr) : " – (keine Läufe der Teilnehmer; €/L+ über Trainer/Besitzer/Züchter)"}${f.won_eur ? ` · hier gewonnen €${fmtEur(f.won_eur)}` : ""}">Kl.</span> ${klasseHTML({val:f.cls_val, epr:f.cls_epr, epr_idx:f.cls_epr_idx, val_idx:f.cls_val_idx}, true)}</span>` : "";
     const cmt = kommentarHTML(f);
     const pause = i === 0 ? pauseZeile(tageHeute, true)
       : !f.extra && !rows[i - 1].extra ? pauseZeile(tageZwischen(rows[i - 1].date, f.date), false) : "";
