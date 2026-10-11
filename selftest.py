@@ -1330,22 +1330,31 @@ def racecard_pruefen() -> None:
     rr["runners"].append(nr_)
     fertig = _copy.deepcopy(rr); fertig.update(race_id="FERTIG", status="ARRIVEE_DEFINITIVE")
     dd["races"]["FERTIG"] = fertig
-    ex = ce.export(dd)
-    eo, ef = ex["races"][rr["race_id"]], ex["races"]["FERTIG"]
+    rr["runners"][0]["rating_mitte"] = {"wert": 1.0, "rank": 1, "n": 2, "aus": ["arr"]}     # Prognose: Nr. 2 vorne
+    rr["runners"][1]["rating_mitte"] = {"wert": -1.0, "rank": 2, "n": 2, "aus": ["arr"]}
+    rr["prono"] = {"text": "GEHEIMTEXT", "consensus": [2, 1]}
+    ex, mk = ce.export(dd), ce.export_markt(dd)
+    eo, ef, mo = ex["races"][rr["race_id"]], ex["races"]["FERTIG"], mk["races"][rr["race_id"]]
     txt = json.dumps(ex, ensure_ascii=False)
     pruefe(eo["offen"] and not ef["offen"] and len(ef["runners"]) == 2 and eo["nr"] == [9]
            and [x_["no"] for x_ in eo["nichtstarter"]] == [9]
-           and [x_["no"] for x_ in eo["runners"]] == eo["vorgerechnet"]["reihenfolge"] == [2, 1]
-           and abs(sum(x_["p_prog"] for x_ in eo["runners"]) - 1) < 1e-3
-           and eo["runners"][0]["p_prog"] < eo["runners"][1]["p_prog"]       # 4,0 dezimal < 3,0 dezimal
-           and eo["vorgerechnet"]["marge"] == round(1 / 3 + 1 / 4, 3)
+           and [x_["no"] for x_ in eo["runners"]] == eo["vorgerechnet"]["reihenfolge"] == [1, 2]
            and "odds_morning" not in txt and '"silks"' not in txt and "base64" not in txt
            and all("odds" not in x_ for x_ in eo["runners"])
            and all("rivals" not in f_ and "rivals_nah" in f_ and "rivals_stat" in f_
                    and not (set(f_) & ce.OHNE_FORMZEILE) for x_ in eo["runners"] for f_ in x_["form_lines"]),
-           "Claude-Version: Starter nach Prognose-Rang, p_prog (Potenzmethode) und Marge vorgerechnet, ohne "
-           "Kurse/Trikots; Formzeilen mit nächsten Gegnern statt voller Liste, ohne Zwischenwerte; Nichtstarter und "
-           "gelaufene Rennen vollständig dabei")
+           "Claude-Version blind: Starter nach Rating-Mitte, ohne Kurse/Trikots; Formzeilen mit nächsten Gegnern statt "
+           "voller Liste, ohne Zwischenwerte; Nichtstarter und gelaufene Rennen vollständig dabei")
+    pruefe('"prono"' not in txt and "p_prog" not in txt and "GEHEIMTEXT" not in txt and "cote" not in txt
+           and "marge" not in eo["vorgerechnet"] and "konsens" not in txt,
+           "Claude-Version blind: keine Prognose, cote probable, p_prog, Marge, Tipps, Konsens, Cribles oder "
+           "Rennkommentar – auch die Reihenfolge verrät die Prognose nicht")
+    pruefe([x_["no"] for x_ in mo["runners"]] == mo["vorgerechnet"]["reihenfolge"] == [2, 1]
+           and abs(sum(x_["p_prog"] for x_ in mo["runners"]) - 1) < 1e-3
+           and mo["runners"][0]["p_prog"] > mo["runners"][1]["p_prog"]
+           and mo["vorgerechnet"]["marge"] == round(1 / 3 + 1 / 4, 3) and mo["prono"]["text"] == "GEHEIMTEXT"
+           and mo["nr"] == [9] and ce.markt_pfad(Path("x/racecard_20261011_claude.json")).name == "racecard_20261011_markt.json",
+           "Marktdatei: Prognose-Reihenfolge, p_prog (Potenzmethode), Marge, Rennkommentar und Tipps je Rennen")
 
     def _pfade(o, pre=""):
         """Alle Schlüsselpfade (Listenindizes zu [] zusammengefasst)."""
@@ -1360,9 +1369,10 @@ def racecard_pruefen() -> None:
     ausgelassen = (".runners[].silks", ".runners[].odds", ".runners[].odds_morning",
                    *(f".form_lines[].{k}" for k in ce.OHNE_FORMZEILE))
     weg = lambda q: q.endswith(ausgelassen) or any(o + "." in q or o + "[]" in q for o in ausgelassen)  # + Unterfelder
-    fehlend = sorted({_norm(q) for q in _pfade(dd)} - {_norm(q) for q in _pfade(ex)}
+    fehlend = sorted({_norm(q) for q in _pfade(dd)} - {_norm(q) for q in _pfade(ex) | _pfade(mk)}
                      - {q for q in {_norm(q) for q in _pfade(dd)} if weg(q)})
-    pruefe(not fehlend, "Claude-Version vollständig: jedes Feld der Race Card außer Trikots/Kursen/Gegnerliste/Zwischenwerten"
+    pruefe(not fehlend, "Claude-Version (blind + Markt) vollständig: jedes Feld der Race Card außer "
+           "Trikots/Kursen/Gegnerliste/Zwischenwerten"
            + (f" – fehlt: {fehlend[:5]}" if fehlend else ""))
     dn = _copy.deepcopy(dd)
     x_ = next(iter(dn["races"].values()))["runners"][0]
@@ -1378,10 +1388,11 @@ def racecard_pruefen() -> None:
            "Claude-Version: Potenzmethode zieht die Marge stärker beim Außenseiter ab als proportional")
     skill = (Path(__file__).parent / ".claude/skills/rennkarten-durchgang/SKILL.md").read_text(encoding="utf-8")
     x0 = eo["runners"][0]
-    pruefe(all(k in x0 for k in ("form_lines", "pref", "ae", "career", "rating_adj", "prono", "duels", "starts",
+    pruefe(all(k in x0 for k in ("form_lines", "pref", "ae", "career", "rating_adj", "rating_mitte", "duels", "starts",
                                  "days", "changes", "badges", "hcp_mark", "tr", "arr", "rtr", "summary", "luecke"))
-           and all(k in eo for k in ("prono", "pace", "bias", "class", "going_source", "going_assumed", "declared"))
-           and all(k in skill for k in ("_claude.json", "p_prog", "vorgerechnet", "rivals_nah", "luecke")),
+           and all(k in eo for k in ("pace", "bias", "class", "going_source", "going_assumed", "declared"))
+           and all(k in skill for k in ("_claude.json", "_markt.json", "p_prog", "p_blind", "rating_mitte",
+                                        "vorgerechnet", "rivals_nah", "luecke")),
            "Claude-Version: Felder, die der Skill liest, sind da; der Skill kennt die Claude-Version")
 
     # Vorlieben: A/E deutlich und signifikant anders als der Rest derselben Person/Linie

@@ -5,7 +5,7 @@ Eingang (alles in <BASE>):
   (```json {"tipps": [...]}``` mit race_id, no, p, stufe, mq, sicherheit, eingepreist, angles, fk, value, siehe Skill C2;
   fk = Festkurs und value = p × fk − 1 werden nach der Analyse nachgetragen).
   Ältere Dateien ohne Block: Ersatz aus den Markdown-Tabellen („## Rennen N“, Zeilen „| #Nr Name | … |“).
-* `racecards/racecard_JJJJMMTT_claude.json`: Prognose-Chance p_prog und Prognose-Rang je Starter.
+* `racecards/racecard_JJJJMMTT_markt.json` (ältere Tage: `_claude.json`): Prognose-Chance p_prog und Prognose-Rang.
 * `parquet/pmu_runners/JJJJMMTT.parquet`: Einlauf und Endquote; `parquet/pmu_dividends/…`: Sieg-Dividende.
 
 Ausgabe: laufendes Protokoll `auswertung/tipps_protokoll.parquet` (+ .csv) und ein Bericht:
@@ -82,6 +82,10 @@ def tipps_aus_text(text: str) -> pd.DataFrame:
     df["no"] = pd.to_numeric(df["no"], errors="coerce").astype("Int64")
     df["p"] = pd.to_numeric(df["p"], errors="coerce")
     df["p"] = np.where(df["p"] > 1, df["p"] / 100, df["p"])           # 26 statt 0,26
+    # p_blind: eigene Siegchance aus dem blinden Teil (seit 10/2026); ältere Tipps ohne -> wie p
+    df["p_blind"] = pd.to_numeric(df["p_blind"], errors="coerce") if "p_blind" in df else np.nan
+    df["p_blind"] = np.where(df["p_blind"] > 1, df["p_blind"] / 100, df["p_blind"])
+    df["p_blind"] = df["p_blind"].fillna(df["p"])
     df["mq"] = pd.to_numeric(df.get("mq"), errors="coerce")
     # Festkurs (fk) und value (= p × fk − 1) werden nachgetragen; fehlt value, wird es aus fk gerechnet
     df["fk"] = pd.to_numeric(df["fk"], errors="coerce") if "fk" in df else np.nan
@@ -110,16 +114,21 @@ def laden_tipps(base: Path) -> pd.DataFrame:
 # Prognose und Ergebnis
 # --------------------------------------------------------------------------
 def _prognose(base: Path, tag: str) -> pd.DataFrame:
-    f = Path(base) / "racecards" / f"racecard_{tag}_claude.json"
-    if not f.exists():
+    """p_prog und Prognose-Rang aus racecard_<tag>_markt.json (seit dem blinden Ablauf), sonst – ältere Tage – aus
+    racecard_<tag>_claude.json; Rennart aus der Claude-Datei."""
+    ordner = Path(base) / "racecards"
+    f, fm = ordner / f"racecard_{tag}_claude.json", ordner / f"racecard_{tag}_markt.json"
+    if not f.exists() and not fm.exists():
         return pd.DataFrame()
-    d = json.loads(f.read_text(encoding="utf-8"))
+    d = json.loads(f.read_text(encoding="utf-8")) if f.exists() else {"races": {}}
+    m = json.loads(fm.read_text(encoding="utf-8")) if fm.exists() else d
+    typ = {rid: r.get("type") for rid, r in (d.get("races") or {}).items()}
     z = []
-    for rid, r in (d.get("races") or {}).items():
+    for rid, r in (m.get("races") or {}).items():
         for x in r.get("runners") or []:
             z.append({"race_id": rid, "no": x.get("no"), "p_prog": x.get("p_prog"),
                       "prog_rang": ((x.get("prono") or {}).get("sel") or {}).get("rank"),
-                      "typ": r.get("type"), "horse_karte": x.get("horse")})
+                      "typ": typ.get(rid, r.get("type")), "horse_karte": x.get("horse")})
     return pd.DataFrame(z)
 
 
@@ -199,11 +208,24 @@ def treffsicherheit(p: pd.DataFrame) -> pd.DataFrame:
     if ok.empty:
         return pd.DataFrame()
     z = []
-    for name, c in [("Claude", "p"), ("Prognose", "p_prog")]:
+    quellen = [("Claude", "p"), ("Prognose", "p_prog")]
+    if "p_blind" in ok and (ok["p_blind"] - ok["p"]).abs().max() > 1e-9:     # blind ≠ endgültig: getrennt zeigen
+        quellen.insert(1, ("Claude blind", "p_blind"))
+    for name, c in quellen:
         q = ok[c] / ok.groupby("race_id")[c].transform("sum")          # je Rennen auf 100 % normiert
         sieger = q[ok["W"] == 1].clip(lower=1e-3)
         z.append({"quelle": name, "rennen": ok["race_id"].nunique(), "log_loss": round(float(-np.log(sieger).mean()), 3),
                   "brier": round(float(((q - ok["W"]) ** 2).groupby(ok["race_id"]).sum().mean()), 4)})
+    if "fk" in ok:                                   # nachgetragene Festkurse: nur Rennen, in denen alle einen haben
+        fk = ok.groupby("race_id").filter(lambda g: g["fk"].notna().all() and (g["fk"] > 1).all())
+        if len(fk):
+            for name, c in [("Claude (Festkurs-Rennen)", "p"), ("Festkurs", None)]:
+                w = (1 / fk["fk"]) if c is None else fk[c]
+                q = w / w.groupby(fk["race_id"]).transform("sum")
+                sieger = q[fk["W"] == 1].clip(lower=1e-3)
+                z.append({"quelle": name, "rennen": fk["race_id"].nunique(),
+                          "log_loss": round(float(-np.log(sieger).mean()), 3),
+                          "brier": round(float(((q - fk["W"]) ** 2).groupby(fk["race_id"]).sum().mean()), 4)})
     return pd.DataFrame(z)
 
 
