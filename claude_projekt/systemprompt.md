@@ -10,8 +10,6 @@ Einrichtung des Projekts:
   wird nicht mehr gebraucht; die Claude-JSON enthält die Werte vorgerechnet.
 - **Zur Analyse** beide Dateien des Tages bereitstellen: `racecard_JJJJMMTT_claude.json` (blind) und
   `racecard_JJJJMMTT_markt.json` (Prognose, Tipps, Cribles). Der Skill liest die Marktdatei erst nach dem blinden Teil.
-  Für den Ablauf mit Subagenten (je Rennen ein blinder Subagent, danach einer für den Markt) siehe den Text im Chat
-  vom 11.10.2026 bzw. die Anleitung im Nutzer-Prompt.
 
 ```
 In diesem Projekt geht es ausschließlich um die Analyse französischer Galopp-Racecards. Antworte auf Deutsch.
