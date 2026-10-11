@@ -397,17 +397,27 @@ und werden mit Python geparst.
 - **claude.ai:** Dort wird er weiterhin als `.skill`/ZIP hochgeladen. Die Datei hier ist die versionierte Vorlage.
 - **Pflege:** Neue Erkenntnisse aus Analysen kommen als knappe Regel an die passende Stelle des Rasters (A/B/C), nicht als
   neuer Abschnitt. Nach jeder Anpassung wird konsolidiert: Doppeltes zusammenführen und Erklärungen kürzen, die die
-  Claude-JSON schon vorrechnet. Der Umfang soll nicht wachsen (Stand 09.10.2026: rund 56.300 Zeichen).
+  Claude-JSON schon vorrechnet. Der Umfang soll nicht wachsen (Stand 11.10.2026: rund 59.200 Zeichen).
 
-**Claude-Version der Karte** (`claude_export.py`): Neben `racecard_JJJJMMTT.html` schreibt `racecard.run` die Datei
-`racecard_JJJJMMTT_claude.json` (abschalten mit `claude=False`).
+**Claude-Version der Karte** (`claude_export.py`): Neben `racecard_JJJJMMTT.html` schreibt `racecard.run` zwei
+Dateien (abschalten mit `claude=False`), passend zu den zwei Teilen des Skills:
 
-- **Inhalt:** **alle Daten der Karte**, auch Detailinfos, die der Skill heute nicht nutzt. Neue Felder der Karte kommen automatisch mit; ein Selbsttest prüft die Vollständigkeit.
-- **Weggelassen** sind nur Trikots, je Formzeile die volle Gegnerliste (es bleiben `rivals_nah` mit den zwei Gegnern davor und dahinter und `rivals_stat`) und die Zwischenwerte der Berechnung (`claude_export.OHNE_FORMZEILE`).
-- **Umgeordnet:** Starter nach Prognose-Rang, Nichtstarter getrennt (`nichtstarter`, Nummern in `nr`).
-- **Vorgerechnet:** Prognose-Chance nach der Potenzmethode (`p_prog`), `marge`, `reihenfolge`, `bias_rel` gegen den Schnitt aller Bahnen, `luecke` (PMU-Starts − Datenbank-Läufe).
-- **Größe:** etwa ein Drittel der HTML-Karte (02.10.: 2,8 statt 8,2 MB).
-- **Zur Analyse** in claude.ai hochladen: den Skill und diese Datei statt der HTML-Karte. Der Skill liest sie bevorzugt; die HTML-Karte bleibt als Rückfall.
+- **`racecard_JJJJMMTT_claude.json` – blind (Teil 1):** **alle Daten der Karte** außer Markt- und Presseangaben
+  (`claude_export.OHNE_MARKT`: Prognose, cote probable, Tipps, Konsens, Cribles, Rennkommentar), auch Detailinfos, die
+  der Skill heute nicht nutzt. Starter nach **Rating-Mitte** (`racecard.rating_mitte`: gewichteter Ø der z-Werte im
+  Feld aus ARR bereinigt 40 %, Valeur bereinigt 30 %, TR heute 30 %; fehlende Werte -> übrige Gewichte hochgerechnet),
+  damit die Reihenfolge die Prognose nicht verrät. Nichtstarter getrennt (`nichtstarter`, Nummern in `nr`).
+  Vorgerechnet: `reihenfolge`, `bias_rel`, `luecke`.
+- **`racecard_JJJJMMTT_markt.json` – Markt (Teil 2):** je Rennen `prono` (Rennkommentar, Tipps, Konsens, Cribles),
+  `marge`, `reihenfolge` nach Prognose-Rang und je Starter `prono` und `p_prog` (Potenzmethode).
+- **Weggelassen** sind außerdem Trikots, je Formzeile die volle Gegnerliste (es bleiben `rivals_nah` und
+  `rivals_stat`) und die Zwischenwerte der Berechnung (`claude_export.OHNE_FORMZEILE`). Neue Felder der Karte kommen
+  automatisch mit; ein Selbsttest prüft, dass beide Dateien zusammen vollständig sind und die blinde Datei keine
+  Marktangaben enthält.
+- **Zur Analyse** in claude.ai: Teil 1 nur mit der blinden Datei, die Marktdatei erst danach. Die HTML-Karte bleibt als
+  Rückfall, ist aber nicht blind.
+- **Auswertung:** Der Protokoll-Block trägt `p_blind` (Teil 1) und `p`; `tipp_auswertung` vergleicht Claude blind,
+  Prognose und – mit nachgetragenem `fk` – Festkurs per Log-Loss und Brier.
 
 **claude.ai-Projekt:** Systemprompt und Einrichtung (Skill über die GitHub-Anbindung, nur die Claude-JSON hochladen) stehen in
 `claude_projekt/systemprompt.md`.

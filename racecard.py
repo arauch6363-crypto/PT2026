@@ -90,6 +90,9 @@ DUELL_BODEN = True              # Stufe (DUELL_BODEN); anders als dort zählen a
 DUELL_RANG_DIREKT, DUELL_RANG_INDIREKT = 2.0, 1.0   # Gewicht je Beobachtung
 DUELL_RANG_HALBWERT = 60        # Tage: so alt zählt ein Duell halb so viel
 DUELL_RANG_MAX_L = 5.0          # Abstände auf ± so viele Längen begrenzt
+# Rating-Mitte (Reihenfolge des blinden Durchgangs im Skill): gewichteter Ø der z-Werte im Feld aus ARR (bereinigt),
+# Valeur (bereinigt) und TR (heute); fehlt ein Wert, werden die übrigen Gewichte hochgerechnet
+RATING_MITTE_GEWICHTE = {"arr": 0.4, "rating": 0.3, "tr": 0.3}
 BOX_SD = 0.289                  # Streuung der relativen Platzierung bei Zufall (Gleichverteilung 0…1)
 BOX_Z = 2.0                     # Startbox auffällig: |Ø − 0,5| mindestens BOX_Z Standardfehler …
 BOX_MIN_ABW = 0.05              # … und mindestens so weit von 0,5 entfernt
@@ -1423,6 +1426,31 @@ def _indirekte_duelle(basis: pd.DataFrame, heute_gew: dict, going_heute, distanz
     return out
 
 
+def rating_mitte(partanten: list[dict]) -> None:
+    """Je Starter x["rating_mitte"] = {wert, rank, n, aus}: gewichteter Ø der z-Werte (Feld ohne Nichtstarter) von
+    ARR bereinigt (arr.adj), Valeur bereinigt (rating_adj) und TR heute (tr.heute), Gewichte RATING_MITTE_GEWICHTE;
+    fehlende Werte fallen weg, die übrigen Gewichte werden hochgerechnet. Ohne jeden Wert: None."""
+    holen = {"arr": lambda x: (x.get("arr") or {}).get("adj"), "rating": lambda x: x.get("rating_adj"),
+             "tr": lambda x: (x.get("tr") or {}).get("heute")}
+    z = {k: {} for k in holen}
+    for k, f in holen.items():
+        werte = {i: float(f(x)) for i, x in enumerate(partanten) if f(x) is not None}
+        if len(werte) >= 2:
+            m, sd = float(np.mean(list(werte.values()))), float(np.std(list(werte.values())))
+            z[k] = {i: (v - m) / sd if sd > 0 else 0.0 for i, v in werte.items()}
+        elif werte:
+            z[k] = {i: 0.0 for i in werte}
+    mitte = {}
+    for i in range(len(partanten)):
+        teile = [(RATING_MITTE_GEWICHTE[k], z[k][i]) for k in holen if i in z[k]]
+        if teile:
+            mitte[i] = (sum(g * v for g, v in teile) / sum(g for g, _ in teile), [k for k in holen if i in z[k]])
+    reihe = sorted(mitte, key=lambda i: -mitte[i][0])
+    for i, x in enumerate(partanten):
+        x["rating_mitte"] = ({"wert": _num(mitte[i][0], 2), "rank": reihe.index(i) + 1, "n": len(mitte),
+                              "aus": mitte[i][1]} if i in mitte else None)
+
+
 def duell_rangfolge(starters: list[dict], heute) -> list[list]:
     """Rangfolge aus den Duellen des heutigen Feldes (Massey, kleinste Quadrate): je Pferd ein Wert r, sodass
     r(A) − r(B) möglichst gut alle heute erwarteten Abstände A vor B trifft (exp_l in Längen, auf ±DUELL_RANG_MAX_L
@@ -1925,6 +1953,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         for x in starters:
             x["rating_rank"] = _rang(werte, x["rating_adj"]) if not x["nr"] else None
             x["rating_n"] = sum(w is not None for w in werte)
+            x["rating_mitte"] = None
+        rating_mitte(partanten)                                  # Reihenfolge des blinden Durchgangs (Skill)
         for fenster in ("all", "d365"):                        # Gewinn je Lauf: Rang und Verhältnis zum Feld
             werte = [x["career"][fenster]["epr"] for x in partanten]
             vorhanden = [w for w in werte if w is not None]
@@ -2084,7 +2114,8 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     if claude:                                            # kompakte JSON für den Skill rennkarten-durchgang
         import claude_export
         cj = claude_export.schreiben(daten, out.with_name(out.stem + "_claude.json"))
-        print(f"Claude-Version: {cj}  ({cj.stat().st_size / 1e6:.1f} MB)")
+        print(f"Claude-Version (blind): {cj}  ({cj.stat().st_size / 1e6:.1f} MB)")
+        print(f"Claude-Version (Markt): {claude_export.markt_pfad(cj)}")
     return out
 
 

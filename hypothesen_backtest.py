@@ -204,9 +204,15 @@ def h5(h: pd.DataFrame, base: Path | None):
             dd = json.loads(f.read_text(encoding="utf-8"))
         except ValueError:
             continue
+        fm = f.with_name(f.name.replace("_claude.json", "_markt.json"))   # seit dem blinden Ablauf: Prognose dort
+        try:
+            mk = json.loads(fm.read_text(encoding="utf-8")) if fm.exists() else {}
+        except ValueError:
+            mk = {}
         for rid, r in (dd.get("races") or {}).items():
+            pm = {y.get("no"): y.get("prono") for y in ((mk.get("races") or {}).get(rid) or {}).get("runners") or []}
             for x in r.get("runners") or []:
-                pr = x.get("prono") or {}
+                pr = x.get("prono") or pm.get(x.get("no")) or {}
                 ranks = [(x.get("tr") or {}).get("rank"), (x.get("arr") or {}).get("rank"), (x.get("rtr") or {}).get("rank")]
                 z.append({"race_id": rid, "saddle_no": x.get("no"), "konsens_pts": (pr.get("konsens") or {}).get("pts"),
                           "konsens_pos": (pr.get("konsens") or {}).get("pos"),

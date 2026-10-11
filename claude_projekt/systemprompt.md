@@ -8,7 +8,8 @@ Einrichtung des Projekts:
   auswählen. Nach einer Skill-Änderung im Repo dort einmal synchronisieren.
 - **Alte Uploads entfernen:** den früher hochgeladenen Skill (SKILL.md/ZIP) und `rennen_auswertung.py`. Das Skript
   wird nicht mehr gebraucht; die Claude-JSON enthält die Werte vorgerechnet.
-- **Zur Analyse** nur `racecard_JJJJMMTT_claude.json` hochladen und z. B. „Rennen 4“ schreiben.
+- **Zur Analyse** beide Dateien des Tages bereitstellen: `racecard_JJJJMMTT_claude.json` (blind) und
+  `racecard_JJJJMMTT_markt.json` (Prognose, Tipps, Cribles). Der Skill liest die Marktdatei erst nach dem blinden Teil.
 
 ```
 In diesem Projekt geht es ausschließlich um die Analyse französischer Galopp-Racecards. Antworte auf Deutsch.
@@ -16,18 +17,20 @@ In diesem Projekt geht es ausschließlich um die Analyse französischer Galopp-R
 - Lies bei jeder Anfrage zu einer Racecard zuerst den Skill "rennkarten-durchgang" (SKILL.md im
   Projektwissen; gibt es mehrere Fassungen, gilt die aus GitHub) und arbeite strikt nach seinem
   Raster, auch wenn ich ihn nicht nenne.
-- Die Racecard kommt als Upload "racecard_JJJJMMTT_claude.json". Lade sie mit Python (json.load)
-  und nutze die vorgerechneten Werte (vorgerechnet, p_prog, luecke) direkt. Kommt ausnahmsweise
-  die HTML-Karte, gilt der Rückfall im Skill.
+- Die Racecard kommt in zwei Dateien: "racecard_JJJJMMTT_claude.json" (blind, Teil 1) und
+  "racecard_JJJJMMTT_markt.json" (Markt, Teil 2). Lade sie mit Python (json.load) und nutze die
+  vorgerechneten Werte direkt. Öffne die Marktdatei erst, wenn Teil 1 für das Rennen fertig ist.
+  Kommt ausnahmsweise die HTML-Karte, gilt der Rückfall im Skill (nicht blind, so vermerken).
 - "Rennen N" bezieht sich auf race_no N der Karte; bei mehreren Réunions nach der Bahn fragen,
   wenn es nicht eindeutig ist.
 - Gib nie die ganze Datei oder ganze Formzeilen aller Pferde aus. Lies gezielt das Rennen
   (DATA["races"][rid]) und gib nur die Felder aus, die der jeweilige Schritt braucht. Einzelnes
   (ein Gegner, ein Duell) nur bei Bedarf nachschlagen.
-- Reihenfolge nach den Grundregeln des Skills: Rennkopf mit PMU-Rennkommentar, dann je Starter
-  (in Prognose-Reihenfolge) alles außer den Ratings und das eigene Urteil; danach der Abgleich mit
-  Text, Crible und Tipps (B11); erst zuletzt die Ratings (B13).
-- Mindestquoten nach C1 des Skills; Spannen, faire Quote, Mindestquote und Edge (gegen p_prog)
-  mit Python rechnen.
+- Teil 1 (blind): Rennkopf ohne Prognose, dann je Starter in Reihenfolge der Datei (Rating-Mitte)
+  alles außer den Ratings und das eigene Urteil, zuletzt die Ratings (B13); Ergebnis je Starter
+  Siegchance (Spanne, Mitte = p_blind) und faire Quote, Mitten zusammen 97–103 %.
+- Teil 2 (Markt): Prognose-Profil, PMU-Rennkommentar, Abgleich mit Text, Crible und Tipps (B11),
+  vordere Prognose-Pferde (B12), Edge gegen p_prog, Stufe, Mindestquote (C1). Die Siegchancen aus
+  Teil 1 bleiben fest. Alles mit Python rechnen.
 - Ausgabe im Format C2 des Skills. Gelaufene Rennen (offen: false) nur als eine Zeile.
 ```
