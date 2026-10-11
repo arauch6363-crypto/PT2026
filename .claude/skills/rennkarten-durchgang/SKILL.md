@@ -1,6 +1,6 @@
 ---
 name: "rennkarten-durchgang"
-description: Qualitativer Durchgang durch eine französische Galopp-Racecard (Vollblut), Pferd für Pferd in Reihenfolge der PMU-Prognose (cote probable), mit dem Ziel, pro Starter einen Wett-Angle zu bejahen oder zu verneinen, zu prüfen, ob die Öffentlichkeit ihn über Prognose, Cribles und Presse-Tipps schon wahrgenommen und eingepreist hat, daraus den Edge zu berechnen und für jedes Pferd mit Angle eine Mindestquote (Festkurs) zu nennen. Verwenden, wann immer eine Racecard durchgegangen, Kandidaten gesucht oder Mindestquoten bestimmt werden sollen.
+description: Qualitativer Durchgang durch eine französische Galopp-Racecard (Vollblut) in zwei Teilen – zuerst blind (ohne PMU-Prognose, Tipps, Cribles und Rennkommentar) Pferd für Pferd nach Rating-Mitte mit eigener Siegchance und fairer Quote je Starter, danach der Abgleich mit dem Markt – mit dem Ziel, pro Starter einen Wett-Angle zu bejahen oder zu verneinen, zu prüfen, ob die Öffentlichkeit ihn über Prognose, Cribles und Presse-Tipps schon wahrgenommen und eingepreist hat, daraus den Edge zu berechnen und für jedes Pferd mit Angle eine Mindestquote (Festkurs) zu nennen. Verwenden, wann immer eine Racecard durchgegangen, Kandidaten gesucht oder Mindestquoten bestimmt werden sollen.
 ---
 
 # Rennkarten-Durchgang
@@ -27,15 +27,24 @@ hält.
 **Status und Nichtstarter.** Nichtstarter (`nr`) werden vor
 jeder Rechnung gestrichen.
 
-**Lesereihenfolge.**
-- Prognose-Rang, cote probable, der PMU-Rennkommentar und der Crible eines
-  Pferdes dürfen zur Orientierung am Anfang stehen: Was sieht die
-  Öffentlichkeit?
-- Pflicht bleibt B11: Jedes eigene Argument wird gegen Text, Crible und
-  Tipps gehalten (*eingepreist*, *teilweise*, *nicht erkannt*). Wer den
-  Crible zuerst liest, sucht in den Formzeilen gezielt das, was er
-  **nicht** nennt.
-- Ratings kommen erst in B13.
+**Zwei Teile: erst blind, dann der Markt.** Wer die Prognose vorher kennt,
+übernimmt sie (Auswertung 10/2026: ohne Angle lag die eigene Siegchance
+fast immer auf der Prognose-Chance).
+- **Teil 1 – blind** mit `racecard_JJJJMMTT_claude.json`. Die Datei
+  enthält keine Prognose, keine cote probable, kein `p_prog`, keine Tipps,
+  keinen Konsens, keine Cribles und keinen Rennkommentar; die Starter
+  stehen nach `rating_mitte`. Durchgang A, B0–B10, B12 (ohne den Absatz zu
+  den vorderen Prognose-Pferden), B13, B-2J. Ergebnis je Starter:
+  Siegchance als Spanne und Mitte (`p_blind`) und faire Quote (C1,
+  Schritte 1, 2 und 4). Die Marktdatei wird in Teil 1 nicht geöffnet,
+  auch nicht „nur kurz“.
+- **Teil 2 – Markt** mit `racecard_JJJJMMTT_markt.json`: Prognose-Profil
+  (A), P, B11, die vorderen Prognose-Pferde (B12), Edge, Stufe,
+  Mindestquote und Sicherheit (C1), Ausgabe C2. **Die Siegchancen aus
+  Teil 1 bleiben fest.** Zeigt der Abgleich, dass die eigene Sicht weit
+  danebenliegt, wird das benannt und geht in Stufe und Sicherheit ein,
+  nicht in eine neue Zahl.
+- Ratings kommen in Teil 1 erst in B13.
 
 **Fehlende Information ist eine Lücke, kein Negativbefund.** Kleine
 Fallzahlen werden als solche gekennzeichnet (D).
@@ -68,7 +77,10 @@ Eine Lücke wird beim Pferd in einem Halbsatz genannt und in der
 Sicherheitsstufe (C1) berücksichtigt, aber nicht als Argument gegen das
 Pferd gewertet.
 
-## Abschnitt P — Die Prognose als Wahrnehmung der Öffentlichkeit
+## Abschnitt P — Die Prognose als Wahrnehmung der Öffentlichkeit (Teil 2)
+
+Alle Felder dieses Abschnitts stehen nur in der Marktdatei
+(`racecard_JJJJMMTT_markt.json`, je Rennen `races[id]`).
 
 ### P1 — Die Felder
 
@@ -130,7 +142,7 @@ Zuerst das Rennen, dann die Pferde. Aus `type`, `age`, `sex`, `distance`,
 `going_label`, `corde`, `prize`, `class` und `pace` ergibt sich die
 Leitfrage für den ganzen Durchgang.
 
-Dazu das **Prognose-Profil** — nur die Zahlen, nicht der Text: Wie
+In Teil 2 kommt das **Prognose-Profil** dazu — nur die Zahlen, nicht der Text: Wie
 deutlich ist der Prognose-Favorit (2/1 ist ein klares Urteil, 4/1 in
 einem großen Feld ein offenes Rennen), und wie viele Pferde stehen unter
 etwa 10/1? Ein Rennen, das die Öffentlichkeit für offen hält, lässt mehr
@@ -251,18 +263,23 @@ wenige Starter eine Valeur haben (Zweijährige).
 
 ## Abschnitt B — Raster je Starter
 
-**Reihenfolge: nach Prognose-Rang (`prono.sel.rank`), von den Favoriten
-abwärts** — nicht nach Startnummer. Pferde ohne
-Prognose-Eintrag kommen ans Ende. Die großen Außenseiter dürfen
-übersprungen werden, sobald klar ist, dass sie die Entscheidung nicht
-mehr berühren — **aber nicht ungelesen, wenn eine Tippquelle sie vorne
-nennt** (P3). Bei gleicher cote probable ist die Reihenfolge frei.
+**Reihenfolge: nach Rating-Mitte** (`rating_mitte.rank`; die blinde
+Datei listet die Starter schon so, `vorgerechnet.reihenfolge`) — nicht
+nach Startnummer und nicht nach Prognose. Die Rating-Mitte ist der
+gewichtete Ø der z-Werte im Feld aus ARR bereinigt (40 %), Valeur
+bereinigt (30 %) und TR heute (30 %); fehlt ein Wert, zählen die übrigen
+(`aus`). Pferde ohne jeden Wert stehen am Ende. Sie ist nur die
+Reihenfolge, kein Urteil. Jedes Pferd bekommt eine Siegchance; wer
+hinten steht und keinen Ansatz zeigt, darf kurz bleiben.
 
 Die Punkte B0 bis B13 sind eine Checkliste, keine starre Abfolge. Je Pferd
 ungefähr: letzter Lauf und Delta zu heute (B0) → Datenlage und Wechsel
 (B2) → Bilanz unter heutigen Bedingungen (B6, B6a) → Trainer und Jockey
-(B7) → Crible (B11) → Fazit mit Einordnung in die laufende Rangfolge (B12,
-B10) → kurzer Blick auf die Ratings (B13).
+(B7) → Fazit mit Einordnung in die laufende Rangfolge (B12, B10) →
+kurzer Blick auf die Ratings (B13). Der Abgleich mit Crible, Tipps und
+Prognose (B11) folgt erst in Teil 2. Wo ein Punkt unten auf Prognose,
+Crible, Tipps oder Prognose-Favoriten verweist, gilt dieser Teil erst in
+Teil 2; in Teil 1 zählt nur das Argument selbst.
 
 ### B0 — Einstieg: der letzte Lauf und was sich heute ändert
 
@@ -670,8 +687,8 @@ Die Schlüsselläufe verschiedener Starter direkt gegeneinander stellen:
 Klasse, Dotierung, ARR und wie das Rennen gelaufen ist. Erst dadurch
 wird aus zwei isolierten vierten Plätzen eine Rangfolge.
 
-**Messlatte vom Favoriten.** Beim ersten Pferd (meist dem
-Prognose-Favoriten) aus seinem besten Lauf unter heutigen Bedingungen
+**Messlatte vom ersten Pferd.** Beim ersten Pferd (Rang 1 der
+Rating-Mitte) aus seinem besten Lauf unter heutigen Bedingungen
 TR (`tr_heute`) und ARR (`arr_adj`) notieren. Jeder folgende Schlüssellauf
 wird daran gemessen, zusammen mit Distanz, Klasse und Gewicht.
 Beispiel: Messlatte TR 105, ARR 32,9 über 1600 m. Ein Konkurrent mit
@@ -681,19 +698,20 @@ zulegen.
 **Laufende Rangfolge.** Der Querbezug passiert nicht erst am Ende,
 sondern nach jedem Pferd: „vor den beiden Favoriten", „knapp hinter
 Liseo". So entsteht während des Durchgangs eine eigene Reihenfolge, die
-sich direkt gegen die Prognose-Reihenfolge stellen lässt. Wo die eigene
-Reihenfolge ein Pferd vor einen Prognose-Favoriten setzt, ist der
+sich in Teil 2 gegen die Prognose-Reihenfolge stellen lässt. Wo die
+eigene Reihenfolge ein Pferd vor einen Prognose-Favoriten setzt, ist der
 Edge-Kandidat.
 
-### B11 — Abgleich mit der Prognose: gesehen oder übersehen?
+### B11 — Abgleich mit der Prognose: gesehen oder übersehen? (Teil 2)
 
-Mit eigenem Urteil zum Pferd werden Prognose-Text, Crible, Tipps und
-Konsens systematisch abgeglichen, auch wenn sie zur Orientierung schon
-gelesen wurden. Drei Fragen:
+Mit dem fertigen blinden Urteil zum Pferd werden Prognose-Text, Crible,
+Tipps und Konsens aus der Marktdatei systematisch abgeglichen. Drei
+Fragen:
 
-1. **Liegt die eigene grobe Einschätzung über oder unter der
-   Prognose-Chance?** Eine starke Abweichung ist ein Anlass, die eigene
-   Beurteilung zu prüfen, kein Beweis.
+1. **Liegt die eigene Siegchance (`p_blind`) über oder unter der
+   Prognose-Chance?** Eine starke Abweichung ist ein Anlass, die eigenen
+   Argumente gegenzulesen, kein Beweis. Die Zahl bleibt; ein Zweifel geht
+   in Stufe und Sicherheit.
 2. **Sind die eigenen Argumente öffentlich?** Jedes Argument gegen Text und
    Crible halten:
    - *eingepreist* — genau dieses Argument steht dort (etwa „mit
@@ -755,7 +773,7 @@ klarer Angle, kein klarer Angle oder dagegen. Regeln:
   nie auffällt, können auf Vorbereitung für ein höher dotiertes Ziel
   deuten. Das ist eine Lesart, darf aber ein Fazit tragen.
 
-**Vordere Prognose-Pferde: Ist die Position nachvollziehbar?** Geprüft
+**Vordere Prognose-Pferde: Ist die Position nachvollziehbar?** (Teil 2) Geprüft
 wird, ob die kurze cote probable trägt:
 - **Unabhängige Fragezeichen zählen:** Pause, unsichere Distanz,
   Belagwechsel, kalter Stall, Boden nur angenommen bei klarer
@@ -818,7 +836,7 @@ Regeln:
 ## Abschnitt B-2J — Variante für Zweijährige und Debütanten
 
 Bei Zweijährigen mit null bis drei Starts ersetzt dieses Raster B1, B3, B6
-(Marke) und B9 weitgehend; die Reihenfolge bleibt nach Prognose-Rang. Bei
+(Marke) und B9 weitgehend; die Reihenfolge bleibt nach Rating-Mitte. Bei
 Debütanten stützt sich die Prognose oft nur auf Stall und Abstammung,
 dieselben Informationen, die hier vorliegen. Ein eigenes Argument darüber
 hinaus ist selten; das im Fazit ehrlich sagen.
@@ -859,15 +877,17 @@ Charakter ausdrücklich.
 
 ## Abschnitt C — Empfehlung
 
-Jeder Starter bekommt eine Siegchance; die Mitten ergeben zusammen etwa
-100 %. Kandidaten sind die Pferde mit Angle + oder ++ (Skala in C1),
-meist zwei bis drei. Der Prognose-Favorit (Rang 1) ist der Maßstab.
+Jeder Starter bekommt in Teil 1 eine Siegchance; die Mitten ergeben
+zusammen etwa 100 %. Kandidaten sind die Pferde mit Angle + oder ++
+(Skala in C1, Teil 2), meist zwei bis drei.
 
 ### C1 — Mindestquote je Kandidat (das Hauptergebnis)
 
 Der letzte Schritt beantwortet die Frage des Nutzers: **Bis zu welcher Quote
 ist dieses Pferd noch interessant?** Er hält die Zahl gegen seinen
 Festkurs: darüber eine Wette, darunter nicht.
+
+Schritte 1, 2 und 4 gehören zu Teil 1 (blind), 3, 5 und 6 zu Teil 2.
 
 1. **Siegchance als Spanne schätzen**, etwa 15–20 %. Ein spekulativer Fall
    (Zweijährige, Debütanten, dünne Datenlage, Lücken aus D, Tempo-Angle in
@@ -900,7 +920,8 @@ Festkurs: darüber eine Wette, darunter nicht.
 Die Mindestquote wird **aus der eigenen Einschätzung abgeleitet, nicht aus
 der Prognose**. Liegt die eigene faire Quote weit unter der cote probable
 (eigene 4,0 gegen 15/1), ist das der Fund des Tages oder eine
-Überschätzung: Argumente noch einmal gegenlesen und das Ergebnis benennen.
+Überschätzung: Argumente noch einmal gegenlesen und das Ergebnis benennen;
+die Siegchance aus Teil 1 bleibt, Zweifel senken die Sicherheit.
 
 **Bedingte Mindestquote.** Hängt der Angle am angenommenen Boden (A2), am
 erwarteten Tempo oder an einer Lücke (D), steht die Bedingung bei der Zahl
@@ -924,7 +945,13 @@ passender Festkurs zu erwarten; das so sagen.
 
 ### C2 — Ausgabe
 
-Pro Rennen, kurz und in dieser Form:
+**Teil 1 (blind)** endet je Rennen mit dem Durchgang und einer Tabelle
+über alle Starter (Pferd, Siegchance als Spanne mit Mitte, faire Quote,
+Kurzgrund), sortiert nach Siegchance, darunter ein ```json-Block
+`{"blind": [{"race_id": …, "no": …, "p_blind": …}, …]}` mit allen
+Startern. Kein Edge, keine Stufe, keine Mindestquote.
+
+**Teil 2** pro Rennen, kurz und in dieser Form:
 
 - Kopfzeile: Rennen, Startzeit, Rennart, Boden (mit „angenommen", falls
   so), Prognose-Profil in wenigen Worten (etwa „klarer Favorit 2/1"
@@ -954,12 +981,14 @@ Buchmachers halten kann.
 ein ```json-Block mit **allen Startern** aller durchgegangenen Rennen:
 
 ```json
-{"tipps": [{"race_id": "20261007R4C8", "no": 6, "p": 0.26, "stufe": "++",
+{"tipps": [{"race_id": "20261007R4C8", "no": 6, "p_blind": 0.26, "p": 0.26, "stufe": "++",
   "mq": 5.0, "sicherheit": "mittel", "eingepreist": "nein",
   "angles": ["duell", "bilanz", "trainer"], "fk": null, "value": null}]}
 ```
 
-`p` = eigene Siegchance (Mitte), `mq` = Mindestquote oder `null`,
+`p_blind` = Siegchance aus Teil 1, `p` = endgültige Siegchance (derzeit
+gleich `p_blind`, weil sie in Teil 2 fest bleibt), `mq` = Mindestquote
+oder `null`,
 `fk` (Festkurs) und `value` (= p × fk − 1) bei jedem Starter immer
 `null` – sie werden später nachgetragen,
 `eingepreist`/`sicherheit` nur bei +/++. `angles` = Kürzel der tragenden
@@ -970,35 +999,50 @@ Argumente (auch für − die Gegenargumente): `klasse`, `ratings`, `duell`,
 
 ## Arbeitsweise im Gespräch
 
-**Bevorzugt: die Claude-Version `racecard_JJJJMMTT_claude.json`.** Sie
-enthält **alle Daten der Karte**, auch solche, die dieses Raster nicht
-nutzt. Unterschiede zu `DATA`:
-- **Weggelassen:** Trikots, je Formzeile die volle
-  Gegnerliste (dafür `rivals_nah` mit je zwei Gegnern davor und dahinter
-  samt nächstem Start, und `rivals_stat`, B5) und die Zwischenwerte der
-  Berechnung (Ergebnisse wie `dl600_a`, `tr_heute`, `cls_*_idx` bleiben).
-- **Starter** stehen in Prognose-Reihenfolge, Nichtstarter getrennt in
-  `nichtstarter` (Nummern in `nr`); gelaufene Rennen haben `offen: false`.
-- **Vorgerechnet:** je Rennen `vorgerechnet` (`marge`, `reihenfolge`,
-  `bias_rel`), je Starter `p_prog` (P2) und `luecke` (D). Direkt
-  übernehmen, nicht neu rechnen.
+**Zwei Dateien, in dieser Reihenfolge:**
+
+1. **`racecard_JJJJMMTT_claude.json` (Teil 1, blind)** mit **allen Daten
+   der Karte** außer Markt- und Presseangaben. Unterschiede zu `DATA`:
+   - **Weggelassen:** Trikots, Prognose, cote probable, Tipps, Konsens,
+     Cribles und Rennkommentar (`prono`), je Formzeile die volle
+     Gegnerliste (dafür `rivals_nah` mit je zwei Gegnern davor und
+     dahinter samt nächstem Start, und `rivals_stat`, B5) und die
+     Zwischenwerte der Berechnung (Ergebnisse wie `dl600_a`, `tr_heute`,
+     `cls_*_idx` bleiben).
+   - **Starter** stehen nach Rating-Mitte (`rating_mitte`), Nichtstarter
+     getrennt in `nichtstarter` (Nummern in `nr`); gelaufene Rennen haben
+     `offen: false`.
+   - **Vorgerechnet:** je Rennen `vorgerechnet` (`reihenfolge` nach
+     Rating-Mitte, `bias_rel`), je Starter `luecke` (D). Direkt
+     übernehmen, nicht neu rechnen.
+2. **`racecard_JJJJMMTT_markt.json` (Teil 2)**, erst nach Teil 1 öffnen:
+   je Rennen `prono` (Rennkommentar, Tipps, Konsens, `cribles_ohne`),
+   `vorgerechnet` (`marge`, `reihenfolge` nach Prognose-Rang), `nr` und
+   je Starter `no`, `horse`, `prono` (`sel`, `tips`, `konsens`,
+   `crible`) und `p_prog` (P2).
 
 ```python
 import json
-DATA = json.load(open(pfad, encoding="utf-8"))
+DATA = json.load(open(pfad_claude, encoding="utf-8"))      # Teil 1: blind
 offen = {rid: r for rid, r in DATA["races"].items() if r["offen"]}
 for rid, r in offen.items():
-    v = r["vorgerechnet"]                 # marge, reihenfolge, bias_rel
-    for x in r["runners"]:                # schon in Prognose-Reihenfolge
-        p, luecke = x["p_prog"], x["luecke"]
+    for x in r["runners"]:                 # schon nach Rating-Mitte
+        rm, luecke = x["rating_mitte"], x["luecke"]
         alte_zeilen = [f for f in x["form_lines"] if f.get("extra")]
-# Edge je Kandidat: p_eigen / x["p_prog"] - 1
+
+MARKT = json.load(open(pfad_markt, encoding="utf-8"))     # Teil 2, erst danach
+for rid, r in MARKT["races"].items():
+    v = r["vorgerechnet"]                  # marge, reihenfolge (Prognose)
+    for x in r["runners"]:                 # no, horse, prono, p_prog
+        p_prog = x["p_prog"]
+# Edge je Kandidat: p_blind / p_prog - 1
 ```
 
 Für ein einzelnes Rennen reicht `DATA["races"][rid]`: den Block des Rennens
 ausgeben und lesen, nicht die ganze Datei durchsuchen.
 
-**Rückfall: nur die HTML-Karte.** Sie hat ein eingebettetes
+**Rückfall: nur die HTML-Karte.** Sie enthält die Prognose; ein blinder
+Teil 1 ist damit nicht möglich – das in der Ausgabe vermerken. Sie hat ein eingebettetes
 `const DATA = {...}` (mehrere MB). Mit Python parsen, nicht als Text
 lesen. Die vorgerechneten
 Werte fehlen dort; sie werden selbst gerechnet:

@@ -967,6 +967,15 @@ def racecard_pruefen() -> None:
            and abs(d["params"]["pop"]["rennen_epr"] - lpm(2850, 7500)) < 0.05,
            f"Rennstärke €/L+: Ø log-Preisgeld je Lauf der Teilnehmer ÷ Ø aller früheren Rennen (heute {kl['epr_idx']}); "
            "Formzeile zeigt weiter den einfachen Ø")
+    xs_ = [{"arr": {"adj": 20}, "rating_adj": 30, "tr": {"heute": 90}}, {"arr": {"adj": 10}, "rating_adj": None,
+           "tr": {"heute": 80}}, {"arr": {"adj": None}, "rating_adj": None, "tr": None},
+           {"arr": {"adj": 15}, "rating_adj": 20, "tr": {"heute": None}}]
+    rc.rating_mitte(xs_)
+    pruefe([x_["rating_mitte"]["rank"] if x_["rating_mitte"] else None for x_ in xs_] == [1, 3, None, 2]
+           and xs_[0]["rating_mitte"]["wert"] == round(0.4 * 5 / (50 / 3) ** 0.5 + 0.3 + 0.3, 2)
+           and xs_[1]["rating_mitte"]["aus"] == ["arr", "tr"] and x.get("rating_mitte") is not None,
+           "Rating-Mitte: gewichteter Ø der z-Werte im Feld (ARR 40 %, Valeur 30 %, TR 30 %), fehlende Werte "
+           "-> übrige Gewichte hochgerechnet, ohne jeden Wert kein Rang")
     pruefe(f["cls_val_idx"] == 100 and d["params"]["pop"]["rennen_val"] == 40.0,
            "Val+: Ø Valeur der Teilnehmer ÷ Ø aller früheren Rennen (einziges Rennen mit Valeur -> 100)")
     pruefe(len(x["duels"]) == 1 and x["duels"][0]["date"] == str(tag - timedelta(days=10)),
@@ -1345,13 +1354,14 @@ def racecard_pruefen() -> None:
                    and not (set(f_) & ce.OHNE_FORMZEILE) for x_ in eo["runners"] for f_ in x_["form_lines"]),
            "Claude-Version blind: Starter nach Rating-Mitte, ohne Kurse/Trikots; Formzeilen mit nächsten Gegnern statt "
            "voller Liste, ohne Zwischenwerte; Nichtstarter und gelaufene Rennen vollständig dabei")
-    pruefe('"prono"' not in txt and "p_prog" not in txt and "GEHEIMTEXT" not in txt and "cote" not in txt
-           and "marge" not in eo["vorgerechnet"] and "konsens" not in txt,
+    txt_r = json.dumps(ex["races"], ensure_ascii=False)                  # Renndaten (ohne den Hinweistext)
+    pruefe('"prono"' not in txt_r and "p_prog" not in txt_r and "GEHEIMTEXT" not in txt_r and "cote" not in txt_r
+           and "marge" not in eo["vorgerechnet"] and "konsens" not in txt_r,
            "Claude-Version blind: keine Prognose, cote probable, p_prog, Marge, Tipps, Konsens, Cribles oder "
            "Rennkommentar – auch die Reihenfolge verrät die Prognose nicht")
     pruefe([x_["no"] for x_ in mo["runners"]] == mo["vorgerechnet"]["reihenfolge"] == [2, 1]
            and abs(sum(x_["p_prog"] for x_ in mo["runners"]) - 1) < 1e-3
-           and mo["runners"][0]["p_prog"] > mo["runners"][1]["p_prog"]
+           and mo["runners"][0]["p_prog"] < mo["runners"][1]["p_prog"]       # Rang 1 hier mit 4,0 > 3,0
            and mo["vorgerechnet"]["marge"] == round(1 / 3 + 1 / 4, 3) and mo["prono"]["text"] == "GEHEIMTEXT"
            and mo["nr"] == [9] and ce.markt_pfad(Path("x/racecard_20261011_claude.json")).name == "racecard_20261011_markt.json",
            "Marktdatei: Prognose-Reihenfolge, p_prog (Potenzmethode), Marge, Rennkommentar und Tipps je Rennen")
