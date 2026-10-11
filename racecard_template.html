@@ -78,6 +78,9 @@ button,select{font:inherit;color:inherit}
 .runner-kopf img{width:26px;height:26px;object-fit:contain}
 .runner-kopf strong{font:700 16px/1 var(--f-display);letter-spacing:.02em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .runner-kopf .muted{margin-left:auto;font:500 12px var(--f-mono);white-space:nowrap}
+.runner-kopf strong{flex:0 0 auto;max-width:60%}
+.runner-kopf .kopf-tj{flex:1 1 auto;min-width:0;font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.runner-kopf .kopf-tj em{font-style:normal;color:var(--ink-3)}
 .runner:first-child{border-top:0}
 .row{display:grid;grid-template-columns:44px 36px minmax(0,1fr) auto;gap:12px;padding:12px 14px;cursor:pointer;align-items:start}
 .row:hover{background:var(--surface-2)}
@@ -107,6 +110,12 @@ button,select{font:inherit;color:inherit}
 .detail>*,.panel{min-width:0}
 .panels{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:16px}
 .panel h4{margin:0 0 6px;font:600 13px/1.2 var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+/* A/E-Tabelle: nur das gewählte Zeitfenster zeigen (Knöpfe 30/90/365 T) */
+.ae-tab .aew{display:none}
+.ae-tab[data-w="30"] .aew-30,.ae-tab[data-w="90"] .aew-90,.ae-tab[data-w="365"] .aew-365{display:table-cell}
+.ae-w{display:inline-flex;gap:4px;margin-left:8px;vertical-align:middle}
+.ae-w-btn{padding:1px 7px;font:500 11px var(--f-mono);letter-spacing:0;text-transform:none}
+.ae-w-btn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 table{border-collapse:collapse;width:100%}
 th,td{padding:4px 6px;text-align:left;vertical-align:middle;border-bottom:1px solid var(--line);font-size:12.5px}
 th{font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
@@ -258,6 +267,7 @@ td.num,.adj,.ae{white-space:nowrap}
   .detail{padding-left:14px}
   .panels,.pref,.panels.one .pref{grid-template-columns:minmax(0,1fr)}
   .race-time{font-size:34px}.race-title{font-size:21px}
+  .runner-kopf{gap:8px}.runner-kopf .kopf-pl{display:none}
 }
 @media (max-width:1050px) and (min-width:761px){ .panels.one .pref{grid-template-columns:repeat(2,minmax(0,1fr))} }
 /* mittlere Breite: Kacheln unter Name/Jockey, damit die Namensspalte nicht zusammengedrückt wird */
@@ -314,7 +324,7 @@ const INC = {DISQUALIFIE:"DSQ", ARRETE:"PU", TOMBE:"F", NON_PLACE:"", RESTE_AU_P
 const store = {get(k){try{return localStorage.getItem(k)}catch(e){return null}}, set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
 
 let state = {meeting:null, race:null, sort:"no", open:new Set(), rivals:new Set(), duels:new Set(),
-             fold:{prono:false, pace:false}};   // ausklappbare Kästen oberhalb der Starter, Vorgabe: eingeklappt
+             fold:{prono:false, pace:false}, aeW:"30"};   // ausklappbare Kästen oberhalb der Starter, Vorgabe: eingeklappt
 
 function init(){
   if (!DATA || !DATA.meetings || !DATA.meetings.length){
@@ -327,6 +337,7 @@ function init(){
   const first = DATA.races[saved] ? DATA.races[saved] : DATA.races[DATA.meetings[0].races[0]];
   state.meeting = first.reunion; state.race = first.race_id;
   state.sort = store.get("rc-sort") || "no";
+  state.aeW = store.get("rc-aew") || "30";                // A/E-Tabelle: gewähltes Zeitfenster (Tage)
   renderNav(); renderRace(); renderLegend();
 }
 
@@ -431,6 +442,12 @@ function renderRace(){
   $("#toggle-all").onclick = () => {
     if (state.open.size) state.open.clear(); else r.runners.forEach(x => state.open.add(x.no));
     renderRace(); };
+  document.querySelectorAll(".ae-w-btn").forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    state.aeW = b.dataset.aew; store.set("rc-aew", state.aeW);
+    document.querySelectorAll(".ae-tab").forEach(t => t.dataset.w = state.aeW);
+    document.querySelectorAll(".ae-w-btn").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.aew === state.aeW)));
+  });
   document.querySelectorAll(".runner-kopf").forEach(k => k.onclick = () => {
     const row = k.closest(".runner").querySelector(".row");
     window.scrollTo({top: window.scrollY + row.getBoundingClientRect().top - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nav-h")) || 0), behavior: "smooth"});
@@ -573,7 +590,7 @@ function duelOrder(r){
 // unter der Navigation verschwunden ist, bis der Block zu Ende ist
 function kopfHTML(x){
   const S = x.prono && x.prono.sel;
-  return `<div class="runner-kopf" data-kopf="${x.no}" title="Zur Zeile von ${esc(x.horse)}"><b class="nr-k">${x.no ?? ""}</b>${x.silks ? `<img src="${x.silks}" alt="">` : ""}<strong>${esc(x.horse)}</strong><span class="muted">${S && S.cote ? "Prognose " + esc(S.cote) : ""}</span></div>`;
+  return `<div class="runner-kopf" data-kopf="${x.no}" title="Zur Zeile von ${esc(x.horse)}"><b class="nr-k">${x.no ?? ""}</b>${x.silks ? `<img src="${x.silks}" alt="">` : ""}<strong>${esc(x.horse)}</strong><span class="kopf-tj"><em>J</em> ${esc(title(x.jockey) || "–")} · <em>T</em> ${esc(title(x.trainer) || "–")}</span><span class="muted">${S && S.cote ? `<span class="kopf-pl">Prognose </span>${esc(S.cote)}` : ""}</span></div>`;
 }
 function kopfLeisten(){
   const nav = document.querySelector(".nav"), h = nav ? nav.getBoundingClientRect().bottom : 0;
@@ -752,7 +769,7 @@ function detailHTML(x, race){
   const ref = DATA.params.epr_ref || {};
   const pop = DATA.params.pop || {};
   const aeRows = [["Trainer", x.ae.trainer, "trainer"], ["Jockey", x.ae.jockey, "jockey"], ["Besitzer", x.ae.owner, "owner"], ["Züchter", x.ae.breeder, "breeder"]].map(([l, s, rolle]) =>
-    `<tr><td>${l}</td>${w.map(t => { const v = s["d"+t]; return `<td class="r num">${rec(v)}</td><td class="r">${aeChip(v)}</td><td class="r">${idxHTML(v.epr_idx, pop[rolle + "_d" + t] != null ? "€" + fmtEur(pop[rolle + "_d" + t]) + " je Lauf" : null, `€/L+ ${l}, ${t} Tage – €${v.epr != null ? fmtEur(v.epr) : "–"} je Lauf`, v.runs || null)}</td>`; }).join("")}</tr>`).join("");
+    `<tr><td>${l}</td>${w.map(t => { const v = s["d"+t], c = `aew aew-${t}`; return `<td class="r num ${c}">${rec(v)}</td><td class="r ${c}">${aeChip(v)}</td><td class="r ${c}">${idxHTML(v.epr_idx, pop[rolle + "_d" + t] != null ? "€" + fmtEur(pop[rolle + "_d" + t]) + " je Lauf" : null, `€/L+ ${l}, ${t} Tage – €${v.epr != null ? fmtEur(v.epr) : "–"} je Lauf`, v.runs || null)}</td>`; }).join("")}</tr>`).join("");
   const PD = x.ae.pedigree;
   const pedRows = [["Vater", x.sire, PD.sire, "sire"], ["Muttervater", x.dam_sire, PD.dam_sire, "dam_sire"],
                    ["Cross", x.sire && x.dam_sire ? `${title(x.sire)} × ${title(x.dam_sire)}` : null, PD.cross, "cross"]].map(([l, n, s, rolle]) =>
@@ -766,8 +783,8 @@ function detailHTML(x, race){
   return `<div class="detail">
     <div class="line2"><span title="Läufe-Siege-Plätze (1.–2. bis 7 Starter, sonst 1.–3.) · Preisgeld · Gewinn je Lauf aus der PMU-Historie, Rang im heutigen Feld"><em>Karriere</em> ${kTxt(K)}</span><span><em>${DATA.params.class_days} Tage</em> ${kTxt(K1)}</span><span><em>Besitzer</em> ${esc(title(x.owner) || "–")}</span>${x.breeder ? `<span><em>Züchter</em> ${esc(title(x.breeder))}</span>` : ""}${x.style ? `<span><em>Laufstil</em> ${esc(x.style_label)} · früh Ø ${fx(x.early*100,0)} % des Feldes (${x.early_runs} Läufe)</span>` : ""}</div>
     <div class="panels ae">
-      <div class="panel"><h4>A/E · Siege/Starts</h4>
-        <div class="scroll"><table><thead><tr><th></th>${w.map(t => `<th class="r">${t} Tage</th><th class="r">A/E</th><th class="r" title="€/L+: Gewinn je Lauf als Index – 100 = Ø aller Personen dieser Gruppe im selben Zeitraum (ab ${DATA.params.pop_min_runs} Läufen); grün ab 110, rot bis 90">€/L+</th>`).join("")}</tr></thead><tbody>${aeRows}</tbody></table></div>
+      <div class="panel"><h4>A/E · Siege/Starts <span class="ae-w" role="group" aria-label="Zeitraum">${w.map(t => `<button type="button" class="btn ae-w-btn" data-aew="${t}" aria-pressed="${String(state.aeW) === String(t)}">${t} T</button>`).join("")}</span></h4>
+        <div class="scroll"><table class="ae-tab" data-w="${state.aeW}"><thead><tr><th></th>${w.map(t => `<th class="r aew aew-${t}">${t} Tage</th><th class="r aew aew-${t}">A/E</th><th class="r aew aew-${t}" title="€/L+: Gewinn je Lauf als Index – 100 = Ø aller Personen dieser Gruppe im selben Zeitraum (ab ${DATA.params.pop_min_runs} Läufen); grün ab 110, rot bis 90">€/L+</th>`).join("")}</tr></thead><tbody>${aeRows}</tbody></table></div>
       </div>
       <div class="panel"><h4>Abstammung · gesamte Historie</h4>
         <div class="scroll"><table><thead><tr><th></th><th class="r" title="Verschiedene Pferde mit dieser Abstammung in der Historie">Pferde</th><th class="r" title="A/E Platz der Nachkommen (Siege, Starts und Plätze im Tooltip)">A/E</th><th class="r" title="€/L+: Gewinn je Lauf der Nachkommen als Index – 100 = Ø aller Linien (ab ${DATA.params.pop_min_runs} Läufen); grün ab 110, rot bis 90">€/L+</th><th class="r" title="max Val+: Ø der höchsten Valeur der Nachkommen als 3-Jährige als Index – 100 = Ø aller Linien (ab ${DATA.params.pop_min_horses} 3-jährigen Nachkommen); grün ab 110, rot bis 90">max Val+</th></tr></thead><tbody>${pedRows}</tbody></table></div>
