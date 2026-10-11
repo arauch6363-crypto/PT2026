@@ -1,8 +1,8 @@
 """Claude-Version der Race Card: JSON für den Skill „rennkarten-durchgang“ in zwei Dateien.
 
 * racecard_JJJJMMTT_claude.json – **blind** für Teil 1 des Skills: alle Daten der Karte ohne Markt- und Presseangaben
-  (PMU-Prognose, cote probable, p_prog, Marge, Tipps, Konsens, Cribles, Rennkommentar – OHNE_MARKT). Starter nach der
-  Rating-Mitte (racecard.rating_mitte) sortiert, nicht nach Prognose-Rang, damit die Reihenfolge nichts verrät.
+  (PMU-Prognose, cote probable, p_prog, Marge, Tipps, Konsens, Cribles, Rennkommentar – OHNE_MARKT). Starter nach
+  Startnummer, nicht nach Prognose-Rang, damit die Reihenfolge nichts verrät.
 * racecard_JJJJMMTT_markt.json – **Markt** für Teil 2: je Rennen prono (Text, Tipps, Konsens, Cribles), Marge,
   Reihenfolge nach Prognose-Rang und je Starter prono und p_prog.
 
@@ -18,9 +18,9 @@ Ausgelassen wird nur, was keine Information für die Analyse trägt oder ausdrü
   Berechnung (OHNE_FORMZEILE: Rohtempo, Klassenkorrektur, Bestandteile des TR, Perzentile für die Farbe …).
 
 Umgeordnet und vorgerechnet, damit Claude nicht selbst rechnen muss:
-* je Rennen `offen` (Status PROGRAMMEE), Starter nach Rating-Mitte, Nichtstarter getrennt in `nichtstarter`
+* je Rennen `offen` (Status PROGRAMMEE), Starter nach Startnummer, Nichtstarter getrennt in `nichtstarter`
   (vollständig) und ihre Nummern in `nr`,
-* `vorgerechnet`: Reihenfolge nach Rating-Mitte, Bias gegen den Schnitt aller Bahnen (Marktdatei: Marge der cote
+* `vorgerechnet`: Reihenfolge nach Startnummer, Bias gegen den Schnitt aller Bahnen (Marktdatei: Marge der cote
   probable, Reihenfolge nach Prognose-Rang),
 * je Starter `luecke` (PMU-Starts − Datenbank-Läufe); in der Marktdatei `p_prog` (Potenzmethode),
 * je Formzeile `rivals_nah`: die zwei wieder gelaufenen Gegner direkt davor und dahinter (mit ihrem nächsten Start und
@@ -93,18 +93,17 @@ def _prognose(starter: list[dict]) -> tuple[dict, list]:
 
 
 def rennen(r: dict, bias_alle: float | None) -> dict:
-    """Ein Rennen blind: vollständig ohne Marktangaben; Starter nach Rating-Mitte, Nichtstarter getrennt."""
+    """Ein Rennen blind: vollständig ohne Marktangaben; Starter nach Startnummer, Nichtstarter getrennt."""
     alle = r.get("runners") or []
     starter = [x for x in alle if not x.get("nr")]
     nicht = [x for x in alle if x.get("nr")]
-    reihe = [x["no"] for x in sorted(starter, key=lambda x: (((x.get("rating_mitte") or {}).get("rank") or 999),
-                                                              x["no"]))]
+    reihe = sorted(x["no"] for x in starter)
     b = (r.get("bias") or {}).get("bias")
     out = {k: copy.deepcopy(v) for k, v in r.items() if k not in {"runners"} | OHNE_MARKT}
     out["offen"] = r.get("status") == OFFEN
     out["nr"] = [x["no"] for x in nicht]
     out["vorgerechnet"] = {
-        "reihenfolge": reihe,                                        # Startnummern nach Rating-Mitte
+        "reihenfolge": reihe,                                        # Startnummern aufsteigend
         "bias_rel": round(b - bias_alle, 2) if b is not None and bias_alle is not None else None,
     }
     nach_no = {x["no"]: x for x in starter}
@@ -134,7 +133,7 @@ def export(daten: dict) -> dict:
     bias_alle = (daten.get("bias_all") or {}).get("bias")
     out = {"hinweis": "Claude-Version der Race Card, Teil 1 (blind): alle Daten der Karte außer Trikots, Kursen und "
                       "Marktangaben (Prognose, p_prog, Tipps, Konsens, Cribles, Rennkommentar – die stehen in "
-                      "racecard_JJJJMMTT_markt.json). Starter nach Rating-Mitte sortiert, Nichtstarter getrennt in "
+                      "racecard_JJJJMMTT_markt.json). Starter nach Startnummer sortiert, Nichtstarter getrennt in "
                       "nichtstarter (Nummern in nr); vorgerechnet: reihenfolge, bias_rel, luecke; je Formzeile "
                       "zusätzlich rivals_nah."}
     out.update({k: copy.deepcopy(v) for k, v in daten.items() if k != "races"})

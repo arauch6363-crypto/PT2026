@@ -404,9 +404,7 @@ Dateien (abschalten mit `claude=False`), passend zu den zwei Teilen des Skills:
 
 - **`racecard_JJJJMMTT_claude.json` – blind (Teil 1):** **alle Daten der Karte** außer Markt- und Presseangaben
   (`claude_export.OHNE_MARKT`: Prognose, cote probable, Tipps, Konsens, Cribles, Rennkommentar), auch Detailinfos, die
-  der Skill heute nicht nutzt. Starter nach **Rating-Mitte** (`racecard.rating_mitte`: gewichteter Ø der z-Werte im
-  Feld aus ARR bereinigt 40 %, Valeur bereinigt 30 %, TR heute 30 %; fehlende Werte -> übrige Gewichte hochgerechnet),
-  damit die Reihenfolge die Prognose nicht verrät. Nichtstarter getrennt (`nichtstarter`, Nummern in `nr`).
+  der Skill heute nicht nutzt. Starter nach **Startnummer**, damit die Reihenfolge die Prognose nicht verrät. Nichtstarter getrennt (`nichtstarter`, Nummern in `nr`).
   Vorgerechnet: `reihenfolge`, `bias_rel`, `luecke`.
 - **`racecard_JJJJMMTT_markt.json` – Markt (Teil 2):** je Rennen `prono` (Rennkommentar, Tipps, Konsens, Cribles),
   `marge`, `reihenfolge` nach Prognose-Rang und je Starter `prono` und `p_prog` (Potenzmethode).
