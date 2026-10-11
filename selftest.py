@@ -967,15 +967,6 @@ def racecard_pruefen() -> None:
            and abs(d["params"]["pop"]["rennen_epr"] - lpm(2850, 7500)) < 0.05,
            f"Rennstärke €/L+: Ø log-Preisgeld je Lauf der Teilnehmer ÷ Ø aller früheren Rennen (heute {kl['epr_idx']}); "
            "Formzeile zeigt weiter den einfachen Ø")
-    xs_ = [{"arr": {"adj": 20}, "rating_adj": 30, "tr": {"heute": 90}}, {"arr": {"adj": 10}, "rating_adj": None,
-           "tr": {"heute": 80}}, {"arr": {"adj": None}, "rating_adj": None, "tr": None},
-           {"arr": {"adj": 15}, "rating_adj": 20, "tr": {"heute": None}}]
-    rc.rating_mitte(xs_)
-    pruefe([x_["rating_mitte"]["rank"] if x_["rating_mitte"] else None for x_ in xs_] == [1, 3, None, 2]
-           and xs_[0]["rating_mitte"]["wert"] == round(0.4 * 5 / (50 / 3) ** 0.5 + 0.3 + 0.3, 2)
-           and xs_[1]["rating_mitte"]["aus"] == ["arr", "tr"] and x.get("rating_mitte") is not None,
-           "Rating-Mitte: gewichteter Ø der z-Werte im Feld (ARR 40 %, Valeur 30 %, TR 30 %), fehlende Werte "
-           "-> übrige Gewichte hochgerechnet, ohne jeden Wert kein Rang")
     pruefe(f["cls_val_idx"] == 100 and d["params"]["pop"]["rennen_val"] == 40.0,
            "Val+: Ø Valeur der Teilnehmer ÷ Ø aller früheren Rennen (einziges Rennen mit Valeur -> 100)")
     pruefe(len(x["duels"]) == 1 and x["duels"][0]["date"] == str(tag - timedelta(days=10)),
@@ -1339,8 +1330,6 @@ def racecard_pruefen() -> None:
     rr["runners"].append(nr_)
     fertig = _copy.deepcopy(rr); fertig.update(race_id="FERTIG", status="ARRIVEE_DEFINITIVE")
     dd["races"]["FERTIG"] = fertig
-    rr["runners"][0]["rating_mitte"] = {"wert": 1.0, "rank": 1, "n": 2, "aus": ["arr"]}     # Prognose: Nr. 2 vorne
-    rr["runners"][1]["rating_mitte"] = {"wert": -1.0, "rank": 2, "n": 2, "aus": ["arr"]}
     rr["prono"] = {"text": "GEHEIMTEXT", "consensus": [2, 1]}
     ex, mk = ce.export(dd), ce.export_markt(dd)
     eo, ef, mo = ex["races"][rr["race_id"]], ex["races"]["FERTIG"], mk["races"][rr["race_id"]]
@@ -1352,7 +1341,7 @@ def racecard_pruefen() -> None:
            and all("odds" not in x_ for x_ in eo["runners"])
            and all("rivals" not in f_ and "rivals_nah" in f_ and "rivals_stat" in f_
                    and not (set(f_) & ce.OHNE_FORMZEILE) for x_ in eo["runners"] for f_ in x_["form_lines"]),
-           "Claude-Version blind: Starter nach Rating-Mitte, ohne Kurse/Trikots; Formzeilen mit nächsten Gegnern statt "
+           "Claude-Version blind: Starter nach Startnummer (Prognose hätte Nr. 2 vorne), ohne Kurse/Trikots; Formzeilen mit nächsten Gegnern statt "
            "voller Liste, ohne Zwischenwerte; Nichtstarter und gelaufene Rennen vollständig dabei")
     txt_r = json.dumps(ex["races"], ensure_ascii=False)                  # Renndaten (ohne den Hinweistext)
     pruefe('"prono"' not in txt_r and "p_prog" not in txt_r and "GEHEIMTEXT" not in txt_r and "cote" not in txt_r
@@ -1398,10 +1387,10 @@ def racecard_pruefen() -> None:
            "Claude-Version: Potenzmethode zieht die Marge stärker beim Außenseiter ab als proportional")
     skill = (Path(__file__).parent / ".claude/skills/rennkarten-durchgang/SKILL.md").read_text(encoding="utf-8")
     x0 = eo["runners"][0]
-    pruefe(all(k in x0 for k in ("form_lines", "pref", "ae", "career", "rating_adj", "rating_mitte", "duels", "starts",
+    pruefe(all(k in x0 for k in ("form_lines", "pref", "ae", "career", "rating_adj", "duels", "starts",
                                  "days", "changes", "badges", "hcp_mark", "tr", "arr", "rtr", "summary", "luecke"))
            and all(k in eo for k in ("pace", "bias", "class", "going_source", "going_assumed", "declared"))
-           and all(k in skill for k in ("_claude.json", "_markt.json", "p_prog", "p_blind", "rating_mitte",
+           and all(k in skill for k in ("_claude.json", "_markt.json", "p_prog", "p_blind", "Startnummer",
                                         "vorgerechnet", "rivals_nah", "luecke")),
            "Claude-Version: Felder, die der Skill liest, sind da; der Skill kennt die Claude-Version")
 

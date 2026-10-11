@@ -1,6 +1,6 @@
 ---
 name: "rennkarten-durchgang"
-description: Qualitativer Durchgang durch eine französische Galopp-Racecard (Vollblut) in zwei Teilen – zuerst blind (ohne PMU-Prognose, Tipps, Cribles und Rennkommentar) Pferd für Pferd nach Rating-Mitte mit eigener Siegchance und fairer Quote je Starter, danach der Abgleich mit dem Markt – mit dem Ziel, pro Starter einen Wett-Angle zu bejahen oder zu verneinen, zu prüfen, ob die Öffentlichkeit ihn über Prognose, Cribles und Presse-Tipps schon wahrgenommen und eingepreist hat, daraus den Edge zu berechnen und für jedes Pferd mit Angle eine Mindestquote (Festkurs) zu nennen. Verwenden, wann immer eine Racecard durchgegangen, Kandidaten gesucht oder Mindestquoten bestimmt werden sollen.
+description: Qualitativer Durchgang durch eine französische Galopp-Racecard (Vollblut) in zwei Teilen – zuerst blind (ohne PMU-Prognose, Tipps, Cribles und Rennkommentar) Pferd für Pferd nach Startnummer mit eigener Siegchance und fairer Quote je Starter, danach der Abgleich mit dem Markt – mit dem Ziel, pro Starter einen Wett-Angle zu bejahen oder zu verneinen, zu prüfen, ob die Öffentlichkeit ihn über Prognose, Cribles und Presse-Tipps schon wahrgenommen und eingepreist hat, daraus den Edge zu berechnen und für jedes Pferd mit Angle eine Mindestquote (Festkurs) zu nennen. Verwenden, wann immer eine Racecard durchgegangen, Kandidaten gesucht oder Mindestquoten bestimmt werden sollen.
 ---
 
 # Rennkarten-Durchgang
@@ -33,7 +33,7 @@ fast immer auf der Prognose-Chance).
 - **Teil 1 – blind** mit `racecard_JJJJMMTT_claude.json`. Die Datei
   enthält keine Prognose, keine cote probable, kein `p_prog`, keine Tipps,
   keinen Konsens, keine Cribles und keinen Rennkommentar; die Starter
-  stehen nach `rating_mitte`. Durchgang A, B0–B10, B12 (ohne den Absatz zu
+  stehen nach Startnummer. Durchgang A, B0–B10, B12 (ohne den Absatz zu
   den vorderen Prognose-Pferden), B13, B-2J. Ergebnis je Starter:
   Siegchance als Spanne und Mitte (`p_blind`) und faire Quote (C1,
   Schritte 1, 2 und 4). Die Marktdatei wird in Teil 1 nicht geöffnet,
@@ -263,14 +263,10 @@ wenige Starter eine Valeur haben (Zweijährige).
 
 ## Abschnitt B — Raster je Starter
 
-**Reihenfolge: nach Rating-Mitte** (`rating_mitte.rank`; die blinde
-Datei listet die Starter schon so, `vorgerechnet.reihenfolge`) — nicht
-nach Startnummer und nicht nach Prognose. Die Rating-Mitte ist der
-gewichtete Ø der z-Werte im Feld aus ARR bereinigt (40 %), Valeur
-bereinigt (30 %) und TR heute (30 %); fehlt ein Wert, zählen die übrigen
-(`aus`). Pferde ohne jeden Wert stehen am Ende. Sie ist nur die
-Reihenfolge, kein Urteil. Jedes Pferd bekommt eine Siegchance; wer
-hinten steht und keinen Ansatz zeigt, darf kurz bleiben.
+**Reihenfolge: nach Startnummer aufsteigend** — nicht nach Prognose
+oder Ratings; die blinde Datei listet die Starter schon so
+(`vorgerechnet.reihenfolge`). Jedes Pferd bekommt eine Siegchance; wer
+keinen Ansatz zeigt, darf kurz bleiben.
 
 Die Punkte B0 bis B13 sind eine Checkliste, keine starre Abfolge. Je Pferd
 ungefähr: letzter Lauf und Delta zu heute (B0) → Datenlage und Wechsel
@@ -687,16 +683,17 @@ Die Schlüsselläufe verschiedener Starter direkt gegeneinander stellen:
 Klasse, Dotierung, ARR und wie das Rennen gelaufen ist. Erst dadurch
 wird aus zwei isolierten vierten Plätzen eine Rangfolge.
 
-**Messlatte vom ersten Pferd.** Beim ersten Pferd (Rang 1 der
-Rating-Mitte) aus seinem besten Lauf unter heutigen Bedingungen
+**Messlatte vom stärksten Pferd.** Beim ersten Pferd mit einem
+belastbaren Lauf aus seinem besten Lauf unter heutigen Bedingungen
 TR (`tr_heute`) und ARR (`arr_adj`) notieren. Jeder folgende Schlüssellauf
-wird daran gemessen, zusammen mit Distanz, Klasse und Gewicht.
+wird daran gemessen, zusammen mit Distanz, Klasse und Gewicht; ist ein
+späteres Pferd stärker, wird es die neue Messlatte.
 Beispiel: Messlatte TR 105, ARR 32,9 über 1600 m. Ein Konkurrent mit
 TR 84 und ARR 29,2 über 1400 m muss über die längere Strecke deutlich
 zulegen.
 
 **Laufende Rangfolge.** Der Querbezug passiert nicht erst am Ende,
-sondern nach jedem Pferd: „vor den beiden Favoriten", „knapp hinter
+sondern nach jedem Pferd: „vor Nr. 3 und Nr. 7", „knapp hinter
 Liseo". So entsteht während des Durchgangs eine eigene Reihenfolge, die
 sich in Teil 2 gegen die Prognose-Reihenfolge stellen lässt. Wo die
 eigene Reihenfolge ein Pferd vor einen Prognose-Favoriten setzt, ist der
@@ -836,7 +833,7 @@ Regeln:
 ## Abschnitt B-2J — Variante für Zweijährige und Debütanten
 
 Bei Zweijährigen mit null bis drei Starts ersetzt dieses Raster B1, B3, B6
-(Marke) und B9 weitgehend; die Reihenfolge bleibt nach Rating-Mitte. Bei
+(Marke) und B9 weitgehend; die Reihenfolge bleibt nach Startnummer. Bei
 Debütanten stützt sich die Prognose oft nur auf Stall und Abstammung,
 dieselben Informationen, die hier vorliegen. Ein eigenes Argument darüber
 hinaus ist selten; das im Fazit ehrlich sagen.
@@ -1009,11 +1006,11 @@ Argumente (auch für − die Gegenargumente): `klasse`, `ratings`, `duell`,
      dahinter samt nächstem Start, und `rivals_stat`, B5) und die
      Zwischenwerte der Berechnung (Ergebnisse wie `dl600_a`, `tr_heute`,
      `cls_*_idx` bleiben).
-   - **Starter** stehen nach Rating-Mitte (`rating_mitte`), Nichtstarter
+   - **Starter** stehen nach Startnummer, Nichtstarter
      getrennt in `nichtstarter` (Nummern in `nr`); gelaufene Rennen haben
      `offen: false`.
    - **Vorgerechnet:** je Rennen `vorgerechnet` (`reihenfolge` nach
-     Rating-Mitte, `bias_rel`), je Starter `luecke` (D). Direkt
+     Startnummer, `bias_rel`), je Starter `luecke` (D). Direkt
      übernehmen, nicht neu rechnen.
 2. **`racecard_JJJJMMTT_markt.json` (Teil 2)**, erst nach Teil 1 öffnen:
    je Rennen `prono` (Rennkommentar, Tipps, Konsens, `cribles_ohne`),
@@ -1026,8 +1023,8 @@ import json
 DATA = json.load(open(pfad_claude, encoding="utf-8"))      # Teil 1: blind
 offen = {rid: r for rid, r in DATA["races"].items() if r["offen"]}
 for rid, r in offen.items():
-    for x in r["runners"]:                 # schon nach Rating-Mitte
-        rm, luecke = x["rating_mitte"], x["luecke"]
+    for x in r["runners"]:                 # schon nach Startnummer
+        luecke = x["luecke"]
         alte_zeilen = [f for f in x["form_lines"] if f.get("extra")]
 
 MARKT = json.load(open(pfad_markt, encoding="utf-8"))     # Teil 2, erst danach

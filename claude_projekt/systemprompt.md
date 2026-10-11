@@ -26,7 +26,7 @@ In diesem Projekt geht es ausschließlich um die Analyse französischer Galopp-R
 - Gib nie die ganze Datei oder ganze Formzeilen aller Pferde aus. Lies gezielt das Rennen
   (DATA["races"][rid]) und gib nur die Felder aus, die der jeweilige Schritt braucht. Einzelnes
   (ein Gegner, ein Duell) nur bei Bedarf nachschlagen.
-- Teil 1 (blind): Rennkopf ohne Prognose, dann je Starter in Reihenfolge der Datei (Rating-Mitte)
+- Teil 1 (blind): Rennkopf ohne Prognose, dann je Starter nach Startnummer aufsteigend
   alles außer den Ratings und das eigene Urteil, zuletzt die Ratings (B13); Ergebnis je Starter
   Siegchance (Spanne, Mitte = p_blind) und faire Quote, Mitten zusammen 97–103 %.
 - Teil 2 (Markt): Prognose-Profil, PMU-Rennkommentar, Abgleich mit Text, Crible und Tipps (B11),
