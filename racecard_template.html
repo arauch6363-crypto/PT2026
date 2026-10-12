@@ -70,8 +70,8 @@ button,select{font:inherit;color:inherit}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:4px}
 .runner{border-top:1px solid var(--line)}
 /* aufgeklapptes Pferd: Nummer, Trikot und Name bleiben oben stehen, bis das nächste Pferd kommt */
-.runner-kopf{--kopf-h:50px;position:sticky;top:var(--nav-h,0px);z-index:4;display:flex;align-items:center;gap:10px;height:var(--kopf-h);
-  margin-bottom:calc(-1 * var(--kopf-h));padding:0 14px;background:var(--surface,var(--ground));border-bottom:1px solid var(--line);
+.runner-kopf{position:sticky;top:var(--nav-h,0px);z-index:4;display:flex;align-items:center;gap:10px;min-height:50px;box-sizing:border-box;
+  margin-bottom:calc(-1 * var(--kopf-m,50px));padding:6px 14px;background:var(--surface,var(--ground));border-bottom:1px solid var(--line);
   box-shadow:0 2px 6px rgba(0,0,0,.08);visibility:hidden;cursor:pointer}
 .runner.kopf-an .runner-kopf{visibility:visible}
 .runner-kopf b.nr-k{background:var(--cloth);color:var(--cloth-ink);font:700 17px/28px var(--f-display);border-radius:3px;min-width:30px;text-align:center}
@@ -81,6 +81,7 @@ button,select{font:inherit;color:inherit}
 .runner-kopf .kopf-name{display:flex;flex-direction:column;gap:3px;min-width:0}
 .runner-kopf .kopf-tj{font-size:12px;line-height:1.2;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .runner-kopf .kopf-tj em,.runner-kopf .kopf-tj i{font-style:normal;color:var(--ink-3)}
+.runner-kopf .kopf-ped{font-style:italic}
 .runner:first-child{border-top:0}
 .row{display:grid;grid-template-columns:44px 36px minmax(0,1fr) auto;gap:12px;padding:12px 14px;cursor:pointer;align-items:start}
 .row:hover{background:var(--surface-2)}
@@ -133,7 +134,8 @@ td.r,th.r{text-align:right}
 .formtab{min-width:900px}
 .formtab td{padding:6px}
 .fl-date{font-weight:600;white-space:nowrap}
-.fl-cond{white-space:nowrap}
+.fl-cond > span,.fl-cond > mark{white-space:nowrap}
+.fl-gbq > span{white-space:nowrap}
 .fl-pos b{font:700 16px var(--f-display)}
 .adj{font-size:11px;margin-left:4px}
 .adj.up{color:var(--good)} .adj.down{color:var(--bad)}
@@ -235,7 +237,11 @@ mark.same{background:var(--hi-soft);color:inherit;padding:0 3px;border-radius:2p
 .formtab tr.pause-sep td{padding:3px 6px;font-size:12px;color:var(--ink-2);background:var(--surface-2);border-bottom:0;text-align:center;letter-spacing:.02em}
 .formtab tr.extra-sep td{padding:8px 6px 4px;font-size:12px;color:var(--ink-2);border-top:2px dashed var(--line);border-bottom:0;font-weight:600}
 .formtab tr.extra td:first-child{box-shadow:inset 3px 0 0 var(--hi)}
+.trtab .tr-zr{display:none}
+.fl-dg-m{display:none}
+.formtab td.fl-riv,.formtab td.fl-cmt{display:none}
 td.num,.adj,.ae{white-space:nowrap}
+.formtab td.fl-cond{white-space:normal}
 /* Pace-Szenario & Bahn-Bias */
 .insight{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:4px;overflow:hidden;margin-bottom:12px}
 .insight>section{background:var(--surface);padding:12px 14px;display:grid;gap:8px;align-content:start;min-width:0}
@@ -267,7 +273,56 @@ td.num,.adj,.ae{white-space:nowrap}
   .detail{padding-left:14px}
   .panels,.pref,.panels.one .pref{grid-template-columns:minmax(0,1fr)}
   .race-time{font-size:34px}.race-title{font-size:21px}
-  .runner-kopf{--kopf-h:64px;gap:8px}.runner-kopf .kopf-name{gap:2px}.runner-kopf .kopf-tj > span{display:block}.runner-kopf .kopf-tj i,.runner-kopf .kopf-pl{display:none}
+  /* Handy: nichts mehr seitlich scrollen – Abstammung ohne Namen (stehen in der Kopfleiste), Trainer-Zeitraum unter dem Namen */
+  .ped-n{display:none}
+  .trtab .tr-zr-sp{display:none}
+  .trtab .tr-zr{display:block;font-size:11px}
+  /* Letzte Läufe als Karte je Lauf: oben links Datum/Bahn/Distanz/Boden, rechts Kategorie/Preis und Klasse; darunter Platz, Kennzahlen-Leiste, Position/Pace, darunter der Kommentar, ganz unten der Gegner-Knopf */
+  .formtab{min-width:0;width:100%}
+  .formtab > thead{display:none}
+  .formtab,.formtab > tbody,.formtab > tbody > tr{display:block}
+  .formtab > tbody > tr > td{display:block}
+  .formtab tr.lauf{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px 6px;padding:10px 0 8px;border-top:1px solid var(--line)}
+  .formtab tr.lauf > td{padding:0;border:0;min-width:0}
+  .formtab tr.lauf > td:nth-child(1){grid-row:1;grid-column:1/4;white-space:normal}
+  .formtab tr.lauf > td:nth-child(2){grid-row:1;grid-column:4/7;text-align:right;white-space:normal}
+  .formtab tr.lauf > td:nth-child(3){grid-row:2;grid-column:1/-1;white-space:normal}
+  .formtab tr.lauf > td:nth-child(1) .riv-btn{display:none}
+  .formtab tr.lauf .fl-dg{display:none}
+  .formtab tr.lauf .fl-dg-m{display:inline;font-weight:400}
+  .formtab tr.lauf .fl-dg-m mark{white-space:nowrap}
+  .formtab tr.lauf > td.fl-cond > span.muted{white-space:normal}
+  .formtab tr.lauf > td.fl-cmt{display:block;grid-row:5;grid-column:1/-1;font-size:12px;color:var(--ink-2)}
+  .formtab tr.lauf > td.fl-cmt:empty,.formtab > tbody > tr.cmt{display:none}
+  .formtab tr.lauf > td.fl-riv{display:block;grid-row:6;grid-column:1/-1}
+  .formtab tr.lauf > td.fl-riv:empty{display:none}
+  .formtab tr.lauf > td.fl-riv .riv-btn{margin-top:0}
+  .formtab tr.lauf > td:nth-child(7){grid-row:4;grid-column:1/4}
+  .formtab tr.lauf > td:nth-child(8){grid-row:4;grid-column:4/7}
+  .formtab tr.lauf .riv-btn{white-space:nowrap}
+  .formtab tr.lauf .fl-pos .num{white-space:nowrap}
+  .formtab tr.lauf > td:nth-child(n+4):nth-child(-n+6),.formtab tr.lauf > td:nth-child(n+9):nth-child(-n+11){grid-row:3;text-align:center;background:var(--surface-2);border-radius:3px;padding:3px 0}
+  .formtab tr.lauf > td:nth-child(4){grid-column:1}.formtab tr.lauf > td:nth-child(5){grid-column:2}.formtab tr.lauf > td:nth-child(6){grid-column:3}
+  .formtab tr.lauf > td:nth-child(9){grid-column:4}.formtab tr.lauf > td:nth-child(10){grid-column:5}.formtab tr.lauf > td:nth-child(11){grid-column:6}
+  .formtab tr.lauf > td:nth-child(n+4):nth-child(-n+6)::before,.formtab tr.lauf > td:nth-child(n+9):nth-child(-n+11)::before{display:block;font:600 9.5px var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+  .formtab tr.lauf > td:nth-child(4)::before{content:"Val"}.formtab tr.lauf > td:nth-child(5)::before{content:"ARR"}.formtab tr.lauf > td:nth-child(6)::before{content:"TR"}
+  .formtab tr.lauf > td:nth-child(9)::before{content:"Fin-Idx"}.formtab tr.lauf > td:nth-child(10)::before{content:"±800"}.formtab tr.lauf > td:nth-child(11)::before{content:"Weg m"}
+  .formtab tr.lauf > td:nth-child(9) .adj{display:block;margin:0}
+  .formtab tr.lauf > td:nth-child(7)::before{content:"Pos. vor Finish";display:block;font:600 9.5px var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+  .formtab tr.lauf > td:nth-child(8)::before{content:"Pace-Ratio";display:block;font:600 9.5px var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+  .formtab tr.lauf.hascmt{padding-bottom:4px}
+  .formtab tr.cmt td{padding:0 0 8px}
+  .formtab tr.extra{box-shadow:inset 3px 0 0 var(--hi);padding-left:8px}
+  .formtab tr.extra td:first-child{box-shadow:none}
+  /* Gegner (aufgeklappt) je Gegner als kleine Karte: Name, damals, nächster Start, Klasse | Ergebnis, Urteil */
+  .formtab .rivals table,.formtab .rivals tbody{display:block}
+  .formtab .rivals thead{display:none}
+  .formtab .rivals tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;padding:6px 0;border-bottom:1px solid var(--line)}
+  .formtab .rivals td{display:block;padding:0;border:0;white-space:normal}
+  .formtab .rivals td:nth-child(1){font-weight:600}
+  .formtab .rivals td:nth-child(5){text-align:right}
+  .formtab .rivals td:nth-child(-n+3),.formtab .rivals td:nth-child(6){grid-column:1/-1}
+  .runner-kopf{gap:8px}.runner-kopf .kopf-name{gap:2px}.runner-kopf .kopf-tj{white-space:normal}.runner-kopf .kopf-tj > span{display:block}.runner-kopf .kopf-tj i,.runner-kopf .kopf-pl{display:none}
 }
 @media (max-width:1050px) and (min-width:761px){ .panels.one .pref{grid-template-columns:repeat(2,minmax(0,1fr))} }
 /* mittlere Breite: Kacheln unter Name/Jockey, damit die Namensspalte nicht zusammengedrückt wird */
@@ -299,9 +354,9 @@ const fx = (v, d=1) => v == null ? "–" : Number(v).toFixed(d);
 const sgn = (v, d=2) => v == null ? "" : (v > 0 ? "+" : v < 0 ? "−" : "±") + Math.abs(v).toFixed(d);
 // Großbuchstabe am Wortanfang – auch nach Punkt (M.GRANDIN -> M.Grandin), Apostroph, Klammer, Schrägstrich
 const title = s => s ? String(s).toLowerCase().replace(/(^|[\s\-'’.(/])(\p{L})/gu, (m,a,b) => a + b.toUpperCase()) : "";
-// Link zur Rennseite bei PMU (mit Video/Replay): race_id JJJJMMTTRxCy -> pmu.fr/turf/TTMMJJJJ/rx/cy/
+// Link zur Rennseite bei PMU: race_id JJJJMMTTRxCy -> pmu.fr/turf/TTMMJJJJ/rx/cy/
 const pmuUrl = rid => { const m = /^(\d{4})(\d{2})(\d{2})R(\d+)C(\d+)$/.exec(rid || ""); return m ? `https://www.pmu.fr/turf/${m[3]}${m[2]}${m[1]}/r${m[4]}/c${m[5]}/` : null; };
-const pmuLink = (rid, text = "▶ Video") => { const u = pmuUrl(rid); return u ? `<a class="pmu-link" href="${u}" target="_blank" rel="noopener" title="Rennseite bei PMU mit Video (neuer Tab)" onclick="event.stopPropagation()">${text}</a>` : ""; };
+const pmuLink = (rid, text = "▶ PMU") => { const u = pmuUrl(rid); return u ? `<a class="pmu-link" href="${u}" target="_blank" rel="noopener" title="Rennseite bei PMU (neuer Tab)" onclick="event.stopPropagation()">${text}</a>` : ""; };
 const dt = s => { if (!s) return "–"; const [y,m,d] = s.split("-"); return `${+d} ${MON[+m-1]} ${y}`; };
 const prize = v => v == null ? "–" : v >= 1e6 ? (v/1e6).toFixed(1).replace(/\.0$/,"") + "m" : Math.round(v/1000) + "k";
 const pct = (w, r) => r ? Math.round(100*w/r) + "%" : "–";
@@ -590,11 +645,13 @@ function duelOrder(r){
 // unter der Navigation verschwunden ist, bis der Block zu Ende ist
 function kopfHTML(x){
   const S = x.prono && x.prono.sel;
-  return `<div class="runner-kopf" data-kopf="${x.no}" title="Zur Zeile von ${esc(x.horse)}"><b class="nr-k">${x.no ?? ""}</b>${x.silks ? `<img src="${x.silks}" alt="">` : ""}<span class="kopf-name"><strong>${esc(x.horse)}</strong><span class="kopf-tj"><span><em>J</em> ${esc(title(x.jockey) || "–")}</span><i> · </i><span><em>T</em> ${esc(title(x.trainer) || "–")}</span></span></span><span class="muted">${S && S.cote ? `<span class="kopf-pl">Prognose </span>${esc(S.cote)}` : ""}</span></div>`;
+  return `<div class="runner-kopf" data-kopf="${x.no}" title="Zur Zeile von ${esc(x.horse)}"><b class="nr-k">${x.no ?? ""}</b>${x.silks ? `<img src="${x.silks}" alt="">` : ""}<span class="kopf-name"><strong>${esc(x.horse)}</strong><span class="kopf-tj"><span><em>J</em> ${esc(title(x.jockey) || "–")}</span><i> · </i><span><em>T</em> ${esc(title(x.trainer) || "–")}</span>${x.sire || x.dam ? `<i> · </i><span class="kopf-ped" title="Vater – Mutter (Muttervater)">v. ${esc(title(x.sire) || "–")} – ${esc(title(x.dam) || "–")}${x.dam_sire ? ` (v. ${esc(title(x.dam_sire))})` : ""}</span>` : ""}</span></span><span class="muted">${S && S.cote ? `<span class="kopf-pl">Prognose </span>${esc(S.cote)}` : ""}</span></div>`;
 }
 function kopfLeisten(){
   const nav = document.querySelector(".nav"), h = nav ? nav.getBoundingClientRect().bottom : 0;
   document.querySelectorAll(".runner-kopf").forEach(k => {
+    const hk = k.offsetHeight;
+    if (k._h !== hk) { k._h = hk; k.style.setProperty("--kopf-m", hk + "px"); }
     const art = k.closest(".runner"), name = art.querySelector(".row .name") || art.querySelector(".row");
     const an = name.getBoundingClientRect().bottom < h && art.getBoundingClientRect().bottom > h + k.offsetHeight + 8;
     art.classList.toggle("kopf-an", an);
@@ -755,8 +812,8 @@ function trainerTable(rows){
   if (!rows || !rows.length) return `<p class="muted">Keine Läufe in der Historie.</p>`;
   const mj = d => { const [y, m] = d.split("-"); return `${MON[+m-1]} ${y.slice(2)}`; };   // "May 24"
   const zr = z => mj(z.from) === mj(z.to) ? mj(z.from) : `${mj(z.from)} – ${mj(z.to)}`;
-  return `<div class="scroll"><table class="preftab"><thead><tr><th>Trainer</th><th>Zeitraum</th><th class="r">S-L</th><th class="r">Plätze</th><th class="r">A/E</th></tr></thead><tbody>${
-    rows.map(z => `<tr class="${z.today ? "today" : ""}"><td>${esc(z.label)}${z.today ? ` <span class="heute">heute</span>` : ""}</td><td class="num" title="${esc(`${dt(z.from)} – ${dt(z.to)}`)}">${zr(z)}</td><td class="r num">${z.wins}-${z.runs} (${pct(z.wins,z.runs)})</td><td class="r num">${z.places}</td><td class="r">${aeChip(z, 5)}</td></tr>`).join("")}</tbody></table></div>`;
+  return `<div class="scroll"><table class="preftab trtab"><thead><tr><th>Trainer</th><th class="tr-zr-sp">Zeitraum</th><th class="r">S-L</th><th class="r">Plätze</th><th class="r">A/E</th></tr></thead><tbody>${
+    rows.map(z => `<tr class="${z.today ? "today" : ""}"><td>${esc(z.label)}${z.today ? ` <span class="heute">heute</span>` : ""}<span class="tr-zr muted num">${zr(z)}</span></td><td class="num tr-zr-sp" title="${esc(`${dt(z.from)} – ${dt(z.to)}`)}">${zr(z)}</td><td class="r num">${z.wins}-${z.runs} (${pct(z.wins,z.runs)})</td><td class="r num">${z.places}</td><td class="r">${aeChip(z, 5)}</td></tr>`).join("")}</tbody></table></div>`;
 }
 function prefTable(rows, head){
   if (!rows || !rows.length) return `<p class="muted">Keine Läufe in der Historie.</p>`;
@@ -773,7 +830,7 @@ function detailHTML(x, race){
   const PD = x.ae.pedigree;
   const pedRows = [["Vater", x.sire, PD.sire, "sire"], ["Muttervater", x.dam_sire, PD.dam_sire, "dam_sire"],
                    ["Cross", x.sire && x.dam_sire ? `${title(x.sire)} × ${title(x.dam_sire)}` : null, PD.cross, "cross"]].map(([l, n, s, rolle]) =>
-    `<tr><td>${l}${n ? ` <span class="muted">${esc(title(n))}</span>` : ""}</td><td class="r num" title="${esc(`${s.horses3 ?? 0} davon mit Läufen als 3-Jährige · ${rec(s)} Siege-Starts, ${s.places} Plätze`)}">${s.horses || "–"}</td><td class="r">${aeChip(s)}</td><td class="r">${idxHTML(s.epr_idx, pop[rolle + "_all"] != null ? "€" + fmtEur(pop[rolle + "_all"]) + " je Lauf" : null, `€/L+ ${l} (€${s.epr != null ? fmtEur(s.epr) : "–"} je Lauf)`, s.runs || null)}</td><td class="r">${idxHTML(s.max_val3_idx, pop[rolle + "_val3"] != null ? "Ø max Val 3j " + fx(pop[rolle + "_val3"],1) : null, `max Val+ ${l} (Ø max Val 3j ${s.max_val3 != null ? fx(s.max_val3,1) : "–"})`, s.horses3 || null, 3, "3-jährigen Nachkommen")}</td></tr>`).join("");
+    `<tr><td>${l}${n ? ` <span class="muted ped-n">${esc(title(n))}</span>` : ""}</td><td class="r num" title="${esc(`${s.horses3 ?? 0} davon mit Läufen als 3-Jährige · ${rec(s)} Siege-Starts, ${s.places} Plätze`)}">${s.horses || "–"}</td><td class="r">${aeChip(s)}</td><td class="r">${idxHTML(s.epr_idx, pop[rolle + "_all"] != null ? "€" + fmtEur(pop[rolle + "_all"]) + " je Lauf" : null, `€/L+ ${l} (€${s.epr != null ? fmtEur(s.epr) : "–"} je Lauf)`, s.runs || null)}</td><td class="r">${idxHTML(s.max_val3_idx, pop[rolle + "_val3"] != null ? "Ø max Val 3j " + fx(pop[rolle + "_val3"],1) : null, `max Val+ ${l} (Ø max Val 3j ${s.max_val3 != null ? fx(s.max_val3,1) : "–"})`, s.horses3 || null, 3, "3-jährigen Nachkommen")}</td></tr>`).join("");
   const P = x.pref;
   const it = (label, s, wer) => `<div class="it"><span title="${esc(label)}">${esc(label)}</span><span>${rec(s)} ${aeChip(s, 5)}${aeDev(s, wer)}</span></div>`;
   const jahre = DATA.params.pref_jt_years;
@@ -977,16 +1034,16 @@ function formTable(rows, no, wHeute, rHeute, tageHeute = null){
     const btn = rivBtn(f, k, offen);
     // auch in Debütantenrennen (kein Teilnehmer mit Läufen, also ohne €-Betrag) steht der Index €/L+ über die Verbindungen
     const kl = f.cls_val != null || f.cls_epr != null || f.cls_epr_idx != null
-      ? `<br><span class="cls"><span class="muted" title="Klasse: Ø Valeur der Teilnehmer ${f.cls_val != null ? fx(f.cls_val,1) : "– (keine Valeur)"} · Ø Gewinn je Lauf der Teilnehmer in den ${DATA.params.class_days} Tagen davor${f.cls_epr != null ? " €" + fmtEur(f.cls_epr) : " – (keine Läufe der Teilnehmer; €/L+ über Trainer/Besitzer/Züchter)"}${f.won_eur ? ` · hier gewonnen €${fmtEur(f.won_eur)}` : ""}">Kl.</span> ${klasseHTML({val:f.cls_val, epr:f.cls_epr, epr_idx:f.cls_epr_idx, val_idx:f.cls_val_idx}, true)}</span>` : "";
+      ? `<span class="cls" title="Klasse: Ø Valeur der Teilnehmer ${f.cls_val != null ? fx(f.cls_val,1) : "– (keine Valeur)"} · Ø Gewinn je Lauf der Teilnehmer in den ${DATA.params.class_days} Tagen davor${f.cls_epr != null ? " €" + fmtEur(f.cls_epr) : " – (keine Läufe der Teilnehmer; €/L+ über Trainer/Besitzer/Züchter)"}${f.won_eur ? ` · hier gewonnen €${fmtEur(f.won_eur)}` : ""}">${klasseHTML({val:f.cls_val, epr:f.cls_epr, epr_idx:f.cls_epr_idx, val_idx:f.cls_val_idx}, true)}</span>` : "";
     const cmt = kommentarHTML(f);
     const pause = i === 0 ? pauseZeile(tageHeute, true)
       : !f.extra && !rows[i - 1].extra ? pauseZeile(tageZwischen(rows[i - 1].date, f.date), false) : "";
     const sep = f.extra && !(rows[i - 1] || {}).extra
       ? `<tr class="extra-sep"><td colspan="11">Ältere Läufe – nicht unter den letzten ${DATA.params.form_runs}: letzter Lauf mit gleichem ${rows.slice(i).flatMap(r => r.extra || []).map(k => SAME_NAME[k]).join(" / ")}</td></tr>` : "";
-    return `${pause}${sep}<tr class="${f.unreliable ? "unrel" : ""} ${cmt ? "hascmt" : ""} ${f.extra ? "extra" : ""}">
-      <td class="fl-date">${dt(f.date)}${sameTags(f)}${f.extra ? `<br><span class="muted" title="Zusätzlich gezeigt: letzter Lauf mit gleichem ${f.extra.map(k => SAME_NAME[k]).join(" / ")}">letzter auf ${f.extra.map(k => ({K: "Kurs", D: "Distanz", B: "Boden"})[k]).join(" + ")}</span>` : ""}<br><span class="muted">${markIf(sameHas(f, "K"), esc(title(f.course)), "K")}</span> ${pmuLink(f.race_id)}<br>${btn}</td>
-      <td class="fl-cond num">${markIf(sameHas(f, "D"), `${f.dist ?? "–"}m`, "D")} ${markIf(sameHas(f, "B"), esc(f.going || "–"), "B")} ${f.prize != null ? `<span class="ae" style="${verlauf(poolLage("prize", f.prize))}" title="${esc(`Preisgeld €${(f.prize).toLocaleString("de-DE")} – Farbe: Lage unter allen früheren Läufen der heutigen Starter (rot = niedrigstes, grün = höchstes Preisgeld für dieses Rennen)`)}">${prize(f.prize)}</span>` : "–"}${boxForm(f)}<br><span class="muted">${esc(f.type || "")}</span>${kl}</td>
-      <td class="fl-pos">${pos} ${mg ? `(${mg})` : ""}${verlaufForm(f)}${blinkIcon(f.blinkers)} <span class="num">${f.weight != null ? fx(f.weight,1).replace(/\.0$/,"") + "kg" : ""}</span><br><span class="muted">${esc(title(f.jockey) || "")} · <span class="num" title="Endquote (odds_final)${f.odds_rank ? `, Quotenrang ${f.odds_rank}` : ""}">Q ${f.odds != null ? fx(f.odds,1) : "–"}${f.fav ? " F" : ""}</span></span>${f.unreliable ? `<br><span class="muted" title="Mehr als ${DATA.params.beaten_l} Längen geschlagen – vermutlich ausgeritten, zählt nicht in den Schnitt">ausgeritten?</span>` : ""}</td>
+    return `${pause}${sep}<tr class="lauf ${f.unreliable ? "unrel" : ""} ${cmt ? "hascmt" : ""} ${f.extra ? "extra" : ""}">
+      <td class="fl-date">${dt(f.date)}${sameTags(f)}${f.extra ? `<br><span class="muted" title="Zusätzlich gezeigt: letzter Lauf mit gleichem ${f.extra.map(k => SAME_NAME[k]).join(" / ")}">letzter auf ${f.extra.map(k => ({K: "Kurs", D: "Distanz", B: "Boden"})[k]).join(" + ")}</span>` : ""}<br><span class="muted">${markIf(sameHas(f, "K"), esc(title(f.course)), "K")}</span><span class="fl-dg-m"><br><span class="num">${markIf(sameHas(f, "D"), `${f.dist ?? "–"}m`, "D")} ${markIf(sameHas(f, "B"), esc(f.going || "–"), "B")}</span></span><br>${btn}</td>
+      <td class="fl-cond num"><span class="muted">${esc(f.type || "–")}</span> ${f.prize != null ? `<span class="ae" style="${verlauf(poolLage("prize", f.prize))}" title="${esc(`Preisgeld €${(f.prize).toLocaleString("de-DE")} – Farbe: Lage unter allen früheren Läufen der heutigen Starter (rot = niedrigstes, grün = höchstes Preisgeld für dieses Rennen)`)}">${prize(f.prize)}</span>` : "–"}<span class="fl-dg"><br>${markIf(sameHas(f, "D"), `${f.dist ?? "–"}m`, "D")} ${markIf(sameHas(f, "B"), esc(f.going || "–"), "B")}</span><br>${kl}</td>
+      <td class="fl-pos">${pos} ${mg ? `(${mg})` : ""}${verlaufForm(f)}${blinkIcon(f.blinkers)}<br><span class="muted">${esc(title(f.jockey) || "–")}</span> <span class="fl-gbq"><span class="num">${f.weight != null ? fx(f.weight,1).replace(/\.0$/,"") + "kg" : ""}</span>${boxForm(f)} <span class="muted num" title="Endquote (odds_final)${f.odds_rank ? `, Quotenrang ${f.odds_rank}` : ""}">Q ${f.odds != null ? fx(f.odds,1) : "–"}${f.fav ? " F" : ""}</span></span>${f.unreliable ? `<br><span class="muted" title="Mehr als ${DATA.params.beaten_l} Längen geschlagen – vermutlich ausgeritten, zählt nicht in den Schnitt">ausgeritten?</span>` : ""}</td>
       ${valCell(f.valeur, rHeute)}
       ${rtCell(f.arr, f.arr_adj, `ARR in diesem Rennen ${fx(f.arr,1)} kg; ${adjTip("ARR", wHeute, f.weight)}${f.rating_filled ? " · Rating für die Referenz ergänzt" : ""} ${lageText(poolLage("arr", f.arr_adj ?? f.arr))} · Farbe in 7 Stufen: oberste/unterste 10 % kräftig, 25 %, 40 %`, "", stufeStil(poolLage("arr", f.arr_adj ?? f.arr)))}
       ${trCell(f, wHeute)}
@@ -995,9 +1052,11 @@ function formTable(rows, no, wHeute, rHeute, tageHeute = null){
       <td class="r num">${fx(f.finish_index,1)}${adjSpan(f.fi_adj, 1, "")}</td>
       <td class="r num" title="${f.pos_gain != null ? `${Math.abs(f.pos_gain)} Plätze ${f.pos_gain >= 0 ? "gewonnen" : "verloren"} von 800 m bis ins Ziel${Math.abs(f.pos_gain) >= 3 ? " – auffällig (ab 3 Plätzen)" : ""}` : ""}"><span class="${f.pos_gain >= 3 ? "hl-up" : f.pos_gain <= -3 ? "hl-down" : ""}">${f.pos_gain != null ? sgn(f.pos_gain, 0) : "–"}</span></td>
       <td class="r num" title="${f.weg_med != null ? `${fx(Math.abs(f.weg_med),1)} m ${f.weg_med >= 0 ? "mehr" : "weniger"} gelaufen als der Median des Feldes (≈ ${fx(Math.abs(f.weg_med)/2.4,1)} Längen)${Math.abs(f.weg_med) >= 7.5 ? (f.weg_med > 0 ? " – auffällig viel Weg (Nachteil, meist weit außen)" : " – auffällig wenig Weg (Vorteil, innen)") : ""}` : ""}"><span class="${f.weg_med >= 7.5 ? "hl-down" : f.weg_med <= -7.5 ? "hl-up" : ""}">${f.weg_med != null ? sgn(f.weg_med, 1) : "–"}</span></td>
+      <td class="fl-cmt">${cmt}</td>
+      <td class="fl-riv">${btn}</td>
     </tr>${cmt ? `<tr class="cmt ${f.unreliable ? "unrel" : ""}"><td colspan="11">${cmt}</td></tr>` : ""}${offen ? `<tr class="rivrow"><td colspan="11">${rivalsHTML(f.rivals)}</td></tr>` : ""}`; }).join("");
   return `<div class="scroll"><table class="formtab"><thead><tr>
-    <th>Datum · Bahn</th><th>Dist · Boden · Preis · Typ</th><th>Pos · Gew. · Jockey · Quote</th><th class="r" title="Valeur (handicapValeur) in diesem Rennen; klein: heutige Valeur − damalige (grün: heute niedriger eingestuft, rot: höher)">Val</th>
+    <th>Datum · Bahn</th><th>Typ · Preis · Dist · Boden · Klasse</th><th>Pos · Jockey · Gew. · Box · Quote</th><th class="r" title="Valeur (handicapValeur) in diesem Rennen; klein: heutige Valeur − damalige (grün: heute niedriger eingestuft, rot: höher)">Val</th>
     <th class="r" title="ARR: Leistung im Rennen gemessen an den Pferden im vorderen Drittel des Einlaufs (kg), groß bereinigt auf das heutige Gewicht = ARR − Gewicht heute + ${DATA.params.weight_ref}, klein roh">ARR</th><th class="r" title="TR: Zeit-Rating nach Timeform-Art plus Upgrade aus dem Finishing Speed (lb); groß auf das heutige Gewicht umgerechnet, damit die Pferde des Rennens vergleichbar sind; klein: TR bei 55 kg, Zeit-Rating und Upgrade">TR</th>
     <th title="Position ${DATA.params.pos_before_m} m vor dem Ziel als Fünftel des Feldes">Pos. vor Finish</th>
     <th title="Tempo frühe Phase / Tempo Schlussphase × 100">Pace-Ratio</th>
@@ -1020,7 +1079,7 @@ function renderLegend(){
     <div><b>Kommentar</b> unter dem Lauf: Kommentar von PMU zum Pferd – auf Deutsch übersetzt (Original im Tooltip), sonst französisch mit <b>FR</b>.</div>
     <div><b>Aufgeklapptes Pferd</b>: sobald sein Name beim Scrollen unter der Navigation verschwindet, bleiben Nummer, Trikot, Name und Prognose oben stehen, bis das Pferd zu Ende ist; ein Klick darauf springt zurück zur Zeile des Pferdes. <b>Startbox</b> (unter der Nummer): Box in Klammern, darunter die Abweichung der Ø relativen Platzierung (Starter − Platz) / (Starter − 1) aller früheren Läufe aus dieser Box auf derselben Konfiguration (Bahn | Distanz | Piste | Parcours | Corde) vom Durchschnitt 0,5; farbig nur, wenn auffällig: mindestens 0,05 entfernt und signifikant (≥ 2 Standardfehler, SE = 0,29 ÷ √Läufe). In den früheren Läufen „Box 3 ▲/▼“ für auffällig gute bzw. schlechte Boxen dieses Rennens. <b>gegen V.</b> beim Platz: Das Pferd lief gegen den Rennverlauf (von hinten in einem Rennen, das vorne gewonnen wurde, oder umgekehrt; Ø frühe Position der ersten drei gegen das Feld, verglichen mit der Norm der Bahn/Distanz, die extremsten 25 %) und landete trotzdem vorne (Platz 1–3 oder vordere 40 %); grau umrandet „gegen V.“ ohne vordere Platzierung und „mit V.“ (Position passte zum Verlauf) – beides im Backtest ohne Effekt, nur zur Einordnung. <b>Scheuklappen</b>: Auge mit geschlossener Klappe = klassisch, mit gestrichelter Fellklappe = australisch – in der Übersicht und je früherem Lauf. <b>Prognose</b> (Kasten rechts): cote probable der PMU-Prognose, darunter dezimal; Morgen- und Totokurs werden nicht angezeigt. <b>B</b> Besitzer mit A/E 365 Tage.</div>
     <div><b>Boden</b>: alle Berechnungen nutzen nur die Bodengruppe des offiziellen Begriffs – Lourd, Très lourd, Collant = Very slow · Souple, Très souple = Slow · Bon souple, Bon = Fast · Léger, Bon léger, Très léger = Very fast · PSF (Standard, Lente, Rapide) = PSF; der Penetrometer-Wert wird nur angezeigt. <b>Distanzgruppen</b> der Vorlieben (Pferd, Vater, Muttervater): 0-1000 m, dann je 200 m (1001-1200, 1201-1400 …), über 3600 m.</div>
-    <div><b>€/Lauf</b> (Kachel) und <b>Karriere</b> (Detail, gesamt und ${p.class_days} Tage): Läufe-Siege-Plätze (1.–2. bis 7 Starter, sonst 1.–3.) und Gewinn je Lauf nur aus der PMU-Historie (französische Flachrennen seit Beginn der Sammlung), mit Rang im heutigen Feld; grün ab 1,25 × Median des Feldes, rot bis 0,8 ×. <b>€/L+</b> bei Trainer, Jockey, Besitzer, Züchter, Vater, Muttervater und Cross: Gewinn je Lauf als Index, 100 = Ø aller Personen bzw. Linien dieser Gruppe im selben Zeitraum (ab ${p.pop_min_runs} Läufen), über 100 überdurchschnittlich; grün ab 110, rot bis 90. <b>Ø max Val 3j</b>: Ø der höchsten Valeur der Nachkommen als 3-Jährige, <b>Val+</b> derselbe Index (Population ab ${p.pop_min_horses} 3-jährigen Nachkommen); Preisgeld je Platz laut PMU (montantOffert, sonst 50/19/14/9/4 % des Rennpreises). <b>Klasse</b>: <b>Val+</b> = Ø Valeur der Teilnehmer und <b>Rennstärke €/L+</b> = Ø Gewinn je Lauf der Teilnehmer in den ${p.class_days} Tagen vor dem Rennen, jeweils als Index, 100 = Ø aller früheren Rennen. Nur für den Index €/L+ wird jedes Preisgeld logarithmiert, log(1 + €), und je Pferd gemittelt (einzelne hohe Preisgelder ziehen den Schnitt nicht hoch, Läufe ohne Geld zählen 0); das eigene Ø zählt, wenn der erste Start des Pferdes mindestens ein Jahr zurückliegt (in der Datenbank; reicht sie nicht so weit zurück: ab 4 Jahren) – danach immer, ohne Lauf im letzten Jahr über alle früheren Läufe; davor zählt das Ø von Trainer 50 %, Besitzer 30 % und Züchter 20 % aus den Läufen ihrer Pferde im ersten Jahr (je ${p.class_days} Tage, ab 5 Läufen). Angezeigte Beträge (€/L) bleiben der einfache Ø. Im Rennkopf für heute (grün ab 110, rot bis 90); in den Formzeilen (Kl.) für das damalige Rennen mit Farbverlauf nach der Lage unter allen früheren Läufen der heutigen Starter – rot = niedrigster, grün = höchster Wert für dieses Rennen; ebenso das Preisgeld. <b>Abstammung</b>: A/E über die ganze Historie für Vater, Muttervater und die Kombination Vater × Muttervater (Cross).</div>
+    <div><b>€/Lauf</b> (Kachel) und <b>Karriere</b> (Detail, gesamt und ${p.class_days} Tage): Läufe-Siege-Plätze (1.–2. bis 7 Starter, sonst 1.–3.) und Gewinn je Lauf nur aus der PMU-Historie (französische Flachrennen seit Beginn der Sammlung), mit Rang im heutigen Feld; grün ab 1,25 × Median des Feldes, rot bis 0,8 ×. <b>€/L+</b> bei Trainer, Jockey, Besitzer, Züchter, Vater, Muttervater und Cross: Gewinn je Lauf als Index, 100 = Ø aller Personen bzw. Linien dieser Gruppe im selben Zeitraum (ab ${p.pop_min_runs} Läufen), über 100 überdurchschnittlich; grün ab 110, rot bis 90. <b>Ø max Val 3j</b>: Ø der höchsten Valeur der Nachkommen als 3-Jährige, <b>Val+</b> derselbe Index (Population ab ${p.pop_min_horses} 3-jährigen Nachkommen); Preisgeld je Platz laut PMU (montantOffert, sonst 50/19/14/9/4 % des Rennpreises). <b>Klasse</b>: <b>Val+</b> = Ø Valeur der Teilnehmer und <b>Rennstärke €/L+</b> = Ø Gewinn je Lauf der Teilnehmer in den ${p.class_days} Tagen vor dem Rennen, jeweils als Index, 100 = Ø aller früheren Rennen. Nur für den Index €/L+ wird jedes Preisgeld logarithmiert, log(1 + €), und je Pferd gemittelt (einzelne hohe Preisgelder ziehen den Schnitt nicht hoch, Läufe ohne Geld zählen 0); das eigene Ø zählt, wenn der erste Start des Pferdes mindestens ein Jahr zurückliegt (in der Datenbank; reicht sie nicht so weit zurück: ab 4 Jahren) – danach immer, ohne Lauf im letzten Jahr über alle früheren Läufe; davor zählt das Ø von Trainer 50 %, Besitzer 30 % und Züchter 20 % aus den Läufen ihrer Pferde im ersten Jahr (je ${p.class_days} Tage, ab 5 Läufen). Angezeigte Beträge (€/L) bleiben der einfache Ø. Im Rennkopf für heute (grün ab 110, rot bis 90); in den Formzeilen (letzte Zeile der Rennbeschreibung) für das damalige Rennen mit Farbverlauf nach der Lage unter allen früheren Läufen der heutigen Starter – rot = niedrigster, grün = höchster Wert für dieses Rennen; ebenso das Preisgeld. <b>Abstammung</b>: A/E über die ganze Historie für Vater, Muttervater und die Kombination Vater × Muttervater (Cross).</div>
     <div><b>Laufstil</b> F führend · V vorne dabei · M Mittelfeld · H hinten – aus der Ø frühen Position der letzten ${p.style_runs} Läufe mit Tracking. <b>Pace-Szenario</b>: Norm der Distanzgruppe plus Effekt der Tempomacher und der Feldgröße, geschätzt aus früheren Rennen. <b>Bahn-Bias</b> relativ zum Schnitt aller Bahnen (0 = wie überall): (IV vorne − IV hinten) dieser Bahn/Distanz minus derselbe Wert über alle Bahnen; positiv: Frontrenner hier stärker im Vorteil als sonst, negativ: abwartend Gerittene besser; farbig ab ±0,25. Den Rohwert nennt die Zeile darunter.</div>
     <div><b>C</b> Sieger auf der Bahn · <b>D</b> Sieger über die Distanz (±100 m) · <b>CD</b> beides im selben Rennen · <b>BF</b> letzter Start als Favorit geschlagen. Wechsel (Trainer, Besitzer, Scheuklappen, erstmals Wallach) gegenüber dem letzten Lauf in der Datenbank. <b>Tage</b> seit dem letzten Lauf in der Datenbank.</div>
     <div><b>Vorlieben ▲ / ▼</b> (Trainer, Jockey, Vater, Muttervater): A/E der Vorliebe weicht deutlich und signifikant vom Rest derselben Person bzw. Linie ab – mindestens ×1,2 bzw. ×0,8 des A/E aus ihren übrigen Läufen im selben Zeitraum (Trainer/Jockey 2 Jahre, Vater/Muttervater gesamte Historie) und mindestens 2 Standardfehler, bei mindestens 20 übrigen Läufen. Wie beim Box-Urteil; Werte im Tooltip.</div>
