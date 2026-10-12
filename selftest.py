@@ -828,6 +828,13 @@ def racecard_pruefen() -> None:
     xa = rc.baue_daten(ha, heute_r, heute_s, tag)["races"][f"{tag:%Y%m%d}R1C1"]["runners"][0]
     pruefe(xa["arr"]["avg"] == 20.0 and xa["arr"]["runs"] == 1,
            "ARR-Kachel ohne ausgerittene Läufe (letzter Lauf ARR 0 und weit geschlagen zählt nicht in den Schnitt)")
+    fa = {f["race_id"]: f for f in xa["form_lines"]}
+    pruefe(xa["kpi"] and rid(10, 1) not in {k[7] for k in xa["kpi"]}
+           and all((tag - date.fromisoformat(k[0])).days <= rc.KPI_TAGE for k in xa["kpi"])
+           and all(k[4] == fa[k[7]]["arr_adj"] and k[5] == fa[k[7]]["tr_heute"]
+                   and k[8] == fa[k[7]]["cls_val_idx"] and k[9] == fa[k[7]]["cls_epr_idx"] for k in xa["kpi"] if k[7] in fa)
+           and xa["kpi"] == sorted(xa["kpi"], key=lambda k: k[0], reverse=True),
+           f"Vergleichs-Overlay: {len(xa['kpi'])} Läufe der letzten 365 Tage ohne ausgerittene, ARR/TR wie in der Formzeile bereinigt, Klasse Val+/€/L+ wie in der Formzeile")
     pruefe(f["valeur"] == 40.0 and x["form_lines"][1]["blinkers"] == "OEILLERES_AUSTRALIENNES" and f["odds"] == 4.0,
            "Formzeile mit Valeur, Scheuklappen und Endquote")
     rz = pd.DataFrame([{"race_id": "20260901R1C1", "hippodrome": "DEAUVILLE", "distance_m": 1600, "corde": "CORDE_DROITE",
@@ -1365,7 +1372,7 @@ def racecard_pruefen() -> None:
     def _norm(q):            # Rennschlüssel (Datum…/FERTIG) weg, Nichtstarter zählen wie Starter
         q = q.replace(".nichtstarter[]", ".runners[]")
         return ".".join(t for t in q.split(".") if not t.startswith(("20", "FERTIG")))
-    ausgelassen = (".runners[].silks", ".runners[].odds", ".runners[].odds_morning",
+    ausgelassen = (".runners[].silks", ".runners[].odds", ".runners[].odds_morning", ".runners[].kpi",
                    *(f".form_lines[].{k}" for k in ce.OHNE_FORMZEILE))
     weg = lambda q: q.endswith(ausgelassen) or any(o + "." in q or o + "[]" in q for o in ausgelassen)  # + Unterfelder
     fehlend = sorted({_norm(q) for q in _pfade(dd)} - {_norm(q) for q in _pfade(ex) | _pfade(mk)}
