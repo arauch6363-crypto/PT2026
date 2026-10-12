@@ -32,7 +32,7 @@ import copy
 import json
 from pathlib import Path
 
-OHNE_STARTER = {"silks", "odds", "odds_morning"}     # Trikots; Kurse nur Sicherheitsnetz (nicht mehr in der Karte)
+OHNE_STARTER = {"silks", "odds", "odds_morning", "kpi"}   # Trikots; Kurse nur Sicherheitsnetz; kpi: nur fürs ARR/TR-Overlay der Karte
 OHNE_MARKT = {"prono"}                               # Prognose, Tipps, Konsens, Cribles, Rennkommentar: nur Marktdatei
 GEGNER_NAH = 2                                       # rivals_nah: so viele Gegner davor und dahinter
 OFFEN = "PROGRAMMEE"

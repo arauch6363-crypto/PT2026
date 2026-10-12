@@ -1088,6 +1088,30 @@ def _formzeile(z, gewicht_heute=None) -> dict:
     }
 
 
+KPI_TAGE = 365           # Vergleichs-Overlay ARR/TR: Läufe der letzten so vielen Tage
+KPI_FENSTER = {"arr": 5, "tr": 10}   # schlechtere Läufe anderer Pferde nur bis so weit unter dem gewählten Wert (kg / lb)
+
+
+def kpi_laeufe(vorher: pd.DataFrame, heute, gewicht_heute=None) -> list[list]:
+    """ARR/TR der Läufe in den letzten KPI_TAGE Tagen ohne ausgerittene, auf das heutige Gewicht bereinigt
+    (für das Vergleichs-Overlay der Race Card), neueste zuerst:
+    [Datum, Bahn, Distanz, Bodengruppe, ARR bereinigt, TR heute, TR gedeckelt (0/1), race_id]."""
+    if not len(vorher) or "date" not in vorher:
+        return []
+    v = vorher[(vorher["date"] < heute) & (vorher["date"] >= heute - timedelta(days=KPI_TAGE))]
+    if "ausgeritten" in v:
+        v = v[~v["ausgeritten"].fillna(False).astype(bool)]
+    out = []
+    for _, z in v.iterrows():
+        arr = _adj(z.get("arr"), gewicht_heute)
+        tr = _tr_heute(z.get("tr"), gewicht_heute) if pd.notna(z.get("tr")) else None
+        if arr is None and tr is None:
+            continue
+        out.append([z["date"].strftime("%Y-%m-%d"), _txt(z.get("hippodrome")), _num(z.get("distance_m"), 0),
+                    _txt(z.get("going_pmu")), arr, tr, int(z.get("tr_gedeckelt") == 1), z["race_id"]])
+    return out
+
+
 def _ae_trend(kurz: dict, lang: dict) -> str | None:
     """'hot' / 'cold', wenn die letzten 30 Tage deutlich vom 365-Tage-Schnitt abweichen."""
     if kurz["runs"] < TREND_MIN_STARTS or kurz["ae"] is None or lang["ae"] is None:
@@ -1904,6 +1928,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                                  "age": q("dam_sire_age", (dk, alter_gruppe(p.get("age"))), "dam_sire")},
                 },
                 "form_lines": form,
+                "kpi": kpi_laeufe(vorher, heute, p.get("weight_kg")),   # ARR/TR 365 Tage fürs Vergleichs-Overlay
                 "prono": prono_je.get(_num(p.get("saddle_no"), 0)),
                 "duels": duelle,
                 "duels_sum": _duell_bilanz(duelle),
@@ -1964,6 +1989,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         "history": {"from": hist_von.strftime("%Y-%m-%d") if hist_von is not None else None,
                     "runs": int(len(h)), "tracked": int(h["tracking"].sum()) if "tracking" in h else 0},
         "params": {"pos_before_m": POS_VOR_FINISH_M, "ae_windows": list(AE_FENSTER), "form_runs": LETZTE_LAEUFE,
+                   "kpi_days": KPI_TAGE, "kpi_window": KPI_FENSTER,
                    "style_runs": STIL_LAEUFE, "pacemaker": TEMPOMACHER, "field_ref": PACE_FELD_REF,
                    "trend_diff": TREND_DIFF, "trend_min": TREND_MIN_STARTS, "pref_jt_years": VORLIEBEN_JT_TAGE // 365,
                    "avg_runs": SCHNITT_LAEUFE, "rivals_runs": GEGNER_LAEUFE, "class_days": KLASSE_TAGE, "ind_days": INDIREKT_TAGE,
