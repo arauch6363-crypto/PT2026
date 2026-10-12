@@ -1092,10 +1092,11 @@ KPI_TAGE = 365           # Vergleichs-Overlay ARR/TR: Läufe der letzten so viel
 KPI_FENSTER = {"arr": 5, "tr": 10}   # schlechtere Läufe anderer Pferde nur bis so weit unter dem gewählten Wert (kg / lb)
 
 
-def kpi_laeufe(vorher: pd.DataFrame, heute, gewicht_heute=None) -> list[list]:
+def kpi_laeufe(vorher: pd.DataFrame, heute, gewicht_heute=None, klasse=None) -> list[list]:
     """ARR/TR der Läufe in den letzten KPI_TAGE Tagen ohne ausgerittene, auf das heutige Gewicht bereinigt
     (für das Vergleichs-Overlay der Race Card), neueste zuerst:
-    [Datum, Bahn, Distanz, Bodengruppe, ARR bereinigt, TR heute, TR gedeckelt (0/1), race_id]."""
+    [Datum, Bahn, Distanz, Bodengruppe, ARR bereinigt, TR heute, TR gedeckelt (0/1), race_id, Val+, €/L+];
+    klasse(z) liefert die Klasse des Rennens als [Val+, €/L+] (Index, 100 = Ø aller Rennen)."""
     if not len(vorher) or "date" not in vorher:
         return []
     v = vorher[(vorher["date"] < heute) & (vorher["date"] >= heute - timedelta(days=KPI_TAGE))]
@@ -1108,7 +1109,8 @@ def kpi_laeufe(vorher: pd.DataFrame, heute, gewicht_heute=None) -> list[list]:
         if arr is None and tr is None:
             continue
         out.append([z["date"].strftime("%Y-%m-%d"), _txt(z.get("hippodrome")), _num(z.get("distance_m"), 0),
-                    _txt(z.get("going_pmu")), arr, tr, int(z.get("tr_gedeckelt") == 1), z["race_id"]])
+                    _txt(z.get("going_pmu")), arr, tr, int(z.get("tr_gedeckelt") == 1), z["race_id"],
+                    *(klasse(z) if klasse else [None, None])])
     return out
 
 
@@ -1633,6 +1635,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     def index(wert, basis):
         """100 = Durchschnitt der Population, > 100 überdurchschnittlich."""
         return _num(100 * wert / basis, 0) if wert is not None and basis else None
+    # Vergleichs-Overlay: Klasse je Lauf (Val+, €/L+)
+    def kpi_klasse(z):
+        return [index(_num(z.get("cls_val"), 1), val_rennen), index(_num(z.get("cls_epr_kl"), 3), epr_rennen)]
     # Startbox: Ø relative Platzierung je Konfiguration × Box
     box = (h.dropna(subset=["konfig", "draw", "rel_place"]).groupby(["konfig", "draw"])["rel_place"]
            .agg(["mean", "count"]) if len(h) and "konfig" in h else pd.DataFrame(columns=["mean", "count"]))
@@ -1928,7 +1933,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                                  "age": q("dam_sire_age", (dk, alter_gruppe(p.get("age"))), "dam_sire")},
                 },
                 "form_lines": form,
-                "kpi": kpi_laeufe(vorher, heute, p.get("weight_kg")),   # ARR/TR 365 Tage fürs Vergleichs-Overlay
+                "kpi": kpi_laeufe(vorher, heute, p.get("weight_kg"), kpi_klasse),   # ARR/TR 365 Tage fürs Vergleichs-Overlay
                 "prono": prono_je.get(_num(p.get("saddle_no"), 0)),
                 "duels": duelle,
                 "duels_sum": _duell_bilanz(duelle),

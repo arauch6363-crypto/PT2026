@@ -831,9 +831,10 @@ def racecard_pruefen() -> None:
     fa = {f["race_id"]: f for f in xa["form_lines"]}
     pruefe(xa["kpi"] and rid(10, 1) not in {k[7] for k in xa["kpi"]}
            and all((tag - date.fromisoformat(k[0])).days <= rc.KPI_TAGE for k in xa["kpi"])
-           and all(k[4] == fa[k[7]]["arr_adj"] and k[5] == fa[k[7]]["tr_heute"] for k in xa["kpi"] if k[7] in fa)
+           and all(k[4] == fa[k[7]]["arr_adj"] and k[5] == fa[k[7]]["tr_heute"]
+                   and k[8] == fa[k[7]]["cls_val_idx"] and k[9] == fa[k[7]]["cls_epr_idx"] for k in xa["kpi"] if k[7] in fa)
            and xa["kpi"] == sorted(xa["kpi"], key=lambda k: k[0], reverse=True),
-           f"Vergleichs-Overlay: {len(xa['kpi'])} Läufe der letzten 365 Tage ohne ausgerittene, ARR/TR wie in der Formzeile bereinigt")
+           f"Vergleichs-Overlay: {len(xa['kpi'])} Läufe der letzten 365 Tage ohne ausgerittene, ARR/TR wie in der Formzeile bereinigt, Klasse Val+/€/L+ wie in der Formzeile")
     pruefe(f["valeur"] == 40.0 and x["form_lines"][1]["blinkers"] == "OEILLERES_AUSTRALIENNES" and f["odds"] == 4.0,
            "Formzeile mit Valeur, Scheuklappen und Endquote")
     rz = pd.DataFrame([{"race_id": "20260901R1C1", "hippodrome": "DEAUVILLE", "distance_m": 1600, "corde": "CORDE_DROITE",
