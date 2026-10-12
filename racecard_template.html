@@ -238,6 +238,9 @@ mark.same{background:var(--hi-soft);color:inherit;padding:0 3px;border-radius:2p
 .formtab tr.extra td:first-child{box-shadow:inset 3px 0 0 var(--hi)}
 .trtab .tr-zr{display:none}
 .kpi-c{cursor:pointer}
+.ov-pt{cursor:pointer}
+.ov-svg .ov-ueber{font-size:10.5px;fill:var(--bad);font-weight:600}
+tr.lauf.sprung,tr.lauf.sprung > td,.panel.sprung{background:var(--hi-soft)!important;transition:background .4s}
 .kpi-c:hover b,.kpi-c:focus-visible b{outline:2px solid var(--hi);outline-offset:1px}
 body.ov-auf{overflow:hidden}
 #kpi-ov{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow-y:auto}
@@ -1068,6 +1071,20 @@ function kpiOeffnen(k, no, rid){
   document.body.classList.add("ov-auf");
   kpiZeichnen();
 }
+// Klick auf einen Punkt: Overlay zu, Starter aufklappen und zur Formzeile dieses Laufs springen
+// (Lauf nicht unter den gezeigten Formzeilen: zum Abschnitt „Letzte Läufe“)
+function kpiSprung(no, rid){
+  kpiSchliessen();
+  state.open.add(no); renderRace();
+  const art = document.querySelector(`[data-runner="${no}"]`);
+  if (!art) return;
+  const ziel = art.querySelector(`tr.lauf[data-rid="${CSS.escape(rid)}"]`)
+    || [...art.querySelectorAll(".panel")].find(p => /letzte läufe/i.test((p.querySelector("h4") || {}).textContent || "")) || art;
+  const navH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nav-h")) || 0;
+  const kopf = art.querySelector(".runner-kopf"), kh = kopf ? kopf.offsetHeight : 0;
+  window.scrollTo({top: window.scrollY + ziel.getBoundingClientRect().top - navH - kh - 10});
+  ziel.classList.add("sprung"); setTimeout(() => ziel.classList.remove("sprung"), 1800);
+}
 function kpiSchliessen(){
   KPI = null; document.body.classList.remove("ov-auf");
   const o = document.getElementById("kpi-ov"); if (o) o.remove();
@@ -1106,41 +1123,52 @@ function kpiZeichnen(){
   // Diagramm
   const box = document.querySelector("#kpi-ov .ov-box");
   const breite = Math.max(300, Math.min(940, (box ? box.clientWidth : Math.min(window.innerWidth, 960)) - 32));
-  const schmal = breite < 520, lw = schmal ? 112 : 180, rh = 26, oben = 22, unten = 8;
-  const step = k === "arr" ? 5 : 10;
-  const werte = feld.flatMap(a => a.zeigen.map(l => l[k])).concat([v0]);
-  const lo = Math.floor(Math.min(...werte) / step) * step, hi = Math.ceil(Math.max(...werte) / step) * step || lo + step;
-  const x0 = lw + 8, x1 = breite - 10, sx = v => x0 + (v - lo) / ((hi - lo) || 1) * (x1 - x0);
+  const schmal = breite < 520, lw = schmal ? 112 : 180, rh = 26, oben = 22, unten = 8, rand = schmal ? 74 : 80;
+  // Skala nur gewählter Wert ± 5 kg / 10 lb; bessere Werte rechts davon in einer eigenen Spalte („über der Skala“),
+  // schlechtere außerhalb entfallen
+  const lo = v0 - W, hi = v0 + W, step = k === "arr" ? 1 : 2;
+  const x0 = lw + 8, x1 = breite - rand - 6, xo = breite - rand + 8, sx = v => x0 + (v - lo) / (hi - lo) * (x1 - x0);
   const H = oben + feld.length * rh + unten;
-  const ticks = []; for (let v = lo; v <= hi + 1e-9; v += step) ticks.push(v);
+  const ticks = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) ticks.push(v);
   const maxZ = Math.floor((lw - 30) / 6.6);
   const kurz = s => s.length > maxZ ? s.slice(0, maxZ - 1) + "…" : s;
+  const nk = k === "arr" ? 1 : 0;
   let besser = 0;
   const zeilen = feld.map((a, i) => {
     const y = oben + i * rh + rh / 2, ist = a === sel;
     const nB = ist ? 0 : a.zeigen.filter(l => l[k] >= v0).length; if (nB) besser++;
     const hohl = l => k === "tr" && l.cap;
-    const pkt = [...a.zeigen].sort((p, q) => (p === gew) - (q === gew) || alter(q.date) - alter(p.date)).map((l, j) => {
-      const op = Math.max(0.18, 1 - 0.82 * Math.min(alter(l.date), K.tage) / K.tage);   // blass relativ zum gewählten Zeitraum
-      const farbe = ist ? "var(--accent)" : l[k] >= v0 ? "var(--bad)" : "var(--ink-3)";
-      const dy = (j % 2 ? 4 : -4) * (a.zeigen.length > 1 ? 1 : 0);
-      const tip = `${a.x.no} ${title(a.x.horse)} · ${dt(l.date)} · ${title(l.course || "")} ${l.dist ?? ""} m · ${grpLabel(l.going)} · ${KPI_NAME[k]} ${fx(l[k], k === "arr" ? 1 : 0)}${hohl(l) ? " (TR gedeckelt, unsicher)" : ""}${l.alt ? " (älter als " + tage + " Tage)" : ""}`;
-      if (l === gew) return `<g><title>${esc("gewählt: " + tip)}</title><circle cx="${sx(l[k])}" cy="${y}" r="8" fill="none" stroke="var(--hi)" stroke-width="3"/><circle cx="${sx(l[k])}" cy="${y}" r="5" fill="${farbe}"/></g>`;
-      return `<circle cx="${sx(l[k])}" cy="${y + dy}" r="5" fill="${hohl(l) ? "var(--surface)" : farbe}" stroke="${farbe}" stroke-width="${hohl(l) ? 1.6 : 0}" fill-opacity="${op}" stroke-opacity="${op}"><title>${esc(tip)}</title></circle>`;
+    const tipp = l => `${a.x.no} ${title(a.x.horse)} · ${dt(l.date)} · ${title(l.course || "")} ${l.dist ?? ""} m · ${grpLabel(l.going)} · ${KPI_NAME[k]} ${fx(l[k], nk)}${hohl(l) ? " (TR gedeckelt, unsicher)" : ""}${l.alt ? " (älter als " + tage + " Tage)" : ""}`;
+    const op = l => Math.max(0.18, 1 - 0.82 * Math.min(alter(l.date), K.tage) / K.tage);   // blass relativ zum gewählten Zeitraum
+    const farbe = l => ist ? "var(--accent)" : l[k] >= v0 ? "var(--bad)" : "var(--ink-3)";
+    const sprung = l => `data-sp-no="${a.x.no}" data-sp-rid="${esc(l.rid)}"`;   // Klick: zum Starter und dieser Formzeile
+    const innen = a.zeigen.filter(l => l === gew || (l[k] >= lo && l[k] <= hi));
+    const drueber = a.zeigen.filter(l => l !== gew && l[k] > hi).sort((p, q) => q[k] - p[k]);
+    const pkt = [...innen].sort((p, q) => (p === gew) - (q === gew) || alter(q.date) - alter(p.date)).map((l, j) => {
+      const dy = (j % 2 ? 4 : -4) * (innen.length > 1 ? 1 : 0);
+      if (l === gew) return `<g class="ov-pt" ${sprung(l)}><title>${esc("gewählt: " + tipp(l))}</title><circle cx="${sx(l[k])}" cy="${y}" r="8" fill="none" stroke="var(--hi)" stroke-width="3"/><circle cx="${sx(l[k])}" cy="${y}" r="5" fill="${farbe(l)}"/><circle cx="${sx(l[k])}" cy="${y}" r="11" fill="transparent"/></g>`;
+      return `<g class="ov-pt" ${sprung(l)}><title>${esc(tipp(l) + " – Klick: zur Formzeile")}</title><circle cx="${sx(l[k])}" cy="${y + dy}" r="5" fill="${hohl(l) ? "var(--surface)" : farbe(l)}" stroke="${farbe(l)}" stroke-width="${hohl(l) ? 1.6 : 0}" fill-opacity="${op(l)}" stroke-opacity="${op(l)}"/><circle cx="${sx(l[k])}" cy="${y + dy}" r="10" fill="transparent"/></g>`;
     }).join("");
+    // über der Skala: Dreieck mit dem besten Wert (Anzahl in Klammern), Klick springt zum besten Lauf
+    const ueber = drueber.length ? (l => `<g class="ov-pt" ${sprung(l)}><title>${esc(`über der Skala (> ${fx(hi, nk)}): ` + drueber.map(tipp).join(" | ") + " – Klick: zur Formzeile")}</title>
+      <path d="M${xo} ${y - 5} L${xo + 8} ${y} L${xo} ${y + 5} Z" fill="${farbe(l)}" fill-opacity="${op(l)}"/>
+      <text x="${xo + 11}" y="${y + 4}" class="ov-ueber">${fx(l[k], nk)}${drueber.length > 1 ? ` (${drueber.length})` : ""}</text>
+      <rect x="${xo - 4}" y="${y - 11}" width="${rand - 6}" height="22" fill="transparent"/></g>`)(drueber[0]) : "";
     return `<g class="${ist ? "ov-sel" : ""}">${ist ? `<rect x="0" y="${oben + i * rh}" width="${breite}" height="${rh}" fill="var(--hi-soft)"/>` : i % 2 ? `<rect x="0" y="${oben + i * rh}" width="${breite}" height="${rh}" fill="var(--surface-2)" opacity=".5"/>` : ""}
       <text x="4" y="${y + 4}" class="ov-nr">${a.x.no}</text><text x="28" y="${y + 4}" class="ov-name${ist ? " ist" : ""}">${esc(kurz(title(a.x.horse)))}<title>${esc(title(a.x.horse) + (nB ? ` – ${nB} Lauf/Läufe mindestens so gut` : ""))}</title></text>
-      ${a.zeigen.length ? pkt : `<text x="${x0}" y="${y + 4}" class="ov-leer">keine passenden Läufe</text>`}</g>`;
+      ${innen.length || drueber.length ? pkt + ueber : `<text x="${x0}" y="${y + 4}" class="ov-leer">keine passenden Läufe</text>`}</g>`;
   }).join("");
   const svg = `<svg class="ov-svg" width="${breite}" height="${H}" viewBox="0 0 ${breite} ${H}" role="img" aria-label="${KPI_NAME[k]} der heutigen Starter, letzte ${tage} Tage">
-    ${ticks.map(v => `<line x1="${sx(v)}" x2="${sx(v)}" y1="${oben - 4}" y2="${H - unten}" stroke="var(--line)"/><text x="${sx(v)}" y="12" text-anchor="middle" class="ov-tick">${v}</text>`).join("")}
+    ${ticks.map(v => `<line x1="${sx(v)}" x2="${sx(v)}" y1="${oben - 4}" y2="${H - unten}" stroke="var(--line)"/>${schmal && k === "arr" && v % 2 ? "" : `<text x="${sx(v)}" y="12" text-anchor="middle" class="ov-tick">${v}</text>`}`).join("")}
+    <line x1="${xo - 6}" x2="${xo - 6}" y1="${oben - 4}" y2="${H - unten}" stroke="var(--ink-3)" stroke-dasharray="2 3"/>
+    <text x="${xo - 2}" y="12" class="ov-tick">› ${fx(hi, nk)}</text>
     ${zeilen}
     <line x1="${sx(v0)}" x2="${sx(v0)}" y1="${oben - 6}" y2="${H - unten}" stroke="var(--hi)" stroke-width="1.5" stroke-dasharray="4 3"/>
   </svg>`;
   const kopf = `<div class="ov-kopf"><div><h3>${KPI_NAME[k]} · Vergleich mit dem Feld</h3>
     <div class="muted">Gewählt: <b>${sel.x.no} ${esc(title(sel.x.horse))}</b> · ${dt(gew.date)} ${esc(title(gew.course || ""))} ${gew.dist ?? ""} m · ${KPI_NAME[k]} <b>${fx(v0, k === "arr" ? 1 : 0)}</b> ${KPI_EINH[k]} · ${besser} Gegner mit mindestens einem so guten Lauf</div></div>
     <button type="button" class="ov-zu" aria-label="Schließen">×</button></div>`;
-  const legende = `<p class="ov-leg"><span class="pk" style="background:var(--accent)"></span> gewähltes Pferd (alle Läufe) · <span class="pk" style="background:var(--bad)"></span> andere: mindestens so gut · <span class="pk" style="background:var(--ink-3)"></span> bis ${W} ${KPI_EINH[k]} schlechter · Ring: gewählter Lauf · je blasser, desto älter (im gewählten Zeitraum) ${k === "tr" ? "· hohl: TR gedeckelt (unsicher) " : ""}· ${KPI_NAME[k]} auf das heutige Gewicht bereinigt, ohne ausgerittene Läufe.</p>`;
+  const legende = `<p class="ov-leg"><span class="pk" style="background:var(--accent)"></span> gewähltes Pferd (alle Läufe) · <span class="pk" style="background:var(--bad)"></span> andere: mindestens so gut · <span class="pk" style="background:var(--ink-3)"></span> bis ${W} ${KPI_EINH[k]} schlechter · Skala: gewählter Wert ± ${W} ${KPI_EINH[k]}, rechts davon ▶ bessere Werte über der Skala (bester Wert, Anzahl) · Klick auf einen Punkt: zum Starter und seiner Formzeile · Ring: gewählter Lauf · je blasser, desto älter (im gewählten Zeitraum) ${k === "tr" ? "· hohl: TR gedeckelt (unsicher) " : ""}· ${KPI_NAME[k]} auf das heutige Gewicht bereinigt, ohne ausgerittene Läufe.</p>`;
   let o = document.getElementById("kpi-ov");
   if (!o) {
     o = document.createElement("div"); o.id = "kpi-ov";
@@ -1148,6 +1176,7 @@ function kpiZeichnen(){
     document.body.appendChild(o);
     o.addEventListener("click", e => {
       if (e.target === o || e.target.closest(".ov-zu")) return kpiSchliessen();
+      const pt = e.target.closest(".ov-pt"); if (pt) return kpiSprung(+pt.dataset.spNo, pt.dataset.spRid);
       const c = e.target.closest(".kchip"); if (!c) return;
       const v = c.dataset.v;
       if (c.dataset.f === "dist") KPI.dist = v === "" ? null : +v;
@@ -1191,7 +1220,7 @@ function formTable(rows, no, wHeute, rHeute, tageHeute = null){
       : !f.extra && !rows[i - 1].extra ? pauseZeile(tageZwischen(rows[i - 1].date, f.date), false) : "";
     const sep = f.extra && !(rows[i - 1] || {}).extra
       ? `<tr class="extra-sep"><td colspan="11">Ältere Läufe – nicht unter den letzten ${DATA.params.form_runs}: letzter Lauf mit gleichem ${rows.slice(i).flatMap(r => r.extra || []).map(k => SAME_NAME[k]).join(" / ")}</td></tr>` : "";
-    return `${pause}${sep}<tr class="lauf ${f.unreliable ? "unrel" : ""} ${cmt ? "hascmt" : ""} ${f.extra ? "extra" : ""}">
+    return `${pause}${sep}<tr data-rid="${esc(f.race_id)}" class="lauf ${f.unreliable ? "unrel" : ""} ${cmt ? "hascmt" : ""} ${f.extra ? "extra" : ""}">
       <td class="fl-date">${dt(f.date)}${sameTags(f)}${f.extra ? `<br><span class="muted" title="Zusätzlich gezeigt: letzter Lauf mit gleichem ${f.extra.map(k => SAME_NAME[k]).join(" / ")}">letzter auf ${f.extra.map(k => ({K: "Kurs", D: "Distanz", B: "Boden"})[k]).join(" + ")}</span>` : ""}<br><span class="muted">${markIf(sameHas(f, "K"), esc(title(f.course)), "K")}</span><span class="fl-dg-m"><br><span class="num">${markIf(sameHas(f, "D"), `${f.dist ?? "–"}m`, "D")} ${markIf(sameHas(f, "B"), esc(f.going || "–"), "B")}</span></span><br>${btn}</td>
       <td class="fl-cond num"><span class="muted">${esc(f.type || "–")}</span> ${f.prize != null ? `<span class="ae" style="${verlauf(poolLage("prize", f.prize))}" title="${esc(`Preisgeld €${(f.prize).toLocaleString("de-DE")} – Farbe: Lage unter allen früheren Läufen der heutigen Starter (rot = niedrigstes, grün = höchstes Preisgeld für dieses Rennen)`)}">${prize(f.prize)}</span>` : "–"}<span class="fl-dg"><br>${markIf(sameHas(f, "D"), `${f.dist ?? "–"}m`, "D")} ${markIf(sameHas(f, "B"), esc(f.going || "–"), "B")}</span><br>${kl}</td>
       <td class="fl-pos">${pos} ${mg ? `(${mg})` : ""}${verlaufForm(f)}${blinkIcon(f.blinkers)}<br><span class="muted">${esc(title(f.jockey) || "–")}</span> <span class="fl-gbq"><span class="num">${f.weight != null ? fx(f.weight,1).replace(/\.0$/,"") + "kg" : ""}</span>${boxForm(f)} <span class="muted num" title="Endquote (odds_final)${f.odds_rank ? `, Quotenrang ${f.odds_rank}` : ""}">Q ${f.odds != null ? fx(f.odds,1) : "–"}${f.fav ? " F" : ""}</span></span>${f.unreliable ? `<br><span class="muted" title="Mehr als ${DATA.params.beaten_l} Längen geschlagen – vermutlich ausgeritten, zählt nicht in den Schnitt">ausgeritten?</span>` : ""}</td>
