@@ -1067,7 +1067,8 @@ function kpiLaeufe(x){
 }
 function kpiOeffnen(k, no, rid){
   const r = DATA.races[state.race];
-  KPI = {k, no: +no, rid, dist: 100, going: new Set(r.going_pmu ? [r.going_pmu] : []), bahn: false, tage: DATA.params.kpi_days || 365};
+  // Filter mit Mehrfachauswahl: je Gruppe eine Menge gewählter Bereiche, leer = alle
+  KPI = {k, no: +no, rid, f: {dist: new Set(["100"]), going: new Set(r.going_pmu ? [r.going_pmu] : []), bahn: new Set(), tage: new Set()}};
   document.body.classList.add("ov-auf");
   kpiZeichnen();
 }
@@ -1106,19 +1107,24 @@ function kpiZeichnen(){
   }
   const v0 = gew[k];
   const bahnKey = s => String(s || "").trim().toUpperCase();
-  const passt = l => alter(l.date) <= K.tage
-    && (!K.bahn || bahnKey(l.course) === bahnKey(r.course))
-    && (K.dist == null || r.distance == null || l.dist == null || Math.abs(l.dist - r.distance) <= K.dist)
-    && (!K.going.size || l.going == null || K.going.has(l.going));
+  // getrennte Bereiche, damit Mehrfachauswahl Sinn ergibt
+  const distBer = l => { if (r.distance == null || l.dist == null) return null; const d = Math.abs(l.dist - r.distance);
+    return d <= 100 ? "100" : d <= 200 ? "200" : d <= 400 ? "400" : "mehr"; };
+  const tageBer = l => { const a = alter(l.date); return a <= 30 ? "30" : a <= 60 ? "60" : a <= 90 ? "90" : "365"; };
+  const bahnBer = l => bahnKey(l.course) === bahnKey(r.course) ? "heute" : "andere";
+  const in_ = (menge, wert) => !menge.size || wert == null || menge.has(wert);
+  const passt = l => in_(K.f.dist, distBer(l)) && in_(K.f.going, l.going) && in_(K.f.bahn, bahnBer(l)) && in_(K.f.tage, tageBer(l));
+  const spanne = K.f.tage.size ? Math.max(...[...K.f.tage].map(v => +v === 365 ? tage : +v)) : tage;
   for (const a of feld) a.zeigen = a.laeufe.filter(l => l === gew || (passt(l) && (a === sel || l[k] >= v0 - W)));
   // Filter-Auswahl
   const boeden = BODEN_GR.filter(g => g === r.going_pmu || feld.some(a => a.laeufe.some(l => l.going === g)));
   const chip = (typ, wert, an, text) => `<button type="button" class="kchip" data-f="${typ}" data-v="${esc(String(wert))}" aria-pressed="${an}">${esc(text)}</button>`;
   const filter = `<div class="ov-filter">
-    <div class="grp"><b>Distanz</b>${[[100, "±100 m"], [200, "±200 m"], [400, "±400 m"], ["", "alle"]].map(([v, t]) => chip("dist", v, String(K.dist ?? "") === String(v), t)).join("")}</div>
-    <div class="grp"><b>Boden</b>${chip("going", "", !K.going.size, "alle")}${boeden.map(g => chip("going", g, K.going.has(g), grpLabel(g) + (g === r.going_pmu ? " (heute)" : ""))).join("")}</div>
-    <div class="grp"><b>Bahn</b>${chip("bahn", "1", K.bahn, title(r.course || "heute") + " (heute)")}${chip("bahn", "", !K.bahn, "alle")}</div>
-    <div class="grp"><b>Zeitraum</b>${[30, 60, 90, tage].map(v => chip("tage", v, K.tage === v, `${v} Tage`)).join("")}</div>
+    ${[["dist", "Distanz", [["100", "±100 m"], ["200", "±101–200 m"], ["400", "±201–400 m"], ["mehr", "> ±400 m"]]],
+       ["going", "Boden", boeden.map(g => [g, grpLabel(g) + (g === r.going_pmu ? " (heute)" : "")])],
+       ["bahn", "Bahn", [["heute", title(r.course || "heute") + " (heute)"], ["andere", "andere Bahnen"]]],
+       ["tage", "Zeitraum", [["30", "≤ 30 Tage"], ["60", "31–60"], ["90", "61–90"], ["365", `91–${tage}`]]]]
+      .map(([f, name, opt]) => `<div class="grp"><b>${name}</b>${chip(f, "", !K.f[f].size, "alle")}${opt.map(([v, t]) => chip(f, v, K.f[f].has(v), t)).join("")}</div>`).join("")}
   </div>`;
   // Diagramm
   const box = document.querySelector("#kpi-ov .ov-box");
@@ -1139,7 +1145,7 @@ function kpiZeichnen(){
     const nB = ist ? 0 : a.zeigen.filter(l => l[k] >= v0).length; if (nB) besser++;
     const hohl = l => k === "tr" && l.cap;
     const tipp = l => `${a.x.no} ${title(a.x.horse)} · ${dt(l.date)} · ${title(l.course || "")} ${l.dist ?? ""} m · ${grpLabel(l.going)} · ${KPI_NAME[k]} ${fx(l[k], nk)}${hohl(l) ? " (TR gedeckelt, unsicher)" : ""}${l.alt ? " (älter als " + tage + " Tage)" : ""}`;
-    const op = l => Math.max(0.18, 1 - 0.82 * Math.min(alter(l.date), K.tage) / K.tage);   // blass relativ zum gewählten Zeitraum
+    const op = l => Math.max(0.18, 1 - 0.82 * Math.min(alter(l.date), spanne) / spanne);   // blass relativ zum gewählten Zeitraum
     const farbe = l => ist ? "var(--accent)" : l[k] >= v0 ? "var(--bad)" : "var(--ink-3)";
     const sprung = l => `data-sp-no="${a.x.no}" data-sp-rid="${esc(l.rid)}"`;   // Klick: zum Starter und dieser Formzeile
     const innen = a.zeigen.filter(l => l === gew || (l[k] >= lo && l[k] <= hi));
@@ -1179,10 +1185,8 @@ function kpiZeichnen(){
       const pt = e.target.closest(".ov-pt"); if (pt) return kpiSprung(+pt.dataset.spNo, pt.dataset.spRid);
       const c = e.target.closest(".kchip"); if (!c) return;
       const v = c.dataset.v;
-      if (c.dataset.f === "dist") KPI.dist = v === "" ? null : +v;
-      else if (c.dataset.f === "going") { if (v === "") KPI.going.clear(); else KPI.going.has(v) ? KPI.going.delete(v) : KPI.going.add(v); }
-      else if (c.dataset.f === "bahn") KPI.bahn = v === "1";
-      else if (c.dataset.f === "tage") KPI.tage = +v;
+      const m = KPI.f[c.dataset.f];                         // Mehrfachauswahl; „alle“ leert die Gruppe
+      if (v === "") m.clear(); else m.has(v) ? m.delete(v) : m.add(v);
       kpiZeichnen();
     });
   }
@@ -1263,7 +1267,7 @@ function renderLegend(){
     <div><b>Laufstil</b> F führend · V vorne dabei · M Mittelfeld · H hinten – aus der Ø frühen Position der letzten ${p.style_runs} Läufe mit Tracking. <b>Pace-Szenario</b>: Norm der Distanzgruppe plus Effekt der Tempomacher und der Feldgröße, geschätzt aus früheren Rennen. <b>Bahn-Bias</b> relativ zum Schnitt aller Bahnen (0 = wie überall): (IV vorne − IV hinten) dieser Bahn/Distanz minus derselbe Wert über alle Bahnen; positiv: Frontrenner hier stärker im Vorteil als sonst, negativ: abwartend Gerittene besser; farbig ab ±0,25. Den Rohwert nennt die Zeile darunter.</div>
     <div><b>C</b> Sieger auf der Bahn · <b>D</b> Sieger über die Distanz (±100 m) · <b>CD</b> beides im selben Rennen · <b>BF</b> letzter Start als Favorit geschlagen. Wechsel (Trainer, Besitzer, Scheuklappen, erstmals Wallach) gegenüber dem letzten Lauf in der Datenbank. <b>Tage</b> seit dem letzten Lauf in der Datenbank.</div>
     <div><b>Vorlieben ▲ / ▼</b> (Trainer, Jockey, Vater, Muttervater): A/E der Vorliebe weicht deutlich und signifikant vom Rest derselben Person bzw. Linie ab – mindestens ×1,2 bzw. ×0,8 des A/E aus ihren übrigen Läufen im selben Zeitraum (Trainer/Jockey 2 Jahre, Vater/Muttervater gesamte Historie) und mindestens 2 Standardfehler, bei mindestens 20 übrigen Läufen. Wie beim Box-Urteil; Werte im Tooltip.</div>
-    <div><b>Vergleich ARR/TR</b> (Klick auf ARR oder TR einer Formzeile): je heutigem Starter eine Zeile mit seinen Läufen der letzten ${p.kpi_days ?? 365} Tage (ohne ausgerittene, auf das heutige Gewicht bereinigt), x = Wert. Vom gewählten Pferd alle Läufe, von den anderen alle mindestens so guten und schlechtere nur bis ${(p.kpi_window || {}).arr ?? 5} kg (ARR) bzw. ${(p.kpi_window || {}).tr ?? 10} lb (TR) darunter; je blasser, desto älter. Filter oben: Distanz (Standard ±100 m zu heute), Boden (Standard: heutige Bodengruppe), Bahn (heutige oder alle, Standard: alle) und Zeitraum (30/60/90/365 Tage, Standard 365). Skala: gewählter Wert ± 5 kg (ARR) bzw. ± 10 lb (TR); bessere Werte darüber stehen rechts in einer eigenen Spalte (▶ bester Wert, Anzahl), schlechtere außerhalb entfallen. Klick auf einen Punkt springt zum Starter und seiner Formzeile.</div>
+    <div><b>Vergleich ARR/TR</b> (Klick auf ARR oder TR einer Formzeile): je heutigem Starter eine Zeile mit seinen Läufen der letzten ${p.kpi_days ?? 365} Tage (ohne ausgerittene, auf das heutige Gewicht bereinigt), x = Wert. Vom gewählten Pferd alle Läufe, von den anderen alle mindestens so guten und schlechtere nur bis ${(p.kpi_window || {}).arr ?? 5} kg (ARR) bzw. ${(p.kpi_window || {}).tr ?? 10} lb (TR) darunter; je blasser, desto älter. Filter oben mit Mehrfachauswahl (keiner gewählt = alle): Distanz-Abstand zu heute (±100 / 101–200 / 201–400 / mehr als 400 m, Standard ±100 m), Boden (Standard: heutige Bodengruppe), Bahn (heutige / andere, Standard: alle) und Zeitraum (≤ 30 / 31–60 / 61–90 / 91–365 Tage, Standard: alle). Skala: gewählter Wert ± 5 kg (ARR) bzw. ± 10 lb (TR); bessere Werte darüber stehen rechts in einer eigenen Spalte (▶ bester Wert, Anzahl), schlechtere außerhalb entfallen. Klick auf einen Punkt springt zum Starter und seiner Formzeile.</div>
     <div><b>Letzte Läufe</b>: die letzten ${p.form_runs} Läufe; gelb markiert, was dem heutigen Rennen entspricht – <b>K</b> Kurs mit gleichem Belag (PSF gegen Gras), <b>D</b> Distanz ±100 m, <b>B</b> Bodengruppe. Fehlt darunter ein Lauf auf dem Kurs (gleicher Belag), über die Distanz (±100 m) oder in der Bodengruppe von heute, steht unten (gestrichelt abgetrennt) zusätzlich der letzte ältere Lauf mit diesem Merkmal – höchstens drei, also bis zu ${p.form_runs + 3} Zeilen.</div>`;
 }
 
