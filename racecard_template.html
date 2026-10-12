@@ -81,7 +81,6 @@ button,select{font:inherit;color:inherit}
 .runner-kopf .kopf-name{display:flex;flex-direction:column;gap:3px;min-width:0}
 .runner-kopf .kopf-tj{font-size:12px;line-height:1.2;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .runner-kopf .kopf-tj em,.runner-kopf .kopf-tj i{font-style:normal;color:var(--ink-3)}
-.runner-kopf .kopf-ped{font-style:italic}
 .runner:first-child{border-top:0}
 .row{display:grid;grid-template-columns:44px 36px minmax(0,1fr) auto;gap:12px;padding:12px 14px;cursor:pointer;align-items:start}
 .row:hover{background:var(--surface-2)}
@@ -503,9 +502,12 @@ function renderRace(){
     document.querySelectorAll(".ae-tab").forEach(t => t.dataset.w = state.aeW);
     document.querySelectorAll(".ae-w-btn").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.aew === state.aeW)));
   });
+  // Klick auf die fixierte Leiste klappt das Pferd zu und springt zu seiner Zeile
   document.querySelectorAll(".runner-kopf").forEach(k => k.onclick = () => {
-    const row = k.closest(".runner").querySelector(".row");
-    window.scrollTo({top: window.scrollY + row.getBoundingClientRect().top - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nav-h")) || 0), behavior: "smooth"});
+    const n = +k.dataset.kopf;
+    state.open.delete(n); renderRace();
+    const row = document.querySelector(`.row[data-no="${n}"]`);
+    if (row) window.scrollTo({top: window.scrollY + row.getBoundingClientRect().top - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nav-h")) || 0)});
   });
   navHoehe();
   document.querySelectorAll(".row").forEach(el => {
@@ -645,7 +647,7 @@ function duelOrder(r){
 // unter der Navigation verschwunden ist, bis der Block zu Ende ist
 function kopfHTML(x){
   const S = x.prono && x.prono.sel;
-  return `<div class="runner-kopf" data-kopf="${x.no}" title="Zur Zeile von ${esc(x.horse)}"><b class="nr-k">${x.no ?? ""}</b>${x.silks ? `<img src="${x.silks}" alt="">` : ""}<span class="kopf-name"><strong>${esc(x.horse)}</strong><span class="kopf-tj"><span><em>J</em> ${esc(title(x.jockey) || "–")}</span><i> · </i><span><em>T</em> ${esc(title(x.trainer) || "–")}</span>${x.sire || x.dam ? `<i> · </i><span class="kopf-ped" title="Vater – Mutter (Muttervater)">v. ${esc(title(x.sire) || "–")} – ${esc(title(x.dam) || "–")}${x.dam_sire ? ` (v. ${esc(title(x.dam_sire))})` : ""}</span>` : ""}</span></span><span class="muted">${S && S.cote ? `<span class="kopf-pl">Prognose </span>${esc(S.cote)}` : ""}</span></div>`;
+  return `<div class="runner-kopf" data-kopf="${x.no}" title="${esc(x.horse)} zuklappen"><b class="nr-k">${x.no ?? ""}</b>${x.silks ? `<img src="${x.silks}" alt="">` : ""}<span class="kopf-name"><strong>${esc(x.horse)}</strong><span class="kopf-tj"><span><em>J</em> ${esc(title(x.jockey) || "–")}</span><i> · </i><span><em>T</em> ${esc(title(x.trainer) || "–")}</span></span></span><span class="muted">${S && S.cote ? `<span class="kopf-pl">Prognose </span>${esc(S.cote)}` : ""}</span></div>`;
 }
 function kopfLeisten(){
   const nav = document.querySelector(".nav"), h = nav ? nav.getBoundingClientRect().bottom : 0;
