@@ -1115,7 +1115,11 @@ function kpiZeichnen(){
   const in_ = (menge, wert) => !menge.size || wert == null || menge.has(wert);
   const passt = l => in_(K.f.dist, distBer(l)) && in_(K.f.going, l.going) && in_(K.f.bahn, bahnBer(l)) && in_(K.f.tage, tageBer(l));
   const spanne = K.f.tage.size ? Math.max(...[...K.f.tage].map(v => +v === 365 ? tage : +v)) : tage;
-  for (const a of feld) a.zeigen = a.laeufe.filter(l => l === gew || (passt(l) && (a === sel || l[k] >= v0 - W)));
+  for (const a of feld) {
+    const imFenster = l => a === sel || l[k] >= v0 - W;
+    a.zeigen = a.laeufe.filter(l => l === gew || (passt(l) && imFenster(l)));
+    a.weg = a.laeufe.filter(l => l !== gew && !passt(l) && imFenster(l));   // durch Filter abgewählt: nur blass grau
+  }
   // Filter-Auswahl
   const boeden = BODEN_GR.filter(g => g === r.going_pmu || feld.some(a => a.laeufe.some(l => l.going === g)));
   const chip = (typ, wert, an, text) => `<button type="button" class="kchip" data-f="${typ}" data-v="${esc(String(wert))}" aria-pressed="${an}">${esc(text)}</button>`;
@@ -1159,6 +1163,7 @@ function kpiZeichnen(){
     const farbe = l => ist ? "var(--accent)" : l[k] >= v0 ? "var(--bad)" : "var(--ink-3)";
     const sprung = l => `data-sp-no="${a.x.no}" data-sp-rid="${esc(l.rid)}"`;   // Klick: zum Starter und dieser Formzeile
     const innen = a.zeigen.filter(l => l === gew || (l[k] >= lo && l[k] <= hi));
+    const geist = a.weg.filter(l => l[k] >= lo && l[k] <= hi).map(l => `<g class="ov-pt ov-weg" ${sprung(l)}><title>${esc("ausgefiltert: " + tipp(l))}</title><circle cx="${sx(l[k])}" cy="${y}" r="${rad(l)}" fill="var(--ink-3)" fill-opacity=".14"/><circle cx="${sx(l[k])}" cy="${y}" r="9" fill="transparent"/></g>`).join("");
     const drueber = a.zeigen.filter(l => l !== gew && l[k] > hi).sort((p, q) => q[k] - p[k]);
     const pkt = [...innen].sort((p, q) => (p === gew) - (q === gew) || alter(q.date) - alter(p.date)).map((l, j) => {
       const dy = (j % 2 ? 4 : -4) * (innen.length > 1 ? 1 : 0);
@@ -1172,7 +1177,7 @@ function kpiZeichnen(){
       <rect x="${xo - 4}" y="${y - 11}" width="${rand - 6}" height="22" fill="transparent"/></g>`)(drueber[0]) : "";
     return `<g class="${ist ? "ov-sel" : ""}">${ist ? `<rect x="0" y="${oben + i * rh}" width="${breite}" height="${rh}" fill="var(--hi-soft)"/>` : i % 2 ? `<rect x="0" y="${oben + i * rh}" width="${breite}" height="${rh}" fill="var(--surface-2)" opacity=".5"/>` : ""}
       <text x="4" y="${y + 4}" class="ov-nr">${a.x.no}</text><text x="28" y="${y + 4}" class="ov-name${ist ? " ist" : ""}">${esc(kurz(title(a.x.horse)))}<title>${esc(title(a.x.horse) + (nB ? ` – ${nB} Lauf/Läufe mindestens so gut` : ""))}</title></text>
-      ${innen.length || drueber.length ? pkt + ueber : `<text x="${x0}" y="${y + 4}" class="ov-leer">keine passenden Läufe</text>`}</g>`;
+      ${geist}${innen.length || drueber.length ? pkt + ueber : geist ? "" : `<text x="${x0}" y="${y + 4}" class="ov-leer">keine passenden Läufe</text>`}</g>`;
   }).join("");
   const svg = `<svg class="ov-svg" width="${breite}" height="${H}" viewBox="0 0 ${breite} ${H}" role="img" aria-label="${KPI_NAME[k]} der heutigen Starter, letzte ${tage} Tage">
     ${ticks.map(v => `<line x1="${sx(v)}" x2="${sx(v)}" y1="${oben - 4}" y2="${H - unten}" stroke="var(--line)"/>${schmal && k === "arr" && v % 2 ? "" : `<text x="${sx(v)}" y="12" text-anchor="middle" class="ov-tick">${v}</text>`}`).join("")}
@@ -1184,7 +1189,7 @@ function kpiZeichnen(){
   const kopf = `<div class="ov-kopf"><div><h3>${KPI_NAME[k]} · Vergleich mit dem Feld</h3>
     <div class="muted">Gewählt: <b>${sel.x.no} ${esc(title(sel.x.horse))}</b> · ${dt(gew.date)} ${esc(title(gew.course || ""))} ${gew.dist ?? ""} m · ${KPI_NAME[k]} <b>${fx(v0, k === "arr" ? 1 : 0)}</b> ${KPI_EINH[k]} · ${besser} Gegner mit mindestens einem so guten Lauf</div></div>
     <button type="button" class="ov-zu" aria-label="Schließen">×</button></div>`;
-  const legende = `<p class="ov-leg"><span class="pk" style="background:var(--accent)"></span> gewähltes Pferd (alle Läufe) · <span class="pk" style="background:var(--bad)"></span> andere: mindestens so gut · <span class="pk" style="background:var(--ink-3)"></span> bis ${W} ${KPI_EINH[k]} schlechter · Skala: gewählter Wert ± ${W} ${KPI_EINH[k]}, rechts davon ▶ bessere Werte über der Skala (bester Wert, Anzahl) · Klick auf einen Punkt: zum Starter und seiner Formzeile · Ring: gewählter Lauf · Größe: Klasse des Rennens (Val+ und €/L+ je standardisiert über die Läufe des Feldes, 50/50; groß = stark) · je blasser, desto älter (im gewählten Zeitraum) ${k === "tr" ? "· hohl: TR gedeckelt (unsicher) " : ""}· ${KPI_NAME[k]} auf das heutige Gewicht bereinigt, ohne ausgerittene Läufe.</p>`;
+  const legende = `<p class="ov-leg"><span class="pk" style="background:var(--accent)"></span> gewähltes Pferd (alle Läufe) · <span class="pk" style="background:var(--bad)"></span> andere: mindestens so gut · <span class="pk" style="background:var(--ink-3)"></span> bis ${W} ${KPI_EINH[k]} schlechter · Skala: gewählter Wert ± ${W} ${KPI_EINH[k]}, rechts davon ▶ bessere Werte über der Skala (bester Wert, Anzahl) · Klick auf einen Punkt: zum Starter und seiner Formzeile · Ring: gewählter Lauf · ganz blass grau: durch die Filter abgewählt · Größe: Klasse des Rennens (Val+ und €/L+ je standardisiert über die Läufe des Feldes, 50/50; groß = stark) · je blasser, desto älter (im gewählten Zeitraum) ${k === "tr" ? "· hohl: TR gedeckelt (unsicher) " : ""}· ${KPI_NAME[k]} auf das heutige Gewicht bereinigt, ohne ausgerittene Läufe.</p>`;
   let o = document.getElementById("kpi-ov");
   if (!o) {
     o = document.createElement("div"); o.id = "kpi-ov";
