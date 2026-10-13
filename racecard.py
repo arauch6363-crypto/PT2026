@@ -1600,10 +1600,21 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
 
     # A/E-Tabellen: Trainer und Jockey je Zeitfenster, Abstammung über die ganze Historie
     ae = {}
-    for rolle in ("trainer", "jockey", "owner", "breeder"):
-        for tage in AE_FENSTER:
-            sub = h[h["date"] >= heute - timedelta(days=tage)]
-            ae[(rolle, tage)] = gruppen(sub, [rolle + "_key"])
+    # Matrix-Overlay (A/E · Siege/Starts): Ø Platzanteil (Starter − Platz) / (Starter − 1), nicht im Ziel = 0,
+    # je Person und Fenster sowie für die Vorperiode (gleich langes Fenster davor)
+    rp0 = (h["rel_place"].fillna(0).where(h["n_runners"] > 1) if len(h) and "rel_place" in h and "n_runners" in h
+           else pd.Series(dtype=float, index=h.index))
+    ae_pos, ae_vor, pos_pop = {}, {}, {}
+    for tage in AE_FENSTER:
+        jetzt = h["date"] >= heute - timedelta(days=tage)
+        vor = (h["date"] >= heute - timedelta(days=2 * tage)) & ~jetzt
+        pos_pop[tage] = (float(rp0[jetzt].mean()) if jetzt.any() else None, float(rp0[vor].mean()) if vor.any() else None)
+        for rolle in ("trainer", "jockey", "owner", "breeder"):
+            k_ = rolle + "_key"
+            ae[(rolle, tage)] = gruppen(h[jetzt], [k_])
+            ae_vor[(rolle, tage)] = gruppen(h[vor], [k_])
+            ae_pos[(rolle, tage)] = (rp0[jetzt].groupby(h.loc[jetzt, k_]).mean() if k_ in h and jetzt.any() else pd.Series(dtype=float),
+                                     rp0[vor].groupby(h.loc[vor, k_]).mean() if k_ in h and vor.any() else pd.Series(dtype=float))
     ae_abst = {rolle: gruppen(h, [rolle + "_key"]) for rolle in ("sire", "dam_sire", "cross")}
     # Abstammung: verschiedene Pferde je Linie und – nur 3-jährige Nachkommen – Ø ihrer höchsten Valeur als 3-Jährige
     # (max je Pferd im Alter von 3 Jahren, dann Ø über die Pferde)
@@ -1854,6 +1865,12 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 for t in AE_FENSTER:
                     rec_ = ae[(rolle, t)].get(key, _leer()) if _txt(key) else _leer()
                     ae_p[rolle][f"d{t}"] = {**rec_, "epr_idx": index(rec_["epr"], pop[f"{rolle}_d{t}"])}
+                    # Matrix: Pos+ (100 = Ø aller Läufe im Fenster) und Vorperiode (A/E, Pos+, Läufe)
+                    pj, pv = ae_pos[(rolle, t)]
+                    vr = ae_vor[(rolle, t)].get(key) if _txt(key) else None
+                    ae_p[rolle][f"d{t}"]["pos_idx"] = index(_num(pj.get(key)), pos_pop[t][0]) if _txt(key) else None
+                    ae_p[rolle][f"d{t}"]["prev"] = ({"ae": vr["ae"], "runs": vr["runs"],
+                                                    "pos_idx": index(_num(pv.get(key)), pos_pop[t][1])} if vr else None)
             for rolle in ae_p:
                 ae_p[rolle]["trend"] = _ae_trend(ae_p[rolle]["d30"], ae_p[rolle]["d365"])
             ae_p["pedigree"] = {}

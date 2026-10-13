@@ -677,10 +677,22 @@ def racecard_pruefen() -> None:
            "Formzeile mit Rennverlauf (zu kleines Feld: kein Urteil, kein „gegen V.“)")
     pruefe(not {"odds", "odds_morning"} & set(x) and x["form_lines"][0]["odds"] is not None,
            "Karte ohne aktuelle Kurse (Morgen-/Totokurs); historische Endquote in den Formzeilen bleibt")
-    pruefe(x["ae"]["trainer"]["d90"] == {"runs": 2, "wins": 1, "places": 2, "exp": 2.0, "ae": 1.0, "ae_win": 1.33,
+    d90 = {k: v for k, v in x["ae"]["trainer"]["d90"].items() if k not in ("pos_idx", "prev")}
+    pruefe(d90 == {"runs": 2, "wins": 1, "places": 2, "exp": 2.0, "ae": 1.0, "ae_win": 1.33,
                                          "epr": round((13500 + 5130) / 2), "epr_idx": None,
                                          "pl_exp": 2, "n_exp": 2},
            "A/E Platz 90 Tage: 2 Starter -> beide sicher platziert (erwartet 2, A/E 1,00); A/E Sieg 1,33 zum Vergleich")
+    m90 = x["ae"]["trainer"]["d90"]
+    hv = hist[hist["date"] < pd.Timestamp(tag)]
+    rp = hv["rel_place"].fillna(0).where(hv["n_runners"] > 1)
+    tk_ = hv.loc[hv["horse"].str.upper() == x["horse"].upper(), "trainer_key"].iloc[0]
+    def _pi(von, bis):
+        f_ = (hv["date"] >= pd.Timestamp(tag) - timedelta(days=von)) & (hv["date"] < pd.Timestamp(tag) - timedelta(days=bis))
+        return round(100 * rp[f_ & (hv["trainer_key"] == tk_)].mean() / rp[f_].mean())
+    pruefe(m90["pos_idx"] == _pi(90, 0) and m90["prev"] is not None and m90["prev"]["pos_idx"] == _pi(180, 90)
+           and m90["prev"]["runs"] == int(((hv["trainer_key"] == tk_) & (hv["date"] >= pd.Timestamp(tag) - timedelta(days=180))
+                                           & (hv["date"] < pd.Timestamp(tag) - timedelta(days=90))).sum()),
+           f"Matrix: Pos+ (Ø Platzanteil, 100 = Ø aller Läufe im Fenster) {m90['pos_idx']}, Vorperiode 91–180 Tage {m90['prev']}")
     # Rating (Valeur) bereinigt nach dem heutigen Gewicht wie ARR: 30 bei 58 kg -> 27; 29 bei 54 kg -> 30 (vorne)
     hs = heute_s.assign(rating=[30.0, 29.0], weight_kg=[58.0, 54.0])
     xr, yr = rc.baue_daten(hist, heute_r, hs, tag)["races"][f"{tag:%Y%m%d}R1C1"]["runners"]
