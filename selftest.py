@@ -1393,13 +1393,21 @@ def racecard_pruefen() -> None:
         q = q.replace(".nichtstarter[]", ".runners[]")
         return ".".join(t for t in q.split(".") if not t.startswith(("20", "FERTIG")))
     ausgelassen = (".runners[].silks", ".runners[].odds", ".runners[].odds_morning", ".runners[].kpi", ".runners[].pref_ref",
-                   *(f".form_lines[].{k}" for k in ce.OHNE_FORMZEILE))
-    weg = lambda q: q.endswith(ausgelassen) or any(o + "." in q or o + "[]" in q for o in ausgelassen)  # + Unterfelder
+                   *(f".form_lines[].{k}" for k in ce.OHNE_FORMZEILE), *(f".{k}" for k in ce.OHNE_AE),
+                   *(f".params.{k}" for k in ce.OHNE_PARAMS))
+    oben_weg = {f".{k}" for k in ce.OHNE_OBEN}
+    weg = lambda q: (q.endswith(ausgelassen) or any(o + "." in q or o + "[]" in q for o in ausgelassen)  # + Unterfelder
+                     or any(q == o or q.startswith(o + ".") or q.startswith(o + "[") for o in oben_weg))
     fehlend = sorted({_norm(q) for q in _pfade(dd)} - {_norm(q) for q in _pfade(ex) | _pfade(mk)}
                      - {q for q in {_norm(q) for q in _pfade(dd)} if weg(q)})
     pruefe(not fehlend, "Claude-Version (blind + Markt) vollständig: jedes Feld der Race Card außer "
            "Trikots/Kursen/Gegnerliste/Zwischenwerten"
            + (f" – fehlt: {fehlend[:5]}" if fehlend else ""))
+    pfade_ex = {_norm(q) for q in _pfade(ex) | _pfade(mk)}
+    pruefe("pref_alle" in dd and not any(q.startswith(".pref_alle") or q.endswith((".kpi", ".pref_ref", ".pos_idx"))
+                                         or ".prev." in q or q.startswith(".params.kpi") for q in pfade_ex)
+           and any(q.endswith(".pos_idx") for q in {_norm(q) for q in _pfade(dd)}),
+           "Claude-Version ohne Overlay-Daten der Karte (kpi, pref_ref, pref_alle, Matrix pos_idx/prev, kpi-Parameter)")
     dn = _copy.deepcopy(dd)
     x_ = next(iter(dn["races"].values()))["runners"][0]
     x_["neues_feld"] = {"a": 1}; x_["form_lines"][0]["neu_fz"] = 2; next(iter(dn["races"].values()))["neu_r"] = 3
