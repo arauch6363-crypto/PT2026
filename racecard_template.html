@@ -249,9 +249,10 @@ mark.same{background:var(--hi-soft);color:inherit;padding:0 3px;border-radius:2p
 .opt-row{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:4px 8px;align-items:center;padding:4px 0}
 .opt-row > b{font:600 10px var(--f-body);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
 .opt-strip{display:flex;flex-wrap:wrap;gap:2px}
-.opt-z{font:500 11px var(--f-mono);padding:2px 5px;border-radius:2px;background:var(--surface);border:2px solid transparent}
+.opt-z{display:inline-flex;flex-direction:column;align-items:center;line-height:1.15;font:500 11px var(--f-mono);padding:2px 5px;border-radius:2px;background:var(--surface);border:2px solid transparent}
 .opt-z.up{background:var(--good-soft);color:var(--good)} .opt-z.down{background:var(--bad-soft);color:var(--bad)}
 .opt-z.thin{opacity:.5}
+.opt-z small{font-size:9.5px;opacity:.8}
 .opt-z.im{border-color:var(--ink)}
 .opt-z.o-heute{box-shadow:0 0 0 2px var(--hi);font-weight:700}
 .opt-sep{width:8px}
@@ -1273,12 +1274,20 @@ function optBereich(linie, person, x){
   // Gesamtwert der Linie: Ø über alle Kategorien der drei Dimensionen, nach Läufen gewichtet
   const S0 = alleZ.reduce((s, z) => s + z[1] * wert(z), 0) / nGes;
   const schr = z => { const w = wert(z); return w == null ? null : (z[1] * w + OPT_K * S0) / (z[1] + OPT_K); };
-  const mittel = zz => { const n = zz.reduce((s, z) => s + z[1], 0); return n ? [zz.reduce((s, z) => s + z[1] * schr(z), 0) / n, n] : [null, 0]; };
+  let glatt = schr;                                             // je Dimension gesetzt (geglättet über die Nachbarn)
+  const mittel = zz => { const n = zz.reduce((s, z) => s + z[1], 0); return n ? [zz.reduce((s, z) => s + z[1] * glatt(z), 0) / n, n] : [null, 0]; };
+  const relCls = v => v == null ? "" : idxCls(100 * v / S0);    // Farbe gegen den eigenen Schnitt der Linie
   const fmt = v => v == null ? "–" : Math.round(v);
   const zeile = ([dim, name, maxL, ordnung]) => {
     const heute = heuteVon[dim];
     const reihe = zeilen[dim].filter(z => ordnung(z[0]) != null && schr(z) != null).sort((a, b) => ordnung(a[0]) - ordnung(b[0]));
     const extra = zeilen[dim].filter(z => ordnung(z[0]) == null && schr(z) != null);   // z. B. PSF beim Boden
+    // Glätten über die Nachbarn (50 % eigene Gruppe, je 25 % links/rechts; am Rand neu gewichtet), damit einzelne
+    // Ausreißer keinen Bereich machen – nicht beim Alter (nur drei Gruppen)
+    const gm = new Map(reihe.map((z, i) => { if (dim === "age") return [z, schr(z)];
+      const nb = [[i, 0.5], [i - 1, 0.25], [i + 1, 0.25]].filter(([j]) => j >= 0 && j < reihe.length);
+      return [z, nb.reduce((s, [j, w]) => s + w * schr(reihe[j]), 0) / nb.reduce((s, [, w]) => s + w, 0)]; }));
+    glatt = z => gm.has(z) ? gm.get(z) : schr(z);
     let best = null;
     for (let i = 0; i < reihe.length; i++) for (let L = 1; L <= maxL && i + L <= reihe.length; L++) {
       const fen = reihe.slice(i, i + L), [m, n] = mittel(fen);
@@ -1297,13 +1306,13 @@ function optBereich(linie, person, x){
       info = best.zeig ? `Wert ${fmt(best.m)} im Bereich · ${fmt(mo)} außerhalb · ${best.n} Läufe · heute ${esc(heute || "–")} ${drin ? "✓ im Bereich" : "✗" + weg}`
                        : `bester Abschnitt ${fmt(best.m)} gegen ${fmt(mo)} außerhalb · ${best.n} Läufe · heute ${esc(heute || "–")}`;
     }
-    const zelle = (z, j) => { const v = schr(z), im = best && best.zeig && j >= best.i && j < best.i + best.L;
-      return `<span class="opt-z ${idxCls(v)}${z[1] < 5 ? " thin" : ""}${im ? " im" : ""}${z[0] === heute ? " o-heute" : ""}" title="${esc(`${z[0]}: ${z[1]} Läufe · A/E Platz ${z[4] != null ? fx(z[4], 2) : "–"} · Pos+ ${z[6] ?? "–"} · €/L+ ${z[7] ?? "–"} → Wert ${fmt(wert(z))}, geschrumpft ${fmt(v)}`)}">${esc(dim === "dist" ? kurzDist(z[0]) : z[0])}</span>`; };
+    const zelle = (z, j) => { const v = glatt(z), im = best && best.zeig && j >= best.i && j < best.i + best.L;
+      return `<span class="opt-z ${relCls(v)}${z[1] < 5 ? " thin" : ""}${im ? " im" : ""}${z[0] === heute ? " o-heute" : ""}" title="${esc(`${z[0]}: ${z[1]} Läufe · A/E Platz ${z[4] != null ? fx(z[4], 2) : "–"} · Pos+ ${z[6] ?? "–"} · €/L+ ${z[7] ?? "–"} → Wert ${fmt(wert(z))}, geschrumpft ${fmt(schr(z))}${gm.has(z) && dim !== "age" ? `, geglättet ${fmt(v)}` : ""} · Linie gesamt ${fmt(S0)}`)}">${esc(dim === "dist" ? kurzDist(z[0]) : z[0])}<small>${fmt(v)}</small></span>`; };
     return `<div class="opt-row"><b>${name}</b><div class="opt-strip">${reihe.map(zelle).join("")}${extra.length ? `<span class="opt-sep"></span>${extra.map(z => zelle(z, -1)).join("")}` : ""}</div>
       <span class="opt-urteil ${cls}">${urteil}</span>${info ? `<div class="opt-info">${info}</div>` : ""}</div>`;
   };
-  return `<div class="opt-box"><div class="opt-titel">Optimaler Bereich · ${esc(title(person))}</div>${OPT_DIM.map(zeile).join("")}
-    <div class="opt-leg">Wert je Gruppe = Ø aus A/E+ (100 × A/E Platz), Pos+ und €/L+ (je 100 = Ø aller Läufe dieser Gruppe), zur Gesamtlinie hin geschrumpft (n / (n + ${OPT_K})); Bereich = bestes zusammenhängendes Fenster (Distanz bis 3 Gruppen, Boden bis 2, Alter 1) ab ${OPT_MIN} Läufen; deutlich ab 10 Punkten über dem Rest, leicht ab 5. Rahmen = Bereich, gelb = heute.</div></div>`;
+  return `<div class="opt-box"><div class="opt-titel">Optimaler Bereich · ${esc(title(person))} · Linie gesamt ${fmt(S0)}</div>${OPT_DIM.map(zeile).join("")}
+    <div class="opt-leg">Wert je Gruppe = Ø aus A/E+ (100 × A/E Platz), Pos+ und €/L+ (je 100 = Ø aller Läufe dieser Gruppe), zur Gesamtlinie hin geschrumpft (n / (n + ${OPT_K})) und bei Distanz und Boden mit den Nachbargruppen geglättet (50 / 25 / 25 %); Zahl im Kästchen = dieser Wert, Farbe gegen den Schnitt der Linie (grün ab 10 % darüber, rot ab 10 % darunter); Bereich = bestes zusammenhängendes Fenster (Distanz bis 3 Gruppen, Boden bis 2, Alter 1) ab ${OPT_MIN} Läufen; deutlich ab 10 Punkten über dem Rest, leicht ab 5. Rahmen = Bereich, gelb = heute.</div></div>`;
 }
 function pvOeffnen(ref){
   const [tab, person, heute, no] = ref.split("|"), zeilen = ((DATA.pref_alle || {})[tab] || {})[person];
