@@ -677,10 +677,30 @@ def racecard_pruefen() -> None:
            "Formzeile mit Rennverlauf (zu kleines Feld: kein Urteil, kein „gegen V.“)")
     pruefe(not {"odds", "odds_morning"} & set(x) and x["form_lines"][0]["odds"] is not None,
            "Karte ohne aktuelle Kurse (Morgen-/Totokurs); historische Endquote in den Formzeilen bleibt")
-    pruefe(x["ae"]["trainer"]["d90"] == {"runs": 2, "wins": 1, "places": 2, "exp": 2.0, "ae": 1.0, "ae_win": 1.33,
+    d90 = {k: v for k, v in x["ae"]["trainer"]["d90"].items() if k not in ("pos_idx", "prev")}
+    pruefe(d90 == {"runs": 2, "wins": 1, "places": 2, "exp": 2.0, "ae": 1.0, "ae_win": 1.33,
                                          "epr": round((13500 + 5130) / 2), "epr_idx": None,
                                          "pl_exp": 2, "n_exp": 2},
            "A/E Platz 90 Tage: 2 Starter -> beide sicher platziert (erwartet 2, A/E 1,00); A/E Sieg 1,33 zum Vergleich")
+    rf = x["pref_ref"]["trainer"]["course"]
+    zl = d["pref_alle"][rf[0]][rf[1]]
+    hz = [z for z in zl if z[0] == rf[2]]
+    pc = x["pref"]["trainer"]["course"]
+    pruefe(rf[0] == "trainer_course" and len(hz) == 1 and hz[0][1:] == [pc["runs"], pc["wins"], pc["places"], pc["ae"]]
+           and [z[1] for z in zl] == sorted((z[1] for z in zl), reverse=True)
+           and x["pref_ref"]["jockey"]["horse"][2] == x["horse"].title(),
+           f"Vorlieben-Overlay: alle Bahnen des Trainers ({len(zl)}), heutige wie in der Vorliebe, nach Läufen sortiert")
+    m90 = x["ae"]["trainer"]["d90"]
+    hv = hist[hist["date"] < pd.Timestamp(tag)]
+    rp = hv["rel_place"].fillna(0).where(hv["n_runners"] > 1)
+    tk_ = hv.loc[hv["horse"].str.upper() == x["horse"].upper(), "trainer_key"].iloc[0]
+    def _pi(von, bis):
+        f_ = (hv["date"] >= pd.Timestamp(tag) - timedelta(days=von)) & (hv["date"] < pd.Timestamp(tag) - timedelta(days=bis))
+        return round(100 * rp[f_ & (hv["trainer_key"] == tk_)].mean() / rp[f_].mean())
+    pruefe(m90["pos_idx"] == _pi(90, 0) and m90["prev"] is not None and m90["prev"]["pos_idx"] == _pi(180, 90)
+           and m90["prev"]["runs"] == int(((hv["trainer_key"] == tk_) & (hv["date"] >= pd.Timestamp(tag) - timedelta(days=180))
+                                           & (hv["date"] < pd.Timestamp(tag) - timedelta(days=90))).sum()),
+           f"Matrix: Pos+ (Ø Platzanteil, 100 = Ø aller Läufe im Fenster) {m90['pos_idx']}, Vorperiode 91–180 Tage {m90['prev']}")
     # Rating (Valeur) bereinigt nach dem heutigen Gewicht wie ARR: 30 bei 58 kg -> 27; 29 bei 54 kg -> 30 (vorne)
     hs = heute_s.assign(rating=[30.0, 29.0], weight_kg=[58.0, 54.0])
     xr, yr = rc.baue_daten(hist, heute_r, hs, tag)["races"][f"{tag:%Y%m%d}R1C1"]["runners"]
@@ -1372,14 +1392,22 @@ def racecard_pruefen() -> None:
     def _norm(q):            # Rennschlüssel (Datum…/FERTIG) weg, Nichtstarter zählen wie Starter
         q = q.replace(".nichtstarter[]", ".runners[]")
         return ".".join(t for t in q.split(".") if not t.startswith(("20", "FERTIG")))
-    ausgelassen = (".runners[].silks", ".runners[].odds", ".runners[].odds_morning", ".runners[].kpi",
-                   *(f".form_lines[].{k}" for k in ce.OHNE_FORMZEILE))
-    weg = lambda q: q.endswith(ausgelassen) or any(o + "." in q or o + "[]" in q for o in ausgelassen)  # + Unterfelder
+    ausgelassen = (".runners[].silks", ".runners[].odds", ".runners[].odds_morning", ".runners[].kpi", ".runners[].pref_ref",
+                   *(f".form_lines[].{k}" for k in ce.OHNE_FORMZEILE), *(f".{k}" for k in ce.OHNE_AE),
+                   *(f".params.{k}" for k in ce.OHNE_PARAMS))
+    oben_weg = {f".{k}" for k in ce.OHNE_OBEN}
+    weg = lambda q: (q.endswith(ausgelassen) or any(o + "." in q or o + "[]" in q for o in ausgelassen)  # + Unterfelder
+                     or any(q == o or q.startswith(o + ".") or q.startswith(o + "[") for o in oben_weg))
     fehlend = sorted({_norm(q) for q in _pfade(dd)} - {_norm(q) for q in _pfade(ex) | _pfade(mk)}
                      - {q for q in {_norm(q) for q in _pfade(dd)} if weg(q)})
     pruefe(not fehlend, "Claude-Version (blind + Markt) vollständig: jedes Feld der Race Card außer "
            "Trikots/Kursen/Gegnerliste/Zwischenwerten"
            + (f" – fehlt: {fehlend[:5]}" if fehlend else ""))
+    pfade_ex = {_norm(q) for q in _pfade(ex) | _pfade(mk)}
+    pruefe("pref_alle" in dd and not any(q.startswith(".pref_alle") or q.endswith((".kpi", ".pref_ref", ".pos_idx"))
+                                         or ".prev." in q or q.startswith(".params.kpi") for q in pfade_ex)
+           and any(q.endswith(".pos_idx") for q in {_norm(q) for q in _pfade(dd)}),
+           "Claude-Version ohne Overlay-Daten der Karte (kpi, pref_ref, pref_alle, Matrix pos_idx/prev, kpi-Parameter)")
     dn = _copy.deepcopy(dd)
     x_ = next(iter(dn["races"].values()))["runners"][0]
     x_["neues_feld"] = {"a": 1}; x_["form_lines"][0]["neu_fz"] = 2; next(iter(dn["races"].values()))["neu_r"] = 3

@@ -1092,6 +1092,26 @@ KPI_TAGE = 365           # Vergleichs-Overlay ARR/TR: Läufe der letzten so viel
 KPI_FENSTER = {"arr": 5, "tr": 10}   # schlechtere Läufe anderer Pferde nur bis so weit unter dem gewählten Wert (kg / lb)
 
 
+PREF_ALLE_MAX = 30       # Vorlieben-Overlay: so viele Zeilen je Person (nach Läufen), die heutige kommt immer dazu
+
+
+def _name_lab(k) -> str:
+    return str(k).title()
+
+
+# Vorlieben-Overlay: Tabelle -> (Quelle in pref, Stelle der Person im Schlüssel, Beschriftung der Kategorie)
+PREF_ALLE = {
+    "trainer_jockey": ("trainer_jockey", 0, _name_lab), "trainer_course": ("trainer_course", 0, _name_lab),
+    "trainer_type": ("trainer_type", 0, str), "trainer_age": ("trainer_age", 0, str),
+    "jockey_course": ("jockey_course", 0, _name_lab), "jockey_trainer": ("trainer_jockey", 1, _name_lab),
+    "jockey_horse": ("jockey_horse", 0, lambda k: str(k).split("|")[0].title()),
+    "sire_dist": ("sire_dist", 0, lambda d: f"{d} m"), "sire_going": ("sire_going", 0, going_anzeige),
+    "sire_age": ("sire_age", 0, str),
+    "dam_sire_dist": ("dam_sire_dist", 0, lambda d: f"{d} m"), "dam_sire_going": ("dam_sire_going", 0, going_anzeige),
+    "dam_sire_age": ("dam_sire_age", 0, str),
+}
+
+
 def kpi_laeufe(vorher: pd.DataFrame, heute, gewicht_heute=None, klasse=None) -> list[list]:
     """ARR/TR der Läufe in den letzten KPI_TAGE Tagen ohne ausgerittene, auf das heutige Gewicht bereinigt
     (für das Vergleichs-Overlay der Race Card), neueste zuerst:
@@ -1600,10 +1620,21 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
 
     # A/E-Tabellen: Trainer und Jockey je Zeitfenster, Abstammung über die ganze Historie
     ae = {}
-    for rolle in ("trainer", "jockey", "owner", "breeder"):
-        for tage in AE_FENSTER:
-            sub = h[h["date"] >= heute - timedelta(days=tage)]
-            ae[(rolle, tage)] = gruppen(sub, [rolle + "_key"])
+    # Matrix-Overlay (A/E · Siege/Starts): Ø Platzanteil (Starter − Platz) / (Starter − 1), nicht im Ziel = 0,
+    # je Person und Fenster sowie für die Vorperiode (gleich langes Fenster davor)
+    rp0 = (h["rel_place"].fillna(0).where(h["n_runners"] > 1) if len(h) and "rel_place" in h and "n_runners" in h
+           else pd.Series(dtype=float, index=h.index))
+    ae_pos, ae_vor, pos_pop = {}, {}, {}
+    for tage in AE_FENSTER:
+        jetzt = h["date"] >= heute - timedelta(days=tage)
+        vor = (h["date"] >= heute - timedelta(days=2 * tage)) & ~jetzt
+        pos_pop[tage] = (float(rp0[jetzt].mean()) if jetzt.any() else None, float(rp0[vor].mean()) if vor.any() else None)
+        for rolle in ("trainer", "jockey", "owner", "breeder"):
+            k_ = rolle + "_key"
+            ae[(rolle, tage)] = gruppen(h[jetzt], [k_])
+            ae_vor[(rolle, tage)] = gruppen(h[vor], [k_])
+            ae_pos[(rolle, tage)] = (rp0[jetzt].groupby(h.loc[jetzt, k_]).mean() if k_ in h and jetzt.any() else pd.Series(dtype=float),
+                                     rp0[vor].groupby(h.loc[vor, k_]).mean() if k_ in h and vor.any() else pd.Series(dtype=float))
     ae_abst = {rolle: gruppen(h, [rolle + "_key"]) for rolle in ("sire", "dam_sire", "cross")}
     # Abstammung: verschiedene Pferde je Linie und – nur 3-jährige Nachkommen – Ø ihrer höchsten Valeur als 3-Jährige
     # (max je Pferd im Alter von 3 Jahren, dann Ø über die Pferde)
@@ -1685,7 +1716,31 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         "jockey": gruppen(h_jt, ["jockey_key"]),
         "sire": gruppen(h, ["sire_key"]),
         "dam_sire": gruppen(h, ["dam_sire_key"]),
+        "jockey_horse": gruppen(h, ["jockey_key", "horse_id"]),   # nur fürs Vorlieben-Overlay (ganze Historie)
     }
+    # Vorlieben-Overlay: je Tabelle und Person alle Kategorien (z. B. alle Bahnen eines Trainers), nach Läufen
+    pref_index: dict = {}
+    pref_alle: dict = {}
+
+    def pref_ref(tab, person, kat):
+        """[Tabelle, Person, heutige Kategorie (Beschriftung)] für die Karte; füllt pref_alle[tab][person]."""
+        if _txt(person) is None:
+            return None
+        quelle, stelle, lab = PREF_ALLE[tab]
+        if tab not in pref_index:
+            idx: dict = {}
+            for key_, rec_ in pref[quelle].items():
+                p_, c_ = (key_[0], key_[1]) if stelle == 0 else (key_[1], key_[0])
+                idx.setdefault(p_, []).append((c_, rec_))
+            pref_index[tab] = idx
+        tabelle = pref_alle.setdefault(tab, {})
+        heute_lab = lab(kat) if _txt(kat) is not None else None
+        if person not in tabelle:
+            zeilen = sorted(pref_index[tab].get(person, []), key=lambda cr: -cr[1]["runs"])
+            tabelle[person] = [[lab(c_), r_["runs"], r_["wins"], r_["places"], r_["ae"]] for c_, r_ in zeilen]
+        pref_heute.setdefault((tab, person), set()).add(heute_lab)
+        return [tab, person, heute_lab]
+    pref_heute: dict = {}                                         # (tab, person) -> heutige Kategorien (bleiben beim Kürzen)
 
     rh = races_heute.drop_duplicates("race_id").copy()
     ru = runners_heute.drop_duplicates(["race_id", "saddle_no"]).copy()
@@ -1854,6 +1909,12 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 for t in AE_FENSTER:
                     rec_ = ae[(rolle, t)].get(key, _leer()) if _txt(key) else _leer()
                     ae_p[rolle][f"d{t}"] = {**rec_, "epr_idx": index(rec_["epr"], pop[f"{rolle}_d{t}"])}
+                    # Matrix: Pos+ (100 = Ø aller Läufe im Fenster) und Vorperiode (A/E, Pos+, Läufe)
+                    pj, pv = ae_pos[(rolle, t)]
+                    vr = ae_vor[(rolle, t)].get(key) if _txt(key) else None
+                    ae_p[rolle][f"d{t}"]["pos_idx"] = index(_num(pj.get(key)), pos_pop[t][0]) if _txt(key) else None
+                    ae_p[rolle][f"d{t}"]["prev"] = ({"ae": vr["ae"], "runs": vr["runs"],
+                                                    "pos_idx": index(_num(pv.get(key)), pos_pop[t][1])} if vr else None)
             for rolle in ae_p:
                 ae_p[rolle]["trend"] = _ae_trend(ae_p[rolle]["d30"], ae_p[rolle]["d365"])
             ae_p["pedigree"] = {}
@@ -1932,6 +1993,17 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                                  "going": q("dam_sire_going", (dk, gb), "dam_sire"),
                                  "age": q("dam_sire_age", (dk, alter_gruppe(p.get("age"))), "dam_sire")},
                 },
+                "pref_ref": {                                      # Vorlieben-Overlay: Verweis in DATA.pref_alle
+                    "trainer": {"jockey": pref_ref("trainer_jockey", tk, jk), "course": pref_ref("trainer_course", tk, course),
+                                "racetype": pref_ref("trainer_type", tk, rt),
+                                "age": pref_ref("trainer_age", tk, alter_gruppe(p.get("age")))},
+                    "jockey": {"course": pref_ref("jockey_course", jk, course), "trainer": pref_ref("jockey_trainer", jk, tk),
+                               "horse": pref_ref("jockey_horse", jk, hid)},
+                    "sire": {"distance": pref_ref("sire_dist", sk, dg), "going": pref_ref("sire_going", sk, gb),
+                             "age": pref_ref("sire_age", sk, alter_gruppe(p.get("age")))},
+                    "dam_sire": {"distance": pref_ref("dam_sire_dist", dk, dg), "going": pref_ref("dam_sire_going", dk, gb),
+                                 "age": pref_ref("dam_sire_age", dk, alter_gruppe(p.get("age")))},
+                },
                 "form_lines": form,
                 "kpi": kpi_laeufe(vorher, heute, p.get("weight_kg"), kpi_klasse),   # ARR/TR 365 Tage fürs Vergleichs-Overlay
                 "prono": prono_je.get(_num(p.get("saddle_no"), 0)),
@@ -1987,6 +2059,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             "bias": {**b, "basis": b_basis} if b else None,
             "duel_order": duell_reihe,
         }
+    for (tab, person), heute_ in pref_heute.items():           # Vorlieben-Overlay: die meisten Läufe + heutige Kategorie
+        z_ = pref_alle[tab][person]
+        pref_alle[tab][person] = z_[:PREF_ALLE_MAX] + [z for z in z_[PREF_ALLE_MAX:] if z[0] in heute_]
     hist_von = h["date"].min() if len(h) else None
     return {
         "date": heute.strftime("%Y-%m-%d"),
@@ -2011,6 +2086,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         "bias_all": bias["gesamt"],
         "meetings": sorted(meetings.values(), key=lambda m: m["reunion"]),
         "races": races_out,
+        "pref_alle": pref_alle,
     }
 
 

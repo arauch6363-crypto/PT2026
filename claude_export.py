@@ -32,7 +32,11 @@ import copy
 import json
 from pathlib import Path
 
-OHNE_STARTER = {"silks", "odds", "odds_morning", "kpi"}   # Trikots; Kurse nur Sicherheitsnetz; kpi: nur fürs ARR/TR-Overlay der Karte
+OHNE_STARTER = {"silks", "odds", "odds_morning", "kpi", "pref_ref"}   # Trikots; Kurse nur Sicherheitsnetz; kpi/pref_ref: nur für Overlays der Karte
+# Nur für die Overlays der HTML-Karte, nicht für Claude: Vorlieben-Gesamttabellen, Overlay-Parameter, Matrix-Werte
+OHNE_OBEN = {"pref_alle"}
+OHNE_PARAMS = {"kpi_days", "kpi_window"}
+OHNE_AE = {"pos_idx", "prev"}
 OHNE_MARKT = {"prono"}                               # Prognose, Tipps, Konsens, Cribles, Rennkommentar: nur Marktdatei
 GEGNER_NAH = 2                                       # rivals_nah: so viele Gegner davor und dahinter
 OFFEN = "PROGRAMMEE"
@@ -78,6 +82,11 @@ def _starter(x: dict) -> dict:
     y = {k: copy.deepcopy(v) for k, v in x.items() if k not in OHNE_STARTER | OHNE_MARKT | {"form_lines"}}
     y["form_lines"] = [{**{k: copy.deepcopy(v) for k, v in f.items() if k not in OHNE_FORMZEILE},
                         "rivals_nah": _gegner_nah(f)} for f in x.get("form_lines") or []]
+    for rolle in ("trainer", "jockey", "owner", "breeder"):          # Matrix-Werte (pos_idx, prev) nur in der Karte
+        for fenster in ((y.get("ae") or {}).get(rolle) or {}).values():
+            if isinstance(fenster, dict):
+                for k in OHNE_AE:
+                    fenster.pop(k, None)
     db = (x.get("career") or {}).get("all", {}).get("runs")
     y["luecke"] = (x["starts"] - db) if isinstance(x.get("starts"), int) and isinstance(db, int) else None
     return y
@@ -136,7 +145,8 @@ def export(daten: dict) -> dict:
                       "racecard_JJJJMMTT_markt.json). Starter nach Startnummer sortiert, Nichtstarter getrennt in "
                       "nichtstarter (Nummern in nr); vorgerechnet: reihenfolge, bias_rel, luecke; je Formzeile "
                       "zusätzlich rivals_nah."}
-    out.update({k: copy.deepcopy(v) for k, v in daten.items() if k != "races"})
+    out.update({k: copy.deepcopy(v) for k, v in daten.items() if k != "races" and k not in OHNE_OBEN})
+    out["params"] = {k: v for k, v in (out.get("params") or {}).items() if k not in OHNE_PARAMS}
     out["races"] = {rid: rennen(r, bias_alle) for rid, r in (daten.get("races") or {}).items()}
     return out
 
