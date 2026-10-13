@@ -133,6 +133,7 @@ td.r,th.r{text-align:right}
 .formtab{min-width:900px}
 .formtab td{padding:6px}
 .fl-date{font-weight:600;white-space:nowrap}
+.formtab td.fl-date .riv-btn{display:table;margin-top:3px;white-space:normal;text-align:left;max-width:170px}   /* Gegner-Knöpfe untereinander, Spalte bleibt schmal */
 .fl-cond > span,.fl-cond > mark{white-space:nowrap}
 .fl-gbq > span{white-space:nowrap}
 .fl-pos b{font:700 16px var(--f-display)}
@@ -377,13 +378,13 @@ td.num,.adj,.ae{white-space:nowrap}
   .formtab tr.extra{box-shadow:inset 3px 0 0 var(--hi);padding-left:8px}
   .formtab tr.extra td:first-child{box-shadow:none}
   /* Gegner (aufgeklappt) je Gegner als kleine Karte: Name, damals, nächster Start, Klasse | Ergebnis, Urteil */
-  .formtab .rivals table,.formtab .rivals tbody{display:block}
-  .formtab .rivals thead{display:none}
-  .formtab .rivals tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;padding:6px 0;border-bottom:1px solid var(--line)}
-  .formtab .rivals td{display:block;padding:0;border:0;white-space:normal}
-  .formtab .rivals td:nth-child(1){font-weight:600}
-  .formtab .rivals td:nth-child(5){text-align:right}
-  .formtab .rivals td:nth-child(-n+3),.formtab .rivals td:nth-child(6){grid-column:1/-1}
+  .formtab .rivals:not(.duels) table,.formtab .rivals:not(.duels) tbody{display:block}
+  .formtab .rivals:not(.duels) thead{display:none}
+  .formtab .rivals:not(.duels) tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;padding:6px 0;border-bottom:1px solid var(--line)}
+  .formtab .rivals:not(.duels) td{display:block;padding:0;border:0;white-space:normal}
+  .formtab .rivals:not(.duels) td:nth-child(1){font-weight:600}
+  .formtab .rivals:not(.duels) td:nth-child(5){text-align:right}
+  .formtab .rivals:not(.duels) td:nth-child(-n+3),.formtab .rivals:not(.duels) td:nth-child(6){grid-column:1/-1}
   .runner-kopf{gap:8px}.runner-kopf .kopf-name{gap:2px}.runner-kopf .kopf-tj{white-space:normal}.runner-kopf .kopf-tj > span{display:block}.runner-kopf .kopf-tj i,.runner-kopf .kopf-pl{display:none}
 }
 @media (max-width:1050px) and (min-width:761px){ .panels.one .pref{grid-template-columns:repeat(2,minmax(0,1fr))} }
@@ -932,7 +933,7 @@ function detailHTML(x, race){
       ? `<button class="riv-btn ${vorneCls(x.duels_sum)}" type="button" data-duel="1" data-k="${dk}" aria-expanded="${dOffen}" title="Grün: gegen mindestens die Hälfte der heutigen Gegner vorne erwartet, rot: gegen weniger">${dOffen ? "▾" : "▸"} ${duelKnopf(x.duels_sum, x.duels.length)}</button>${dOffen ? duelsHTML(x.duels, race) : ""}`
       : `<p class="muted">Kein passendes Duell mit einem heutigen Gegner (letzte ${DATA.params.duel_days} Tage, ±${DATA.params.duel_dist} m zu heute, Boden innerhalb einer Stufe).</p>`}</div>
     <div class="panel"><h4>Heutige Gegner · indirekte Duelle (letzte ${DATA.params.ind_days} Tage)</h4>${indirektHTML(x, race)}</div>
-    <div class="panel"><h4>Letzte Läufe</h4>${formTable(x.form_lines, x.no, x.weight, x.rating, x.days)}</div>
+    <div class="panel"><h4>Letzte Läufe</h4>${formTable(x.form_lines, x.no, x.weight, x.rating, x.days, x, race)}</div>
   </div>`;
 }
 
@@ -1467,14 +1468,38 @@ const PAUSE_TAGE = 56;
 const tageZwischen = (a, b) => Math.round((new Date(a) - new Date(b)) / 864e5);
 const pauseZeile = (tage, bisHeute) => tage != null && tage >= PAUSE_TAGE
   ? `<tr class="pause-sep"><td colspan="11">⏸ ${bisHeute ? "seit dem letzten Lauf" : "Pause"} ${tage} Tage (≈ ${Math.round(tage / 7)} Wochen)</td></tr>` : "";
-function formTable(rows, no, wHeute, rHeute, tageHeute = null){
+// Heutige Gegner in einer Formzeile: direkte Duelle aus genau diesem Rennen und indirekte Vergleiche, die dieses
+// Rennen als eigenes Vergleichsrennen nutzen – Knöpfe neben „Gegner“, aufgeklappt als Zeile darunter
+function heuteKnoepfe(f, x, race){
+  if (!x) return {html: "", zeilen: ""};
+  const dd = (x.duels || []).filter(d => d.race_id ? d.race_id === f.race_id
+    : d.date === f.date && String(d.course || "").toUpperCase() === String(f.course || "").toUpperCase());
+  const ii = ((x.indirect || {}).rivals || []).filter(e => (e.via || []).some(v => v[0] === f.race_id));
+  const kD = `${x.no}|${f.race_id}|dd`, kI = `${x.no}|${f.race_id}|ii`, oD = state.duels.has(kD), oI = state.duels.has(kI);
+  const vorn = dd.filter(d => (d.exp_l ?? 0) > 0).length, hint = dd.filter(d => (d.exp_l ?? 0) < 0).length;
+  const iv = ii.filter(e => (e.exp_kg ?? 0) > 0).length, ih = ii.filter(e => (e.exp_kg ?? 0) < 0).length;
+  const html = (dd.length ? ` <button class="riv-btn ${vorneCls({ahead: vorn, behind: hint})}" type="button" data-duel="1" data-k="${kD}" aria-expanded="${oD}" title="Heutige Gegner, die in diesem Rennen mitliefen – grün: gegen mindestens die Hälfte heute vorne erwartet">${oD ? "▾" : "▸"} Heutige Gegner (${dd.length})${vorn + hint ? ` · vorne ${vorn}/${vorn + hint}` : ""}</button>` : "")
+    + (ii.length ? ` <button class="riv-btn ${vorneCls({ahead: iv, behind: ih})}" type="button" data-duel="1" data-k="${kI}" aria-expanded="${oI}" title="Indirekte Vergleiche mit heutigen Gegnern über gemeinsame Gegner aus diesem Rennen">${oI ? "▾" : "▸"} Indirekt (${ii.length})${iv + ih ? ` · vorne ${iv}/${iv + ih}` : ""}</button>` : "");
+  let zeilen = "";
+  if (oD && dd.length) zeilen += `<tr class="rivrow"><td colspan="11">${duelsHTML(dd, race)}</td></tr>`;
+  if (oI && ii.length) {
+    const kg = v => v == null ? "–" : sgn(v, 1) + " kg";
+    const rennenVon = (no, rid) => { const y = race.runners.find(z => z.no === no), fz = y && y.form_lines.find(z => z.race_id === rid); return fz ? ` ${esc(title(fz.course))}` : ""; };
+    zeilen += `<tr class="rivrow"><td colspan="11"><div class="rivals duels scroll"><table><thead><tr><th>Gegner heute</th><th>gemeinsamer Gegner</th><th class="r" title="Leistung in diesem Rennen minus Leistung des heutigen Gegners gegen dasselbe Pferd (kg, + = besser)">Diff. hier</th><th>Rennen des Gegners</th><th class="r" title="Ø aller Vergleiche minus heutiges Mehrgewicht">heute erwartet</th></tr></thead><tbody>${
+      ii.flatMap(e => e.via.filter(v => v[0] === f.race_id).map(v => { const c = e.exp_kg == null ? "" : e.exp_kg > 0 ? "up" : e.exp_kg < 0 ? "down" : "";
+        return `<tr><td>${gegnerHeute(e.rival_no, e.rival, race)}</td><td>${esc(title(v[1] || "–"))}</td><td class="r num"><span class="${(v[2] ?? 0) > 0 ? "up" : (v[2] ?? 0) < 0 ? "down" : ""}">${kg(v[2])}</span></td><td class="num">${dt(v[3])}${rennenVon(e.rival_no, v[4])}</td><td class="r num"><span class="verdict-chip ${c}">${kg(e.exp_kg)}${e.n > 1 ? ` <span class="muted">(Ø ${e.n})</span>` : ""}</span></td></tr>`; })).join("")}</tbody></table></div></td></tr>`;
+  }
+  return {html, zeilen};
+}
+function formTable(rows, no, wHeute, rHeute, tageHeute = null, x = null, race = null){
   if (!rows.length) return `<p class="muted">Keine früheren Läufe in der Datenbank (nur französische Flachrennen seit Beginn der Sammlung).</p>`;
   const body = rows.map((f, i) => {
     const inc = f.incident && INC[f.incident] !== undefined ? INC[f.incident] : "";
     const pos = f.pos ? `<b>${f.pos}</b>/${f.ran}` : `<b>${inc || "–"}</b>/${f.ran}`;
     const mg = f.pos ? lengths(f.margin) : "";
     const k = `${no}|${f.race_id}`, offen = state.rivals.has(k);
-    const btn = rivBtn(f, k, offen);
+    const hk = heuteKnoepfe(f, x, race);
+    const btn = rivBtn(f, k, offen) + hk.html;
     // auch in Debütantenrennen (kein Teilnehmer mit Läufen, also ohne €-Betrag) steht der Index €/L+ über die Verbindungen
     const kl = f.cls_val != null || f.cls_epr != null || f.cls_epr_idx != null
       ? `<span class="cls" title="Klasse: Ø Valeur der Teilnehmer ${f.cls_val != null ? fx(f.cls_val,1) : "– (keine Valeur)"} · Ø Gewinn je Lauf der Teilnehmer in den ${DATA.params.class_days} Tagen davor${f.cls_epr != null ? " €" + fmtEur(f.cls_epr) : " – (keine Läufe der Teilnehmer; €/L+ über Trainer/Besitzer/Züchter)"}${f.won_eur ? ` · hier gewonnen €${fmtEur(f.won_eur)}` : ""}">${klasseHTML({val:f.cls_val, epr:f.cls_epr, epr_idx:f.cls_epr_idx, val_idx:f.cls_val_idx}, true)}</span>` : "";
@@ -1497,7 +1522,7 @@ function formTable(rows, no, wHeute, rHeute, tageHeute = null){
       <td class="r num" title="${f.weg_med != null ? `${fx(Math.abs(f.weg_med),1)} m ${f.weg_med >= 0 ? "mehr" : "weniger"} gelaufen als der Median des Feldes (≈ ${fx(Math.abs(f.weg_med)/2.4,1)} Längen)${Math.abs(f.weg_med) >= 7.5 ? (f.weg_med > 0 ? " – auffällig viel Weg (Nachteil, meist weit außen)" : " – auffällig wenig Weg (Vorteil, innen)") : ""}` : ""}"><span class="${f.weg_med >= 7.5 ? "hl-down" : f.weg_med <= -7.5 ? "hl-up" : ""}">${f.weg_med != null ? sgn(f.weg_med, 1) : "–"}</span></td>
       <td class="fl-cmt">${cmt}</td>
       <td class="fl-riv">${btn}</td>
-    </tr>${cmt ? `<tr class="cmt ${f.unreliable ? "unrel" : ""}"><td colspan="11">${cmt}</td></tr>` : ""}${offen ? `<tr class="rivrow"><td colspan="11">${rivalsHTML(f.rivals)}</td></tr>` : ""}`; }).join("");
+    </tr>${cmt ? `<tr class="cmt ${f.unreliable ? "unrel" : ""}"><td colspan="11">${cmt}</td></tr>` : ""}${offen ? `<tr class="rivrow"><td colspan="11">${rivalsHTML(f.rivals)}</td></tr>` : ""}${hk.zeilen}`; }).join("");
   return `<div class="scroll"><table class="formtab"><thead><tr>
     <th>Datum · Bahn</th><th>Typ · Preis · Dist · Boden · Klasse</th><th>Pos · Jockey · Gew. · Box · Quote</th><th class="r" title="Valeur (handicapValeur) in diesem Rennen; klein: heutige Valeur − damalige (grün: heute niedriger eingestuft, rot: höher)">Val</th>
     <th class="r" title="ARR: Leistung im Rennen gemessen an den Pferden im vorderen Drittel des Einlaufs (kg), groß bereinigt auf das heutige Gewicht = ARR − Gewicht heute + ${DATA.params.weight_ref}, klein roh">ARR</th><th class="r" title="TR: Zeit-Rating nach Timeform-Art plus Upgrade aus dem Finishing Speed (lb); groß auf das heutige Gewicht umgerechnet, damit die Pferde des Rennens vergleichbar sind; klein: TR bei 55 kg, Zeit-Rating und Upgrade">TR</th>
@@ -1528,6 +1553,7 @@ function renderLegend(){
     <div><b>Vorlieben ▲ / ▼</b> (Trainer, Jockey, Vater, Muttervater): A/E der Vorliebe weicht deutlich und signifikant vom Rest derselben Person bzw. Linie ab – mindestens ×1,2 bzw. ×0,8 des A/E aus ihren übrigen Läufen im selben Zeitraum (Trainer/Jockey 2 Jahre, Vater/Muttervater gesamte Historie) und mindestens 2 Standardfehler, bei mindestens 20 übrigen Läufen. Wie beim Box-Urteil; Werte im Tooltip.</div>
     <div><b>Vorlieben-Vergleich</b> (Klick auf eine Zeile der Vorlieben): alle Kategorien dieser Person bzw. Linie im selben Zeitraum – z. B. alle Bahnen des Trainers, alle Jockeys, alle Böden des Vaters –, nach Läufen sortiert (höchstens 30 + die heutige), die heutige hervorgehoben. Bei Vater und Muttervater oben der <b>optimale Bereich</b> für Distanz, Boden und Alter: Wert je Gruppe = Ø aus A/E+, Pos+ und €/L+ (Pos+ und €/L+ gegen alle Läufe dieser Gruppe), zur Gesamtlinie hin geschrumpft; bestes zusammenhängendes Fenster ab 30 Läufen, „deutlich“ ab 10 Punkten über dem Rest.</div>
     <div><b>A/E-Matrix</b> (Klick auf Trainer, Jockey, Besitzer oder Züchter in „A/E · Siege/Starts“): alle Personen dieser Rolle im heutigen Feld, x = A/E+ (100 × A/E Platz), y = Pos+ (Ø Platzanteil (Starter − Platz) / (Starter − 1), nicht im Ziel = 0; 100 = Ø aller Läufe im Zeitraum), Fläche = €/L+; Farbe: Veränderung gegenüber der Vorperiode (gleich langes Fenster davor), A/E+ und Pos+ zusammen – grün besser, rot schlechter, abgestuft nach Deutlichkeit; blass gestrichelt unter 5 Läufen; an den Bubbles die Startnummern, darunter Legende mit Trikots und Namen. Zeitraum 30/90/365 Tage, Rolle oben umschaltbar.</div>
+    <div><b>Heutige Gegner in den letzten Läufen</b>: neben „Gegner“ zusätzlich „Heutige Gegner (n)“, wenn heutige Gegner in diesem Rennen mitliefen (direkte Duelle aus genau diesem Rennen), und „Indirekt (n)“, wenn dieses Rennen Vergleichsrennen eines indirekten Duells ist – aufgeklappt mit gemeinsamem Gegner, Differenz in diesem Rennen, Rennen des heutigen Gegners und dem insgesamt erwarteten Abstand; „vorne x/y“ wie bei den Duell-Knöpfen oben.</div>
     <div><b>Vergleich ARR/TR</b> (Klick auf ARR oder TR einer Formzeile): je heutigem Starter eine Zeile mit seinen Läufen der letzten ${p.kpi_days ?? 365} Tage (ohne ausgerittene, auf das heutige Gewicht bereinigt), x = Wert. Vom gewählten Pferd alle Läufe, von den anderen alle mindestens so guten und schlechtere nur bis ${(p.kpi_window || {}).arr ?? 5} kg (ARR) bzw. ${(p.kpi_window || {}).tr ?? 10} lb (TR) darunter; je blasser, desto älter. Filter oben mit Mehrfachauswahl (keiner gewählt = alle): Distanz-Abstand zu heute (±100 / 101–200 / 201–400 / mehr als 400 m, Standard ±100 m), Boden (Standard: heutige Bodengruppe), Bahn (heutige / andere, Standard: alle) und Zeitraum ab heute (letzte 30 Tage / vor 31–60 / 61–90 / 91–365 Tagen, Standard: alle). Oben lässt sich zwischen ARR und TR umschalten (gleicher Lauf, Filter bleiben). Skala: gewählter Wert ± 5 kg (ARR) bzw. ± 10 lb (TR); bessere Werte darüber stehen rechts in einer eigenen Spalte (▶ bester Wert, Anzahl), schlechtere außerhalb entfallen. Klick auf einen Punkt springt zum Starter und seiner Formzeile.</div>
     <div><b>Letzte Läufe</b>: die letzten ${p.form_runs} Läufe; gelb markiert, was dem heutigen Rennen entspricht – <b>K</b> Kurs mit gleichem Belag (PSF gegen Gras), <b>D</b> Distanz ±100 m, <b>B</b> Bodengruppe. Fehlt darunter ein Lauf auf dem Kurs (gleicher Belag), über die Distanz (±100 m) oder in der Bodengruppe von heute, steht unten (gestrichelt abgetrennt) zusätzlich der letzte ältere Lauf mit diesem Merkmal – höchstens drei, also bis zu ${p.form_runs + 3} Zeilen.</div>`;
 }

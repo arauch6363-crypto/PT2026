@@ -37,6 +37,8 @@ OHNE_STARTER = {"silks", "odds", "odds_morning", "kpi", "pref_ref"}   # Trikots;
 OHNE_OBEN = {"pref_alle"}
 OHNE_PARAMS = {"kpi_days", "kpi_window"}
 OHNE_AE = {"pos_idx", "prev"}
+OHNE_DUELL = {"race_id"}                             # direkte Duelle: Rennen nur für die Knöpfe in den Formzeilen
+OHNE_INDIREKT = {"via"}                              # indirekte Duelle: Vergleiche je Rennen nur für die Karte
 OHNE_MARKT = {"prono"}                               # Prognose, Tipps, Konsens, Cribles, Rennkommentar: nur Marktdatei
 GEGNER_NAH = 2                                       # rivals_nah: so viele Gegner davor und dahinter
 OFFEN = "PROGRAMMEE"
@@ -87,6 +89,12 @@ def _starter(x: dict) -> dict:
             if isinstance(fenster, dict):
                 for k in OHNE_AE:
                     fenster.pop(k, None)
+    for d in y.get("duels") or []:
+        for k in OHNE_DUELL:
+            d.pop(k, None)
+    for e in ((y.get("indirect") or {}).get("rivals") or []):
+        for k in OHNE_INDIREKT:
+            e.pop(k, None)
     db = (x.get("career") or {}).get("all", {}).get("runs")
     y["luecke"] = (x["starts"] - db) if isinstance(x.get("starts"), int) and isinstance(db, int) else None
     return y

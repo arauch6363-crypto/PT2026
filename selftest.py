@@ -1006,6 +1006,8 @@ def racecard_pruefen() -> None:
            "Formzeile zeigt weiter den einfachen Ø")
     pruefe(f["cls_val_idx"] == 100 and d["params"]["pop"]["rennen_val"] == 40.0,
            "Val+: Ø Valeur der Teilnehmer ÷ Ø aller früheren Rennen (einziges Rennen mit Valeur -> 100)")
+    pruefe(x["duels"][0]["race_id"] in {f_["race_id"] for f_ in x["form_lines"]},
+           "Direktes Duell mit race_id der eigenen Formzeile (Knopf „Heutige Gegner“ in dieser Zeile)")
     pruefe(len(x["duels"]) == 1 and x["duels"][0]["date"] == str(tag - timedelta(days=10)),
            "Direkte Duelle: nur ≤ 120 Tage, ±200 m zu heute, Boden innerhalb einer Stufe (Duell über 2000 m Lourd fällt weg)")
     alt = (rc.DUELL_TAGE, rc.DUELL_DIST_M, rc.DUELL_BODEN)
@@ -1042,6 +1044,10 @@ def racecard_pruefen() -> None:
            "Indirekte Duelle: über gemeinsamen Gegner (2 L × 1,2 + 2 kg = 4,4 vs 1 L × 1,0 = 1,0 -> 3,4 kg), "
            "heute 4 kg mehr -> 0,6 kg / 0,5 L hinten; PSF-Rennen und Rennen > 120 Tage zählen nicht")
     pruefe(e_h["days"] == 25, "Indirektes Duell: Alter = Ø der beiden Vergleichsrennen (30 und 20 Tage)")
+    rA, rB = (hi.loc[hi["horse_id"] == h_, "race_id"].iloc[0] for h_ in ("H", "R"))
+    pruefe(e_h["via"] == [[rA, "C", 3.4, str(hi.loc[hi["race_id"] == rB, "date"].iloc[0].date()), rB]]
+           and e_r["via"][0][0] == rB and e_r["via"][0][4] == rA,
+           "Indirektes Duell: je Vergleich eigenes Rennen, gemeinsamer Gegner, Differenz und Rennen des Gegners (für die Formzeilen)")
     hz = "2026-10-09"
     dz = lambda no, liste, ind=None: {"no": no, "nr": False, "indirect": ind,
                                       "duels": [{"rival_no": j, "exp_l": m, "date": d_} for j, m, d_ in liste]}
@@ -1404,7 +1410,8 @@ def racecard_pruefen() -> None:
         return ".".join(t for t in q.split(".") if not t.startswith(("20", "FERTIG")))
     ausgelassen = (".runners[].silks", ".runners[].odds", ".runners[].odds_morning", ".runners[].kpi", ".runners[].pref_ref",
                    *(f".form_lines[].{k}" for k in ce.OHNE_FORMZEILE), *(f".{k}" for k in ce.OHNE_AE),
-                   *(f".params.{k}" for k in ce.OHNE_PARAMS))
+                   *(f".params.{k}" for k in ce.OHNE_PARAMS),
+                   *(f".duels[].{k}" for k in ce.OHNE_DUELL), *(f".rivals[].{k}" for k in ce.OHNE_INDIREKT))
     oben_weg = {f".{k}" for k in ce.OHNE_OBEN}
     weg = lambda q: (q.endswith(ausgelassen) or any(o + "." in q or o + "[]" in q for o in ausgelassen)  # + Unterfelder
                      or any(q == o or q.startswith(o + ".") or q.startswith(o + "[") for o in oben_weg))
