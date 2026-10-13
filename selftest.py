@@ -690,6 +690,16 @@ def racecard_pruefen() -> None:
            and [z[1] for z in zl] == sorted((z[1] for z in zl), reverse=True)
            and x["pref_ref"]["jockey"]["horse"][2] == x["horse"].title(),
            f"Vorlieben-Overlay: alle Bahnen des Trainers ({len(zl)}), heutige wie in der Vorliebe, nach Läufen sortiert")
+    rs = x["pref_ref"]["sire"]["distance"]
+    zs = [z for z in d["pref_alle"][rs[0]][rs[1]] if z[0] == rs[2]][0]
+    hs_ = hist[hist["date"] < pd.Timestamp(tag)]
+    rps = hs_["rel_place"].fillna(0).where(hs_["n_runners"] > 1)
+    dg_ = rs[2][:-2]
+    in_b = hs_["dist_group"] == dg_
+    erw_pos = round(100 * rps[in_b & (hs_["sire_key"] == rs[1])].mean() / rps[in_b].mean())
+    erw_epr = round(100 * hs_.loc[in_b & (hs_["sire_key"] == rs[1]), "prize_won"].mean() / hs_.loc[in_b, "prize_won"].mean())
+    pruefe(len(zs) == 8 and zs[6] == erw_pos and zs[7] == erw_epr,
+           f"Optimaler Bereich: Vater je Distanzgruppe mit Pos+ {zs[6]} und €/L+ {zs[7]} (100 = Ø aller Läufe der Gruppe)")
     m90 = x["ae"]["trainer"]["d90"]
     hv = hist[hist["date"] < pd.Timestamp(tag)]
     rp = hv["rel_place"].fillna(0).where(hv["n_runners"] > 1)

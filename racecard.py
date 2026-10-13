@@ -1112,6 +1112,12 @@ PREF_ALLE = {
 }
 
 
+# Optimaler Bereich (Vater/Muttervater): Spalten je Tabelle; Pos+ und €/L+ je Kategorie gegen alle Läufe dieser Kategorie
+OPT_TABS = {"sire_dist": ("sire_key", "dist_group"), "sire_going": ("sire_key", "going_pmu"), "sire_age": ("sire_key", "age_grp"),
+            "dam_sire_dist": ("dam_sire_key", "dist_group"), "dam_sire_going": ("dam_sire_key", "going_pmu"),
+            "dam_sire_age": ("dam_sire_key", "age_grp")}
+
+
 def kpi_laeufe(vorher: pd.DataFrame, heute, gewicht_heute=None, klasse=None) -> list[list]:
     """ARR/TR der Läufe in den letzten KPI_TAGE Tagen ohne ausgerittene, auf das heutige Gewicht bereinigt
     (für das Vergleichs-Overlay der Race Card), neueste zuerst:
@@ -1721,6 +1727,19 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     # Vorlieben-Overlay: je Tabelle und Person alle Kategorien (z. B. alle Bahnen eines Trainers), nach Läufen
     pref_index: dict = {}
     pref_alle: dict = {}
+    opt_basis: dict = {}
+
+    def opt_werte(tab, person, kat, rec_):
+        """[erwartete Plätze, Pos+, €/L+] einer Kategorie (Vater/Muttervater) – 100 = Ø aller Läufe der Kategorie."""
+        if tab not in opt_basis:
+            pk, kk = OPT_TABS[tab]
+            ok = h[pk].notna() & h[kk].notna() if pk in h and kk in h else pd.Series(False, index=h.index)
+            opt_basis[tab] = (rp0[ok].groupby([h.loc[ok, pk], h.loc[ok, kk]]).mean() if ok.any() else pd.Series(dtype=float),
+                              rp0[ok].groupby(h.loc[ok, kk]).mean() if ok.any() else pd.Series(dtype=float),
+                              pw[ok].groupby(h.loc[ok, kk]).mean() if ok.any() and len(pw) else pd.Series(dtype=float))
+        pos_g, pos_b, epr_b = opt_basis[tab]
+        return [rec_["exp"], index(_num(pos_g.get((person, kat))), _num(pos_b.get(kat))),
+                index(rec_["epr"], _num(epr_b.get(kat)))]
 
     def pref_ref(tab, person, kat):
         """[Tabelle, Person, heutige Kategorie (Beschriftung)] für die Karte; füllt pref_alle[tab][person]."""
@@ -1737,7 +1756,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         heute_lab = lab(kat) if _txt(kat) is not None else None
         if person not in tabelle:
             zeilen = sorted(pref_index[tab].get(person, []), key=lambda cr: -cr[1]["runs"])
-            tabelle[person] = [[lab(c_), r_["runs"], r_["wins"], r_["places"], r_["ae"]] for c_, r_ in zeilen]
+            tabelle[person] = [[lab(c_), r_["runs"], r_["wins"], r_["places"], r_["ae"]]
+                               + (opt_werte(tab, person, c_, r_) if tab in OPT_TABS else []) for c_, r_ in zeilen]
         pref_heute.setdefault((tab, person), set()).add(heute_lab)
         return [tab, person, heute_lab]
     pref_heute: dict = {}                                         # (tab, person) -> heutige Kategorien (bleiben beim Kürzen)
