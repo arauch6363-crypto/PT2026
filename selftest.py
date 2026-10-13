@@ -682,6 +682,14 @@ def racecard_pruefen() -> None:
                                          "epr": round((13500 + 5130) / 2), "epr_idx": None,
                                          "pl_exp": 2, "n_exp": 2},
            "A/E Platz 90 Tage: 2 Starter -> beide sicher platziert (erwartet 2, A/E 1,00); A/E Sieg 1,33 zum Vergleich")
+    rf = x["pref_ref"]["trainer"]["course"]
+    zl = d["pref_alle"][rf[0]][rf[1]]
+    hz = [z for z in zl if z[0] == rf[2]]
+    pc = x["pref"]["trainer"]["course"]
+    pruefe(rf[0] == "trainer_course" and len(hz) == 1 and hz[0][1:] == [pc["runs"], pc["wins"], pc["places"], pc["ae"]]
+           and [z[1] for z in zl] == sorted((z[1] for z in zl), reverse=True)
+           and x["pref_ref"]["jockey"]["horse"][2] == x["horse"].title(),
+           f"Vorlieben-Overlay: alle Bahnen des Trainers ({len(zl)}), heutige wie in der Vorliebe, nach Läufen sortiert")
     m90 = x["ae"]["trainer"]["d90"]
     hv = hist[hist["date"] < pd.Timestamp(tag)]
     rp = hv["rel_place"].fillna(0).where(hv["n_runners"] > 1)
@@ -1384,7 +1392,7 @@ def racecard_pruefen() -> None:
     def _norm(q):            # Rennschlüssel (Datum…/FERTIG) weg, Nichtstarter zählen wie Starter
         q = q.replace(".nichtstarter[]", ".runners[]")
         return ".".join(t for t in q.split(".") if not t.startswith(("20", "FERTIG")))
-    ausgelassen = (".runners[].silks", ".runners[].odds", ".runners[].odds_morning", ".runners[].kpi",
+    ausgelassen = (".runners[].silks", ".runners[].odds", ".runners[].odds_morning", ".runners[].kpi", ".runners[].pref_ref",
                    *(f".form_lines[].{k}" for k in ce.OHNE_FORMZEILE))
     weg = lambda q: q.endswith(ausgelassen) or any(o + "." in q or o + "[]" in q for o in ausgelassen)  # + Unterfelder
     fehlend = sorted({_norm(q) for q in _pfade(dd)} - {_norm(q) for q in _pfade(ex) | _pfade(mk)}

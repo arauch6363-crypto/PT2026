@@ -240,17 +240,27 @@ mark.same{background:var(--hi-soft);color:inherit;padding:0 3px;border-radius:2p
 .kpi-c{cursor:pointer}
 .ae-rolle{border:0;background:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-decoration:underline dotted var(--ink-3);text-underline-offset:3px}
 .ae-rolle:hover{color:var(--accent)}
+.pv-c{cursor:pointer}
+.pv-c:hover span:first-child{color:var(--accent);text-decoration:underline dotted}
+#pv-ov .ov-box.pv{max-width:640px}
+.pv-tab{margin-top:10px}
 .ov-svg .ae-lab{font-family:var(--f-body);font-size:11px;fill:var(--ink-2)}
 .ov-svg .ae-lab.ist{font-weight:700;fill:var(--ink)}
 .ov-svg .ae-ach{font-size:10.5px;fill:var(--ink-3);font-family:var(--f-body)}
 .ae-ohne{font-size:11.5px;color:var(--ink-3);margin:4px 0 0}
+.ae-leg{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:3px 14px;margin:8px 0 0;font-size:12px;color:var(--ink-2)}
+.ae-leg span{display:flex;align-items:center;gap:4px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ae-leg span.ist{color:var(--ink);font-weight:700}
+.ae-leg span.ohne{opacity:.5}
+.ae-leg img{width:18px;height:18px;object-fit:contain;flex:none}
+.ae-leg b{font-family:var(--f-mono);min-width:18px}
 .ov-pt{cursor:pointer}
 .ov-svg .ov-ueber{font-size:10.5px;fill:var(--bad);font-weight:600}
 tr.lauf.sprung,tr.lauf.sprung > td,.panel.sprung{background:var(--hi-soft)!important;transition:background .4s}
 .kpi-c:hover b,.kpi-c:focus-visible b{outline:2px solid var(--hi);outline-offset:1px}
 body.ov-auf{overflow:hidden}
-#kpi-ov,#ae-ov{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow-y:auto}
-#kpi-ov .ov-box,#ae-ov .ov-box{background:var(--surface);color:var(--ink);border-radius:6px;width:100%;max-width:960px;padding:14px 16px 10px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+#kpi-ov,#ae-ov,#pv-ov{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow-y:auto}
+#kpi-ov .ov-box,#ae-ov .ov-box,#pv-ov .ov-box{background:var(--surface);color:var(--ink);border-radius:6px;width:100%;max-width:960px;padding:14px 16px 10px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
 .ov-kopf{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
 .ov-kopf h3{margin:0 0 2px;font:700 18px var(--f-display);letter-spacing:.02em;text-transform:uppercase}
 .ov-kopf .muted{font-size:12.5px}
@@ -308,8 +318,8 @@ td.num,.adj,.ae{white-space:nowrap}
   .race-time{font-size:34px}.race-title{font-size:21px}
   /* Handy: nichts mehr seitlich scrollen – Abstammung ohne Namen (stehen in der Kopfleiste), Trainer-Zeitraum unter dem Namen */
   .ped-n{display:none}
-  #kpi-ov,#ae-ov{padding:0}
-  #kpi-ov .ov-box,#ae-ov .ov-box{border-radius:0;min-height:100%;padding:12px 12px 10px}
+  #kpi-ov,#ae-ov,#pv-ov{padding:0}
+  #kpi-ov .ov-box,#ae-ov .ov-box,#pv-ov .ov-box{border-radius:0;min-height:100%;padding:12px 12px 10px}
   .trtab .tr-zr-sp{display:none}
   .trtab .tr-zr{display:block;font-size:11px}
   /* Letzte Läufe als Karte je Lauf: oben links Datum/Bahn/Distanz/Boden, rechts Kategorie/Preis und Klasse; darunter Platz, Kennzahlen-Leiste, Position/Pace, darunter der Kommentar, ganz unten der Gegner-Knopf */
@@ -870,7 +880,8 @@ function detailHTML(x, race){
                    ["Cross", x.sire && x.dam_sire ? `${title(x.sire)} × ${title(x.dam_sire)}` : null, PD.cross, "cross"]].map(([l, n, s, rolle]) =>
     `<tr><td>${l}${n ? ` <span class="muted ped-n">${esc(title(n))}</span>` : ""}</td><td class="r num" title="${esc(`${s.horses3 ?? 0} davon mit Läufen als 3-Jährige · ${rec(s)} Siege-Starts, ${s.places} Plätze`)}">${s.horses || "–"}</td><td class="r">${aeChip(s)}</td><td class="r">${idxHTML(s.epr_idx, pop[rolle + "_all"] != null ? "€" + fmtEur(pop[rolle + "_all"]) + " je Lauf" : null, `€/L+ ${l} (€${s.epr != null ? fmtEur(s.epr) : "–"} je Lauf)`, s.runs || null)}</td><td class="r">${idxHTML(s.max_val3_idx, pop[rolle + "_val3"] != null ? "Ø max Val 3j " + fx(pop[rolle + "_val3"],1) : null, `max Val+ ${l} (Ø max Val 3j ${s.max_val3 != null ? fx(s.max_val3,1) : "–"})`, s.horses3 || null, 3, "3-jährigen Nachkommen")}</td></tr>`).join("");
   const P = x.pref;
-  const it = (label, s, wer) => `<div class="it"><span title="${esc(label)}">${esc(label)}</span><span>${rec(s)} ${aeChip(s, 5)}${aeDev(s, wer)}</span></div>`;
+  const PR = x.pref_ref || {};
+  const it = (label, s, wer, ref) => `<div class="it${ref && DATA.pref_alle ? " pv-c" : ""}"${ref && DATA.pref_alle ? ` data-pv="${esc(ref.join("|"))}" role="button" tabindex="0" title="Klick: alle Vergleiche"` : ""}><span title="${esc(label)}">${esc(label)}</span><span>${rec(s)} ${aeChip(s, 5)}${aeDev(s, wer)}</span></div>`;
   const jahre = DATA.params.pref_jt_years;
   const K = x.career.all, K1 = x.career.d365;
   const kTxt = k => k.runs ? `${k.runs}-${k.wins}-${k.places} · €${prize(k.earn)} · <span class="lvl ${relCls(k.rel)}" title="${k.rel != null ? `${fx(k.rel,2)} × Median des heutigen Feldes (grün ab 1,25, rot bis 0,8)` : ""}">€${fmtEur(k.epr ?? 0)}/Lauf</span>${k.rank ? ` <span class="muted">#${k.rank}/${k.n}</span>` : ""}` : "keine Läufe";
@@ -887,10 +898,10 @@ function detailHTML(x, race){
     </div>
     <div class="panels one">
       <div class="panel"><h4>Vorlieben · Trainer, Jockey (${jahre} Jahre) · Jockey auf dem Pferd, Vater, Muttervater (gesamt)</h4><div class="pref">
-        <div class="grp"><b>Trainer</b>${it("mit " + (title(x.jockey) || "–"), P.trainer.jockey, "beim Trainer")}${it("in " + title(race.course), P.trainer.course, "beim Trainer")}${it("Typ: " + (race.type || "–"), P.trainer.racetype, "beim Trainer")}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.trainer.age, "beim Trainer")}</div>
-        <div class="grp"><b>Jockey</b>${it("in " + title(race.course), P.jockey.course, "beim Jockey")}${it("für " + (title(x.trainer) || "–"), P.jockey.trainer, "beim Jockey")}${it("auf " + (title(x.horse) || "–"), P.jockey.horse, "beim Jockey (Läufe auf dem Pferd aus der ganzen Historie, Jockey sonst: 2 Jahre)")}</div>
-        <div class="grp"><b>Vater</b>${it("Distanz: " + (race.dist_group ? race.dist_group + " m" : "–"), P.sire.distance, "beim Vater")}${it("Boden: " + (race.going_label || "unbekannt"), P.sire.going, "beim Vater")}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.sire.age, "beim Vater")}</div>
-        <div class="grp"><b>Muttervater${x.dam_sire ? ` · ${esc(title(x.dam_sire))}` : ""}</b>${it("Distanz: " + (race.dist_group ? race.dist_group + " m" : "–"), P.dam_sire.distance, "beim Muttervater")}${it("Boden: " + (race.going_label || "unbekannt"), P.dam_sire.going, "beim Muttervater")}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.dam_sire.age, "beim Muttervater")}</div>
+        <div class="grp"><b>Trainer</b>${it("mit " + (title(x.jockey) || "–"), P.trainer.jockey, "beim Trainer", (PR.trainer || {}).jockey)}${it("in " + title(race.course), P.trainer.course, "beim Trainer", (PR.trainer || {}).course)}${it("Typ: " + (race.type || "–"), P.trainer.racetype, "beim Trainer", (PR.trainer || {}).racetype)}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.trainer.age, "beim Trainer", (PR.trainer || {}).age)}</div>
+        <div class="grp"><b>Jockey</b>${it("in " + title(race.course), P.jockey.course, "beim Jockey", (PR.jockey || {}).course)}${it("für " + (title(x.trainer) || "–"), P.jockey.trainer, "beim Jockey", (PR.jockey || {}).trainer)}${it("auf " + (title(x.horse) || "–"), P.jockey.horse, "beim Jockey (Läufe auf dem Pferd aus der ganzen Historie, Jockey sonst: 2 Jahre)", (PR.jockey || {}).horse)}</div>
+        <div class="grp"><b>Vater</b>${it("Distanz: " + (race.dist_group ? race.dist_group + " m" : "–"), P.sire.distance, "beim Vater", (PR.sire || {}).distance)}${it("Boden: " + (race.going_label || "unbekannt"), P.sire.going, "beim Vater", (PR.sire || {}).going)}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.sire.age, "beim Vater", (PR.sire || {}).age)}</div>
+        <div class="grp"><b>Muttervater${x.dam_sire ? ` · ${esc(title(x.dam_sire))}` : ""}</b>${it("Distanz: " + (race.dist_group ? race.dist_group + " m" : "–"), P.dam_sire.distance, "beim Muttervater", (PR.dam_sire || {}).distance)}${it("Boden: " + (race.going_label || "unbekannt"), P.dam_sire.going, "beim Muttervater", (PR.dam_sire || {}).going)}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.dam_sire.age, "beim Muttervater", (PR.dam_sire || {}).age)}</div>
       </div></div>
     </div>
     <div class="panels four">
@@ -1219,6 +1230,37 @@ function kpiZeichnen(){
   }
   o.querySelector(".ov-box").innerHTML = kopf + filter + `<div class="ov-chart">${svg}</div>` + legende;
 }
+// Vorlieben-Overlay (Klick auf eine Zeile der Vorlieben): alle Kategorien dieser Person/Linie, z. B. alle Bahnen des
+// Trainers – nach Läufen sortiert, die heutige hervorgehoben (DATA.pref_alle[Tabelle][Person], höchstens 30 + heutige)
+const PV_TITEL = {trainer_jockey: ["Trainer", "alle Jockeys", "jt"], trainer_course: ["Trainer", "alle Bahnen", "jt"],
+  trainer_type: ["Trainer", "alle Renntypen", "jt"], trainer_age: ["Trainer", "alle Altersgruppen", "jt"],
+  jockey_course: ["Jockey", "alle Bahnen", "jt"], jockey_trainer: ["Jockey", "alle Trainer", "jt"], jockey_horse: ["Jockey", "alle Pferde", "ges"],
+  sire_dist: ["Vater", "alle Distanzen", "ges"], sire_going: ["Vater", "alle Böden", "ges"], sire_age: ["Vater", "alle Altersgruppen", "ges"],
+  dam_sire_dist: ["Muttervater", "alle Distanzen", "ges"], dam_sire_going: ["Muttervater", "alle Böden", "ges"], dam_sire_age: ["Muttervater", "alle Altersgruppen", "ges"]};
+function pvOeffnen(ref){
+  const [tab, person, heute] = ref.split("|"), zeilen = ((DATA.pref_alle || {})[tab] || {})[person];
+  if (!zeilen) return;
+  const [wer, was, zeit] = PV_TITEL[tab] || [tab, "", "ges"];
+  const zr = zeit === "jt" ? `letzte ${DATA.params.pref_jt_years} Jahre` : "gesamte Historie";
+  const n = zeilen.reduce((s, z) => s + z[1], 0);
+  let o = document.getElementById("pv-ov");
+  if (!o) {
+    o = document.createElement("div"); o.id = "pv-ov";
+    o.innerHTML = `<div class="ov-box pv" role="dialog" aria-modal="true"></div>`;
+    document.body.appendChild(o);
+    o.addEventListener("click", e => { if (e.target === o || e.target.closest(".ov-zu")) pvSchliessen(); });
+  }
+  document.body.classList.add("ov-auf");
+  o.querySelector(".ov-box").innerHTML = `<div class="ov-kopf"><div><h3>${wer} ${esc(title(person))} · ${was}</h3>
+      <div class="muted">${zr} · nach Läufen sortiert · heute: <b>${esc(heute || "–")}</b>${zeilen.length >= 30 ? " · die 30 mit den meisten Läufen (+ heutige)" : ""}</div></div>
+      <button type="button" class="ov-zu" aria-label="Schließen">×</button></div>
+    <div class="pv-tab"><table class="preftab"><thead><tr><th>${was.replace(/^alle /, "")}</th><th class="r">Läufe</th><th class="r">S-L</th><th class="r">Plätze</th><th class="r">A/E</th></tr></thead><tbody>${
+      zeilen.map(([lab, runs, wins, places, ae]) => `<tr class="${lab === heute ? "today" : ""}"><td>${esc(lab)}${lab === heute ? ` <span class="heute">heute</span>` : ""}</td><td class="r num">${runs}</td><td class="r num">${wins}-${runs} (${pct(wins, runs)})</td><td class="r num">${places}</td><td class="r">${aeChip({runs, wins, places, ae}, 5)}</td></tr>`).join("")}</tbody></table></div>
+    <p class="ov-leg">A/E Platz wie in den Vorlieben (blass unter 5 Läufen) · ${n} Läufe in ${zeilen.length} Zeilen.</p>`;
+}
+function pvSchliessen(){ document.body.classList.remove("ov-auf"); const o = document.getElementById("pv-ov"); if (o) o.remove(); }
+document.addEventListener("click", e => { const c = e.target.closest("[data-pv]"); if (!c) return; e.stopPropagation(); pvOeffnen(c.dataset.pv); });
+
 // Matrix-Overlay (Klick auf Trainer/Jockey/Besitzer/Züchter in „A/E · Siege/Starts“): alle Personen dieser Rolle im
 // heutigen Feld; x = A/E+ (100 × A/E Platz), y = Pos+ (Ø Platzanteil, 100 = Ø aller Läufe im Fenster), Fläche = €/L+;
 // Pfeil = Richtung gegenüber der Vorperiode (grün: A/E+ und Pos+ zusammen besser, rot: schlechter)
@@ -1274,8 +1316,8 @@ function aemZeichnen(){
   const frei = (x, y, w) => x >= pl && x + w <= W - 2 && y - 9 >= pt - 6 && y + 3 <= H - pb && !belegt.some(b => x < b[0] + b[2] && x + w > b[0] && y - 9 < b[1] + 3 && y + 3 > b[1] - 9);
   const lage = new Map();
   for (const g of [...mit].sort((a, b) => (b.ist ? 1 : 0) - (a.ist ? 1 : 0) || a.s.pos_idx - b.s.pos_idx)) {
-    const cx = sx(100 * g.s.ae), cy = sy(g.s.pos_idx), rr = Math.max(rad(g), A.rolle === "owner" && g.silks ? 9 : 0), sil = 0;
-    const txt = schmal ? g.nos.join("·") : `${g.nos.join("·")} ${kurz(g.name)}`, w = txt.length * 6.1 + sil;   // Handy: nur Nummern, Namen darunter
+    const cx = sx(100 * g.s.ae), cy = sy(g.s.pos_idx), rr = rad(g), sil = 0;
+    const txt = g.nos.join("·"), w = txt.length * 6.6 + sil;   // nur Startnummern, Namen und Trikots in der Legende darunter
     belegt.push([cx - rr, cy + 3 - rr, 2 * rr, 2 * rr]);          // die Bubble selbst freihalten
     if (g.s.prev && g.s.prev.ae != null && g.s.prev.pos_idx != null) {   // und den Pfeil
       const vx = cx - sx(100 * g.s.prev.ae), vy = cy - sy(g.s.prev.pos_idx), len = Math.hypot(vx, vy) || 1;
@@ -1307,7 +1349,7 @@ function aemZeichnen(){
     }
     const tip = `${g.name} (Nr. ${g.nos.join(", ")}) · ${A.t} Tage: ${s.wins}-${s.runs} · A/E Platz ${fx(s.ae, 2)} (A/E+ ${Math.round(100 * s.ae)}) · Pos+ ${s.pos_idx} · €/L+ ${s.epr_idx ?? "–"}${wenig ? ` · nur ${s.runs} Läufe (unter ${AEM_MIN})` : ""} · ${vorTxt}`;
     const L = lage.get(g);
-    const sil = A.rolle === "owner" && g.silks ? `<image href="${g.silks}" x="${cx - 9}" y="${cy - 9}" width="18" height="18"/>` : "";   // Trikot auf der Bubble
+    const sil = "";
     const tx = L.x;
     return `<g opacity="${wenig ? 0.45 : 1}"><title>${esc(tip)}</title>${pfeil}
       <circle cx="${cx}" cy="${cy}" r="${rr}" fill="${g.ist ? "var(--accent)" : "var(--ink-3)"}" fill-opacity="${g.ist ? 0.85 : 0.45}" stroke="${g.ist ? "var(--hi)" : "var(--ink-2)"}" stroke-width="${g.ist ? 3 : 1}"${wenig ? ` stroke-dasharray="3 2"` : ""}/>
@@ -1323,9 +1365,9 @@ function aemZeichnen(){
       <div class="grp"><b>Zeitraum</b>${(DATA.params.ae_windows || [30, 90, 365]).map(t_ => chip("t", t_, String(t_) === A.t, `${t_} Tage`)).join("")}</div>
     </div>
     <div class="ov-chart"><svg class="ov-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="A/E-Matrix ${rName}">${gitter}${punkte}</svg></div>
-    ${schmal ? `<p class="ae-ohne">${mit.map(g => `<b>${g.nos.join("·")}</b> ${esc(g.name)}`).join(" · ")}</p>` : ""}
+    <div class="ae-leg">${alle.map(g => `<span class="${g.ist ? "ist" : ""}${mit.includes(g) ? "" : " ohne"}">${g.nos.map(n => { const x = r.runners.find(y => y.no === n); return x && x.silks ? `<img src="${x.silks}" alt="">` : ""; }).join("")}<b>${g.nos.join("·")}</b> ${esc(g.name)}</span>`).join("")}</div>
     ${ohne.length ? `<p class="ae-ohne">Ohne Läufe mit Quote in ${A.t} Tagen: ${ohne.map(g => `${g.nos.join("·")} ${esc(g.name)}`).join(", ")}</p>` : ""}
-    <p class="ov-leg">x = <b>A/E+</b>: 100 × A/E Platz (100 = so oft platziert wie der Markt erwartet) · y = <b>Pos+</b>: Ø Platzanteil (Starter − Platz) / (Starter − 1), nicht im Ziel = 0, 100 = Ø aller Läufe im Zeitraum · Fläche = <b>€/L+</b> · Pfeil: Richtung gegenüber der Vorperiode (gleich langes Fenster davor), grün = A/E+ und Pos+ zusammen besser, rot = schlechter, kein Pfeil bei kleiner Änderung · blass gestrichelt: weniger als ${AEM_MIN} Läufe · grün mit Ring: ${rName} des gewählten Pferdes${A.rolle === "owner" ? " · Trikot des Besitzers" : ""}.</p>`;
+    <p class="ov-leg">x = <b>A/E+</b>: 100 × A/E Platz (100 = so oft platziert wie der Markt erwartet) · y = <b>Pos+</b>: Ø Platzanteil (Starter − Platz) / (Starter − 1), nicht im Ziel = 0, 100 = Ø aller Läufe im Zeitraum · Fläche = <b>€/L+</b> · Pfeil: Richtung gegenüber der Vorperiode (gleich langes Fenster davor), grün = A/E+ und Pos+ zusammen besser, rot = schlechter, kein Pfeil bei kleiner Änderung · blass gestrichelt: weniger als ${AEM_MIN} Läufe · grün mit Ring: ${rName} des gewählten Pferdes · an den Bubbles die Startnummern, Trikots und Namen in der Liste darüber.</p>`;
 }
 document.addEventListener("click", e => {
   const b = e.target.closest(".ae-rolle"); if (!b) return;
@@ -1338,7 +1380,10 @@ document.addEventListener("click", e => {
   e.stopPropagation(); kpiOeffnen(c.dataset.kpi, c.dataset.no, c.dataset.rid);
 });
 document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && document.getElementById("pv-ov")) return pvSchliessen();
   if (e.key === "Escape" && AEM) return aemSchliessen();
+  const pv = e.target.closest && e.target.closest("[data-pv]");
+  if (pv && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); return pvOeffnen(pv.dataset.pv); }
   if (e.key === "Escape" && KPI) return kpiSchliessen();
   const c = e.target.closest && e.target.closest("[data-kpi]");
   if (c && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); kpiOeffnen(c.dataset.kpi, c.dataset.no, c.dataset.rid); }
@@ -1409,7 +1454,8 @@ function renderLegend(){
     <div><b>Laufstil</b> F führend · V vorne dabei · M Mittelfeld · H hinten – aus der Ø frühen Position der letzten ${p.style_runs} Läufe mit Tracking. <b>Pace-Szenario</b>: Norm der Distanzgruppe plus Effekt der Tempomacher und der Feldgröße, geschätzt aus früheren Rennen. <b>Bahn-Bias</b> relativ zum Schnitt aller Bahnen (0 = wie überall): (IV vorne − IV hinten) dieser Bahn/Distanz minus derselbe Wert über alle Bahnen; positiv: Frontrenner hier stärker im Vorteil als sonst, negativ: abwartend Gerittene besser; farbig ab ±0,25. Den Rohwert nennt die Zeile darunter.</div>
     <div><b>C</b> Sieger auf der Bahn · <b>D</b> Sieger über die Distanz (±100 m) · <b>CD</b> beides im selben Rennen · <b>BF</b> letzter Start als Favorit geschlagen. Wechsel (Trainer, Besitzer, Scheuklappen, erstmals Wallach) gegenüber dem letzten Lauf in der Datenbank. <b>Tage</b> seit dem letzten Lauf in der Datenbank.</div>
     <div><b>Vorlieben ▲ / ▼</b> (Trainer, Jockey, Vater, Muttervater): A/E der Vorliebe weicht deutlich und signifikant vom Rest derselben Person bzw. Linie ab – mindestens ×1,2 bzw. ×0,8 des A/E aus ihren übrigen Läufen im selben Zeitraum (Trainer/Jockey 2 Jahre, Vater/Muttervater gesamte Historie) und mindestens 2 Standardfehler, bei mindestens 20 übrigen Läufen. Wie beim Box-Urteil; Werte im Tooltip.</div>
-    <div><b>A/E-Matrix</b> (Klick auf Trainer, Jockey, Besitzer oder Züchter in „A/E · Siege/Starts“): alle Personen dieser Rolle im heutigen Feld, x = A/E+ (100 × A/E Platz), y = Pos+ (Ø Platzanteil (Starter − Platz) / (Starter − 1), nicht im Ziel = 0; 100 = Ø aller Läufe im Zeitraum), Fläche = €/L+; Pfeil: Richtung gegenüber der Vorperiode (gleich langes Fenster davor), grün = A/E+ und Pos+ zusammen besser, rot = schlechter; blass gestrichelt unter 5 Läufen; Besitzer mit Trikot. Zeitraum 30/90/365 Tage, Rolle oben umschaltbar.</div>
+    <div><b>Vorlieben-Vergleich</b> (Klick auf eine Zeile der Vorlieben): alle Kategorien dieser Person bzw. Linie im selben Zeitraum – z. B. alle Bahnen des Trainers, alle Jockeys, alle Böden des Vaters –, nach Läufen sortiert (höchstens 30 + die heutige), die heutige hervorgehoben.</div>
+    <div><b>A/E-Matrix</b> (Klick auf Trainer, Jockey, Besitzer oder Züchter in „A/E · Siege/Starts“): alle Personen dieser Rolle im heutigen Feld, x = A/E+ (100 × A/E Platz), y = Pos+ (Ø Platzanteil (Starter − Platz) / (Starter − 1), nicht im Ziel = 0; 100 = Ø aller Läufe im Zeitraum), Fläche = €/L+; Pfeil: Richtung gegenüber der Vorperiode (gleich langes Fenster davor), grün = A/E+ und Pos+ zusammen besser, rot = schlechter; blass gestrichelt unter 5 Läufen; an den Bubbles die Startnummern, darunter Legende mit Trikots und Namen. Zeitraum 30/90/365 Tage, Rolle oben umschaltbar.</div>
     <div><b>Vergleich ARR/TR</b> (Klick auf ARR oder TR einer Formzeile): je heutigem Starter eine Zeile mit seinen Läufen der letzten ${p.kpi_days ?? 365} Tage (ohne ausgerittene, auf das heutige Gewicht bereinigt), x = Wert. Vom gewählten Pferd alle Läufe, von den anderen alle mindestens so guten und schlechtere nur bis ${(p.kpi_window || {}).arr ?? 5} kg (ARR) bzw. ${(p.kpi_window || {}).tr ?? 10} lb (TR) darunter; je blasser, desto älter. Filter oben mit Mehrfachauswahl (keiner gewählt = alle): Distanz-Abstand zu heute (±100 / 101–200 / 201–400 / mehr als 400 m, Standard ±100 m), Boden (Standard: heutige Bodengruppe), Bahn (heutige / andere, Standard: alle) und Zeitraum ab heute (letzte 30 Tage / vor 31–60 / 61–90 / 91–365 Tagen, Standard: alle). Oben lässt sich zwischen ARR und TR umschalten (gleicher Lauf, Filter bleiben). Skala: gewählter Wert ± 5 kg (ARR) bzw. ± 10 lb (TR); bessere Werte darüber stehen rechts in einer eigenen Spalte (▶ bester Wert, Anzahl), schlechtere außerhalb entfallen. Klick auf einen Punkt springt zum Starter und seiner Formzeile.</div>
     <div><b>Letzte Läufe</b>: die letzten ${p.form_runs} Läufe; gelb markiert, was dem heutigen Rennen entspricht – <b>K</b> Kurs mit gleichem Belag (PSF gegen Gras), <b>D</b> Distanz ±100 m, <b>B</b> Bodengruppe. Fehlt darunter ein Lauf auf dem Kurs (gleicher Belag), über die Distanz (±100 m) oder in der Bodengruppe von heute, steht unten (gestrichelt abgetrennt) zusätzlich der letzte ältere Lauf mit diesem Merkmal – höchstens drei, also bis zu ${p.form_runs + 3} Zeilen.</div>`;
 }
