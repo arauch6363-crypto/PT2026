@@ -1325,7 +1325,7 @@ def _duelle(eigen: pd.DataFrame, rennen: dict, heute_gew: dict, hid) -> list[dic
             dann = z["weight_kg"] - g["weight_kg"] if pd.notna(z["weight_kg"]) and pd.notna(g["weight_kg"]) else np.nan
             jetzt = (w_ich - w_g["weight"]) if w_ich is not None and w_g.get("weight") is not None else np.nan
             out.append({
-                "rival": _txt(g["horse"]), "rival_no": w_g.get("no"),
+                "rival": _txt(g["horse"]), "rival_no": w_g.get("no"), "race_id": z["race_id"],
                 "date": z["date"].strftime("%Y-%m-%d"), "course": _txt(z["hippodrome"]),
                 "dist": _num(z["distance_m"], 0), "going": _txt(z["going"]), "type": _txt(z["racetype"]),
                 "ran": _num(z["n_runners"], 0),
@@ -1465,7 +1465,11 @@ def _indirekte_duelle(basis: pd.DataFrame, heute_gew: dict, going_heute, distanz
             "n": int(len(g)), "common": sorted({_txt(namen.get(c)) for c in g["horse_id_c"]} - {None}),
             "then_kg": _num(damals, 1), "w_today": _num(mehr, 1),
             "exp_kg": _num(heute_kg, 1), "exp_l": _num(heute_kg / kpl_heute, 1) if kpl_heute else None,
-            "days": _num(float(g["tage"].mean()), 0)})
+            "days": _num(float(g["tage"].mean()), 0),
+            # je Vergleich: eigenes Rennen, gemeinsamer Gegner, Differenz (kg), Datum und Rennen des heutigen Gegners
+            # (für die Knöpfe in den Formzeilen der Karte)
+            "via": [[z_["race_id"], _txt(namen.get(z_["horse_id_c"])), _num(z_["diff"], 1), z_["date_r"].strftime("%Y-%m-%d"),
+                     z_["race_id_r"]] for _, z_ in g.iterrows()]})
     for hid, liste in out.items():
         liste.sort(key=lambda e: -(e["exp_kg"] or 0))
         out[hid] = {"rivals": liste, "n": len(liste),
