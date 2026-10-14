@@ -686,7 +686,7 @@ def racecard_pruefen() -> None:
     zl = d["pref_alle"][rf[0]][rf[1]]
     hz = [z for z in zl if z[0] == rf[2]]
     pc = x["pref"]["trainer"]["course"]
-    pruefe(rf[0] == "trainer_course" and len(hz) == 1 and hz[0][1:] == [pc["runs"], pc["wins"], pc["places"], pc["ae"]]
+    pruefe(rf[0] == "trainer_course" and len(hz) == 1 and hz[0][1:] == [pc["runs"], pc["wins"], pc["places"], pc["ae"], pc["exp"]]
            and [z[1] for z in zl] == sorted((z[1] for z in zl), reverse=True)
            and x["pref_ref"]["jockey"]["horse"][2] == x["horse"].title(),
            f"Vorlieben-Overlay: alle Bahnen des Trainers ({len(zl)}), heutige wie in der Vorliebe, nach Läufen sortiert")
@@ -800,6 +800,15 @@ def racecard_pruefen() -> None:
     pruefe(pr["sire"]["age"]["runs"] == 5 and pr["dam_sire"]["age"]["runs"] == 2
            and x["ae"]["pedigree"]["sire"]["epr"] == round((13500 + 5130 + 7500 + 2850 + 2850) / 5),
            "Vorlieben Vater/Muttervater nach Altersgruppe (4j+), Gewinn je Lauf des Vaters (totes Rennen: beide 2.)")
+    h2 = hist.copy()
+    sk2 = h2.loc[h2["horse"].str.upper() == x["horse"].upper(), "sire_key"].iloc[0]
+    dg2 = rc.rtr_arr.distance_group(d["races"][f"{tag:%Y%m%d}R1C1"]["distance"])
+    i2 = h2[(h2["sire_key"] == sk2) & (h2["date"] < pd.Timestamp(tag)) & (h2["dist_group"] == dg2)].index[:1]
+    h2.loc[i2, "age"] = 2
+    p2 = rc.baue_daten(h2, heute_r, heute_s, tag)["races"][f"{tag:%Y%m%d}R1C1"]["runners"][0]["pref"]
+    pruefe(len(i2) == 1 and p2["sire"]["distance"]["runs"] == pr["sire"]["distance"]["runs"] - 1
+           and p2["sire"]["age"]["runs"] == pr["sire"]["age"]["runs"],
+           "Vater nach Distanz ohne 2-Jährige (ein Lauf als 2-Jähriger fällt bei der Distanz weg, nicht beim Alter)")
     kx, ky = x["career"]["all"], y["career"]["all"]
     pruefe(kx["rank"] == 1 and ky["rank"] == 2 and kx["rel"] == round(8175 / ((8175 + 6315) / 2), 2),
            "Gewinn je Lauf im Vergleich zum Feld: Rang und Verhältnis zum Median")
