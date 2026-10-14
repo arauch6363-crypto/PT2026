@@ -592,6 +592,19 @@ def power_modell_pruefen() -> None:
            f"Power-Modell: gespeichert, geladen, Power je heutigem Starter (Ø {np.mean(ps):.0f}, mit Treibern)")
     pruefe(erg["modell"]["rang_korr"] > 0.2, f"Power-Modell findet das eingebaute Signal (Rangkorrelation "
            f"{erg['modell']['rang_korr']} auf den Prüftagen)")
+    # Gleichstände (z. B. viele gleiche Ratings) zählen anteilig, nicht nach Zeilenreihenfolge
+    gl = pd.DataFrame({"race_id": [1] * 4 + [2] * 4, "y": [1, .66, .33, 0] * 2, "r": [5, 5, 5, 5, 1, 9, 8, 7]})
+    b = pm._bewerten(gl, "r")
+    pruefe(b["sieger_getroffen"] == 0.125 and b["sieger_in_top3"] == 0.375,
+           "Power-Modell-Prüfung: Gleichstände zählen anteilig (4 gleiche Ratings -> ¼ Sieger-Treffer)")
+    # Zwischenspeicher der Merkmale: zweiter Lauf liest merkmale.parquet statt neu zu bauen
+    with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()) as aus:
+        o = Path(tmp) / pm.MODELL_ORDNER
+        o.mkdir()
+        X.to_parquet(o / pm.MERKMAL_DATEI)
+        pm.trainieren(hist=h, out=o, runden=10, ab=str(h["date"].min())[:10], log=print)
+    pruefe("Merkmale aus" in aus.getvalue() and "Abdeckung je Jahr" in aus.getvalue(),
+           "Power-Modell: Merkmale aus dem Zwischenspeicher, Abdeckung je Jahr im Protokoll")
     # Race Card: baue_daten mit Modell -> „power“ je heutigem Starter (Testkarte aus racecard_pruefen)
     import racecard as rc
     with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
