@@ -84,6 +84,20 @@ button,select{font:inherit;color:inherit}
 .runner:first-child{border-top:0}
 .row{display:grid;grid-template-columns:44px 36px minmax(0,1fr) auto;gap:12px;padding:12px 14px;cursor:pointer;align-items:start}
 .row:hover{background:var(--surface-2)}
+.row.kurz{grid-template-columns:44px 30px minmax(0,1fr) auto;align-items:center;padding:8px 14px;gap:10px}
+.row.kurz .silk img{width:26px;height:26px}
+.row.kurz .name strong{font-size:16px}
+.row.kurz .line2{margin-top:2px;font-size:12.5px;gap:2px 12px}
+.kurz-r{display:flex;gap:6px;align-items:stretch}
+.kurz-pw{display:grid;justify-items:center;align-content:center;border:1px solid var(--line);border-radius:4px;padding:2px 7px;min-width:50px;line-height:1.15;background:var(--surface)}
+.kurz-pw i{font:600 9px var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-style:normal}
+.kurz-pw b{font:700 16px var(--f-mono)}
+.kurz-pw small{font:500 10px var(--f-mono);color:var(--ink-3)}
+.kurz-pw.up{background:var(--good-soft);border-color:transparent} .kurz-pw.up b{color:var(--good)}
+.kurz-pw.down{background:var(--bad-soft);border-color:transparent} .kurz-pw.down b{color:var(--bad)}
+.kurz-q{display:grid;justify-items:center;background:var(--accent);color:var(--accent-ink);border-radius:4px;padding:3px 8px;min-width:58px;line-height:1.15}
+.kurz-q > b{font:700 17px var(--f-display)}
+.kurz-q small{font:500 10.5px var(--f-mono)}
 .cloth{width:40px;text-align:center}
 .cloth b{display:block;background:var(--cloth);color:var(--cloth-ink);font:700 22px/34px var(--f-display);border-radius:3px}
 .cloth small{display:block;font:500 11px/1.6 var(--f-mono);color:var(--ink-3)}
@@ -328,6 +342,13 @@ td.num,.adj,.ae{white-space:nowrap}
 
 @media (max-width:760px){
   .row{grid-template-columns:40px 34px minmax(0,1fr)}
+  .row.kurz{grid-template-columns:34px 26px minmax(0,1fr) auto;gap:8px;padding:8px 10px}
+  .kurz-q{min-width:52px;padding:3px 6px}
+  .kurz-r{flex-direction:column;gap:3px}
+  .kurz-pw{min-width:56px;padding:1px 4px;grid-auto-flow:column;gap:4px;align-items:baseline}
+  .kurz-pw i{display:none}
+  .kurz-pw b{font-size:14px}
+  .kurz-q{min-width:56px}
   .facts{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));text-align:left}
   .metric{justify-items:start}
   .oddsbox,.facts > .oddsbox{grid-column:1/-1;grid-row:auto;grid-auto-flow:column;justify-content:space-between}
@@ -442,7 +463,8 @@ const INC = {DISQUALIFIE:"DSQ", ARRETE:"PU", TOMBE:"F", NON_PLACE:"", RESTE_AU_P
 // Starterzeile bleibt zwischen Neuladen erhalten
 const store = {get(k){try{return localStorage.getItem(k)}catch(e){return null}}, set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
 
-let state = {meeting:null, race:null, sort:"no", open:new Set(), rivals:new Set(), duels:new Set(),
+let state = {meeting:null, race:null, sort:"no", mid:new Set(), open:new Set(),   // Stufe je Starter: kurz → mid (Zeile) → open (Details)
+             rivals:new Set(), duels:new Set(),
              fold:{prono:false, pace:false}, aeW:"30"};   // ausklappbare Kästen oberhalb der Starter, Vorgabe: eingeklappt
 
 function init(){
@@ -468,14 +490,50 @@ function renderNav(){
     return `<button class="chip" role="tab" aria-selected="${id===state.race}" data-r="${id}"><b>C${r.race_no}</b>${esc(r.time||"")}</button>`; }).join("");
   document.querySelectorAll("#meetings .tab").forEach(b => b.onclick = () => {
     state.meeting = +b.dataset.m; state.race = DATA.meetings.find(x => x.reunion === state.meeting).races[0];
-    state.open.clear(); renderNav(); renderRace(); });
+    state.open.clear(); state.mid.clear(); renderNav(); renderRace(); });
   document.querySelectorAll("#races .chip").forEach(b => b.onclick = () => {
-    state.race = b.dataset.r; state.open.clear(); renderNav(); renderRace(); });
+    state.race = b.dataset.r; state.open.clear(); state.mid.clear(); renderNav(); renderRace(); });
   store.set("rc-race", state.race);
 }
 
+// Power: sechs Leistungs-Kennzahlen zu einem Wert – je Kennzahl z-Wert im heutigen Feld, gedämpft nach der Zahl der
+// Läufe dahinter (× n / (n + 2)), Median der vorhandenen (ab 3), Power = 100 + 10 × Median (100 = Feldschnitt)
+const POWER_KPI = [
+  ["Rating", x => x.rating_adj ?? x.rating, () => null],
+  ["RTR", x => x.rtr && x.rtr.adj, x => x.rtr && x.rtr.runs],
+  ["ARR", x => x.arr && x.arr.adj, x => x.arr && x.arr.runs],
+  ["TR", x => x.tr && (x.tr.heute ?? x.tr.avg), x => x.tr && x.tr.runs],
+  ["Duell", x => x.duel_rank && x.duel_rank.groups === 1 ? x.duel_rank.score_l : null, x => x.duel_rank && (x.duel_rank.n_direct + x.duel_rank.n_indirect)],
+  ["Tempo", x => { const v = [x.summary.dl600_a, x.summary.db200_a].filter(w => w != null); return v.length ? v.reduce((s, w) => s + w, 0) / v.length : null; }, x => x.summary.runs]];
+function powerFeld(race){
+  const feld = race.runners.filter(x => !x.nr);
+  const teile = new Map(feld.map(x => [x.no, []]));
+  for (const [name, wert, anzahl] of POWER_KPI) {
+    const mit = feld.map(x => [x, wert(x)]).filter(([, v]) => v != null && Number.isFinite(v));
+    if (mit.length < 3) continue;
+    const m = mit.reduce((s, [, v]) => s + v, 0) / mit.length, sd = Math.sqrt(mit.reduce((s, [, v]) => s + (v - m) ** 2, 0) / mit.length);
+    if (!sd) continue;
+    for (const [x, v] of mit) { const n = anzahl(x), f = n == null ? 1 : n / (n + 2); teile.get(x.no).push([name, (v - m) / sd * f]); }
+  }
+  for (const x of race.runners) {
+    const tz = teile.get(x.no) || [];
+    if (tz.length < 3) { x._power = null; continue; }
+    const z = tz.map(([, v]) => v).sort((a, b) => a - b), k = z.length;
+    x._power = {p: Math.round(100 + 10 * (k % 2 ? z[(k - 1) / 2] : (z[k / 2 - 1] + z[k / 2]) / 2)), teile: tz};
+  }
+  const mitP = feld.filter(x => x._power).sort((a, b) => b._power.p - a._power.p);
+  mitP.forEach(x => { x._power.rank = 1 + mitP.filter(y => y._power.p > x._power.p).length; x._power.n = mitP.length; });
+}
+function powerHTML(x){
+  const P = x._power;
+  if (!P) return `<div class="kurz-pw" title="Power: zu wenige Kennzahlen (mindestens 3 von 6)"><i>Power</i><b>–</b></div>`;
+  const tip = `Power ${P.p} (100 = Feldschnitt, ±10 je Standardabweichung; grün ab 105, rot bis 95) – Median aus ${P.teile.length} Kennzahlen, je z-Wert im heutigen Feld, gedämpft nach der Zahl der Läufe: `
+    + P.teile.map(([n, v]) => `${n} ${v >= 0 ? "+" : "−"}${fx(Math.abs(v), 1)}`).join(" · ");
+  return `<div class="kurz-pw ${P.p >= 105 ? "up" : P.p <= 95 ? "down" : ""}" title="${esc(tip)}"><i>Power</i><b>${P.p}</b><small>#${P.rank}/${P.n}</small></div>`;
+}
 const SORTS = {
   no:    ["Startnummer", r => r.no ?? 99, 1],
+  power: ["Power (6 Kennzahlen)", r => (r._power && r._power.p) ?? -999, -1],
   odds:  ["Prognose (cote probable)", r => (r.prono && r.prono.sel && r.prono.sel.cote_dec) ?? 999, 1],
   tr:    ["TR (Ø, heutiges Gewicht)", r => r.tr.heute ?? -999, -1],
   dl600a:["ΔL600 A (Ø)", r => r.summary.dl600_a ?? -99, -1],
@@ -514,6 +572,7 @@ function pools(r){
 function renderRace(){
   const r = DATA.races[state.race];
   pools(r);
+  powerFeld(r);
   const [, key, dir] = SORTS[state.sort] || SORTS.no;
   const runners = [...r.runners].sort((a,b) => (a.nr - b.nr) || dir*(key(a) - key(b)) || (a.no - b.no));
   const tags = [
@@ -538,7 +597,7 @@ function renderRace(){
     ${insightHTML(r)}
     <div class="tools">
       <label for="sort">Sortieren <select id="sort">${Object.entries(SORTS).map(([k,[l]]) => `<option value="${k}" ${k===state.sort?"selected":""}>${l}</option>`).join("")}</select></label>
-      <button class="btn" id="toggle-all" type="button">${state.open.size ? "Alle zuklappen" : "Alle aufklappen"}</button>
+      <button class="btn" id="toggle-all" type="button">${state.mid.size ? "Alle zuklappen" : "Alle aufklappen"}</button>
     </div>
     <div class="card">${runners.map(x => runnerHTML(x, r)).join("") || `<p class="empty">Keine Starter.</p>`}</div>`;
   // Kurzbeschreibung des Rennens oben fixiert, sobald der Rennkopf aus dem Bild gescrollt ist
@@ -559,7 +618,7 @@ function renderRace(){
   }
   $("#sort").onchange = e => { state.sort = e.target.value; store.set("rc-sort", state.sort); renderRace(); };
   $("#toggle-all").onclick = () => {
-    if (state.open.size) state.open.clear(); else r.runners.forEach(x => state.open.add(x.no));
+    if (state.mid.size) { state.mid.clear(); state.open.clear(); } else r.runners.forEach(x => state.mid.add(x.no));   // alle auf die Zeile
     renderRace(); };
   document.querySelectorAll(".ae-w-btn").forEach(b => b.onclick = e => {
     e.stopPropagation();
@@ -576,7 +635,10 @@ function renderRace(){
   });
   navHoehe();
   document.querySelectorAll(".row").forEach(el => {
-    const go = () => { const n = +el.dataset.no; state.open.has(n) ? state.open.delete(n) : state.open.add(n); renderRace(); };
+    // drei Stufen: kurz → Zeile → Zeile mit Details → wieder kurz
+    const go = () => { const n = +el.dataset.no;
+      if (!state.mid.has(n)) state.mid.add(n); else if (!state.open.has(n)) state.open.add(n); else { state.open.delete(n); state.mid.delete(n); }
+      renderRace(); };
     el.onclick = go; el.onkeydown = e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); go(); } };
   });
   document.querySelectorAll("details.fold").forEach(d => d.ontoggle = () => { state.fold[d.dataset.fold] = d.open; });
@@ -733,9 +795,31 @@ let _kopfRaf = 0;
 window.addEventListener("scroll", () => { if (!_kopfRaf) _kopfRaf = requestAnimationFrame(() => { _kopfRaf = 0; navHoehe(); }); }, {passive: true});
 window.addEventListener("resize", navHoehe);
 
+// Kurzzeile (erste Stufe): Nummer, Box, Trikot, Name, Alter/Geschlecht, Jockey, Trainer, Gewicht, PMU-Prognose und Tipp
+function kurzHTML(x, age){
+  return `<article class="runner ${x.nr ? "nr" : ""}" data-runner="${x.no}">
+    <div class="row kurz" data-no="${x.no}" tabindex="0" role="button" aria-expanded="false" title="Klick: Zeile mit allen Kennzahlen">
+      <div class="cloth"><b>${x.no ?? ""}</b></div>
+      <div class="silk">${x.silks ? `<img src="${x.silks}" alt="Trikot" width="26" height="26">` : `<span class="nosilk" aria-hidden="true"></span>`}</div>
+      <div class="who">
+        <div class="name"><strong>${esc(x.horse)}</strong><span class="muted">${age}</span>${x.nr ? `<span class="badge">NP</span>` : ""}</div>
+        <div class="line2"><span><em>J</em> ${esc(title(x.jockey) || "–")}</span><span><em>T</em> ${esc(title(x.trainer) || "–")}</span><span><em>Gew.</em> ${x.weight != null ? fx(x.weight, 1) : "–"}</span>${x.draw != null ? `<span><em>Box</em> ${x.draw}</span>` : ""}</div>
+      </div>
+      <div class="kurz-r">${powerHTML(x)}${kurzQuote(x)}</div>
+    </div>
+  </article>`;
+}
+// PMU-Prognose kompakt: cote probable und Tipp-Konsens
+function kurzQuote(x){
+  const S = x.prono && x.prono.sel, K = x.prono && x.prono.konsens;
+  const tip = (S && S.cote ? `Cote probable der PMU-Prognose ${S.cote} (= ${fx(S.cote_dec,1)} dezimal), Rang ${S.rank}` : "Keine cote probable")
+    + (K ? ` · Tipp-Konsens Platz ${K.pos} von ${K.of}` : "");
+  return `<div class="kurz-q" title="${esc(tip)}"><b>${S && S.cote ? esc(S.cote) : "–"}</b><small>Tipp ${K ? `<b>${K.pos}.</b>/${K.of}` : "–"}</small></div>`;
+}
 function runnerHTML(x, race){
   const open = state.open.has(x.no);
   const age = [x.age ? x.age + "j" : "", x.sex ? x.sex[0] : ""].filter(Boolean).join(" ");
+  if (!state.mid.has(x.no) && !open) return kurzHTML(x, age);
   const badges = x.badges.map(b => `<span class="badge ${b==="BF"?"bf":""}" title="${{C:"Sieger auf dieser Bahn",D:"Sieger über diese Distanz (±100 m)",CD:"Sieger auf Bahn und Distanz",BF:"Beim letzten Start Favorit und nicht gewonnen"}[b]}">${b}</span>`).join("");
   const changes = (x.changes || []).map(c => `<span class="badge chg" title="${esc(c.text)}">${esc(c.text)}</span>`).join("");
   const blink = blinkIcon(x.blinkers);
@@ -1114,7 +1198,7 @@ function kpiOeffnen(k, no, rid){
 // (Lauf nicht unter den gezeigten Formzeilen: zum Abschnitt „Letzte Läufe“)
 function kpiSprung(no, rid){
   kpiSchliessen();
-  state.open.add(no); renderRace();
+  state.mid.add(no); state.open.add(no); renderRace();
   const art = document.querySelector(`[data-runner="${no}"]`);
   if (!art) return;
   const ziel = art.querySelector(`tr.lauf[data-rid="${CSS.escape(rid)}"]`)
@@ -1569,6 +1653,8 @@ function renderLegend(){
     <div><b>Vorlieben-Vergleich</b> (Klick auf eine Zeile der Vorlieben): alle Kategorien dieser Person bzw. Linie im selben Zeitraum – z. B. alle Bahnen des Trainers, alle Jockeys, alle Böden des Vaters –, nach Läufen sortiert (höchstens 30 + die heutige), die heutige hervorgehoben. Goldener Rand am A/E (auch in den Vorlieben selbst): beste Kategorie dieser Person/Linie – höchstes A/E Platz, zum Gesamt-A/E hin geschrumpft ((Plätze + 5 × A/E gesamt) / (erwartete Plätze + 5)), ab 5 Läufen. Vater/Muttervater nach Distanz ohne 2-Jährige. Bei Vater und Muttervater oben der <b>optimale Bereich</b> für Distanz, Boden und Alter: Wert je Gruppe = Ø aus A/E+, Pos+ und €/L+ (Pos+ und €/L+ gegen alle Läufe dieser Gruppe, €/L+ aus log(1 + Preisgeld) je Lauf), zur Gesamtlinie hin geschrumpft; bestes zusammenhängendes Fenster ab 30 Läufen, „deutlich“ ab 10 Punkten über dem Rest.</div>
     <div><b>A/E-Matrix</b> (Klick auf Trainer, Jockey, Besitzer oder Züchter in „A/E · Siege/Starts“): alle Personen dieser Rolle im heutigen Feld, x = A/E+ (100 × A/E Platz), y = Pos+ (Ø Platzanteil (Starter − Platz) / (Starter − 1), nicht im Ziel = 0; 100 = Ø aller Läufe im Zeitraum), Fläche = €/L+; Farbe: Veränderung gegenüber der Vorperiode (gleich langes Fenster davor), A/E+ und Pos+ zusammen – grün besser, rot schlechter, abgestuft nach Deutlichkeit; blass gestrichelt unter 5 Läufen; an den Bubbles die Startnummern, darunter Legende mit Trikots und Namen. Zeitraum 30/90/365 Tage, Rolle oben umschaltbar.</div>
     <div><b>Heutige Gegner in den letzten Läufen</b>: neben „Gegner“ zusätzlich „Heutige Gegner (n)“, wenn heutige Gegner in diesem Rennen mitliefen (direkte Duelle aus genau diesem Rennen), und „Indirekt (n)“, wenn dieses Rennen Vergleichsrennen eines indirekten Duells ist – aufgeklappt mit gemeinsamem Gegner, Differenz in diesem Rennen, Rennen des heutigen Gegners und dem insgesamt erwarteten Abstand; „vorne x/y“ wie bei den Duell-Knöpfen oben.</div>
+    <div><b>Power</b> (Kurzzeile): Rating, RTR, ARR, TR, Duell und Tempo (Ø aus ΔL600 A und ΔB200 A) je als z-Wert im heutigen Feld, gedämpft nach der Zahl der Läufe dahinter (× n / (n + 2)); Median der vorhandenen Werte (ab 3 von 6), Power = 100 + 10 × Median – 100 = Feldschnitt, grün ab 105, rot bis 95 (der Median streut weniger als die einzelnen Kennzahlen); #Rang im Feld. Duell zählt nur, wenn alle Pferde mit Duellen vergleichbar sind (eine Gruppe). Auch als Sortierung.</div>
+    <div><b>Starter in drei Stufen</b>: zuerst die Kurzzeile (Nummer, Trikot, Name, Alter/Geschlecht, Jockey, Trainer, Gewicht, Box, PMU-Prognose und Tipp-Konsens); ein Klick zeigt die Zeile mit allen Kennzahlen, ein weiterer die Details, ein dritter klappt wieder auf die Kurzzeile zu. „Alle aufklappen“ öffnet alle Zeilen (ohne Details); Klick auf die fixierte Leiste schließt nur die Details.</div>
     <div><b>Vergleich ARR/TR</b> (Klick auf ARR oder TR einer Formzeile): je heutigem Starter eine Zeile mit seinen Läufen der letzten ${p.kpi_days ?? 365} Tage (ohne ausgerittene, auf das heutige Gewicht bereinigt), x = Wert. Vom gewählten Pferd alle Läufe, von den anderen alle mindestens so guten und schlechtere nur bis ${(p.kpi_window || {}).arr ?? 5} kg (ARR) bzw. ${(p.kpi_window || {}).tr ?? 10} lb (TR) darunter; je blasser, desto älter. Filter oben mit Mehrfachauswahl (keiner gewählt = alle): Distanz-Abstand zu heute (±100 / 101–200 / 201–400 / mehr als 400 m, Standard ±100 m), Boden (Standard: heutige Bodengruppe), Bahn (heutige / andere, Standard: alle) und Zeitraum ab heute (letzte 30 Tage / vor 31–60 / 61–90 / 91–365 Tagen, Standard: alle). Oben lässt sich zwischen ARR und TR umschalten (gleicher Lauf, Filter bleiben). Skala: gewählter Wert ± 5 kg (ARR) bzw. ± 10 lb (TR); bessere Werte darüber stehen rechts in einer eigenen Spalte (▶ bester Wert, Anzahl), schlechtere außerhalb entfallen. Klick auf einen Punkt springt zum Starter und seiner Formzeile.</div>
     <div><b>Letzte Läufe</b>: die letzten ${p.form_runs} Läufe; gelb markiert, was dem heutigen Rennen entspricht – <b>K</b> Kurs mit gleichem Belag (PSF gegen Gras), <b>D</b> Distanz ±100 m, <b>B</b> Bodengruppe. Fehlt darunter ein Lauf auf dem Kurs (gleicher Belag), über die Distanz (±100 m) oder in der Bodengruppe von heute, steht unten (gestrichelt abgetrennt) zusätzlich der letzte ältere Lauf mit diesem Merkmal – höchstens drei, also bis zu ${p.form_runs + 3} Zeilen.</div>`;
 }
