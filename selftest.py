@@ -697,9 +697,10 @@ def racecard_pruefen() -> None:
     dg_ = rs[2][:-2]
     in_b = hs_["dist_group"] == dg_
     erw_pos = round(100 * rps[in_b & (hs_["sire_key"] == rs[1])].mean() / rps[in_b].mean())
-    erw_epr = round(100 * hs_.loc[in_b & (hs_["sire_key"] == rs[1]), "prize_won"].mean() / hs_.loc[in_b, "prize_won"].mean())
+    lps = np.log1p(hs_["prize_won"].fillna(0).clip(lower=0))
+    erw_epr = round(100 * round(lps[in_b & (hs_["sire_key"] == rs[1])].mean(), 4) / round(lps[in_b].mean(), 4))
     pruefe(len(zs) == 8 and zs[6] == erw_pos and zs[7] == erw_epr,
-           f"Optimaler Bereich: Vater je Distanzgruppe mit Pos+ {zs[6]} und €/L+ {zs[7]} (100 = Ø aller Läufe der Gruppe)")
+           f"Optimaler Bereich: Vater je Distanzgruppe mit Pos+ {zs[6]} und €/L+ {zs[7]} (log(1 + €) je Lauf, 100 = Ø aller Läufe der Gruppe)")
     m90 = x["ae"]["trainer"]["d90"]
     hv = hist[hist["date"] < pd.Timestamp(tag)]
     rp = hv["rel_place"].fillna(0).where(hv["n_runners"] > 1)
