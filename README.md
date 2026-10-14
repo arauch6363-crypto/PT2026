@@ -148,6 +148,7 @@ im Testteil (Norm, Pace-Kalibrierung, Bias auf der ersten Hälfte gelernt). CSV 
 ```python
 import power_modell as pm
 erg = pm.trainieren(BASE)   # ~1 h: Merkmale über die ganze Historie, Prüfung, Modell nach BASE/modelle/
+erg = pm.trainieren(BASE, ab="2024-01-01")   # schnell: Merkmale aus BASE/modelle/merkmale.parquet, nur ab Datum lernen
 ```
 
 Abhängige Variable: Platzanteil (Starter − Platz) / (Starter − 1), nicht im Ziel = 0. Merkmale nur aus Läufen vor dem

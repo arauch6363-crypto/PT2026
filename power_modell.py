@@ -25,6 +25,8 @@ Merkmale (Gruppen wie in der Karte):
 Colab:
     import power_modell as pm
     erg = pm.trainieren(BASE)        # einmalig (~1 h): Merkmale, Prüfung auf den letzten 25 % der Tage, Modell speichern
+    erg = pm.trainieren(BASE, ab="2024-01-01")   # danach schnell: Merkmale aus BASE/modelle/merkmale.parquet,
+                                                 # lernen/prüfen nur ab dem Datum (z. B. ab da, wo es Tracking gibt)
 Die Race Card (racecard.run) lädt das Modell danach aus BASE/modelle/ und ersetzt den bisherigen Power-Wert.
 """
 from __future__ import annotations
@@ -43,6 +45,7 @@ import timeform_ratings
 MODELL_ORDNER = "modelle"
 MODELL_DATEI = "power_modell.txt"
 META_DATEI = "power_modell.json"
+MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
 LERN_ANTEIL = 0.75          # zeitlich vorne: lernen; die übrigen Tage: prüfen
 FORM_N = 3                  # so viele letzte Läufe als eigene Merkmale
 VERB_TAGE = 365             # Verbindungen: Fenster
@@ -437,37 +440,80 @@ def _kategorien(X: pd.DataFrame, stufen: dict | None = None) -> tuple[pd.DataFra
 # Training
 # --------------------------------------------------------------------------
 def _bewerten(df: pd.DataFrame, spalte: str) -> dict:
-    """Je Rennen: Rangkorrelation Vorhersage ~ Platzanteil, Sieger getroffen, Sieger unter den Top 3."""
-    rho, sieg, top3, n = [], 0, 0, 0
+    """Je Rennen: Rangkorrelation Vorhersage ~ Platzanteil, Sieger getroffen, Sieger unter den Top 3.
+    Gleichstände zählen anteilig (3 Pferde gleich oben, einer davon Sieger = 1/3 Treffer) – sonst entschiede die
+    Zeilenreihenfolge der Historie (nach Einlauf sortiert) und ein Rating mit vielen Gleichständen sähe zu gut aus.
+    Rennen, in denen die Spalte überall gleich ist, zählen nicht zur Rangkorrelation."""
+    rho, sieg, top3, n = [], 0.0, 0.0, 0
     for _, g in df.groupby("race_id"):
         g = g.dropna(subset=[spalte, "y"])
         if len(g) < 3:
             continue
         n += 1
-        rho.append(g[spalte].rank().corr(g["y"].rank()))
-        best = g.sort_values(spalte, ascending=False)
-        sieg += int(best["y"].iloc[0] >= 0.999)
-        top3 += int((best["y"].head(3) >= 0.999).any())
-    return {"rennen": n, "rang_korr": round(float(np.nanmean(rho)), 3) if rho else None,
+        v, gewinner = g[spalte].to_numpy(float), g["y"].to_numpy(float) >= 0.999
+        if np.ptp(v) > 0 and np.ptp(g["y"].to_numpy(float)) > 0:
+            rho.append(g[spalte].rank().corr(g["y"].rank()))
+        # Chance, dass der Sieger bei zufälliger Auflösung von Gleichständen unter den ersten k landet:
+        # (k − Anzahl echt besser) / Anzahl gleich, begrenzt auf 0..1
+        def chance(k: int) -> float:
+            return max((min(1.0, max(0.0, (k - (v > w).sum()) / (v == w).sum())) for w in v[gewinner]), default=0.0)
+        sieg += chance(1)
+        top3 += chance(3)
+    return {"rennen": n, "rang_korr": round(float(np.mean(rho)), 3) if rho else None,
             "sieger_getroffen": round(sieg / n, 3) if n else None, "sieger_in_top3": round(top3 / n, 3) if n else None}
 
 
+# Merkmale aus Tracking-Daten (nur da, wo es ein Tracking-PDF gab) – für die Abdeckungs-Übersicht im Training
+TRACKING_MERKMALE = ["dl600", "db200", "early", "f1_fi", "f1_g800", "f1_weg"]
+
+
+def abdeckung(X: pd.DataFrame, tage: pd.Series) -> pd.DataFrame:
+    """Anteil Starter mit Wert je Jahr – zeigt, ab wann Tracking (und ARR/TR) in der Historie überhaupt vorliegen."""
+    spalten = [c for c in TRACKING_MERKMALE + ["arr", "tr", "rtr"] if c in X.columns]
+    a = X[spalten].notna().groupby(pd.to_datetime(tage).dt.year.to_numpy()).mean().mul(100).round(0)
+    a.insert(0, "starter", X.groupby(pd.to_datetime(tage).dt.year.to_numpy()).size())
+    return a
+
+
 def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
-               X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN, log=print) -> dict:
+               X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
+               ab: str | None = None, neu: bool = False, log=print) -> dict:
     """Einmal trainieren: Merkmale über die ganze Historie, lernen auf den ersten LERN_ANTEIL der Tage, prüfen auf dem
-    Rest (gegen den Marktfavoriten und das Rating), dann auf allen Tagen neu lernen und speichern."""
+    Rest (gegen den Marktfavoriten und das Rating), dann auf allen Tagen neu lernen und speichern.
+
+    ab:  nur Rennen ab diesem Datum lernen/prüfen (z. B. "2024-01-01", wenn Tracking erst ab da vorliegt). Die Merkmale
+         nutzen trotzdem die ganze Historie davor (Form, Verbindungen, Abstammung).
+    neu: Merkmale neu bauen, auch wenn BASE/modelle/merkmale.parquet schon da ist (nötig nach neuen Renntagen)."""
     import lightgbm as lgb
     if hist is None:
         import regel_backtest as rb
         log("Historie laden …")
         hist = rb.laden(Path(base))
+    ordner = Path(out) if out else (Path(base) / MODELL_ORDNER if base is not None else None)
+    zwischen = ordner / MERKMAL_DATEI if ordner is not None else None
+    if X is None and zwischen is not None and zwischen.exists() and not neu:
+        X = pd.read_parquet(zwischen)
+        if not X.index.isin(hist.index).all():
+            log("Zwischengespeicherte Merkmale passen nicht zur Historie – baue neu.")
+            X = None
+        else:
+            log(f"Merkmale aus {zwischen} ({len(X):,} Starter; neu bauen mit neu=True)")
     if X is None:
         log("Merkmale bauen (einmalig, dauert) …")
         X = merkmale(hist, log=log)
+        if zwischen is not None:
+            zwischen.parent.mkdir(parents=True, exist_ok=True)
+            X.to_parquet(zwischen)
     y = ziel(hist).reindex(X.index)
     ok = y.notna()
     X, y = X[ok], y[ok]
     tage = pd.to_datetime(hist.loc[X.index, "date"])
+    log("Abdeckung je Jahr (% der Starter mit Wert):")
+    log(abdeckung(X, tage).to_string())
+    if ab:
+        drin = tage >= pd.Timestamp(ab)
+        X, y, tage = X[drin], y[drin], tage[drin]
+        log(f"Nur Rennen ab {ab}: {len(X):,} Starter")
     grenze = np.sort(tage.unique())[int(len(tage.unique()) * LERN_ANTEIL)]
     lern, test = tage < grenze, tage >= grenze
     Xk, stufen = _kategorien(X)
@@ -484,7 +530,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
                        "rating": X.loc[test, "rating_adj"].to_numpy()})
     bericht = {"modell": _bewerten(pt, "modell"), "markt (Endquote)": _bewerten(pt, "markt"),
                "rating (bereinigt)": _bewerten(pt, "rating"), "baeume": best,
-               "lernen_bis": f"{pd.Timestamp(grenze):%Y-%m-%d}"}
+               "lernen_bis": f"{pd.Timestamp(grenze):%Y-%m-%d}", "ab": ab}
     log("Prüfung auf den letzten Tagen (je Rennen):")
     for k, v in bericht.items():
         log(f"  {k}: {v}")
@@ -492,7 +538,6 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     log("Wichtigste Merkmale (Gain): " + ", ".join(f"{k} {v / imp.sum():.1%}" for k, v in imp.head(15).items()))
     # endgültig: alle Tage, gleiche Baumzahl
     final = lgb.train(p, lgb.Dataset(Xk, y, categorical_feature=KATEGORISCH), num_boost_round=best)
-    ordner = Path(out) if out else Path(base) / MODELL_ORDNER
     ordner.mkdir(parents=True, exist_ok=True)
     final.save_model(str(ordner / MODELL_DATEI))
     meta = {"spalten": list(Xk.columns), "stufen": stufen, "bericht": bericht,
