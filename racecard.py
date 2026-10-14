@@ -80,10 +80,10 @@ KLASSE_TAGE = 365               # Klasse: Ø Gewinnsumme je Lauf der Teilnehmer 
 KLASSE_ERFAHREN_TAGE = 365
 KLASSE_VERBINDUNG = {"trainer": 0.5, "owner": 0.3, "breeder": 0.2}
 KLASSE_VERB_MIN = 5
-INDIREKT_TAGE = 120             # indirekte Duelle: Vergleichsrennen höchstens so alt (für beide Seiten)
+INDIREKT_TAGE = 180             # indirekte Duelle: Vergleichsrennen höchstens so alt (für beide Seiten)
 INDIREKT_DIST_M = 200           # … Distanz höchstens so weit auseinander
 INDIREKT_REL_MIN = 0.5          # … alle drei Pferde in der vorderen Hälfte: rel. Platzierung > 0,5
-DUELL_TAGE = 120                # Heutige Gegner · frühere Duelle, eingeschränkt wie die indirekten: nur Rennen der
+DUELL_TAGE = 180                # Heutige Gegner · frühere Duelle, eingeschränkt wie die indirekten: nur Rennen der
 DUELL_DIST_M = 200              # letzten DUELL_TAGE, Distanz höchstens DUELL_DIST_M von heute, Boden innerhalb einer
 DUELL_BODEN = True              # Stufe (DUELL_BODEN); anders als dort zählen alle Platzierungen
 # Duell-Rangfolge: kleinste Quadrate über alle direkten und indirekten Duelle des heutigen Feldes

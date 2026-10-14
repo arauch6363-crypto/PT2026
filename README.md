@@ -229,7 +229,7 @@ Je Starter:
   besser oder schlechter war als der Rang ihrer Quote; der Knopf zeigt besser / (besser + schlechter).
 * **Heutige Gegner · frühere Duelle**: Rennen, in denen das Pferd schon auf heutige Gegner traf – Platz
   beider, Abstand, Gewichte damals und die Verschiebung des Gewichtsunterschieds bis heute. Eingeschränkt wie die
-  indirekten Duelle: letzte 120 Tage, Distanz ±200 m zu heute, Boden innerhalb einer Stufe (`DUELL_TAGE`,
+  indirekten Duelle: letzte 180 Tage, Distanz ±200 m zu heute, Boden innerhalb einer Stufe (`DUELL_TAGE`,
   `DUELL_DIST_M`, `DUELL_BODEN`); anders als dort zählen alle Platzierungen.
 * **Startbox**: unter der Box die Abweichung der Ø relativen Platzierung (Starter − Platz) / (Starter − 1) aus
   dieser Box auf derselben Konfiguration (Bahn | Distanz | track_type | parcours_norm | Corde) von 0,5.
@@ -276,7 +276,7 @@ Je Starter:
 * **Duelle** mit heutigen Gegnern nur aus den letzten 365 Tagen; je Duell „heute erwartet“ = Abstand damals −
   Verschiebung des Gewichtsunterschieds (1 kg = 1 Länge), am Knopf „vorne erwartet gegen x/y“ (je Gegner das letzte Duell).
 * **Indirekte Duelle** (`racecard._indirekte_duelle`): je heutigem Gegner über gemeinsame frühere Gegner –
-  Vergleichsrennen ≤ 120 Tage, ±200 m, Boden innerhalb einer Stufe (PSF nur mit PSF), alle drei Pferde mit
+  Vergleichsrennen ≤ 180 Tage, ±200 m, Boden innerhalb einer Stufe (PSF nur mit PSF), alle drei Pferde mit
   relativer Platzierung > 0,5. Leistung = Längen × kg je Länge (`rtr_arr.KG_PER_LENGTH`) + Mehrgewicht; heute
   erwartet = Ø Unterschied − heutiges Mehrgewicht. Knopf mit Zusammenfassung, Tabelle je heutigem Gegner.
 * **Duell-Rangfolge** (`racecard.duell_rangfolge`, Kachel „Duell“, Rennkopf „Duell-Rang“, JSON `duel_rank` je
