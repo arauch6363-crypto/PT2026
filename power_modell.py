@@ -46,6 +46,12 @@ MODELL_ORDNER = "modelle"
 MODELL_DATEI = "power_modell.txt"
 META_DATEI = "power_modell.json"
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
+MERKMAL_VERSION = 2                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+# Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
+RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
+           "jockey_score", "owner_score", "duel_score", "sire_score"]
+RANG_STUFEN = 10            # Lern-Ziel für „rang“: Platzanteil in 11 Stufen (0 … 10)
+RANG_GAIN = [round(2 ** (s / 2) - 1, 3) for s in range(RANG_STUFEN + 1)]   # Sieg zählt am meisten, ohne alles andere zu erdrücken
 LERN_ANTEIL = 0.75          # zeitlich vorne: lernen; die übrigen Tage: prüfen
 FORM_N = 3                  # so viele letzte Läufe als eigene Merkmale
 VERB_TAGE = 365             # Verbindungen: Fenster
@@ -175,8 +181,8 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
               "won_course", "won_dist", "won_going", "placed_course", "placed_dist", "placed_going", "best_dist", "best_going"]:
         feld(c)
     for k in range(1, FORM_N + 1):
-        for c in ["val", "epr", "lb", "pos", "same_going", "same_dist", "arr", "tr", "fi", "g800", "weg", "odds", "tage",
-                  "gegner", "duell"]:
+        for c in ["val", "epr", "lb", "pos", "same_going", "same_dist", "arr", "tr", "fi", "g800", "weg", "odds", "orank",
+                  "pm", "tage", "gegner", "duell"]:
             feld(f"f{k}_{c}")
     # nächster Start jedes Laufs (für den Gegner-Score): Datum und Urteil gegen den Quotenrang
     ord_h = np.lexsort((tag, hid))
@@ -187,6 +193,13 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             if not np.isnan(fpos[b]) and not np.isnan(werte["odds_rank"][b]):
                 naechst_urteil[a] = np.sign(werte["odds_rank"][b] - fpos[b])
     rennen_pos = pd.Series(np.arange(n)).groupby(rid).apply(lambda s: s.to_numpy()).to_dict()
+    # Quote vergleichbar über Feldgrößen: Quotenrang relativ (0 = Favorit … 1 = Außenseiter) und Marktchance
+    # (1/Quote, im Rennen auf Summe 1 gebracht)
+    inv = pd.Series(np.where(werte["odds_final"] > 1, 1.0 / werte["odds_final"], np.nan))
+    p_markt = (inv / inv.groupby(rid).transform("sum")).to_numpy(dtype=float)
+    o_rang = inv.groupby(rid).rank(ascending=False, method="average")
+    o_n = inv.notna().groupby(rid).transform("sum")
+    o_rel = ((o_rang - 1) / (o_n - 1)).where(o_n > 1).to_numpy(dtype=float)
     feld_heute = {r: set(hid[p]) for r, p in rennen_pos.items()}
     g_lp = float(np.nanmean(lp[~hm])) if (~hm).any() else np.nan
 
@@ -276,6 +289,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 F[f"f{k}_tr"][i] = werte["tr"][j] - (gew[i] - REF_KG) * LB_PER_KG if not np.isnan(gew[i]) else werte["tr"][j]
                 F[f"f{k}_fi"][i], F[f"f{k}_g800"][i] = werte["fi_adj"][j], werte["pos_gain_800_finish"][j]
                 F[f"f{k}_weg"][i], F[f"f{k}_odds"][i] = werte["weg_med"][j], werte["odds_final"][j]
+                F[f"f{k}_orank"][i], F[f"f{k}_pm"][i] = o_rel[j], p_markt[j]
                 F[f"f{k}_tage"][i] = tag[i] - tag[j]
                 feld_j = rennen_pos.get(rid[j], np.array([], dtype=int))
                 andere = feld_j[hid[feld_j] != hid[j]]
@@ -436,6 +450,23 @@ def _kategorien(X: pd.DataFrame, stufen: dict | None = None) -> tuple[pd.DataFra
     return X, stufen
 
 
+def feld_relativ(X: pd.DataFrame, rennen: pd.Series) -> pd.DataFrame:
+    """Je Merkmal aus RELATIV: Rang im Feld (0 = kleinster … 1 = größter Wert, Gleichstand gemittelt) und Abstand zum
+    Feldschnitt. Fehlende Werte bleiben NaN und zählen beim Rang und Schnitt nicht mit. rennen: race_id je Zeile von X.
+    Schnell (Sekunden) – läuft deshalb nach dem Zwischenspeicher, im Training wie in der Karte."""
+    X = X.copy()
+    r = pd.Series(rennen.to_numpy(), index=X.index).astype(str)
+    for c in RELATIV:
+        if c not in X:
+            continue
+        v = pd.to_numeric(X[c], errors="coerce")
+        g = v.groupby(r)
+        rang, anz = g.rank(method="average"), g.transform("count")
+        X[f"{c}_rk"] = ((rang - 1) / (anz - 1)).where(anz > 1)
+        X[f"{c}_dz"] = v - g.transform("mean")
+    return X
+
+
 # --------------------------------------------------------------------------
 # Training
 # --------------------------------------------------------------------------
@@ -475,15 +506,33 @@ def abdeckung(X: pd.DataFrame, tage: pd.Series) -> pd.DataFrame:
     return a
 
 
+def _lgb_daten(lgb, Xk, y, rennen, art, ref=None):
+    """LightGBM-Datensatz; für „rang“ nach Rennen gruppiert (Zeilen eines Rennens hintereinander) mit Stufen-Ziel."""
+    if art == "rang":
+        return lgb.Dataset(Xk, np.rint(y.to_numpy() * RANG_STUFEN).astype(int), reference=ref,
+                           group=rennen.groupby(rennen, sort=False).size().to_numpy(),
+                           categorical_feature=KATEGORISCH, free_raw_data=False)
+    return lgb.Dataset(Xk, y, reference=ref, categorical_feature=KATEGORISCH, free_raw_data=False)
+
+
+def _lgb_params(art, params):
+    if art == "rang":
+        return {**LGB_PARAMS, "objective": "lambdarank", "metric": "ndcg", "eval_at": [3], "label_gain": RANG_GAIN,
+                **(params or {})}
+    return {**LGB_PARAMS, **(params or {})}
+
+
 def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
                X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
-               ab: str | None = None, neu: bool = False, log=print) -> dict:
+               ab: str | None = None, neu: bool = False, art: str = "beide", log=print) -> dict:
     """Einmal trainieren: Merkmale über die ganze Historie, lernen auf den ersten LERN_ANTEIL der Tage, prüfen auf dem
     Rest (gegen den Marktfavoriten und das Rating), dann auf allen Tagen neu lernen und speichern.
 
     ab:  nur Rennen ab diesem Datum lernen/prüfen (z. B. "2024-01-01", wenn Tracking erst ab da vorliegt). Die Merkmale
          nutzen trotzdem die ganze Historie davor (Form, Verbindungen, Abstammung).
-    neu: Merkmale neu bauen, auch wenn BASE/modelle/merkmale.parquet schon da ist (nötig nach neuen Renntagen)."""
+    neu: Merkmale neu bauen, auch wenn BASE/modelle/merkmale.parquet schon da ist (nötig nach neuen Renntagen).
+    art: "regression" (Platzanteil je Pferd schätzen), "rang" (LightGBM lambdarank: Reihenfolge im Rennen lernen) oder
+         "beide" – beide prüfen, das mit der besseren Rangkorrelation auf den Prüftagen wird gespeichert."""
     import lightgbm as lgb
     if hist is None:
         import regel_backtest as rb
@@ -491,9 +540,14 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
         hist = rb.laden(Path(base))
     ordner = Path(out) if out else (Path(base) / MODELL_ORDNER if base is not None else None)
     zwischen = ordner / MERKMAL_DATEI if ordner is not None else None
+    version = zwischen.with_suffix(".json") if zwischen is not None else None
     if X is None and zwischen is not None and zwischen.exists() and not neu:
+        v = json.loads(version.read_text()).get("version") if version.exists() else None
         X = pd.read_parquet(zwischen)
-        if not X.index.isin(hist.index).all():
+        if v != MERKMAL_VERSION:
+            log(f"Zwischengespeicherte Merkmale sind von einer älteren Version ({v}) – baue neu.")
+            X = None
+        elif not X.index.isin(hist.index).all():
             log("Zwischengespeicherte Merkmale passen nicht zur Historie – baue neu.")
             X = None
         else:
@@ -504,9 +558,11 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
         if zwischen is not None:
             zwischen.parent.mkdir(parents=True, exist_ok=True)
             X.to_parquet(zwischen)
+            version.write_text(json.dumps({"version": MERKMAL_VERSION}))
     y = ziel(hist).reindex(X.index)
     ok = y.notna()
     X, y = X[ok], y[ok]
+    X = feld_relativ(X, hist.loc[X.index, "race_id"])
     tage = pd.to_datetime(hist.loc[X.index, "date"])
     log("Abdeckung je Jahr (% der Starter mit Wert):")
     log(abdeckung(X, tage).to_string())
@@ -514,37 +570,49 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
         drin = tage >= pd.Timestamp(ab)
         X, y, tage = X[drin], y[drin], tage[drin]
         log(f"Nur Rennen ab {ab}: {len(X):,} Starter")
+    # nach Datum und Rennen sortieren: für „rang“ müssen die Zeilen eines Rennens zusammenstehen
+    rennen = hist.loc[X.index, "race_id"].astype(str)
+    reihe = pd.DataFrame({"t": tage, "r": rennen}).sort_values(["t", "r"], kind="stable").index
+    X, y, tage, rennen = X.loc[reihe], y.loc[reihe], tage.loc[reihe], rennen.loc[reihe]
     grenze = np.sort(tage.unique())[int(len(tage.unique()) * LERN_ANTEIL)]
-    lern, test = tage < grenze, tage >= grenze
+    lern, test = (tage < grenze).to_numpy(), (tage >= grenze).to_numpy()
     Xk, stufen = _kategorien(X)
-    p = {**LGB_PARAMS, **(params or {})}
     log(f"Lernen: {int(lern.sum()):,} Starter bis {pd.Timestamp(grenze):%Y-%m-%d}, prüfen: {int(test.sum()):,}")
-    d_lern = lgb.Dataset(Xk[lern], y[lern], categorical_feature=KATEGORISCH, free_raw_data=False)
-    d_test = lgb.Dataset(Xk[test], y[test], reference=d_lern, categorical_feature=KATEGORISCH, free_raw_data=False)
-    m = lgb.train(p, d_lern, num_boost_round=runden, valid_sets=[d_test],
-                  callbacks=[lgb.early_stopping(100, verbose=False)])
-    best = int(m.best_iteration or runden)
-    pt = pd.DataFrame({"race_id": hist.loc[X.index[test], "race_id"].to_numpy(), "y": y[test].to_numpy(),
-                       "modell": m.predict(Xk[test], num_iteration=best),
+    pt = pd.DataFrame({"race_id": rennen[test].to_numpy(), "y": y[test].to_numpy(),
                        "markt": -pd.to_numeric(hist.loc[X.index[test], "odds_final"], errors="coerce").to_numpy(),
                        "rating": X.loc[test, "rating_adj"].to_numpy()})
-    bericht = {"modell": _bewerten(pt, "modell"), "markt (Endquote)": _bewerten(pt, "markt"),
-               "rating (bereinigt)": _bewerten(pt, "rating"), "baeume": best,
-               "lernen_bis": f"{pd.Timestamp(grenze):%Y-%m-%d}", "ab": ab}
+    arten = ["regression", "rang"] if art == "beide" else [art]
+    bericht: dict = {}
+    modelle = {}
+    for a_ in arten:
+        p = _lgb_params(a_, params)
+        d_lern = _lgb_daten(lgb, Xk[lern], y[lern], rennen[lern], a_)
+        d_test = _lgb_daten(lgb, Xk[test], y[test], rennen[test], a_, ref=d_lern)
+        m = lgb.train(p, d_lern, num_boost_round=runden, valid_sets=[d_test],
+                      callbacks=[lgb.early_stopping(100, first_metric_only=True, verbose=False)])
+        best = int(m.best_iteration or runden)
+        pt[a_] = m.predict(Xk[test], num_iteration=best)
+        bericht[f"modell ({a_})"] = {**_bewerten(pt, a_), "baeume": best}
+        modelle[a_] = (m, best, p)
+    bericht["markt (Endquote)"] = _bewerten(pt, "markt")
+    bericht["rating (bereinigt)"] = _bewerten(pt, "rating")
+    sieger = max(arten, key=lambda a_: bericht[f"modell ({a_})"]["rang_korr"] or -1)
+    bericht.update({"gewaehlt": sieger, "lernen_bis": f"{pd.Timestamp(grenze):%Y-%m-%d}", "ab": ab})
     log("Prüfung auf den letzten Tagen (je Rennen):")
     for k, v in bericht.items():
         log(f"  {k}: {v}")
+    m, best, p = modelle[sieger]
     imp = pd.Series(m.feature_importance("gain"), index=Xk.columns).sort_values(ascending=False)
-    log("Wichtigste Merkmale (Gain): " + ", ".join(f"{k} {v / imp.sum():.1%}" for k, v in imp.head(15).items()))
+    log(f"Wichtigste Merkmale ({sieger}, Gain): " + ", ".join(f"{k} {v / imp.sum():.1%}" for k, v in imp.head(15).items()))
     # endgültig: alle Tage, gleiche Baumzahl
-    final = lgb.train(p, lgb.Dataset(Xk, y, categorical_feature=KATEGORISCH), num_boost_round=best)
+    final = lgb.train(p, _lgb_daten(lgb, Xk, y, rennen, sieger), num_boost_round=best)
     ordner.mkdir(parents=True, exist_ok=True)
     final.save_model(str(ordner / MODELL_DATEI))
-    meta = {"spalten": list(Xk.columns), "stufen": stufen, "bericht": bericht,
+    meta = {"spalten": list(Xk.columns), "stufen": stufen, "art": sieger, "bericht": bericht,
             "wichtig": {k: round(float(v / imp.sum()), 4) for k, v in imp.head(30).items()},
             "trainiert": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"), "starter": int(len(X))}
     (ordner / META_DATEI).write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
-    log(f"Modell gespeichert: {ordner / MODELL_DATEI}")
+    log(f"Modell gespeichert ({sieger}): {ordner / MODELL_DATEI}")
     return bericht
 
 
@@ -575,7 +643,8 @@ def _gruppe(spalte: str) -> str:
 
 
 def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log=print) -> dict:
-    """Power je heutigem Starter: {(race_id, Startnummer): {"p": Power, "pred": Platzanteil, "treiber": [[Name, Beitrag]]}}.
+    """Power je heutigem Starter: {(race_id, Startnummer): {"p": Power, "pred": Platzanteil (nur beim Regressions-Modell,
+    sonst None), "treiber": [[Name, Beitrag]]}}.
     heute_zeilen: Spalten wie die Historie (Schlüssel, Gewicht, Rating, Box, Alter, Rennen …), ohne Ergebnis."""
     if modell is None or heute_zeilen is None or not len(heute_zeilen):
         return {}
@@ -584,6 +653,7 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
     alle = pd.concat([hist, hz], axis=0, sort=False)
     heute = pd.Series(alle.index.isin(hz.index), index=alle.index)
     X = merkmale(alle, ziel_maske=heute, heute=heute, log=log)
+    X = feld_relativ(X, alle.loc[X.index, "race_id"])
     meta = modell["meta"]
     Xk, _ = _kategorien(X.reindex(columns=[c for c in meta["spalten"]]), meta["stufen"])
     Xk = Xk[meta["spalten"]]
@@ -599,6 +669,7 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
                 gr[_gruppe(spalte)] = gr.get(_gruppe(spalte), 0.0) + float(b)
             top = sorted(gr.items(), key=lambda kv: -abs(kv[1]))[:4]
             p = 100 + 10 * (z["pred"] - mu) / sd if sd and sd > 0 else 100.0
-            out[(r_, int(z["no"]))] = {"p": int(round(p)), "pred": round(float(z["pred"]), 3),
+            out[(r_, int(z["no"]))] = {"p": int(round(p)),
+                                       "pred": round(float(z["pred"]), 3) if meta.get("art", "regression") == "regression" else None,
                                        "treiber": [[n_, round(v_ * 100, 1)] for n_, v_ in top]}
     return out

@@ -15,6 +15,7 @@ Aufruf:  python selftest.py
 """
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 from datetime import date, datetime, timedelta
@@ -590,8 +591,20 @@ def power_modell_pruefen() -> None:
     ps = [w["p"] for w in v.values()]
     pruefe(mod is not None and len(v) == len(heute) and abs(np.mean(ps) - 100) < 2 and all(w["treiber"] for w in v.values()),
            f"Power-Modell: gespeichert, geladen, Power je heutigem Starter (Ø {np.mean(ps):.0f}, mit Treibern)")
-    pruefe(erg["modell"]["rang_korr"] > 0.2, f"Power-Modell findet das eingebaute Signal (Rangkorrelation "
-           f"{erg['modell']['rang_korr']} auf den Prüftagen)")
+    rk = {a_: erg[f"modell ({a_})"]["rang_korr"] for a_ in ("regression", "rang")}
+    pruefe(min(rk.values()) > 0.2 and erg["gewaehlt"] == max(rk, key=rk.get) and mod["meta"]["art"] == erg["gewaehlt"],
+           f"Power-Modell findet das eingebaute Signal als Regression und als Rang-Modell (Rangkorrelation {rk}), "
+           f"gespeichert: {erg['gewaehlt']}")
+    # Feld-relative Merkmale: Rang 0..1 und Abstand zum Feldschnitt je Rennen, NaN bleibt NaN
+    fr = pm.feld_relativ(pd.DataFrame({"rating_adj": [50.0, 60.0, np.nan, 70.0]}), pd.Series(["a", "a", "a", "b"]))
+    pruefe(fr["rating_adj_rk"].tolist()[:2] == [0.0, 1.0] and np.isnan(fr["rating_adj_rk"][2])
+           and np.isnan(fr["rating_adj_rk"][3]) and fr["rating_adj_dz"].tolist()[:2] == [-5.0, 5.0],
+           "Power-Modell: Feld-relative Merkmale (Rang im Feld, Abstand zum Schnitt; Lücken bleiben leer)")
+    # alte Quote vergleichbar: Quotenrang relativ und Marktchance des letzten Laufs
+    q = X[["f1_odds", "f1_orank", "f1_pm"]].dropna()
+    pruefe(len(q) and q["f1_orank"].between(0, 1).all() and q["f1_pm"].between(0, 1).all()
+           and q[["f1_odds", "f1_pm"]].corr(method="spearman").iloc[0, 1] < -0.5,
+           "Power-Modell: letzte Läufe mit Quotenrang (0 = Favorit) und Marktchance (1/Quote, je Rennen normiert)")
     # Gleichstände (z. B. viele gleiche Ratings) zählen anteilig, nicht nach Zeilenreihenfolge
     gl = pd.DataFrame({"race_id": [1] * 4 + [2] * 4, "y": [1, .66, .33, 0] * 2, "r": [5, 5, 5, 5, 1, 9, 8, 7]})
     b = pm._bewerten(gl, "r")
@@ -602,6 +615,7 @@ def power_modell_pruefen() -> None:
         o = Path(tmp) / pm.MODELL_ORDNER
         o.mkdir()
         X.to_parquet(o / pm.MERKMAL_DATEI)
+        (o / pm.MERKMAL_DATEI).with_suffix(".json").write_text(json.dumps({"version": pm.MERKMAL_VERSION}))
         pm.trainieren(hist=h, out=o, runden=10, ab=str(h["date"].min())[:10], log=print)
     pruefe("Merkmale aus" in aus.getvalue() and "Abdeckung je Jahr" in aus.getvalue(),
            "Power-Modell: Merkmale aus dem Zwischenspeicher, Abdeckung je Jahr im Protokoll")
