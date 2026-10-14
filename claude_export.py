@@ -32,7 +32,7 @@ import copy
 import json
 from pathlib import Path
 
-OHNE_STARTER = {"silks", "odds", "odds_morning", "kpi", "pref_ref"}   # Trikots; Kurse nur Sicherheitsnetz; kpi/pref_ref: nur für Overlays der Karte
+OHNE_STARTER = {"silks", "odds", "odds_morning", "kpi", "pref_ref", "power"}   # Trikots; Kurse nur Sicherheitsnetz; kpi/pref_ref: nur für Overlays der Karte
 # Nur für die Overlays der HTML-Karte, nicht für Claude: Vorlieben-Gesamttabellen, Overlay-Parameter, Matrix-Werte
 OHNE_OBEN = {"pref_alle"}
 OHNE_PARAMS = {"kpi_days", "kpi_window"}

@@ -73,6 +73,7 @@ Tracking ist eine Eigenschaft von **Renntag und Rennen**, nicht von der Bahn:
 | `timeform_ratings.py` | TR: Zeit-Rating nach Timeform-Art (Standardzeiten, Going Allowance) mit Finishing-Speed-Upgrade, Backtest |
 | `rtr_arr.py` | Ratings aus PT_Vorarbeiten: RTR (Elo-artiges Rating nach dem Rennen) und ARR (Leistung im Rennen) |
 | `tipp_auswertung.py` | Claude-Tipps (Ausgabe des Skills) gegen die Ergebnisse: Treffsicherheit, Stufen, Angle-Typen, Wett-Ergebnis |
+| `power_modell.py` | Power-Modell: LightGBM sagt den Platzanteil voraus (Merkmale nur aus Läufen vor dem Renntag), einmal trainiert, die Race Card zeigt daraus „Power“ |
 | `hypothesen_backtest.py` | Hypothesen H1–H6 (Rennverlauf, Überreaktion, Handicap-Erhöhung, Tempo × Stil, Presse-Konsens, Duell-Rangfolge) per A/E und bedingtem Logit |
 | `regel_backtest.py` | Regeln des Skills gegen die Datenbank prüfen: A/E gegen den Markt (Endquote) je Regel |
 | `racecard_template.html` | Layout der Race Card; die Daten werden als JSON eingesetzt |
@@ -141,6 +142,25 @@ erwartetes Tempo × Frontvorteil der Bahn, H5 Presse-Konsens nur vorwärts aus `
 Duell-Rangfolge (`hb.duell_merkmale`: für jedes Testrennen wie auf der Race Card aus den Läufen davor nachgerechnet –
 Duell-Wert in Längen, Rang 1, letzter Rang; nur Rennen mit ≥ 3 verbundenen Pferden; dauert einige Minuten). H1/H4/H6
 im Testteil (Norm, Pace-Kalibrierung, Bias auf der ersten Hälfte gelernt). CSV nach `auswertung/hypothesen_*_JJJJMMTT.csv`.
+
+## Power-Modell (einmal trainieren)
+
+```python
+import power_modell as pm
+erg = pm.trainieren(BASE)   # ~1 h: Merkmale über die ganze Historie, Prüfung, Modell nach BASE/modelle/
+```
+
+Abhängige Variable: Platzanteil (Starter − Platz) / (Starter − 1), nicht im Ziel = 0. Merkmale nur aus Läufen vor dem
+Renntag (`pm.merkmale`, dieselbe Funktion für Training und Karte): Rennen (Typ, Starter, Altersklasse, Distanz, Boden,
+Tempo-Szenario), Pferd (Alter, Geschlecht, €/Lauf 365 Tage, Gewicht, Rating, Tage, RTR/ARR/TR/ΔL600 A/ΔB200 A wie die
+Kacheln, Duell-Rang, Startbox, Laufstil), Vorlieben (gewonnen/platziert auf Kurs, Distanz, Boden; beste Gruppe des
+Pferdes), Trainer/Jockey/Besitzer/Züchter (Score aus A/E Platz, Platzanteil, €/Lauf, 365 Tage), Vater/Muttervater
+(Score, €/Lauf+, Valeur der 3-Jährigen, beste Distanz-/Bodengruppe) und die letzten drei Läufe (Klasse, Längen, Platzanteil,
+gleicher Boden/Distanz, ARR, TR, Finish-Index, ±800, Weg, Endquote, Gegner-Score, Vergleich mit heutigen Gegnern).
+Keine heutige Prognose oder Quote. Fehlende Werte bleiben leer (LightGBM verteilt sie selbst). Gelernt auf den ersten
+75 % der Tage, geprüft auf dem Rest (Rangkorrelation je Rennen, Sieger getroffen, Sieger unter den Top 3 – gegen
+Endquote und Rating), dann auf allen Tagen neu gelernt. `racecard.run` lädt `BASE/modelle/power_modell.txt` und zeigt
+Power = 100 + 10 × z der Vorhersage im Feld (Tooltip: stärkste Treiber); ohne Modell bleibt Power aus sechs Kennzahlen.
 
 ## Regel-Backtest (Skill gegen die Datenbank)
 
