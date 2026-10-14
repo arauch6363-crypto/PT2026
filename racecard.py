@@ -1709,6 +1709,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
 
     # Vorlieben: Jockey/Trainer die letzten zwei Jahre, Vater und Muttervater die gesamte Historie
     h_jt = h[h["date"] >= heute - timedelta(days=VORLIEBEN_JT_TAGE)]
+    # Vater/Muttervater nach Distanz ohne 2-Jährige: die laufen fast nur kurze Strecken und würden die Distanz-Vorliebe
+    # zur Kurzstrecke verzerren (Maßstab der Abweichung ebenfalls ohne 2-Jährige)
+    h_ohne2 = h[h["age"] != 2] if "age" in h else h
     pref = {
         "trainer_jockey": gruppen(h_jt, ["trainer_key", "jockey_key"]),
         "trainer_course": gruppen(h_jt, ["trainer_key", "course_key"]),
@@ -1717,15 +1720,17 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         "sire_age": gruppen(h, ["sire_key", "age_grp"]),
         "dam_sire_age": gruppen(h, ["dam_sire_key", "age_grp"]),
         "jockey_course": gruppen(h_jt, ["jockey_key", "course_key"]),
-        "sire_dist": gruppen(h, ["sire_key", "dist_group"]),
+        "sire_dist": gruppen(h_ohne2, ["sire_key", "dist_group"]),
         "sire_going": gruppen(h, ["sire_key", "going_pmu"]),
-        "dam_sire_dist": gruppen(h, ["dam_sire_key", "dist_group"]),
+        "dam_sire_dist": gruppen(h_ohne2, ["dam_sire_key", "dist_group"]),
         "dam_sire_going": gruppen(h, ["dam_sire_key", "going_pmu"]),
         # Gesamtbilanz je Person/Linie im selben Zeitraum: Maßstab für auffällige Vorlieben (ae_abweichung)
         "trainer": gruppen(h_jt, ["trainer_key"]),
         "jockey": gruppen(h_jt, ["jockey_key"]),
         "sire": gruppen(h, ["sire_key"]),
         "dam_sire": gruppen(h, ["dam_sire_key"]),
+        "sire_ohne2": gruppen(h_ohne2, ["sire_key"]),
+        "dam_sire_ohne2": gruppen(h_ohne2, ["dam_sire_key"]),
         "jockey_horse": gruppen(h, ["jockey_key", "horse_id"]),   # nur fürs Vorlieben-Overlay (ganze Historie)
     }
     # Vorlieben-Overlay: je Tabelle und Person alle Kategorien (z. B. alle Bahnen eines Trainers), nach Läufen
@@ -1734,15 +1739,17 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     opt_basis: dict = {}
 
     def opt_werte(tab, person, kat, rec_):
-        """[erwartete Plätze, Pos+, €/L+] einer Kategorie (Vater/Muttervater) – 100 = Ø aller Läufe der Kategorie."""
+        """[Pos+, €/L+] einer Kategorie (Vater/Muttervater) – 100 = Ø aller Läufe der Kategorie."""
         if tab not in opt_basis:
             pk, kk = OPT_TABS[tab]
             ok = h[pk].notna() & h[kk].notna() if pk in h and kk in h else pd.Series(False, index=h.index)
+            if kk == "dist_group" and "age" in h:
+                ok = ok & (h["age"] != 2)                        # Distanz ohne 2-Jährige (wie sire_dist)
             opt_basis[tab] = (rp0[ok].groupby([h.loc[ok, pk], h.loc[ok, kk]]).mean() if ok.any() else pd.Series(dtype=float),
                               rp0[ok].groupby(h.loc[ok, kk]).mean() if ok.any() else pd.Series(dtype=float),
                               pw[ok].groupby(h.loc[ok, kk]).mean() if ok.any() and len(pw) else pd.Series(dtype=float))
         pos_g, pos_b, epr_b = opt_basis[tab]
-        return [rec_["exp"], index(_num(pos_g.get((person, kat))), _num(pos_b.get(kat))),
+        return [index(_num(pos_g.get((person, kat))), _num(pos_b.get(kat))),
                 index(rec_["epr"], _num(epr_b.get(kat)))]
 
     def pref_ref(tab, person, kat):
@@ -1760,7 +1767,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         heute_lab = lab(kat) if _txt(kat) is not None else None
         if person not in tabelle:
             zeilen = sorted(pref_index[tab].get(person, []), key=lambda cr: -cr[1]["runs"])
-            tabelle[person] = [[lab(c_), r_["runs"], r_["wins"], r_["places"], r_["ae"]]
+            # [Beschriftung, Läufe, Siege, Plätze, A/E, erwartete Plätze (+ Pos+, €/L+ bei Vater/Muttervater)]
+            tabelle[person] = [[lab(c_), r_["runs"], r_["wins"], r_["places"], r_["ae"], r_["exp"]]
                                + (opt_werte(tab, person, c_, r_) if tab in OPT_TABS else []) for c_, r_ in zeilen]
         pref_heute.setdefault((tab, person), set()).add(heute_lab)
         return [tab, person, heute_lab]
@@ -1917,14 +1925,15 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 gew = lauf_gewichte(w, r.get("distance_m"), gb)
                 return _num(float((gew * w[spalte]).sum() / (gew.sum() + SCHNITT_PRIOR)), 2)
 
-            def q(tab, key, rolle=None):
+            def q(tab, key, rolle=None, basis=None):
                 """Vorliebe aus pref[tab]; mit rolle zusätzlich die Abweichung vom Rest dieser Person/Linie
-                (key[0] ist ihr Schlüssel bzw. für den Jockey key[1] bei trainer_jockey)."""
+                (key[0] ist ihr Schlüssel bzw. für den Jockey key[1] bei trainer_jockey); basis: andere Gesamtbilanz
+                als Maßstab (Distanz von Vater/Muttervater: ohne 2-Jährige)."""
                 rec_ = _leer() if any(_txt(k) is None for k in key) else pref[tab].get(key, _leer())
                 if rolle is None:
                     return rec_
                 ek = key[1] if (rolle == "jockey" and tab == "trainer_jockey") else key[0]
-                return {**rec_, "dev": ae_abweichung(rec_, pref[rolle].get(ek) if _txt(ek) else None)}
+                return {**rec_, "dev": ae_abweichung(rec_, pref[basis or rolle].get(ek) if _txt(ek) else None)}
 
             ok_, bk_ = p.get("owner_key"), p.get("breeder_key")
             ae_p = {}
@@ -2011,9 +2020,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                                "trainer": q("trainer_jockey", (tk, jk), "jockey"),
                                "horse": {**jockey_pferd, "dev": ae_abweichung(
                                    jockey_pferd, pref["jockey"].get(jk) if _txt(jk) else None)}},
-                    "sire": {"distance": q("sire_dist", (sk, dg), "sire"), "going": q("sire_going", (sk, gb), "sire"),
+                    "sire": {"distance": q("sire_dist", (sk, dg), "sire", "sire_ohne2"), "going": q("sire_going", (sk, gb), "sire"),
                              "age": q("sire_age", (sk, alter_gruppe(p.get("age"))), "sire")},
-                    "dam_sire": {"distance": q("dam_sire_dist", (dk, dg), "dam_sire"),
+                    "dam_sire": {"distance": q("dam_sire_dist", (dk, dg), "dam_sire", "dam_sire_ohne2"),
                                  "going": q("dam_sire_going", (dk, gb), "dam_sire"),
                                  "age": q("dam_sire_age", (dk, alter_gruppe(p.get("age"))), "dam_sire")},
                 },
