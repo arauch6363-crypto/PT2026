@@ -1612,9 +1612,28 @@ def _prognose_rennen(pg: dict | None) -> tuple[dict | None, dict]:
     return rennen, je
 
 
+def heute_zeilen(rh: pd.DataFrame, ru: pd.DataFrame, heute: pd.Timestamp) -> pd.DataFrame:
+    """Heutige Starter (ohne Nichtstarter) mit den Spalten der Historie, ohne Ergebnis – für das Power-Modell."""
+    st = ru["status"].astype("string").str.upper().fillna("") if "status" in ru else pd.Series("", index=ru.index)
+    z = ru[st != "NON_PARTANT"].copy()
+    spalten = [c for c in ["race_id", "distance_m", "going", "hippodrome", "categorie", "conditions_age", "konfig"] if c in rh]
+    z = z.merge(rh[spalten], on="race_id", how="inner")
+    z["date"] = heute
+    for c in ["distance_m", "weight_kg", "age", "draw", "saddle_no"]:
+        z[c] = pd.to_numeric(z[c], errors="coerce") if c in z else np.nan
+    z["valeur"] = pd.to_numeric(z["rating"], errors="coerce") if "rating" in z else np.nan
+    z["going_pmu"] = [going_klasse(g) for g in z["going"]] if "going" in z else BODEN_ANNAHME
+    z["dist_group"] = z["distance_m"].map(rtr_arr.distance_group)
+    z["racetype"] = z["categorie"].map(kategorie) if "categorie" in z else None
+    z["course_key"] = norm_name(z["hippodrome"]) if "hippodrome" in z else None
+    z["n_runners"] = z.groupby("race_id")["saddle_no"].transform("count")
+    return z
+
+
 def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.DataFrame,
-               tag: date, silks: dict | None = None, prognosen: dict | None = None) -> dict:
-    """prognosen: {(Reunion, Rennen): pmu.prognose(...)} – PMU-Prognosen (cote probable, Kommentar, Tipps)."""
+               tag: date, silks: dict | None = None, prognosen: dict | None = None, power: dict | None = None) -> dict:
+    """prognosen: {(Reunion, Rennen): pmu.prognose(...)} – PMU-Prognosen (cote probable, Kommentar, Tipps).
+    power: gespeichertes Power-Modell (power_modell.laden) – dann je Starter „power“ aus dem Modell."""
     heute = pd.Timestamp(tag)
     silks = silks or {}
     prognosen = prognosen or {}
@@ -1787,6 +1806,13 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         rh["konfig"] = konfig_angleichen(rh["konfig"], h["konfig"])
     ru = abstammung_keys(ru)
     ru["horse_id"] = ru["horse_key"].fillna("?") + "|" + ru["sire_key"].fillna("?")
+    power_je = {}
+    if power is not None and len(h):                       # Power-Modell: Vorhersage für alle heutigen Starter
+        import power_modell
+        try:
+            power_je = power_modell.vorhersage(h, heute_zeilen(rh, ru, heute), power)
+        except Exception as e:                             # Modell passt nicht (mehr): Karte ohne ML-Power
+            print(f"Power-Modell: Vorhersage fehlgeschlagen ({e}) – Karte zeigt den bisherigen Power-Wert")
     ids = set(ru["horse_id"])
     hh = h[h["horse_id"].isin(ids)].sort_values("date", ascending=False)
     per_pferd = {k: g for k, g in hh.groupby("horse_id", sort=False)}
@@ -2044,6 +2070,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "form_lines": form,
                 "kpi": kpi_laeufe(vorher, heute, p.get("weight_kg"), kpi_klasse),   # ARR/TR 365 Tage fürs Vergleichs-Overlay
                 "prono": prono_je.get(_num(p.get("saddle_no"), 0)),
+                "power": power_je.get((str(r["race_id"]), int(p["saddle_no"]))) if pd.notna(p.get("saddle_no")) else None,
                 "duels": duelle,
                 "duels_sum": _duell_bilanz(duelle),
                 "indirect": indirekt.get(hid),
@@ -2216,7 +2243,10 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
         if len(v):
             print("Backtest – Vorhersage des nächsten Laufs (r mit dem Platzanteil; Top-3-Quote des Bestbewerteten):")
             print(v.to_string(index=False))
-    daten = baue_daten(hist, races_heute, runners_heute, tag, silks, prognosen)
+    import power_modell
+    pmod = power_modell.laden(base)
+    print("Power-Modell geladen." if pmod else "Kein Power-Modell (power_modell.trainieren) – Power aus sechs Kennzahlen.")
+    daten = baue_daten(hist, races_heute, runners_heute, tag, silks, prognosen, power=pmod)
     mit_k = sum(1 for r in daten["races"].values() for x in r["runners"] for f in x["form_lines"] if f.get("comment"))
     if uebersetzen_aktiv and (mit_k or prognosen):       # Übersetzung: DeepL (DEEPL_API_KEY) -> Google -> MyMemory
         print(f"Kommentare in den Formzeilen: {mit_k}, davon auf Deutsch: {kommentare_uebersetzen(daten, base)}")

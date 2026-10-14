@@ -335,6 +335,8 @@ def main() -> int:
     tipp_auswertung_pruefen()
     print("\n13) Hypothesen-Backtest: bedingtes Logit")
     hypothesen_pruefen()
+    print("\n14) Power-Modell: Merkmale ohne Blick in die Zukunft, Training, Vorhersage")
+    power_modell_pruefen()
 
     pt.read_pages = requests_session_orig
     print("\n" + ("Alle Prüfungen bestanden." if not fehler else f"{len(fehler)} Prüfung(en) fehlgeschlagen:"))
@@ -521,6 +523,86 @@ def hypothesen_pruefen() -> None:
            and not hb.PECH.search("a fini fort"), "Pech im Kommentar erkannt (enfermé, manqué de place)")
 
 
+def _power_synth(tage=40, rennen=3, feld=8, pferde=90, seed=3) -> pd.DataFrame:
+    """Kleine Historie wie racecard.vorbereiten mit eingebautem Signal: Stärke des Pferdes + Trainer-Effekt."""
+    import numpy as np
+    rng = np.random.default_rng(seed)
+    fae, trn = rng.normal(0, 1, pferde), rng.integers(0, 8, pferde)
+    t_eff = rng.normal(0, .6, 8)
+    z = []
+    for d in range(tage):
+        dt = pd.Timestamp("2025-03-01") + pd.Timedelta(days=d)
+        for c in range(rennen):
+            ids = rng.choice(pferde, feld, replace=False)
+            dist, going = int(rng.choice([1400, 1600, 2000])), str(rng.choice(["FAST", "SLOW"]))
+            perf = fae[ids] + t_eff[trn[ids]] + rng.normal(0, 1, feld)
+            pos = np.empty(feld, int); pos[np.argsort(-perf)] = np.arange(1, feld + 1)
+            for k, i in enumerate(ids):
+                fehlt = rng.random() < .25                 # Lücken wie in echt: kein Tracking, kein TR/ARR
+                z.append(dict(race_id=f"{dt:%Y%m%d}R1C{c + 1}", date=dt, horse_id=f"P{i}|S", horse=f"P{i}",
+                              saddle_no=k + 1, weight_kg=55.0 + k % 4, distance_m=dist, going=going, going_pmu=going,
+                              dist_group=f"{dist - 199}-{dist}", course_key=f"B{c}", hippodrome=f"B{c}", racetype="Handicap",
+                              conditions_age=None if fehlt else "TROIS_ANS_ET_PLUS", konfig=f"K{c}", draw=k + 1,
+                              age=3 + i % 4, sex="MALES", valeur=np.nan if fehlt else 30 + 5 * fae[i],
+                              finish_pos=pos[k], n_runners=feld, rel_place=(feld - pos[k]) / (feld - 1),
+                              won=int(pos[k] == 1), placed=int(pos[k] <= 3), exp_place=0.375,
+                              prize_won=5000.0 if pos[k] == 1 else 0.0, odds_final=float(np.exp(-fae[i]) * 5 + 1.5),
+                              lengths_behind=1.5 * (pos[k] - 1), arr=np.nan if fehlt else 40 + 5 * perf[k],
+                              tr=np.nan if fehlt else 80 + 8 * perf[k], rtr=30 + 5 * fae[i], d_L600_A=np.nan if fehlt else .5 * perf[k],
+                              d_B200_A=np.nan, early_pct=rng.random(), tracking=not fehlt, ausgeritten=False, cls_val=30.0,
+                              cls_epr_kl=7.0, trainer_key=f"T{trn[i]}", jockey_key=None if fehlt else f"J{k}",
+                              owner_key=f"O{i % 20}", breeder_key=None, sire_key=f"S{i % 10}", dam_sire_key=f"D{i % 12}"))
+    h = pd.DataFrame(z)
+    h["odds_rank"] = h.groupby("race_id")["odds_final"].rank(method="min")
+    return h
+
+
+def power_modell_pruefen() -> None:
+    import io, contextlib, tempfile
+    import numpy as np
+    import power_modell as pm
+    h = _power_synth()
+    with contextlib.redirect_stdout(io.StringIO()):
+        X = pm.merkmale(h, log=print)
+    erst = X.loc[h.drop_duplicates("horse_id").index]
+    pruefe(len(X) == len(h) and erst["runs"].eq(0).all() and erst["arr"].isna().all() and erst["f1_pos"].isna().all()
+           and erst["trainer_score"].iloc[:3].isna().all(),
+           f"Power-Modell: {X.shape[1]} Merkmale je Starter; erster Lauf ohne Vorwerte, erster Tag ohne Verbindungs-Score")
+    pruefe(X["arr"].isna().any() and X["arr"].notna().any() and X["cond_age"].isna().any(),
+           "Power-Modell: fehlende Werte bleiben leer (NaN), statt ersetzt zu werden")
+    h2 = h.copy()
+    letzt = h2["date"] == h2["date"].max()
+    h2.loc[letzt, "finish_pos"] = h2.loc[letzt, "finish_pos"].to_numpy()[::-1]          # Ergebnis des letzten Tages ändern
+    h2.loc[letzt, "rel_place"] = 1 - h2.loc[letzt, "rel_place"]
+    h2.loc[letzt, "arr"] = 99.0
+    with contextlib.redirect_stdout(io.StringIO()):
+        X2 = pm.merkmale(h2, log=print)
+    pruefe(X.equals(X2) or X.compare(X2).empty,
+           "Power-Modell: ein anderes Ergebnis am letzten Tag ändert kein Merkmal (auch nicht an diesem Tag)")
+    with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+        erg = pm.trainieren(hist=h, X=X, out=Path(tmp) / pm.MODELL_ORDNER, runden=60, log=print)
+        mod = pm.laden(Path(tmp))
+        heute = h[h["race_id"] == h["race_id"].iloc[-1]].drop(columns=["finish_pos", "rel_place", "won", "placed",
+                                                                         "prize_won", "arr", "tr", "odds_final"])
+        heute = heute.assign(race_id="20260601R1C1", date=pd.Timestamp("2026-06-01"))
+        heute.loc[heute.index[0], "weight_kg"] = np.nan                   # Lücke auch heute
+        v = pm.vorhersage(h, heute, mod, log=print)
+    ps = [w["p"] for w in v.values()]
+    pruefe(mod is not None and len(v) == len(heute) and abs(np.mean(ps) - 100) < 2 and all(w["treiber"] for w in v.values()),
+           f"Power-Modell: gespeichert, geladen, Power je heutigem Starter (Ø {np.mean(ps):.0f}, mit Treibern)")
+    pruefe(erg["modell"]["rang_korr"] > 0.2, f"Power-Modell findet das eingebaute Signal (Rangkorrelation "
+           f"{erg['modell']['rang_korr']} auf den Prüftagen)")
+    # Race Card: baue_daten mit Modell -> „power“ je heutigem Starter (Testkarte aus racecard_pruefen)
+    import racecard as rc
+    with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+        pm.trainieren(hist=h, X=X, out=Path(tmp) / pm.MODELL_ORDNER, runden=30, log=print)
+        mod = pm.laden(Path(tmp))
+        d = rc.baue_daten(*_RC_FALL, power=mod)
+    st = [x for r in d["races"].values() for x in r["runners"] if not x["nr"]]
+    pruefe(st and all(x["power"] and isinstance(x["power"]["p"], int) for x in st),
+           f"Race Card mit Power-Modell: Power für alle {len(st)} heutigen Starter")
+
+
 def tipp_auswertung_pruefen() -> None:
     import io, contextlib, json as _json, tempfile
     import tipp_auswertung as ta
@@ -671,6 +753,8 @@ def racecard_pruefen() -> None:
                             {**lauf(f"{tag:%Y%m%d}R1C1", 2, "Y", "NEU", None, 3.0, sex="HONGRES"),
                              "finish_pos": None}])
     d = rc.baue_daten(hist, heute_r, heute_s, tag)
+    global _RC_FALL
+    _RC_FALL = (hist, heute_r, heute_s, tag)                  # für den Power-Modell-Test
     x, y = d["races"][f"{tag:%Y%m%d}R1C1"]["runners"]
     pruefe({"verlauf", "verlauf_wert", "verlauf_pferd", "verlauf_plus"} <= set(x["form_lines"][0])
            and x["form_lines"][0]["verlauf_plus"] is False,
@@ -1418,7 +1502,7 @@ def racecard_pruefen() -> None:
     def _norm(q):            # Rennschlüssel (Datum…/FERTIG) weg, Nichtstarter zählen wie Starter
         q = q.replace(".nichtstarter[]", ".runners[]")
         return ".".join(t for t in q.split(".") if not t.startswith(("20", "FERTIG")))
-    ausgelassen = (".runners[].silks", ".runners[].odds", ".runners[].odds_morning", ".runners[].kpi", ".runners[].pref_ref",
+    ausgelassen = (".runners[].silks", ".runners[].odds", ".runners[].odds_morning", ".runners[].kpi", ".runners[].pref_ref", ".runners[].power",
                    *(f".form_lines[].{k}" for k in ce.OHNE_FORMZEILE), *(f".{k}" for k in ce.OHNE_AE),
                    *(f".params.{k}" for k in ce.OHNE_PARAMS),
                    *(f".duels[].{k}" for k in ce.OHNE_DUELL), *(f".rivals[].{k}" for k in ce.OHNE_INDIREKT))
