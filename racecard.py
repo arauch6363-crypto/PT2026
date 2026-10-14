@@ -80,10 +80,10 @@ KLASSE_TAGE = 365               # Klasse: Ø Gewinnsumme je Lauf der Teilnehmer 
 KLASSE_ERFAHREN_TAGE = 365
 KLASSE_VERBINDUNG = {"trainer": 0.5, "owner": 0.3, "breeder": 0.2}
 KLASSE_VERB_MIN = 5
-INDIREKT_TAGE = 120             # indirekte Duelle: Vergleichsrennen höchstens so alt (für beide Seiten)
+INDIREKT_TAGE = 180             # indirekte Duelle: Vergleichsrennen höchstens so alt (für beide Seiten)
 INDIREKT_DIST_M = 200           # … Distanz höchstens so weit auseinander
 INDIREKT_REL_MIN = 0.5          # … alle drei Pferde in der vorderen Hälfte: rel. Platzierung > 0,5
-DUELL_TAGE = 120                # Heutige Gegner · frühere Duelle, eingeschränkt wie die indirekten: nur Rennen der
+DUELL_TAGE = 180                # Heutige Gegner · frühere Duelle, eingeschränkt wie die indirekten: nur Rennen der
 DUELL_DIST_M = 200              # letzten DUELL_TAGE, Distanz höchstens DUELL_DIST_M von heute, Boden innerhalb einer
 DUELL_BODEN = True              # Stufe (DUELL_BODEN); anders als dort zählen alle Platzierungen
 # Duell-Rangfolge: kleinste Quadrate über alle direkten und indirekten Duelle des heutigen Feldes
@@ -1739,18 +1739,22 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     opt_basis: dict = {}
 
     def opt_werte(tab, person, kat, rec_):
-        """[Pos+, €/L+] einer Kategorie (Vater/Muttervater) – 100 = Ø aller Läufe der Kategorie."""
+        """[Pos+, €/L+] einer Kategorie (Vater/Muttervater) – 100 = Ø aller Läufe der Kategorie; €/L+ aus
+        log(1 + Preisgeld) je Lauf (wie die Rennstärke), damit einzelne große Rennen den Wert nicht hochziehen."""
         if tab not in opt_basis:
             pk, kk = OPT_TABS[tab]
             ok = h[pk].notna() & h[kk].notna() if pk in h and kk in h else pd.Series(False, index=h.index)
             if kk == "dist_group" and "age" in h:
                 ok = ok & (h["age"] != 2)                        # Distanz ohne 2-Jährige (wie sire_dist)
-            opt_basis[tab] = (rp0[ok].groupby([h.loc[ok, pk], h.loc[ok, kk]]).mean() if ok.any() else pd.Series(dtype=float),
-                              rp0[ok].groupby(h.loc[ok, kk]).mean() if ok.any() else pd.Series(dtype=float),
-                              pw[ok].groupby(h.loc[ok, kk]).mean() if ok.any() and len(pw) else pd.Series(dtype=float))
-        pos_g, pos_b, epr_b = opt_basis[tab]
+            lp_ = np.log1p(pw.fillna(0).clip(lower=0)) if len(pw) else pd.Series(dtype=float, index=h.index)
+            leer = pd.Series(dtype=float)
+            opt_basis[tab] = (rp0[ok].groupby([h.loc[ok, pk], h.loc[ok, kk]]).mean() if ok.any() else leer,
+                              rp0[ok].groupby(h.loc[ok, kk]).mean() if ok.any() else leer,
+                              lp_[ok].groupby([h.loc[ok, pk], h.loc[ok, kk]]).mean() if ok.any() and len(lp_) else leer,
+                              lp_[ok].groupby(h.loc[ok, kk]).mean() if ok.any() and len(lp_) else leer)
+        pos_g, pos_b, lp_g, lp_b = opt_basis[tab]
         return [index(_num(pos_g.get((person, kat))), _num(pos_b.get(kat))),
-                index(rec_["epr"], _num(epr_b.get(kat)))]
+                index(_num(lp_g.get((person, kat)), 4), _num(lp_b.get(kat), 4))]
 
     def pref_ref(tab, person, kat):
         """[Tabelle, Person, heutige Kategorie (Beschriftung)] für die Karte; füllt pref_alle[tab][person]."""

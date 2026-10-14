@@ -697,9 +697,10 @@ def racecard_pruefen() -> None:
     dg_ = rs[2][:-2]
     in_b = hs_["dist_group"] == dg_
     erw_pos = round(100 * rps[in_b & (hs_["sire_key"] == rs[1])].mean() / rps[in_b].mean())
-    erw_epr = round(100 * hs_.loc[in_b & (hs_["sire_key"] == rs[1]), "prize_won"].mean() / hs_.loc[in_b, "prize_won"].mean())
+    lps = np.log1p(hs_["prize_won"].fillna(0).clip(lower=0))
+    erw_epr = round(100 * round(lps[in_b & (hs_["sire_key"] == rs[1])].mean(), 4) / round(lps[in_b].mean(), 4))
     pruefe(len(zs) == 8 and zs[6] == erw_pos and zs[7] == erw_epr,
-           f"Optimaler Bereich: Vater je Distanzgruppe mit Pos+ {zs[6]} und €/L+ {zs[7]} (100 = Ø aller Läufe der Gruppe)")
+           f"Optimaler Bereich: Vater je Distanzgruppe mit Pos+ {zs[6]} und €/L+ {zs[7]} (log(1 + €) je Lauf, 100 = Ø aller Läufe der Gruppe)")
     m90 = x["ae"]["trainer"]["d90"]
     hv = hist[hist["date"] < pd.Timestamp(tag)]
     rp = hv["rel_place"].fillna(0).where(hv["n_runners"] > 1)
@@ -1018,7 +1019,7 @@ def racecard_pruefen() -> None:
     pruefe(x["duels"][0]["race_id"] in {f_["race_id"] for f_ in x["form_lines"]},
            "Direktes Duell mit race_id der eigenen Formzeile (Knopf „Heutige Gegner“ in dieser Zeile)")
     pruefe(len(x["duels"]) == 1 and x["duels"][0]["date"] == str(tag - timedelta(days=10)),
-           "Direkte Duelle: nur ≤ 120 Tage, ±200 m zu heute, Boden innerhalb einer Stufe (Duell über 2000 m Lourd fällt weg)")
+           "Direkte Duelle: nur ≤ 180 Tage, ±200 m zu heute, Boden innerhalb einer Stufe (Duell über 2000 m Lourd fällt weg)")
     alt = (rc.DUELL_TAGE, rc.DUELL_DIST_M, rc.DUELL_BODEN)
     rc.DUELL_TAGE, rc.DUELL_DIST_M, rc.DUELL_BODEN = 365, 10_000, False          # Rechnung ohne Filter
     x_d = rc.baue_daten(hist, heute_r, heute_s, tag)["races"][f"{tag:%Y%m%d}R1C1"]["runners"][0]
@@ -1051,7 +1052,7 @@ def racecard_pruefen() -> None:
            and e_h["w_today"] == 4.0 and e_h["exp_kg"] == -0.6 and e_h["exp_l"] == -0.5
            and ind["H"]["behind"] == 1 and e_r["exp_kg"] == 0.6,
            "Indirekte Duelle: über gemeinsamen Gegner (2 L × 1,2 + 2 kg = 4,4 vs 1 L × 1,0 = 1,0 -> 3,4 kg), "
-           "heute 4 kg mehr -> 0,6 kg / 0,5 L hinten; PSF-Rennen und Rennen > 120 Tage zählen nicht")
+           "heute 4 kg mehr -> 0,6 kg / 0,5 L hinten; PSF-Rennen und Rennen > 180 Tage zählen nicht")
     pruefe(e_h["days"] == 25, "Indirektes Duell: Alter = Ø der beiden Vergleichsrennen (30 und 20 Tage)")
     rA, rB = (hi.loc[hi["horse_id"] == h_, "race_id"].iloc[0] for h_ in ("H", "R"))
     pruefe(e_h["via"] == [[rA, "C", 3.4, str(hi.loc[hi["race_id"] == rB, "date"].iloc[0].date()), rB]]

@@ -653,11 +653,11 @@ Abstand (`diff_l`), Gewichtsunterschied damals (`w_then`) und heute
 **`exp_l`, den heute erwarteten Abstand** (Abstand damals minus
 Verschiebung, 1 kg = 1 Länge; positiv = vor dem Gegner).
 `duels_sum` fasst je Gegner das letzte Duell zusammen. Die Karte zeigt
-nur Duelle der letzten 120 Tage über ±200 m zur heutigen Distanz, mit
+nur Duelle der letzten 180 Tage über ±200 m zur heutigen Distanz, mit
 Boden innerhalb einer Stufe.
 
 **Indirekt** (`indirect`): Vergleich über gemeinsame frühere Gegner —
-nur Rennen der letzten 120 Tage, ±200 m, Boden innerhalb einer Stufe,
+nur Rennen der letzten 180 Tage, ±200 m, Boden innerhalb einer Stufe,
 alle drei Pferde in der vorderen Feldhälfte. `exp_kg` / `exp_l` ist der
 heute erwartete Unterschied, `n` die Zahl der Vergleiche. Indirekte
 Duelle wiegen weniger als direkte; ein einzelner Vergleich über ein
