@@ -605,6 +605,23 @@ def power_modell_pruefen() -> None:
     pruefe(len(q) and q["f1_orank"].between(0, 1).all() and q["f1_pm"].between(0, 1).all()
            and q[["f1_odds", "f1_pm"]].corr(method="spearman").iloc[0, 1] < -0.5,
            "Power-Modell: letzte Läufe mit Quotenrang (0 = Favorit) und Marktchance (1/Quote, je Rennen normiert)")
+    # Starts 365 Tage ≤ Starts gesamt; letzter Lauf auf heutigem Boden/Distanz = der neueste frühere Lauf dieser Gruppe
+    i = X["lgo_pos"].dropna().index[-1]
+    hi = h.loc[i]
+    vor = h[(h["horse_id"] == hi["horse_id"]) & (pd.to_datetime(h["date"]) < pd.to_datetime(hi["date"]))
+            & (h["going_pmu"].map(pm.rtr_arr.boden_gruppe) == pm.rtr_arr.boden_gruppe(hi["going_pmu"]))]
+    j = vor.sort_values("date").index[-1]
+    pruefe((X["runs365"].fillna(0) <= X["runs"].fillna(0)).all() and abs(X.at[i, "lgo_pos"] - pm.ziel(h)[j]) < 1e-9
+           and abs(X.at[i, "lgo_arr"] - (h.at[j, "arr"] - hi["weight_kg"] + pm.rc.GEWICHT_REF)) < 1e-9
+           if pd.notna(h.at[j, "arr"]) else True,
+           "Power-Modell: Starts 365 Tage, letzter Lauf auf heutigem Boden (Platzanteil, ARR mit heutigem Gewicht)")
+    # Rennverlauf der Formzeilen: gegen = +1, mit = −1, neutral = 0, unbekannt = leer
+    hv = h.assign(verlauf_pferd=np.where(h["saddle_no"] % 3 == 0, "gegen", np.where(h["saddle_no"] % 3 == 1, "mit", None)))
+    with contextlib.redirect_stdout(io.StringIO()):
+        Xv = pm.merkmale(hv, duelle=False, log=print)
+    w = set(Xv["f1_verlauf"].dropna().unique())
+    pruefe(w == {1.0, -1.0} and Xv["f1_verlauf"].isna().any(),
+           "Power-Modell: Formzeilen mit Rennverlauf (gegen +1, mit −1, unbekannt leer)")
     # Gleichstände (z. B. viele gleiche Ratings) zählen anteilig, nicht nach Zeilenreihenfolge
     gl = pd.DataFrame({"race_id": [1] * 4 + [2] * 4, "y": [1, .66, .33, 0] * 2, "r": [5, 5, 5, 5, 1, 9, 8, 7]})
     b = pm._bewerten(gl, "r")
