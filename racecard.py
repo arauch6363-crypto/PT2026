@@ -2152,7 +2152,19 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         "meetings": sorted(meetings.values(), key=lambda m: m["reunion"]),
         "races": races_out,
         "pref_alle": pref_alle,
+        "modelle": _modell_info(power),                    # Verlässlichkeit Power/Value (Claude-JSON, Skill)
     }
+
+
+def _modell_info(power) -> dict | None:
+    if not power:
+        return None
+    import power_modell
+    try:
+        return power_modell.modell_info(power)
+    except Exception as e:                                 # Bericht fehlt oder hat ein altes Format
+        print(f"Modell-Info nicht verfügbar: {e}")
+        return None
 
 
 def kommentare_uebersetzen(daten: dict, base: Path | None = None, **kw) -> int:
@@ -2251,6 +2263,9 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     if pmod and pmod.get("wert"):                         # Vorwärts-Test: Value-Faktoren der Karte protokollieren
         try:
             print(f"Value-Protokoll: {power_modell.protokollieren(daten, base)}")
+            vw = power_modell.value_auswertung(base, hist, log=lambda *a, **k: None)
+            if len(vw) and daten.get("modelle") is not None:  # laufender Stand für die Claude-JSON
+                daten["modelle"]["vorwaerts_test"] = vw.to_dict("records")
         except Exception as e:                            # Protokoll darf die Karte nie verhindern
             print(f"Value-Protokoll nicht geschrieben: {e}")
     mit_k = sum(1 for r in daten["races"].values() for x in r["runners"] for f in x["form_lines"] if f.get("comment"))

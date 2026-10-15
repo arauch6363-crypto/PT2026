@@ -621,6 +621,11 @@ def power_modell_pruefen() -> None:
            and set(ew["rendite_top10"]) == {"renntyp", "quote", "monat"},
            f"Value-Modell findet, was die Quote nicht enthält (A/E Platz Fünftel 1 {f5[1]} … 5 {f5[5]}, "
            f"Sieg-z {ew['sieg_value_z']}); Karte bekommt den Value-Faktor je Starter")
+    mi = pm.modell_info(mw)
+    pruefe(mi and "Stärke-Einschätzung" in mi["power"]["einordnung"] and mi["power"]["rote_starter"]
+           and mi["power"]["rote_starter"]["anteil_starter"] > 0 and "Warnsignal" in mi["value"]["einordnung"]
+           and mi["value"]["pruefung"]["sieg_z"] is not None,
+           "Modell-Info für die Claude-JSON: Verlässlichkeit Power (inkl. Anteil roter Starter an den Siegern) und Value")
     # Kombi-Ziel (Sieg + Platz, Poisson): findet denselben Trainer-Effekt, Faktor ≈ A/E Kombi
     with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
         ek = pm.trainieren_wert(hist=hw, X=Xw, out=Path(tmp) / pm.MODELL_ORDNER, runden=300, ziel_art="kombi",
@@ -755,6 +760,23 @@ def power_modell_pruefen() -> None:
     st = [x for r in d["races"].values() for x in r["runners"] if not x["nr"]]
     pruefe(st and all(x["power"] and isinstance(x["power"]["p"], int) for x in st),
            f"Race Card mit Power-Modell: Power für alle {len(st)} heutigen Starter")
+    # Claude-JSON mit Modell: modell je Starter (blind), vergleich_365, value (Markt), rote Starter als Kurzzeile
+    import claude_export as ce
+    dk = json.loads(json.dumps(d, default=str))
+    rr = next(iter(dk["races"].values()))
+    rs = [x for x in rr["runners"] if not x["nr"]]
+    rs[0]["power"].update(p=110, sieg=0.8, wert=1.0, gold=False); rs[1]["power"].update(p=90, sieg=0.2, wert=0.8, gold=False)
+    dk["modelle"] = {"power": {"einordnung": "x"}, "value": {"einordnung": "y"}}
+    eb, em = ce.export(dk), ce.export_markt(dk)
+    rb_, rm_ = next(iter(eb["races"].values())), next(iter(em["races"].values()))
+    pruefe([y["no"] for y in rb_["runners"]] == [rs[0]["no"]] and rb_["runners"][0]["modell"]["fair"] == 1.2
+           and rb_["weitere"]["anzahl"] == 1 and rb_["weitere"]["starter"][0]["no"] == rs[1]["no"]
+           and rb_["weitere"]["starter_gesamt"] == 2 and "vergleich_365" in rb_
+           and {v["no"] for v in rb_["vergleich_365"]["verbindungen"]} == {x["no"] for x in rs}
+           and eb["modelle"] == {"power": {"einordnung": "x"}} and em["modelle"] == {"value": {"einordnung": "y"}}
+           and all("value" in x for x in rm_["runners"]) and any(x["blind_nur_kurz"] for x in rm_["runners"]),
+           "Claude-JSON: Modell je Starter, rote Starter ohne Value als Kurzzeile (Anzahl, Siegchance), Feldvergleich "
+           "ARR/TR/Verbindungen, Value nur in der Marktdatei, Verlässlichkeit aufgeteilt")
 
 
 def tipp_auswertung_pruefen() -> None:
@@ -1670,7 +1692,8 @@ def racecard_pruefen() -> None:
            + (f" – fehlt: {fehlend[:5]}" if fehlend else ""))
     pfade_ex = {_norm(q) for q in _pfade(ex) | _pfade(mk)}
     pruefe("pref_alle" in dd and not any(q.startswith(".pref_alle") or q.endswith((".kpi", ".pref_ref", ".pos_idx"))
-                                         or ".prev." in q or q.startswith(".params.kpi") for q in pfade_ex)
+                                         or ".prev." in q or q.startswith(".params.kpi") for q in pfade_ex
+                                         if ".vergleich_365." not in q)
            and any(q.endswith(".pos_idx") for q in {_norm(q) for q in _pfade(dd)}),
            "Claude-Version ohne Overlay-Daten der Karte (kpi, pref_ref, pref_alle, Matrix pos_idx/prev, kpi-Parameter)")
     dn = _copy.deepcopy(dd)
