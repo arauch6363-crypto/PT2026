@@ -164,6 +164,8 @@ ARR, TR, letzter Platzanteil/Längen/Marktchance, Trainer, Jockey, Besitzer, Due
 heutigen Feld ein (`pm.feld_relativ`: Rang 0–1 und Abstand zum Feldschnitt). `art="beide"` (Vorgabe) prüft Regression
 auf den Platzanteil und ein Rang-Modell (LightGBM lambdarank, Rennen als Gruppe) und speichert das mit der besseren
 Rangkorrelation auf den Prüftagen.
+Erfahrung im Feld und Jahreszeit (aus dem Zwischenspeicher abgeleitet, kein Neubau nötig): Starts und Alter als Rang
+und Abstand zum Feld, Anteil der Gegner, die älter sind bzw. mehr Starts haben, und der Tag im Jahr (`season_doy`).
 Dazu: verdichtete Form der letzten 5 Läufe (Ø/bester Platzanteil, Ø Längen, Ø ARR, Trend), Wechsel zum letzten Lauf
 (Gewicht, Distanz, Klasse = Ø Rating des Feldes, Preisgeld des Rennens, Jockey mit Score-Differenz, Trainer,
 Scheuklappen erstmals/gewechselt) und die Klasse des heutigen Rennens (Preisgeld, Ø Rating des Feldes).

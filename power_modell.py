@@ -62,7 +62,7 @@ MERKMAL_VERSION = 4                   # hochzählen, wenn merkmale() neue Spalte
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
-           "form5_pos", "form5_best", "form5_lb", "form5_arr"]
+           "form5_pos", "form5_best", "form5_lb", "form5_arr", "runs", "age"]
 RANG_STUFEN = 10            # Lern-Ziel für „rang“: Platzanteil in 11 Stufen (0 … 10)
 RANG_GAIN = [round(2 ** (s / 2) - 1, 3) for s in range(RANG_STUFEN + 1)]   # Sieg zählt am meisten, ohne alles andere zu erdrücken
 LERN_ANTEIL = 0.75          # zeitlich vorne: lernen; die übrigen Tage: prüfen
@@ -85,7 +85,8 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("jockey_", "Jockey"), ("owner_", "Besitzer"), ("breeder_", "Züchter"), ("sire_", "Vater"),
            ("dam_sire_", "Muttervater"), ("arr", "ARR"), ("tr", "TR"), ("rtr", "RTR"), ("dl600", "ΔL600 A"),
            ("db200", "ΔB200 A"), ("duel", "Duell"), ("box", "Startbox"), ("early", "Laufstil"), ("pace", "Tempo-Szenario"),
-           ("form5_", "letzte 5 Läufe"), ("chg_", "Wechsel zum letzten Lauf"), ("blink", "Scheuklappen"),
+           ("form5_", "letzte 5 Läufe"), ("season", "Jahreszeit"), ("feld_aelter", "Erfahrung im Feld"),
+           ("feld_erfahrener", "Erfahrung im Feld"), ("chg_", "Wechsel zum letzten Lauf"), ("blink", "Scheuklappen"),
            ("race_prize", "Preisgeld des Rennens"), ("feld_val", "Klasse des Feldes"),
            ("lgo_", "letzter Lauf auf heutigem Boden"), ("ldi_", "letzter Lauf auf heutiger Distanz"),
            ("won_", "Sieg-Vorlieben"), ("placed_", "Platz-Vorlieben"), ("best_", "beste Gruppe Pferd"),
@@ -538,9 +539,11 @@ def _kategorien(X: pd.DataFrame, stufen: dict | None = None) -> tuple[pd.DataFra
     return X, stufen
 
 
-def feld_relativ(X: pd.DataFrame, rennen: pd.Series) -> pd.DataFrame:
+def feld_relativ(X: pd.DataFrame, rennen: pd.Series, datum: pd.Series | None = None) -> pd.DataFrame:
     """Je Merkmal aus RELATIV: Rang im Feld (0 = kleinster … 1 = größter Wert, Gleichstand gemittelt) und Abstand zum
     Feldschnitt. Fehlende Werte bleiben NaN und zählen beim Rang und Schnitt nicht mit. rennen: race_id je Zeile von X.
+    Dazu Erfahrung im Feld – Anteil der Gegner, die älter sind (feld_aelter) bzw. mehr Starts haben (feld_erfahrener) –
+    und mit datum die Jahreszeit (season_doy = Tag im Jahr; z. B. reifen Dreijährige im Lauf der Saison).
     Schnell (Sekunden) – läuft deshalb nach dem Zwischenspeicher, im Training wie in der Karte."""
     X = X.copy()
     r = pd.Series(rennen.to_numpy(), index=X.index).astype(str)
@@ -552,6 +555,16 @@ def feld_relativ(X: pd.DataFrame, rennen: pd.Series) -> pd.DataFrame:
         rang, anz = g.rank(method="average"), g.transform("count")
         X[f"{c}_rk"] = ((rang - 1) / (anz - 1)).where(anz > 1)
         X[f"{c}_dz"] = v - g.transform("mean")
+    for c, name in (("age", "feld_aelter"), ("runs", "feld_erfahrener")):
+        if c not in X:
+            continue
+        v = pd.to_numeric(X[c], errors="coerce")
+        g = v.groupby(r)
+        anz = g.transform("count")
+        mehr = anz - g.rank(method="max")                      # Gegner mit echt größerem Wert
+        X[name] = (mehr / (anz - 1)).where(anz > 1)
+    if datum is not None:
+        X["season_doy"] = pd.to_datetime(pd.Series(np.asarray(datum), index=X.index)).dt.dayofyear.astype(float)
     return X
 
 
@@ -723,7 +736,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     y = ziel(hist).reindex(X.index)
     ok = y.notna()
     X, y = X[ok], y[ok]
-    X = feld_relativ(X, hist.loc[X.index, "race_id"])
+    X = feld_relativ(X, hist.loc[X.index, "race_id"], hist.loc[X.index, "date"])
     tage = pd.to_datetime(hist.loc[X.index, "date"])
     log("Abdeckung je Jahr (% der Starter mit Wert):")
     log(abdeckung(X, tage).to_string())
@@ -857,7 +870,7 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     ep = pd.to_numeric(hist.loc[X.index, "exp_place"], errors="coerce")
     pl = pd.to_numeric(hist.loc[X.index, "placed"], errors="coerce")
     ok = (ep > 0) & (ep < 1) & pl.notna() & ziel(hist).reindex(X.index).notna()
-    X = feld_relativ(X[ok], hist.loc[X.index[ok], "race_id"])
+    X = feld_relativ(X[ok], hist.loc[X.index[ok], "race_id"], hist.loc[X.index[ok], "date"])
     ep, pl = ep[ok], pl[ok]
     tage = pd.to_datetime(hist.loc[X.index, "date"])
     if ab:
@@ -981,7 +994,7 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
     alle = pd.concat([hist, hz], axis=0, sort=False)
     heute = pd.Series(alle.index.isin(hz.index), index=alle.index)
     X = merkmale(alle, ziel_maske=heute, heute=heute, log=log)
-    X = feld_relativ(X, alle.loc[X.index, "race_id"])
+    X = feld_relativ(X, alle.loc[X.index, "race_id"], alle.loc[X.index, "date"])
     meta = modell["meta"]
     Xk, _ = _kategorien(X.reindex(columns=[c for c in meta["spalten"]]), meta["stufen"])
     Xk = Xk[meta["spalten"]]

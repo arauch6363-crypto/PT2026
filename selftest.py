@@ -670,6 +670,11 @@ def power_modell_pruefen() -> None:
     pruefe(fr["rating_adj_rk"].tolist()[:2] == [0.0, 1.0] and np.isnan(fr["rating_adj_rk"][2])
            and np.isnan(fr["rating_adj_rk"][3]) and fr["rating_adj_dz"].tolist()[:2] == [-5.0, 5.0],
            "Power-Modell: Feld-relative Merkmale (Rang im Feld, Abstand zum Schnitt; Lücken bleiben leer)")
+    ef = pm.feld_relativ(pd.DataFrame({"age": [3, 4, 5, 3], "runs": [5, 20, 30, 5]}), pd.Series(["a"] * 4),
+                         pd.Series(pd.to_datetime(["2026-10-15"] * 4)))
+    pruefe(ef["feld_aelter"].round(3).tolist() == [0.667, 0.333, 0.0, 0.667] and ef["feld_erfahrener"].tolist()[2] == 0.0
+           and ef["season_doy"].eq(288).all() and ef["runs_dz"].tolist()[0] == -10.0,
+           "Power-Modell: Erfahrung im Feld (Anteil älterer / erfahrenerer Gegner, Starts und Alter relativ) und Jahreszeit")
     # alte Quote vergleichbar: Quotenrang relativ und Marktchance des letzten Laufs
     q = X[["f1_odds", "f1_orank", "f1_pm"]].dropna()
     pruefe(len(q) and q["f1_orank"].between(0, 1).all() and q["f1_pm"].between(0, 1).all()
