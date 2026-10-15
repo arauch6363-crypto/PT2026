@@ -2248,6 +2248,11 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     pmod = power_modell.laden(base)
     print("Power-Modell geladen." if pmod else "Kein Power-Modell (power_modell.trainieren) – Power aus sechs Kennzahlen.")
     daten = baue_daten(hist, races_heute, runners_heute, tag, silks, prognosen, power=pmod)
+    if pmod and pmod.get("wert"):                         # Vorwärts-Test: Value-Faktoren der Karte protokollieren
+        try:
+            print(f"Value-Protokoll: {power_modell.protokollieren(daten, base)}")
+        except Exception as e:                            # Protokoll darf die Karte nie verhindern
+            print(f"Value-Protokoll nicht geschrieben: {e}")
     mit_k = sum(1 for r in daten["races"].values() for x in r["runners"] for f in x["form_lines"] if f.get("comment"))
     if uebersetzen_aktiv and (mit_k or prognosen):       # Übersetzung: DeepL (DEEPL_API_KEY) -> Google -> MyMemory
         print(f"Kommentare in den Formzeilen: {mit_k}, davon auf Deutsch: {kommentare_uebersetzen(daten, base)}")
