@@ -177,7 +177,10 @@ Ausgangswert die Platzchance des Marktes (`exp_place`, Harville aus der Endquote
 Die Quote steckt also nur im Lern-Ziel, nie in den Merkmalen; der Value-Faktor (≈ erwartete A/E Platz gegen den Markt)
 braucht keine heutige Quote. Bericht: Log-Loss der Platzierung Markt gegen Markt + Value, A/E Platz und Sieg je Fünftel
 des Faktors auf den Prüftagen, bedingtes Logit (Sieg) mit Markt + Value. Gespeichert als `power_wert.txt/.json`; die Karte
-zeigt ab Faktor 1,2 einen goldenen Rahmen um die faire Quote (Wert im Tooltip).
+zeigt einen goldenen Rahmen um die faire Quote bei den obersten 10 % des Value-Faktors (Grenze aus den Prüftagen).
+Dazu im Bericht: Rendite einer Siegwette 1 € zur echten Endquote (mit Marge) für alle, die obersten 20/10/5/2 % des
+Faktors, und die obersten 10 % nach Renntyp, Quotenbereich und Monat. Der Faktor in der Karte ist geeicht:
+exp(k × Abweichung), k per Maximum-Likelihood auf den Prüftagen (k < 1: Modell war zu selbstbewusst).
 Keine heutige Prognose oder Quote. Fehlende Werte bleiben leer (LightGBM verteilt sie selbst). Gelernt auf den ersten
 75 % der Tage, geprüft auf dem Rest (Rangkorrelation je Rennen, Sieger getroffen, Sieger unter den Top 3 – gegen
 Endquote und Rating), dann auf allen Tagen neu gelernt. `racecard.run` lädt `BASE/modelle/power_modell.txt` und zeigt

@@ -51,6 +51,9 @@ META_DATEI = "power_modell.json"
 WERT_DATEI, WERT_META = "power_wert.txt", "power_wert.json"   # zweites Modell: A/E Platz gegen den Markt
 WERT_PARAMS = dict(objective="binary", learning_rate=0.02, num_leaves=15, min_data_in_leaf=300, feature_fraction=0.7,
                    bagging_fraction=0.8, bagging_freq=1, lambda_l2=10.0, verbosity=-1)   # vorsichtig: kleines Signal
+WERT_TOP = [0.20, 0.10, 0.05, 0.02]   # Rendite-Tabelle: oberste Anteile des Value-Faktors
+WERT_GOLD = 0.10            # goldener Rahmen in der Karte: oberste 10 % des Faktors (Grenze aus den Prüftagen)
+QUOTEN_STUFEN = [1, 3, 6, 10, 20, 1000]
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
 MERKMAL_VERSION = 4                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
@@ -796,6 +799,48 @@ def wert_tabelle(f, placed, exp_place, won, p_sieg, stufen: int = WERT_STUFEN) -
                          "ae_sieg": (g["w"].sum() / g["pw"].sum()).round(3)})
 
 
+def _kalibrieren(f, basis, y, iter_max: int = 50) -> float:
+    """Eichung des Value-Modells: Platzchance = sigmoid(Markt-log-odds + k × f), k per Maximum-Likelihood auf den
+    Prüftagen. k < 1 heißt: das Modell war zu selbstbewusst, der geeichte Faktor exp(k × f) liegt näher an 1."""
+    f, basis, y = (np.asarray(v, dtype=float) for v in (f, basis, y))
+    k = 1.0
+    for _ in range(iter_max):
+        q = 1 / (1 + np.exp(-(basis + k * f)))
+        grad, hess = ((y - q) * f).sum(), -(q * (1 - q) * f * f).sum()
+        if hess >= 0:
+            break
+        schritt = grad / hess
+        k -= schritt
+        if abs(schritt) < 1e-8:
+            break
+    return float(k)
+
+
+def rendite_tabelle(f, won, odds, gruppe=None, anteile=WERT_TOP) -> pd.DataFrame:
+    """Gedachte Siegwette 1 € zur Endquote auf die obersten Anteile des Value-Faktors: Wetten, Siege, Trefferquote,
+    Ø Quote, Rendite je 1 € (Gewinn − Einsatz). Mit gruppe: dieselbe Rechnung je Gruppe für den ersten Anteil."""
+    d = pd.DataFrame({"f": f, "w": won, "q": odds}).dropna()
+    d = d[d["q"] > 1]
+    if gruppe is not None:
+        d["g"] = pd.Series(gruppe).reindex(d.index)
+    zeilen = []
+
+    def zeile(name, t):
+        return {"auswahl": name, "wetten": len(t), "siege": int(t["w"].sum()),
+                "treffer": round(float(t["w"].mean()), 3) if len(t) else None,
+                "quote_o": round(float(t["q"].mean()), 1) if len(t) else None,
+                "rendite": round(float((t["w"] * t["q"]).sum() / len(t) - 1), 3) if len(t) else None}
+    if gruppe is None:
+        zeilen.append(zeile("alle", d))
+        for a in anteile:
+            zeilen.append(zeile(f"oberste {round(a * 100)} %", d[d["f"] >= d["f"].quantile(1 - a)]))
+    else:
+        top = d[d["f"] >= d["f"].quantile(1 - anteile[0])]
+        for g_, t in top.groupby("g", sort=True, observed=True):      # Kategorien (Quotenbereiche) in ihrer Reihenfolge
+            zeilen.append(zeile(str(g_), t))
+    return pd.DataFrame(zeilen)
+
+
 def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
                     X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
                     ab: str | None = None, neu: bool = False, log=print) -> dict:
@@ -842,6 +887,18 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     p_sieg = (inv / inv.groupby(rennen).transform("sum")).to_numpy()
     won = pd.to_numeric(hist.loc[X.index[test], "won"], errors="coerce").to_numpy()
     tab = wert_tabelle(f, pl[test].to_numpy(), ep[test].to_numpy(), won, p_sieg)
+    # Rendite zur echten Endquote (mit Marge des Totalisators) und Aufteilung der obersten 10 %
+    rt = rendite_tabelle(f, won, odds)
+    typ = hist.loc[X.index[test], "racetype"].astype(str).to_numpy()
+    q_st = pd.cut(odds, QUOTEN_STUFEN, right=False,
+                  labels=[f"{a}–{b}" if b < 1000 else f"≥ {a}" for a, b in zip(QUOTEN_STUFEN[:-1], QUOTEN_STUFEN[1:])])
+    monat = tage[test].dt.strftime("%Y-%m").to_numpy()
+    teil = {"renntyp": rendite_tabelle(f, won, odds, typ, [0.10]),
+            "quote": rendite_tabelle(f, won, odds, q_st, [0.10]),
+            "monat": rendite_tabelle(f, won, odds, monat, [0.10])}
+    # Eichung: geeichter Faktor exp(k × f); goldener Rahmen ab der Grenze der obersten WERT_GOLD auf den Prüftagen
+    k_ = _kalibrieren(f, basis[test], pl[test].to_numpy())
+    gold_ab = float(np.quantile(f, 1 - WERT_GOLD))
     d = pd.DataFrame({"race_id": rennen, "won": won, "z": _z_im_rennen(f, rennen), "p_mkt": p_sieg})
     d = d[d.groupby("race_id")["p_mkt"].transform(lambda s_: s_.notna().all())]
     d = d[d.groupby("race_id")["won"].transform("sum") == 1]
@@ -852,19 +909,27 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
                "sieg_value_koef": float(cl.loc["z", "koef"]) if "z" in cl.index else None,
                "sieg_value_z": float(cl.loc["z", "z"]) if "z" in cl.index else None,
                "fuenftel": tab.reset_index().to_dict("records"),
+               "rendite": rt.to_dict("records"), "rendite_top10": {k: v.to_dict("records") for k, v in teil.items()},
+               "kalib_k": round(k_, 3), "gold_ab_roh": round(gold_ab, 4),
+               "gold_ab_faktor": round(float(np.exp(k_ * gold_ab)), 3),
                "lernen_bis": f"{pd.Timestamp(grenze):%Y-%m-%d}", "ab": ab}
     log("Value-Modell – Prüfung auf den letzten Tagen:")
-    for k_, v_ in bericht.items():
-        if k_ != "fuenftel":
-            log(f"  {k_}: {v_}")
+    for k2, v2 in bericht.items():
+        if k2 not in ("fuenftel", "rendite", "rendite_top10"):
+            log(f"  {k2}: {v2}")
     log("  A/E je Fünftel des Value-Faktors (1 = niedrigster, 5 = höchster):")
     log(tab.to_string())
+    log("  Siegwette 1 € zur Endquote (Rendite = Gewinn − Einsatz je 1 €):")
+    log(rt.to_string(index=False))
+    for name, t in teil.items():
+        log(f"  Oberste 10 % nach {name}:")
+        log(t.to_string(index=False))
     imp = pd.Series(m.feature_importance("gain"), index=Xk.columns).sort_values(ascending=False)
     log("Wichtigste Merkmale (Value, Gain): " + ", ".join(f"{k} {v / imp.sum():.1%}" for k, v in imp.head(15).items()))
     final = lgb.train(p, lgb.Dataset(Xk, pl, init_score=basis, categorical_feature=KATEGORISCH), num_boost_round=best)
     ordner.mkdir(parents=True, exist_ok=True)
     final.save_model(str(ordner / WERT_DATEI))
-    meta = {"spalten": list(Xk.columns), "stufen": stufen, "bericht": bericht,
+    meta = {"spalten": list(Xk.columns), "stufen": stufen, "bericht": bericht, "kalib_k": k_, "gold_ab": gold_ab,
             "wichtig": {k: round(float(v / imp.sum()), 4) for k, v in imp.head(30).items()},
             "trainiert": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"), "starter": int(len(X))}
     (ordner / WERT_META).write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -923,11 +988,13 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
     out = {}
     df = pd.DataFrame({"race_id": hz["race_id"].astype(str).to_numpy(), "no": hz["saddle_no"].to_numpy(), "pred": pred})
     df["sieg"] = _softmax_im_rennen(meta.get("sieg_a", 1.0) * _z_im_rennen(df["pred"], df["race_id"]), df["race_id"])
-    df["wert"] = np.nan
+    df["wert"], df["gold"] = np.nan, False
     if modell.get("wert"):                      # Value-Faktor ≈ erwartete A/E Platz gegen den Markt (exp der Abweichung)
         wm = modell["wert"]["meta"]
         Xw, _ = _kategorien(X.reindex(columns=wm["spalten"]), wm["stufen"])
-        df["wert"] = np.exp(modell["wert"]["booster"].predict(Xw[wm["spalten"]], raw_score=True))
+        fw = modell["wert"]["booster"].predict(Xw[wm["spalten"]], raw_score=True)
+        df["wert"] = np.exp(wm.get("kalib_k", 1.0) * fw)                 # geeicht: was auf den Prüftagen eintrat
+        df["gold"] = fw >= wm["gold_ab"] if "gold_ab" in wm else df["wert"] >= 1.2
     for r_, g in df.groupby("race_id"):
         mu, sd = g["pred"].mean(), g["pred"].std(ddof=0)
         for k, z in g.iterrows():
@@ -940,5 +1007,6 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
                                        "pred": round(float(z["pred"]), 3) if meta.get("art", "regression") == "regression" else None,
                                        "sieg": round(float(z["sieg"]), 3),
                                        "wert": round(float(z["wert"]), 2) if pd.notna(z["wert"]) else None,
+                                       "gold": bool(z["gold"]),
                                        "treiber": [[n_, round(v_ * 100, 1)] for n_, v_ in top]}
     return out

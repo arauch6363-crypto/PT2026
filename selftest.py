@@ -615,9 +615,21 @@ def power_modell_pruefen() -> None:
         vw = pm.vorhersage(hw, hz.assign(race_id="20260601R1C1", date=pd.Timestamp("2026-06-01")), mw, log=print)
     f5 = {z["gruppe"]: z["ae_platz"] for z in ew["fuenftel"]}
     pruefe(f5[5] > 1.1 and f5[1] < 0.9 and ew["logloss_platz_mit_value"] < ew["logloss_platz_markt"]
-           and mw.get("wert") is not None and all(w["wert"] and w["wert"] > 0 for w in vw.values()),
+           and mw.get("wert") is not None and all(w["wert"] and w["wert"] > 0 for w in vw.values())
+           and all(isinstance(w["gold"], bool) for w in vw.values()) and 0 < ew["kalib_k"] < 2
+           and [z["auswahl"] for z in ew["rendite"]] == ["alle", "oberste 20 %", "oberste 10 %", "oberste 5 %", "oberste 2 %"]
+           and set(ew["rendite_top10"]) == {"renntyp", "quote", "monat"},
            f"Value-Modell findet, was die Quote nicht enthält (A/E Platz Fünftel 1 {f5[1]} … 5 {f5[5]}, "
            f"Sieg-z {ew['sieg_value_z']}); Karte bekommt den Value-Faktor je Starter")
+    # Rendite-Tabelle von Hand: 4 Wetten, 1 Sieg zu 6,0 -> Rendite 6/4 − 1 = 0,5; Eichung erkennt zu starken Faktor
+    rt = pm.rendite_tabelle(np.array([4.0, 3.0, 2.0, 1.0]), np.array([1, 0, 0, 0]), np.array([6.0, 5.0, 4.0, 3.0]),
+                            anteile=[0.5])
+    rg2 = np.random.default_rng(2)
+    f_ = rg2.normal(0, 1, 20000); b_ = rg2.normal(-1, 0.5, 20000)
+    y_ = (rg2.random(20000) < 1 / (1 + np.exp(-(b_ + 0.5 * f_)))).astype(float)
+    k_ = pm._kalibrieren(f_, b_, y_)
+    pruefe(rt.loc[0, "rendite"] == 0.5 and rt.loc[1, "wetten"] == 2 and rt.loc[1, "rendite"] == 2.0 and abs(k_ - 0.5) < 0.05,
+           f"Value-Modell: Rendite-Tabelle zur Endquote stimmt, Eichung schrumpft zu starken Faktor (k {k_:.2f} statt 0,5)")
     # bekannter Fall: reines Markt-Signal -> Power-Koeffizient ≈ 0; Power mit Zusatzwissen -> deutlich positiv
     rg = np.random.default_rng(1)
     rr = np.repeat(np.arange(400), 8)
