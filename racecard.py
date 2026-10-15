@@ -1616,7 +1616,8 @@ def heute_zeilen(rh: pd.DataFrame, ru: pd.DataFrame, heute: pd.Timestamp) -> pd.
     """Heutige Starter (ohne Nichtstarter) mit den Spalten der Historie, ohne Ergebnis – für das Power-Modell."""
     st = ru["status"].astype("string").str.upper().fillna("") if "status" in ru else pd.Series("", index=ru.index)
     z = ru[st != "NON_PARTANT"].copy()
-    spalten = [c for c in ["race_id", "distance_m", "going", "hippodrome", "categorie", "conditions_age", "konfig"] if c in rh]
+    spalten = [c for c in ["race_id", "distance_m", "going", "hippodrome", "categorie", "conditions_age", "konfig",
+                           "prize_eur"] if c in rh]
     z = z.merge(rh[spalten], on="race_id", how="inner")
     z["date"] = heute
     for c in ["distance_m", "weight_kg", "age", "draw", "saddle_no"]:
