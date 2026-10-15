@@ -805,13 +805,15 @@ def _logit(p):
 
 def wert_tabelle(f, placed, exp_place, won, p_sieg, stufen: int = WERT_STUFEN) -> pd.DataFrame:
     """Starter nach vorhergesagtem Value-Faktor in gleich große Gruppen (1 = niedrigster): je Gruppe Anzahl,
-    Ø Faktor, tatsächliche A/E Platz (Platzierte / erwartete Platzierte laut Endquote) und A/E Sieg."""
+    Ø Faktor, tatsächliche A/E Platz (Platzierte / erwartete Platzierte laut Endquote), A/E Sieg und A/E Kombi
+    ((Siege + Platzierte) / (erwartete Siege + erwartete Platzierte) – ein Sieg zählt doppelt)."""
     d = pd.DataFrame({"f": f, "pl": placed, "ep": exp_place, "w": won, "pw": p_sieg}).dropna()
     d["gruppe"] = pd.qcut(d["f"].rank(method="first"), stufen, labels=False) + 1
     g = d.groupby("gruppe")
     return pd.DataFrame({"starter": g.size(), "faktor": np.exp(g["f"].mean()).round(2),
                          "ae_platz": (g["pl"].sum() / g["ep"].sum()).round(3),
-                         "ae_sieg": (g["w"].sum() / g["pw"].sum()).round(3)})
+                         "ae_sieg": (g["w"].sum() / g["pw"].sum()).round(3),
+                         "ae_kombi": ((g["pl"].sum() + g["w"].sum()) / (g["ep"].sum() + g["pw"].sum())).round(3)})
 
 
 def _kalibrieren(f, basis, y, iter_max: int = 50) -> float:
@@ -822,6 +824,22 @@ def _kalibrieren(f, basis, y, iter_max: int = 50) -> float:
     for _ in range(iter_max):
         q = 1 / (1 + np.exp(-(basis + k * f)))
         grad, hess = ((y - q) * f).sum(), -(q * (1 - q) * f * f).sum()
+        if hess >= 0:
+            break
+        schritt = grad / hess
+        k -= schritt
+        if abs(schritt) < 1e-8:
+            break
+    return float(k)
+
+
+def _kalibrieren_poisson(f, basis, y, iter_max: int = 50) -> float:
+    """Eichung für das Kombi-Ziel: Erwartung = exp(basis + k × f) (Poisson), k per Maximum-Likelihood."""
+    f, basis, y = (np.asarray(v, dtype=float) for v in (f, basis, y))
+    k = 1.0
+    for _ in range(iter_max):
+        mu = np.exp(basis + k * f)
+        grad, hess = ((y - mu) * f).sum(), -(mu * f * f).sum()
         if hess >= 0:
             break
         schritt = grad / hess
@@ -858,8 +876,11 @@ def rendite_tabelle(f, won, odds, gruppe=None, anteile=WERT_TOP) -> pd.DataFrame
 
 def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
                     X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
-                    ab: str | None = None, neu: bool = False, log=print) -> dict:
+                    ab: str | None = None, neu: bool = False, ziel_art: str = "platz", log=print) -> dict:
     """Value-Modell: lernt, wann ein Pferd öfter platziert ist, als seine Endquote erwarten lässt.
+    ziel_art="platz": Ziel platziert 0/1 gegen die Platzchance des Marktes (binär, Faktor ≈ A/E Platz).
+    ziel_art="kombi": Ziel Sieg + Platz (Sieger = 2, Platzierter = 1, sonst 0) gegen Siegchance + Platzchance des
+    Marktes (Poisson, Faktor ≈ A/E Kombi) – ein Sieg zählt doppelt, das Signal bleibt dank der Plätze stabil.
     Ziel: platziert (0/1); Ausgangswert je Starter: die Platzchance des Marktes (exp_place, Harville aus der Endquote) –
     LightGBM lernt nur die Abweichung davon. Die Quote ist also nur im Lern-Ziel, nie Merkmal: die Vorhersage
     (Value-Faktor ≈ A/E Platz) braucht keine heutige Quote. Merkmale wie Power (Zwischenspeicher), gleiche Prüftage.
@@ -867,33 +888,48 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     import lightgbm as lgb
     import hypothesen_backtest as hb
     hist, X, ordner = _merkmale_holen(base, hist, out, X, neu, log)
+    if ziel_art not in ("platz", "kombi"):
+        raise ValueError("ziel_art: 'platz' oder 'kombi'")
     ep = pd.to_numeric(hist.loc[X.index, "exp_place"], errors="coerce")
     pl = pd.to_numeric(hist.loc[X.index, "placed"], errors="coerce")
+    wn = pd.to_numeric(hist.loc[X.index, "won"], errors="coerce")
+    q_all = pd.to_numeric(hist["odds_final"], errors="coerce")                # Siegchance des Marktes je Rennen
+    inv_all = (1 / q_all).where(q_all > 1)
+    ps = (inv_all / inv_all.groupby(hist["race_id"].astype(str)).transform("sum")).reindex(X.index)
     ok = (ep > 0) & (ep < 1) & pl.notna() & ziel(hist).reindex(X.index).notna()
+    if ziel_art == "kombi":
+        ok &= ps.notna() & wn.notna()
     X = feld_relativ(X[ok], hist.loc[X.index[ok], "race_id"], hist.loc[X.index[ok], "date"])
-    ep, pl = ep[ok], pl[ok]
+    ep, pl, wn, ps = ep[ok], pl[ok], wn[ok], ps[ok]
     tage = pd.to_datetime(hist.loc[X.index, "date"])
     if ab:
         drin = tage >= pd.Timestamp(ab)
-        X, ep, pl, tage = X[drin], ep[drin], pl[drin], tage[drin]
+        X, ep, pl, wn, ps, tage = X[drin], ep[drin], pl[drin], wn[drin], ps[drin], tage[drin]
         log(f"Nur Rennen ab {ab}: {len(X):,} Starter")
     grenze = np.sort(tage.unique())[int(len(tage.unique()) * LERN_ANTEIL)]
     lern, test = (tage < grenze).to_numpy(), (tage >= grenze).to_numpy()
     Xk, stufen = _kategorien(X)
-    basis = _logit(ep)
-    p = {**WERT_PARAMS, **(params or {})}
-    log(f"Value-Modell – lernen: {int(lern.sum()):,} Starter bis {pd.Timestamp(grenze):%Y-%m-%d}, prüfen: {int(test.sum()):,}")
-    d_lern = lgb.Dataset(Xk[lern], pl[lern], init_score=basis[lern], categorical_feature=KATEGORISCH, free_raw_data=False)
-    d_test = lgb.Dataset(Xk[test], pl[test], init_score=basis[test], reference=d_lern, categorical_feature=KATEGORISCH,
+    if ziel_art == "kombi":
+        y_all, basis = pl + wn, np.log((ep + ps).to_numpy())
+        p = {**WERT_PARAMS, "objective": "poisson", **(params or {})}
+    else:
+        y_all, basis = pl, _logit(ep)
+        p = {**WERT_PARAMS, **(params or {})}
+    log(f"Value-Modell ({ziel_art}) – lernen: {int(lern.sum()):,} Starter bis {pd.Timestamp(grenze):%Y-%m-%d}, prüfen: {int(test.sum()):,}")
+    d_lern = lgb.Dataset(Xk[lern], y_all[lern], init_score=basis[lern], categorical_feature=KATEGORISCH, free_raw_data=False)
+    d_test = lgb.Dataset(Xk[test], y_all[test], init_score=basis[test], reference=d_lern, categorical_feature=KATEGORISCH,
                          free_raw_data=False)
     m = lgb.train(p, d_lern, num_boost_round=runden, valid_sets=[d_test],
                   callbacks=[lgb.early_stopping(100, verbose=False)])
     best = int(m.best_iteration or runden)
-    f = m.predict(Xk[test], num_iteration=best, raw_score=True)          # Abweichung vom Markt (log-odds)
-    # Logloss der Platzierung: Markt allein gegen Markt + Value-Modell
+    f = m.predict(Xk[test], num_iteration=best, raw_score=True)          # Abweichung vom Markt (log-odds bzw. log)
+    # Güte des Lern-Ziels: Markt allein gegen Markt + Value-Modell (Platz: Log-Loss, Kombi: Poisson-Abweichung)
     def ll(eta):
+        y = y_all[test].to_numpy()
+        if ziel_art == "kombi":
+            mu = np.exp(eta)
+            return float(np.mean(mu - y * eta))
         q = 1 / (1 + np.exp(-eta))
-        y = pl[test].to_numpy()
         return float(-np.mean(y * np.log(q) + (1 - y) * np.log(1 - q)))
     # Sieg: Marktchance aus der Endquote, bedingtes Logit mit Value-z
     rennen = hist.loc[X.index[test], "race_id"].astype(str).to_numpy()
@@ -912,15 +948,15 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
             "quote": rendite_tabelle(f, won, odds, q_st, [0.10]),
             "monat": rendite_tabelle(f, won, odds, monat, [0.10])}
     # Eichung: geeichter Faktor exp(k × f); goldener Rahmen ab der Grenze der obersten WERT_GOLD auf den Prüftagen
-    k_ = _kalibrieren(f, basis[test], pl[test].to_numpy())
+    k_ = (_kalibrieren_poisson if ziel_art == "kombi" else _kalibrieren)(f, basis[test], y_all[test].to_numpy())
     gold_ab = float(np.quantile(f, 1 - WERT_GOLD))
     d = pd.DataFrame({"race_id": rennen, "won": won, "z": _z_im_rennen(f, rennen), "p_mkt": p_sieg})
     d = d[d.groupby("race_id")["p_mkt"].transform(lambda s_: s_.notna().all())]
     d = d[d.groupby("race_id")["won"].transform("sum") == 1]
     d["ln_p"] = np.log(d["p_mkt"])
     cl = hb.clogit(d, ["z"]).set_index("variable") if len(d) else pd.DataFrame()
-    bericht = {"baeume": best, "logloss_platz_markt": round(ll(basis[test]), 4),
-               "logloss_platz_mit_value": round(ll(basis[test] + f), 4),
+    bericht = {"ziel": ziel_art, "baeume": best, f"verlust_{ziel_art}_markt": round(ll(basis[test]), 4),
+               f"verlust_{ziel_art}_mit_value": round(ll(basis[test] + f), 4),
                "sieg_value_koef": float(cl.loc["z", "koef"]) if "z" in cl.index else None,
                "sieg_value_z": float(cl.loc["z", "z"]) if "z" in cl.index else None,
                "fuenftel": tab.reset_index().to_dict("records"),
@@ -928,7 +964,7 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
                "kalib_k": round(k_, 3), "gold_ab_roh": round(gold_ab, 4),
                "gold_ab_faktor": round(float(np.exp(k_ * gold_ab)), 3),
                "lernen_bis": f"{pd.Timestamp(grenze):%Y-%m-%d}", "ab": ab}
-    log("Value-Modell – Prüfung auf den letzten Tagen:")
+    log(f"Value-Modell ({ziel_art}) – Prüfung auf den letzten Tagen:")
     for k2, v2 in bericht.items():
         if k2 not in ("fuenftel", "rendite", "rendite_top10"):
             log(f"  {k2}: {v2}")
@@ -941,10 +977,11 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
         log(t.to_string(index=False))
     imp = pd.Series(m.feature_importance("gain"), index=Xk.columns).sort_values(ascending=False)
     log("Wichtigste Merkmale (Value, Gain): " + ", ".join(f"{k} {v / imp.sum():.1%}" for k, v in imp.head(15).items()))
-    final = lgb.train(p, lgb.Dataset(Xk, pl, init_score=basis, categorical_feature=KATEGORISCH), num_boost_round=best)
+    final = lgb.train(p, lgb.Dataset(Xk, y_all, init_score=basis, categorical_feature=KATEGORISCH), num_boost_round=best)
     ordner.mkdir(parents=True, exist_ok=True)
     final.save_model(str(ordner / WERT_DATEI))
     meta = {"spalten": list(Xk.columns), "stufen": stufen, "bericht": bericht, "kalib_k": k_, "gold_ab": gold_ab,
+            "ziel": ziel_art,
             "wichtig": {k: round(float(v / imp.sum()), 4) for k, v in imp.head(30).items()},
             "trainiert": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"), "starter": int(len(X))}
     (ordner / WERT_META).write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")

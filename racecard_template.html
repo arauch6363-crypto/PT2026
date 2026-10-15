@@ -851,7 +851,7 @@ function powerQuote(x){
     + `#${P.rank} von ${P.n} im Feld. Grün: Modell sieht das Pferd klar über dem Feldschnitt (Power ${P.p} ≥ 105), rot: klar darunter (≤ 95). `
     + `Liegt die angebotene Quote deutlich über der fairen (Marge des Anbieters bedenken), schätzt das Modell das Pferd stärker ein als der Markt. – stärkste Treiber: `
     + P.treiber.map(([n, v]) => `${n} ${v >= 0 ? "+" : "−"}${fx(Math.abs(v), 1)}`).join(" · ")
-    + (P.wert != null ? ` – Value-Faktor ×${fx(P.wert, 2)}: laut Value-Modell wird das Pferd ${P.wert >= 1 ? "öfter" : "seltener"} platziert, als seine Quote erwarten lässt (geeicht auf die Prüftage ≈ tatsächliche A/E Platz; goldener Rahmen: oberste 10 % des Value-Faktors)` : "")
+    + (P.wert != null ? ` – Value-Faktor ×${fx(P.wert, 2)}: laut Value-Modell kommt das Pferd ${P.wert >= 1 ? "öfter" : "seltener"} ins Geld (Platz bzw. Sieg + Platz), als seine Quote erwarten lässt (geeicht auf die Prüftage ≈ tatsächliche A/E; goldener Rahmen: oberste 10 % des Value-Faktors)` : "")
     + (val && cote != null ? (imBereich ? ` – Prognose-Cote ${fx(cote, 1)} im Bereich 3–10: dort lief die Value-Auswahl im Test am besten (≈ +10 % zur Endquote, noch vorwärts zu bestätigen)`
                                         : ` – Prognose-Cote ${fx(cote, 1)} außerhalb 3–10: dort war die Value-Auswahl im Test schwach (Favoriten knapp, Außenseiter überwettet)`) : "");
   return `<div class="kurz-pw ${P.p >= 105 ? "up" : P.p <= 95 ? "down" : ""}${val ? (cote != null && !imBereich ? " val aus" : " val") : ""}" title="${esc(tip)}">${hinweis}<i>Fair</i><b>${q >= 100 ? "100+" : fx(q, q < 10 ? 1 : 0)}</b><small>${fx(100 * P.sieg, 0)} % · #${P.rank}</small></div>`;
