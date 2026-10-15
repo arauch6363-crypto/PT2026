@@ -614,13 +614,21 @@ def power_modell_pruefen() -> None:
                                                                         "prize_won", "arr", "tr", "odds_final"])
         vw = pm.vorhersage(hw, hz.assign(race_id="20260601R1C1", date=pd.Timestamp("2026-06-01")), mw, log=print)
     f5 = {z["gruppe"]: z["ae_platz"] for z in ew["fuenftel"]}
-    pruefe(f5[5] > 1.1 and f5[1] < 0.9 and ew["logloss_platz_mit_value"] < ew["logloss_platz_markt"]
+    pruefe(f5[5] > 1.1 and f5[1] < 0.9 and ew["verlust_platz_mit_value"] < ew["verlust_platz_markt"]
            and mw.get("wert") is not None and all(w["wert"] and w["wert"] > 0 for w in vw.values())
            and all(isinstance(w["gold"], bool) for w in vw.values()) and 0 < ew["kalib_k"] < 2
            and [z["auswahl"] for z in ew["rendite"]] == ["alle", "oberste 20 %", "oberste 10 %", "oberste 5 %", "oberste 2 %"]
            and set(ew["rendite_top10"]) == {"renntyp", "quote", "monat"},
            f"Value-Modell findet, was die Quote nicht enthält (A/E Platz Fünftel 1 {f5[1]} … 5 {f5[5]}, "
            f"Sieg-z {ew['sieg_value_z']}); Karte bekommt den Value-Faktor je Starter")
+    # Kombi-Ziel (Sieg + Platz, Poisson): findet denselben Trainer-Effekt, Faktor ≈ A/E Kombi
+    with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+        ek = pm.trainieren_wert(hist=hw, X=Xw, out=Path(tmp) / pm.MODELL_ORDNER, runden=300, ziel_art="kombi",
+                                params={"min_data_in_leaf": 20}, log=print)
+    fk = {z["gruppe"]: z["ae_kombi"] for z in ek["fuenftel"]}
+    pruefe(ek["ziel"] == "kombi" and fk[5] > 1.1 and fk[1] < 0.9
+           and ek["verlust_kombi_mit_value"] < ek["verlust_kombi_markt"] and 0 < ek["kalib_k"] < 2,
+           f"Value-Modell mit Kombi-Ziel (Sieg + Platz): A/E Kombi Fünftel 1 {fk[1]} … 5 {fk[5]}, Sieg-z {ek['sieg_value_z']}")
     # Rendite-Tabelle von Hand: 4 Wetten, 1 Sieg zu 6,0 -> Rendite 6/4 − 1 = 0,5; Eichung erkennt zu starken Faktor
     rt = pm.rendite_tabelle(np.array([4.0, 3.0, 2.0, 1.0]), np.array([1, 0, 0, 0]), np.array([6.0, 5.0, 4.0, 3.0]),
                             anteile=[0.5])

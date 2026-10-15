@@ -174,7 +174,7 @@ Meta-Datei; die Karte zeigt Siegchance und faire Quote im Power-Tooltip), Log-Lo
 bedingtes Logit mit ln(Marktchance) + Power-z – `power_koef` > 0 mit `power_z` ≥ 2 heißt: Power weiß etwas, das die
 Quote noch nicht enthält.
 
-Zweites Modell (Value): `pm.trainieren_wert(BASE)` (Minuten, Merkmale aus dem Zwischenspeicher). Ziel platziert ja/nein,
+Zweites Modell (Value): `pm.trainieren_wert(BASE)` bzw. `pm.trainieren_wert(BASE, ziel_art="kombi")` (Ziel Sieg + Platz gegen Sieg- + Platzchance des Marktes, Poisson – ein Sieg zählt doppelt) (Minuten, Merkmale aus dem Zwischenspeicher). Ziel platziert ja/nein,
 Ausgangswert die Platzchance des Marktes (`exp_place`, Harville aus der Endquote) – LightGBM lernt nur die Abweichung.
 Die Quote steckt also nur im Lern-Ziel, nie in den Merkmalen; der Value-Faktor (≈ erwartete A/E Platz gegen den Markt)
 braucht keine heutige Quote. Bericht: Log-Loss der Platzierung Markt gegen Markt + Value, A/E Platz und Sieg je Fünftel
