@@ -186,9 +186,9 @@ exp(k × Abweichung), k per Maximum-Likelihood auf den Prüftagen (k < 1: Modell
 Rahmen durchgezogen: Cote der PMU-Prognose 3–10 (im Test bester Bereich), gestrichelt: außerhalb.
 
 Claude-JSON: blind je Starter `modell` (Siegchance, faire Quote, Rang, Treiber) und `modelle.power` (Verlässlichkeit),
-rote Starter (Power ≤ 95) ohne Value-Hinweis nur als Kurzzeile in `weitere`; je Rennen `vergleich_365` (ARR/TR- und
+Starter nach Power sortiert, rote Starter (Power ≤ 95) ohne Value-Hinweis (Faktor ≤ 1,1, kein Gold) nur als Kurzzeile in `weitere`; je Rennen `vergleich_365` (ARR/TR- und
 Trainer/Jockey-Feldvergleich wie Overlay und Matrix der Karte). Marktdatei: je Starter `value`, oben `modelle.value` und
-`modelle.vorwaerts_test`. Der Skill liest Power erst in B13a (Gegenprobe), Value in B11a (Teil 2).
+`modelle.vorwaerts_test`. Der Skill geht die Starter in der Power-Reihenfolge durch und nimmt die Modell-Siegchance als Ausgangswert (BM), Value in B11a (Teil 2).
 
 Vorwärts-Test: jede Karte (mit Value-Modell) schreibt Value-Faktor, goldenen Rahmen, Siegchance und Prognose-Cote je
 Starter nach `BASE/auswertung/value_protokoll.csv` (Spalte `festkurs` zum Nachtragen des eigenen Kurses).

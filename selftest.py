@@ -777,6 +777,12 @@ def power_modell_pruefen() -> None:
            and all("value" in x for x in rm_["runners"]) and any(x["blind_nur_kurz"] for x in rm_["runners"]),
            "Claude-JSON: Modell je Starter, rote Starter ohne Value als Kurzzeile (Anzahl, Siegchance), Feldvergleich "
            "ARR/TR/Verbindungen, Value nur in der Marktdatei, Verlässlichkeit aufgeteilt")
+    rf = ce.rennen({"race_id": "x", "runners": [{"no": n, "nr": False, "power": {"p": p_, "sieg": 0.1}} for n, p_ in
+                                                ((1, 100), (2, 120), (3, 110))]}, None)
+    pruefe(not ce._halten({"power": {"p": 90, "wert": 1.05}}) and ce._halten({"power": {"p": 90, "wert": 1.15}})
+           and ce._halten({"power": {"p": 90, "wert": 0.9, "gold": True}}) and ce._halten({"power": {"p": 96}})
+           and rf["vorgerechnet"]["reihenfolge"] == [2, 3, 1] and [y["no"] for y in rf["runners"]] == [2, 3, 1],
+           "Claude-JSON: rote Starter nur mit Value-Faktor > 1,1 oder Gold vollständig; Reihenfolge nach Power")
 
 
 def tipp_auswertung_pruefen() -> None:
