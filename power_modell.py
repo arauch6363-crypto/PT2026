@@ -48,6 +48,10 @@ import timeform_ratings
 MODELL_ORDNER = "modelle"
 MODELL_DATEI = "power_modell.txt"
 META_DATEI = "power_modell.json"
+WERT_DATEI, WERT_META = "power_wert.txt", "power_wert.json"   # zweites Modell: A/E Platz gegen den Markt
+WERT_PARAMS = dict(objective="binary", learning_rate=0.02, num_leaves=15, min_data_in_leaf=300, feature_fraction=0.7,
+                   bagging_fraction=0.8, bagging_freq=1, lambda_l2=10.0, verbosity=-1)   # vorsichtig: kleines Signal
+WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
 MERKMAL_VERSION = 4                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
@@ -667,18 +671,9 @@ def _lgb_params(art, params):
     return {**LGB_PARAMS, **(params or {})}
 
 
-def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
-               X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
-               ab: str | None = None, neu: bool = False, art: str = "beide", log=print) -> dict:
-    """Einmal trainieren: Merkmale über die ganze Historie, lernen auf den ersten LERN_ANTEIL der Tage, prüfen auf dem
-    Rest (gegen den Marktfavoriten und das Rating), dann auf allen Tagen neu lernen und speichern.
-
-    ab:  nur Rennen ab diesem Datum lernen/prüfen (z. B. "2024-01-01", wenn Tracking erst ab da vorliegt). Die Merkmale
-         nutzen trotzdem die ganze Historie davor (Form, Verbindungen, Abstammung).
-    neu: Merkmale neu bauen, auch wenn BASE/modelle/merkmale.parquet schon da ist (nötig nach neuen Renntagen).
-    art: "regression" (Platzanteil je Pferd schätzen), "rang" (LightGBM lambdarank: Reihenfolge im Rennen lernen) oder
-         "beide" – beide prüfen, das mit der besseren Rangkorrelation auf den Prüftagen wird gespeichert."""
-    import lightgbm as lgb
+def _merkmale_holen(base, hist, out, X, neu, log):
+    """Historie laden (falls nötig) und Merkmale aus dem Zwischenspeicher BASE/modelle/merkmale.parquet holen –
+    neu gebaut, wenn er fehlt, veraltet ist (MERKMAL_VERSION) oder nicht zur Historie passt. Rückgabe: hist, X, ordner."""
     if hist is None:
         import regel_backtest as rb
         log("Historie laden …")
@@ -704,6 +699,22 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
             zwischen.parent.mkdir(parents=True, exist_ok=True)
             X.to_parquet(zwischen)
             version.write_text(json.dumps({"version": MERKMAL_VERSION}))
+    return hist, X, ordner
+
+
+def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
+               X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
+               ab: str | None = None, neu: bool = False, art: str = "beide", log=print) -> dict:
+    """Einmal trainieren: Merkmale über die ganze Historie, lernen auf den ersten LERN_ANTEIL der Tage, prüfen auf dem
+    Rest (gegen den Marktfavoriten und das Rating), dann auf allen Tagen neu lernen und speichern.
+
+    ab:  nur Rennen ab diesem Datum lernen/prüfen (z. B. "2024-01-01", wenn Tracking erst ab da vorliegt). Die Merkmale
+         nutzen trotzdem die ganze Historie davor (Form, Verbindungen, Abstammung).
+    neu: Merkmale neu bauen, auch wenn BASE/modelle/merkmale.parquet schon da ist (nötig nach neuen Renntagen).
+    art: "regression" (Platzanteil je Pferd schätzen), "rang" (LightGBM lambdarank: Reihenfolge im Rennen lernen) oder
+         "beide" – beide prüfen, das mit der besseren Rangkorrelation auf den Prüftagen wird gespeichert."""
+    import lightgbm as lgb
+    hist, X, ordner = _merkmale_holen(base, hist, out, X, neu, log)
     y = ziel(hist).reindex(X.index)
     ok = y.notna()
     X, y = X[ok], y[ok]
@@ -767,6 +778,101 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
 
 
 # --------------------------------------------------------------------------
+# Zweites Modell: Value (A/E Platz gegen den Markt)
+# --------------------------------------------------------------------------
+def _logit(p):
+    p = np.clip(np.asarray(p, dtype=float), 1e-4, 1 - 1e-4)
+    return np.log(p / (1 - p))
+
+
+def wert_tabelle(f, placed, exp_place, won, p_sieg, stufen: int = WERT_STUFEN) -> pd.DataFrame:
+    """Starter nach vorhergesagtem Value-Faktor in gleich große Gruppen (1 = niedrigster): je Gruppe Anzahl,
+    Ø Faktor, tatsächliche A/E Platz (Platzierte / erwartete Platzierte laut Endquote) und A/E Sieg."""
+    d = pd.DataFrame({"f": f, "pl": placed, "ep": exp_place, "w": won, "pw": p_sieg}).dropna()
+    d["gruppe"] = pd.qcut(d["f"].rank(method="first"), stufen, labels=False) + 1
+    g = d.groupby("gruppe")
+    return pd.DataFrame({"starter": g.size(), "faktor": np.exp(g["f"].mean()).round(2),
+                         "ae_platz": (g["pl"].sum() / g["ep"].sum()).round(3),
+                         "ae_sieg": (g["w"].sum() / g["pw"].sum()).round(3)})
+
+
+def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
+                    X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
+                    ab: str | None = None, neu: bool = False, log=print) -> dict:
+    """Value-Modell: lernt, wann ein Pferd öfter platziert ist, als seine Endquote erwarten lässt.
+    Ziel: platziert (0/1); Ausgangswert je Starter: die Platzchance des Marktes (exp_place, Harville aus der Endquote) –
+    LightGBM lernt nur die Abweichung davon. Die Quote ist also nur im Lern-Ziel, nie Merkmal: die Vorhersage
+    (Value-Faktor ≈ A/E Platz) braucht keine heutige Quote. Merkmale wie Power (Zwischenspeicher), gleiche Prüftage.
+    Bericht: A/E Platz und Sieg je Fünftel des Faktors auf den Prüftagen, bedingtes Logit (Sieg) mit Markt + Value."""
+    import lightgbm as lgb
+    import hypothesen_backtest as hb
+    hist, X, ordner = _merkmale_holen(base, hist, out, X, neu, log)
+    ep = pd.to_numeric(hist.loc[X.index, "exp_place"], errors="coerce")
+    pl = pd.to_numeric(hist.loc[X.index, "placed"], errors="coerce")
+    ok = (ep > 0) & (ep < 1) & pl.notna() & ziel(hist).reindex(X.index).notna()
+    X = feld_relativ(X[ok], hist.loc[X.index[ok], "race_id"])
+    ep, pl = ep[ok], pl[ok]
+    tage = pd.to_datetime(hist.loc[X.index, "date"])
+    if ab:
+        drin = tage >= pd.Timestamp(ab)
+        X, ep, pl, tage = X[drin], ep[drin], pl[drin], tage[drin]
+        log(f"Nur Rennen ab {ab}: {len(X):,} Starter")
+    grenze = np.sort(tage.unique())[int(len(tage.unique()) * LERN_ANTEIL)]
+    lern, test = (tage < grenze).to_numpy(), (tage >= grenze).to_numpy()
+    Xk, stufen = _kategorien(X)
+    basis = _logit(ep)
+    p = {**WERT_PARAMS, **(params or {})}
+    log(f"Value-Modell – lernen: {int(lern.sum()):,} Starter bis {pd.Timestamp(grenze):%Y-%m-%d}, prüfen: {int(test.sum()):,}")
+    d_lern = lgb.Dataset(Xk[lern], pl[lern], init_score=basis[lern], categorical_feature=KATEGORISCH, free_raw_data=False)
+    d_test = lgb.Dataset(Xk[test], pl[test], init_score=basis[test], reference=d_lern, categorical_feature=KATEGORISCH,
+                         free_raw_data=False)
+    m = lgb.train(p, d_lern, num_boost_round=runden, valid_sets=[d_test],
+                  callbacks=[lgb.early_stopping(100, verbose=False)])
+    best = int(m.best_iteration or runden)
+    f = m.predict(Xk[test], num_iteration=best, raw_score=True)          # Abweichung vom Markt (log-odds)
+    # Logloss der Platzierung: Markt allein gegen Markt + Value-Modell
+    def ll(eta):
+        q = 1 / (1 + np.exp(-eta))
+        y = pl[test].to_numpy()
+        return float(-np.mean(y * np.log(q) + (1 - y) * np.log(1 - q)))
+    # Sieg: Marktchance aus der Endquote, bedingtes Logit mit Value-z
+    rennen = hist.loc[X.index[test], "race_id"].astype(str).to_numpy()
+    odds = pd.to_numeric(hist.loc[X.index[test], "odds_final"], errors="coerce").to_numpy()
+    inv = pd.Series(np.where(odds > 1, 1 / odds, np.nan))
+    p_sieg = (inv / inv.groupby(rennen).transform("sum")).to_numpy()
+    won = pd.to_numeric(hist.loc[X.index[test], "won"], errors="coerce").to_numpy()
+    tab = wert_tabelle(f, pl[test].to_numpy(), ep[test].to_numpy(), won, p_sieg)
+    d = pd.DataFrame({"race_id": rennen, "won": won, "z": _z_im_rennen(f, rennen), "p_mkt": p_sieg})
+    d = d[d.groupby("race_id")["p_mkt"].transform(lambda s_: s_.notna().all())]
+    d = d[d.groupby("race_id")["won"].transform("sum") == 1]
+    d["ln_p"] = np.log(d["p_mkt"])
+    cl = hb.clogit(d, ["z"]).set_index("variable") if len(d) else pd.DataFrame()
+    bericht = {"baeume": best, "logloss_platz_markt": round(ll(basis[test]), 4),
+               "logloss_platz_mit_value": round(ll(basis[test] + f), 4),
+               "sieg_value_koef": float(cl.loc["z", "koef"]) if "z" in cl.index else None,
+               "sieg_value_z": float(cl.loc["z", "z"]) if "z" in cl.index else None,
+               "fuenftel": tab.reset_index().to_dict("records"),
+               "lernen_bis": f"{pd.Timestamp(grenze):%Y-%m-%d}", "ab": ab}
+    log("Value-Modell – Prüfung auf den letzten Tagen:")
+    for k_, v_ in bericht.items():
+        if k_ != "fuenftel":
+            log(f"  {k_}: {v_}")
+    log("  A/E je Fünftel des Value-Faktors (1 = niedrigster, 5 = höchster):")
+    log(tab.to_string())
+    imp = pd.Series(m.feature_importance("gain"), index=Xk.columns).sort_values(ascending=False)
+    log("Wichtigste Merkmale (Value, Gain): " + ", ".join(f"{k} {v / imp.sum():.1%}" for k, v in imp.head(15).items()))
+    final = lgb.train(p, lgb.Dataset(Xk, pl, init_score=basis, categorical_feature=KATEGORISCH), num_boost_round=best)
+    ordner.mkdir(parents=True, exist_ok=True)
+    final.save_model(str(ordner / WERT_DATEI))
+    meta = {"spalten": list(Xk.columns), "stufen": stufen, "bericht": bericht,
+            "wichtig": {k: round(float(v / imp.sum()), 4) for k, v in imp.head(30).items()},
+            "trainiert": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"), "starter": int(len(X))}
+    (ordner / WERT_META).write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
+    log(f"Value-Modell gespeichert: {ordner / WERT_DATEI}")
+    return bericht
+
+
+# --------------------------------------------------------------------------
 # Vorhersage (Race Card)
 # --------------------------------------------------------------------------
 def laden(base: Path | None) -> dict | None:
@@ -780,8 +886,12 @@ def laden(base: Path | None) -> dict | None:
         import lightgbm as lgb
     except ImportError:
         return None
-    return {"booster": lgb.Booster(model_file=str(ordner / MODELL_DATEI)),
-            "meta": json.loads((ordner / META_DATEI).read_text(encoding="utf-8"))}
+    out = {"booster": lgb.Booster(model_file=str(ordner / MODELL_DATEI)),
+           "meta": json.loads((ordner / META_DATEI).read_text(encoding="utf-8"))}
+    if (ordner / WERT_DATEI).exists() and (ordner / WERT_META).exists():      # Value-Modell, falls trainiert
+        out["wert"] = {"booster": lgb.Booster(model_file=str(ordner / WERT_DATEI)),
+                       "meta": json.loads((ordner / WERT_META).read_text(encoding="utf-8"))}
+    return out
 
 
 def _gruppe(spalte: str) -> str:
@@ -794,7 +904,8 @@ def _gruppe(spalte: str) -> str:
 
 def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log=print) -> dict:
     """Power je heutigem Starter: {(race_id, Startnummer): {"p": Power, "pred": Platzanteil (nur beim Regressions-Modell,
-    sonst None), "treiber": [[Name, Beitrag]]}}.
+    sonst None), "sieg": Siegchance, "wert": Value-Faktor (≈ A/E Platz gegen den Markt; None ohne Value-Modell),
+    "treiber": [[Name, Beitrag]]}}.
     heute_zeilen: Spalten wie die Historie (Schlüssel, Gewicht, Rating, Box, Alter, Rennen …), ohne Ergebnis."""
     if modell is None or heute_zeilen is None or not len(heute_zeilen):
         return {}
@@ -812,6 +923,11 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
     out = {}
     df = pd.DataFrame({"race_id": hz["race_id"].astype(str).to_numpy(), "no": hz["saddle_no"].to_numpy(), "pred": pred})
     df["sieg"] = _softmax_im_rennen(meta.get("sieg_a", 1.0) * _z_im_rennen(df["pred"], df["race_id"]), df["race_id"])
+    df["wert"] = np.nan
+    if modell.get("wert"):                      # Value-Faktor ≈ erwartete A/E Platz gegen den Markt (exp der Abweichung)
+        wm = modell["wert"]["meta"]
+        Xw, _ = _kategorien(X.reindex(columns=wm["spalten"]), wm["stufen"])
+        df["wert"] = np.exp(modell["wert"]["booster"].predict(Xw[wm["spalten"]], raw_score=True))
     for r_, g in df.groupby("race_id"):
         mu, sd = g["pred"].mean(), g["pred"].std(ddof=0)
         for k, z in g.iterrows():
@@ -823,5 +939,6 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
             out[(r_, int(z["no"]))] = {"p": int(round(p)),
                                        "pred": round(float(z["pred"]), 3) if meta.get("art", "regression") == "regression" else None,
                                        "sieg": round(float(z["sieg"]), 3),
+                                       "wert": round(float(z["wert"]), 2) if pd.notna(z["wert"]) else None,
                                        "treiber": [[n_, round(v_ * 100, 1)] for n_, v_ in top]}
     return out

@@ -600,6 +600,24 @@ def power_modell_pruefen() -> None:
     pruefe(mt and mt["a"] > 0 and mt["logloss_power"] > 0 and mt["power_koef"] is not None,
            f"Power-Modell: Test gegen den Markt (a {mt.get('a')}, Log-Loss Power {mt.get('logloss_power')} / Markt "
            f"{mt.get('logloss_markt')}, Power-Koeffizient {mt.get('power_koef')} z {mt.get('power_z')})")
+    # Value-Modell: Trainer-Effekt steckt nicht in der Quote -> oberes Fünftel A/E Platz > 1, unteres < 1
+    import racecard as rc_
+    hw = _power_synth(tage=80)
+    hw["exp_place"] = rc_.platz_erwartung(hw)
+    with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+        Xw = pm.merkmale(hw, log=print)
+        ew = pm.trainieren_wert(hist=hw, X=Xw, out=Path(tmp) / pm.MODELL_ORDNER, runden=300,
+                                params={"min_data_in_leaf": 20}, log=print)
+        pm.trainieren(hist=hw, X=Xw, out=Path(tmp) / pm.MODELL_ORDNER, runden=30, log=print)
+        mw = pm.laden(Path(tmp))
+        hz = hw[hw["race_id"] == hw["race_id"].iloc[-1]].drop(columns=["finish_pos", "rel_place", "won", "placed",
+                                                                        "prize_won", "arr", "tr", "odds_final"])
+        vw = pm.vorhersage(hw, hz.assign(race_id="20260601R1C1", date=pd.Timestamp("2026-06-01")), mw, log=print)
+    f5 = {z["gruppe"]: z["ae_platz"] for z in ew["fuenftel"]}
+    pruefe(f5[5] > 1.1 and f5[1] < 0.9 and ew["logloss_platz_mit_value"] < ew["logloss_platz_markt"]
+           and mw.get("wert") is not None and all(w["wert"] and w["wert"] > 0 for w in vw.values()),
+           f"Value-Modell findet, was die Quote nicht enthält (A/E Platz Fünftel 1 {f5[1]} … 5 {f5[5]}, "
+           f"Sieg-z {ew['sieg_value_z']}); Karte bekommt den Value-Faktor je Starter")
     # bekannter Fall: reines Markt-Signal -> Power-Koeffizient ≈ 0; Power mit Zusatzwissen -> deutlich positiv
     rg = np.random.default_rng(1)
     rr = np.repeat(np.arange(400), 8)
