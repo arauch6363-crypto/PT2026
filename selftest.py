@@ -630,6 +630,25 @@ def power_modell_pruefen() -> None:
     k_ = pm._kalibrieren(f_, b_, y_)
     pruefe(rt.loc[0, "rendite"] == 0.5 and rt.loc[1, "wetten"] == 2 and rt.loc[1, "rendite"] == 2.0 and abs(k_ - 0.5) < 0.05,
            f"Value-Modell: Rendite-Tabelle zur Endquote stimmt, Eichung schrumpft zu starken Faktor (k {k_:.2f} statt 0,5)")
+    # Vorwärts-Test: Protokoll aus den Kartendaten, zweimal geschrieben (Karte neu erstellt) ohne Doppelte;
+    # Auswertung verbindet mit den Ergebnissen: gold-Pferd gewinnt zu 5,0 -> Rendite +4,0, alle 3: 5/3 − 1
+    hp = pd.DataFrame({"race_id": ["20260601R1C1"] * 3, "saddle_no": [1, 2, 3], "won": [1, 0, 0], "placed": [1, 1, 0],
+                       "finish_pos": [1, 2, 3], "odds_final": [5.0, 2.0, 9.0], "odds_morning": [6.0, 2.0, 8.0]})
+    dk = {"date": "2026-06-01", "races": {"20260601R1C1": {"race_id": "20260601R1C1", "type": "Handicap", "runners": [
+        {"no": 1, "horse": "A", "nr": False, "power": {"wert": 1.3, "gold": True, "sieg": 0.2}, "prono": {"sel": {"cote_dec": 4.0}}},
+        {"no": 2, "horse": "B", "nr": False, "power": {"wert": 0.9, "gold": False, "sieg": 0.5}, "prono": None},
+        {"no": 3, "horse": "C", "nr": False, "power": {"wert": 1.0, "gold": False, "sieg": 0.3}, "prono": None},
+        {"no": 4, "horse": "D", "nr": True, "power": None}]}}}
+    with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+        pm.protokollieren(dk, Path(tmp))
+        pf = pm.protokollieren(dk, Path(tmp))
+        prot = pd.read_csv(pf)
+        va = pm.value_auswertung(Path(tmp), hist=hp, log=print).set_index("auswahl")
+    pruefe(len(prot) == 3 and va.loc["goldener Rahmen", "rendite_endquote"] == 4.0
+           and va.loc["goldener Rahmen", "rendite_morgenquote"] == 5.0
+           and abs(va.loc["alle", "rendite_endquote"] - (5 / 3 - 1)) < 1e-3
+           and va.loc["gold · Prognose 3–10", "wetten"] == 1 and va.loc["gold · Endquote 3–10", "wetten"] == 1,
+           "Vorwärts-Test: Karte protokolliert Value-Faktoren (ohne Doppelte), Auswertung rechnet Rendite zu End- und Morgenquote")
     # bekannter Fall: reines Markt-Signal -> Power-Koeffizient ≈ 0; Power mit Zusatzwissen -> deutlich positiv
     rg = np.random.default_rng(1)
     rr = np.repeat(np.arange(400), 8)

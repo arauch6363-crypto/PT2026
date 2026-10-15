@@ -54,6 +54,8 @@ WERT_PARAMS = dict(objective="binary", learning_rate=0.02, num_leaves=15, min_da
 WERT_TOP = [0.20, 0.10, 0.05, 0.02]   # Rendite-Tabelle: oberste Anteile des Value-Faktors
 WERT_GOLD = 0.10            # goldener Rahmen in der Karte: oberste 10 % des Faktors (Grenze aus den Prüftagen)
 QUOTEN_STUFEN = [1, 3, 6, 10, 20, 1000]
+QUOTE_BEREICH = (3.0, 10.0)  # im Test bester Bereich der obersten 10 % (+10 % zur Endquote) – vorwärts zu bestätigen
+PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schreibt ihre Value-Faktoren hierher
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
 MERKMAL_VERSION = 4                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
@@ -1009,4 +1011,72 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
                                        "wert": round(float(z["wert"]), 2) if pd.notna(z["wert"]) else None,
                                        "gold": bool(z["gold"]),
                                        "treiber": [[n_, round(v_ * 100, 1)] for n_, v_ in top]}
+    return out
+
+
+# --------------------------------------------------------------------------
+# Vorwärts-Test: Protokoll der Karten und laufende Auswertung
+# --------------------------------------------------------------------------
+def protokollieren(daten: dict, base: Path) -> Path | None:
+    """Value-Faktor, goldener Rahmen, Siegchance und Cote der PMU-Prognose je Starter der Karte ins Protokoll
+    (BASE/auswertung/value_protokoll.csv). Rennen, die schon drinstehen, werden ersetzt (Karte neu erstellt)."""
+    zeilen = []
+    for r in daten.get("races", {}).values():
+        for x in r.get("runners", []):
+            pw = x.get("power") or {}
+            if x.get("nr") or pw.get("wert") is None:
+                continue
+            sel = (x.get("prono") or {}).get("sel") or {}
+            zeilen.append({"date": daten.get("date"), "race_id": r.get("race_id"), "saddle_no": x.get("no"),
+                           "horse": x.get("horse"), "racetype": r.get("type"), "wert": pw.get("wert"),
+                           "gold": bool(pw.get("gold")), "sieg": pw.get("sieg"),
+                           "fair": round(1 / pw["sieg"], 2) if pw.get("sieg") else None,
+                           "cote_prono": sel.get("cote_dec"), "festkurs": None})
+    if not zeilen:
+        return None
+    pfad = Path(base) / PROTOKOLL
+    pfad.parent.mkdir(parents=True, exist_ok=True)
+    neu = pd.DataFrame(zeilen)
+    if pfad.exists():
+        alt = pd.read_csv(pfad, dtype={"race_id": str})
+        neu = pd.concat([alt[~alt["race_id"].isin(neu["race_id"])], neu], ignore_index=True)
+    neu.sort_values(["date", "race_id", "saddle_no"]).to_csv(pfad, index=False)
+    return pfad
+
+
+def value_auswertung(base: Path, hist: pd.DataFrame | None = None, log=print) -> pd.DataFrame:
+    """Vorwärts-Test: Protokoll mit den Ergebnissen der Historie verbinden und gedachte 1-€-Siegwetten auswerten –
+    alle Starter, goldener Rahmen, goldener Rahmen mit Prognose-Cote im Bereich QUOTE_BEREICH. Rendite zur Endquote,
+    zur Morgenquote und – wenn in der Spalte „festkurs“ eingetragen – zum Festkurs."""
+    pfad = Path(base) / PROTOKOLL
+    if not pfad.exists():
+        log(f"Noch kein Protokoll ({pfad}) – entsteht mit jeder Karte, sobald ein Value-Modell trainiert ist.")
+        return pd.DataFrame()
+    if hist is None:
+        import regel_backtest as rb
+        hist = rb.laden(Path(base))
+    p = pd.read_csv(pfad, dtype={"race_id": str})
+    erg = hist[["race_id", "saddle_no", "won", "placed", "finish_pos", "odds_final", "odds_morning"]].copy()
+    erg["race_id"] = erg["race_id"].astype(str)
+    d = p.merge(erg, on=["race_id", "saddle_no"], how="inner")
+    d = d[d["finish_pos"].notna() | d["won"].notna()]
+    lo, hi = QUOTE_BEREICH
+    auswahl = [("alle", d), ("goldener Rahmen", d[d["gold"]]),
+               (f"gold · Prognose {lo:g}–{hi:g}", d[d["gold"] & d["cote_prono"].between(lo, hi)]),
+               (f"gold · Endquote {lo:g}–{hi:g}", d[d["gold"] & d["odds_final"].between(lo, hi)])]
+    zeilen = []
+    for name, t in auswahl:
+        z = {"auswahl": name, "wetten": len(t), "siege": int(t["won"].sum()) if len(t) else 0,
+             "tage": t["date"].nunique() if len(t) else 0}
+        for spalte, label in (("odds_final", "endquote"), ("odds_morning", "morgenquote"), ("festkurs", "festkurs")):
+            q = pd.to_numeric(t[spalte], errors="coerce") if spalte in t else pd.Series(dtype=float)
+            m = q.notna() & (q > 1)
+            z[f"rendite_{label}"] = round(float((t.loc[m, "won"] * q[m]).sum() / m.sum() - 1), 3) if m.sum() else None
+            if label == "festkurs":
+                z["wetten_festkurs"] = int(m.sum())
+        zeilen.append(z)
+    out = pd.DataFrame(zeilen)
+    zeit = f"{d['date'].min()} bis {d['date'].max()}" if len(d) else "–"
+    log(f"Vorwärts-Test Value-Modell ({zeit}, {d['race_id'].nunique()} Rennen mit Ergebnis):")
+    log(out.to_string(index=False))
     return out

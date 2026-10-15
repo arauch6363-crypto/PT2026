@@ -181,6 +181,12 @@ zeigt einen goldenen Rahmen um die faire Quote bei den obersten 10 % des Value-F
 Dazu im Bericht: Rendite einer Siegwette 1 € zur echten Endquote (mit Marge) für alle, die obersten 20/10/5/2 % des
 Faktors, und die obersten 10 % nach Renntyp, Quotenbereich und Monat. Der Faktor in der Karte ist geeicht:
 exp(k × Abweichung), k per Maximum-Likelihood auf den Prüftagen (k < 1: Modell war zu selbstbewusst).
+Rahmen durchgezogen: Cote der PMU-Prognose 3–10 (im Test bester Bereich), gestrichelt: außerhalb.
+
+Vorwärts-Test: jede Karte (mit Value-Modell) schreibt Value-Faktor, goldenen Rahmen, Siegchance und Prognose-Cote je
+Starter nach `BASE/auswertung/value_protokoll.csv` (Spalte `festkurs` zum Nachtragen des eigenen Kurses).
+`pm.value_auswertung(BASE)` verbindet das Protokoll mit den Ergebnissen und zeigt die Rendite gedachter 1-€-Siegwetten
+(alle, goldener Rahmen, gold mit Prognose bzw. Endquote 3–10) zur Endquote, Morgenquote und zum Festkurs.
 Keine heutige Prognose oder Quote. Fehlende Werte bleiben leer (LightGBM verteilt sie selbst). Gelernt auf den ersten
 75 % der Tage, geprüft auf dem Rest (Rangkorrelation je Rennen, Sieger getroffen, Sieger unter den Top 3 – gegen
 Endquote und Rating), dann auf allen Tagen neu gelernt. `racecard.run` lädt `BASE/modelle/power_modell.txt` und zeigt
