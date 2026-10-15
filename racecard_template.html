@@ -164,6 +164,19 @@ td.r,th.r{text-align:right}
 svg text{fill:var(--ink-3);font:10px var(--f-mono)}
 .legend{font-size:12px;color:var(--ink-2);display:grid;gap:4px;padding:14px;background:var(--surface-2);border-radius:4px;margin-top:18px}
 .legend b{color:var(--ink)}
+.legend-box{margin-top:18px;background:var(--surface-2);border-radius:4px}
+.legend-box > summary{cursor:pointer;padding:10px 14px;font-size:13px;list-style:none;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.legend-box > summary::-webkit-details-marker{display:none}
+.legend-box > summary::before{content:"▸";color:var(--ink-3);transition:transform .15s}
+.legend-box[open] > summary::before{transform:rotate(90deg)}
+.legend-box > summary small{color:var(--ink-3)}
+.legend-box .legend{margin-top:0;padding-top:4px}
+.leg-filter{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 6px;align-items:center}
+.leg-filter button{font:500 12px var(--f-body);border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:999px;padding:3px 10px;cursor:pointer}
+.leg-filter button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.leg-filter input{font:13px var(--f-body);border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:4px;padding:4px 8px;min-width:0;flex:1 1 160px;max-width:260px}
+.legend > div[hidden]{display:none}
+.legend .leg-leer{color:var(--ink-3);font-style:italic}
 .empty{padding:24px;text-align:center;color:var(--ink-2)}
 
 
@@ -433,7 +446,11 @@ td.num,.adj,.ae{white-space:nowrap}
     <div class="race-kurz" id="race-kurz" hidden></div>
   </nav>
   <main id="race"></main>
-  <section class="legend" id="legend"></section>
+  <details class="legend-box" id="legend-box">
+    <summary><b>Erklärungen &amp; Hinweise</b> <small>zum Nachlesen – aufklappen, nach Thema filtern oder suchen</small></summary>
+    <div class="leg-filter" id="leg-filter"></div>
+    <section class="legend" id="legend"></section>
+  </details>
 </div>
 
 <script>
@@ -833,7 +850,7 @@ function kurzHTML(x, age){
 // Ersetzt die Power-Zahl in der Kurzzeile; Farbe wie Power: grün = klar über dem Feldschnitt, rot = klar darunter.
 const FAIR_WERT = 1.3;
 const COTE_MAX = 31;        // ▲/▼ nur bis Prognose-Cote 30/1 – darüber sagt die Prognose zu wenig
-const VALUE_AB = 1.2;       // Value-Modell: erwartete A/E Platz gegen den Markt ab hier -> goldener Rahmen      // Cote der PMU-Prognose ≥ 1,3 × faire Quote: Modell sieht das Pferd klar stärker als die Prognose
+const VALUE_AB = 1.2;       // Value-Modell ohne gespeicherte Grenze: ab diesem Faktor goldener Rahmen
 function powerQuote(x){
   const P = x._power;
   const q = 1 / Math.max(P.sieg, 0.001);
@@ -1679,6 +1696,44 @@ function formTable(rows, no, wHeute, rHeute, tageHeute = null, x = null, race = 
   </tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
+// Hinweise unter der Karte: Thema je Absatz (nach dem ersten fett gedruckten Begriff), Filter-Knöpfe und Suche
+const LEG_THEMEN = [
+  ["Kennzahlen", ["A/E", "TR", "ΔL600", "Pos. vor Finish", "RTR", "€/Lauf", "Laufstil"]],
+  ["Modelle", ["Power"]],
+  ["Formzeilen & Gegner", ["Gegner", "Heutige Gegner", "Letzte Läufe", "Kommentar", "Vergleich ARR/TR"]],
+  ["Vorlieben & Verbindungen", ["Vorlieben", "Vorlieben-Vergleich", "A/E-Matrix", "C"]],
+  ["Prognose & Markt", ["PMU-Prognose"]],
+  ["Boden & Bahn", ["Boden"]],
+  ["Darstellung & Bedienung", ["Farben", "Aufgeklapptes Pferd", "Starter in drei Stufen"]]];
+function legThema(div){
+  const b = div.querySelector("b"), t = b ? b.textContent.trim() : "";
+  for (const [thema, begriffe] of LEG_THEMEN) if (begriffe.some(w => t === w || t.startsWith(w + " "))) return thema;
+  return "Sonstiges";
+}
+function legendeFilter(){
+  const leg = $("#legend"), box = $("#leg-filter");
+  const absaetze = [...leg.children].filter(d => d.tagName === "DIV");
+  absaetze.forEach(d => d.dataset.thema = legThema(d));
+  const themen = [...LEG_THEMEN.map(([t]) => t), "Sonstiges"].filter(t => absaetze.some(d => d.dataset.thema === t));
+  let wahl = "Alle";
+  box.innerHTML = ["Alle", ...themen].map(t => `<button type="button" data-thema="${esc(t)}" aria-pressed="${t === wahl}">${esc(t)}</button>`).join("")
+    + `<input type="search" placeholder="Begriff suchen, z. B. RTR, Value, Boden" aria-label="Hinweise durchsuchen">`;
+  const leer = document.createElement("div");
+  leer.className = "leg-leer"; leer.textContent = "Kein Hinweis passt zu Filter und Suche."; leg.appendChild(leer);
+  const anwenden = () => {
+    const q = box.querySelector("input").value.trim().toLowerCase();
+    let n = 0;
+    for (const d of absaetze) {
+      const zeigen = (wahl === "Alle" || d.dataset.thema === wahl) && (!q || d.textContent.toLowerCase().includes(q));
+      d.hidden = !zeigen; n += zeigen;
+    }
+    leer.hidden = n > 0;
+    box.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.thema === wahl)));
+  };
+  box.addEventListener("click", e => { const b = e.target.closest("button"); if (b) { wahl = b.dataset.thema; anwenden(); } });
+  box.querySelector("input").addEventListener("input", anwenden);
+  anwenden();
+}
 function renderLegend(){
   const p = DATA.params;
   $("#legend").innerHTML = `
@@ -1704,6 +1759,7 @@ function renderLegend(){
     <div><b>Starter in drei Stufen</b>: zuerst die Kurzzeile (Nummer, Trikot, Name, Alter/Geschlecht, Jockey, Trainer, Gewicht, Box, PMU-Prognose und Tipp-Konsens); ein Klick zeigt die Zeile mit allen Kennzahlen, ein weiterer die Details, ein dritter klappt wieder auf die Kurzzeile zu. „Alle aufklappen“ öffnet alle Zeilen (ohne Details); Klick auf die fixierte Leiste schließt nur die Details.</div>
     <div><b>Vergleich ARR/TR</b> (Klick auf ARR oder TR einer Formzeile): je heutigem Starter eine Zeile mit seinen Läufen der letzten ${p.kpi_days ?? 365} Tage (ohne ausgerittene, auf das heutige Gewicht bereinigt), x = Wert. Vom gewählten Pferd alle Läufe, von den anderen alle mindestens so guten und schlechtere nur bis ${(p.kpi_window || {}).arr ?? 5} kg (ARR) bzw. ${(p.kpi_window || {}).tr ?? 10} lb (TR) darunter; je blasser, desto älter. Filter oben mit Mehrfachauswahl (keiner gewählt = alle): Distanz-Abstand zu heute (±100 / 101–200 / 201–400 / mehr als 400 m, Standard ±100 m), Boden (Standard: heutige Bodengruppe), Bahn (heutige / andere, Standard: alle) und Zeitraum ab heute (letzte 30 Tage / vor 31–60 / 61–90 / 91–365 Tagen, Standard: alle). Oben lässt sich zwischen ARR und TR umschalten (gleicher Lauf, Filter bleiben). Skala: gewählter Wert ± 5 kg (ARR) bzw. ± 10 lb (TR); bessere Werte darüber stehen rechts in einer eigenen Spalte (▶ bester Wert, Anzahl), schlechtere außerhalb entfallen. Klick auf einen Punkt springt zum Starter und seiner Formzeile.</div>
     <div><b>Letzte Läufe</b>: die letzten ${p.form_runs} Läufe; gelb markiert, was dem heutigen Rennen entspricht – <b>K</b> Kurs mit gleichem Belag (PSF gegen Gras), <b>D</b> Distanz ±100 m, <b>B</b> Bodengruppe. Fehlt darunter ein Lauf auf dem Kurs (gleicher Belag), über die Distanz (±100 m) oder in der Bodengruppe von heute, steht unten (gestrichelt abgetrennt) zusätzlich der letzte ältere Lauf mit diesem Merkmal – höchstens drei, also bis zu ${p.form_runs + 3} Zeilen.</div>`;
+  legendeFilter();
 }
 
 init();
