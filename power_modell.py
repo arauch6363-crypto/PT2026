@@ -10,7 +10,8 @@ Fehlende Werte bleiben NaN; LightGBM entscheidet je Baum selbst, wohin sie gehen
 Merkmale (Gruppen wie in der Karte):
   Rennen      Typ, Starter, Altersklasse, Distanz und Distanzgruppe, Bodengruppe, Tempo-Szenario (Anzahl Führende, Ø frühe
               Position des Feldes)
-  Pferd       Alter, Geschlecht, €/Lauf 365 Tage, Gewicht, Rating (roh und bereinigt), Tage seit dem letzten Lauf, Läufe,
+  Pferd       Alter, Geschlecht, €/Lauf 365 Tage, Gewicht, Rating (roh und bereinigt), Tage seit dem letzten Lauf, Läufe
+              (gesamt und 365 Tage), letzter Lauf auf heutiger Boden- bzw. Distanzgruppe (Platzanteil, ARR heutiges Gewicht),
               RTR / ARR / TR / ΔL600 A / ΔB200 A wie die Kacheln, Duell-Rang (wie die Kachel), Startbox (Ø Platzanteil der
               Box auf der Konfiguration), Laufstil (Ø frühe Position der letzten 5 Läufe, auch relativ zum Feld)
   Vorlieben   schon gewonnen / platziert auf Kurs, Distanzgruppe, Bodengruppe; beste Distanz-/Bodengruppe des Pferdes
@@ -19,7 +20,8 @@ Merkmale (Gruppen wie in der Karte):
   Abstammung  Vater, Muttervater: Score, €/Lauf+, Valeur der 3-Jährigen+, beste Distanz-/Bodengruppe (ohne 2-Jährige bei
               der Distanz)
   Form        letzte drei Läufe: Klasse (Ø Valeur, Rennstärke), Längen zurück, Platzanteil, gleicher Boden / gleiche
-              Distanzgruppe wie heute, ARR und TR (heutiges Gewicht), Finish-Index, ±800, Weg m, Endquote, Tage davor,
+              Distanzgruppe wie heute, ARR und TR (heutiges Gewicht), Finish-Index, ±800, Weg m, Endquote (dazu Quotenrang
+              und Marktchance), mit/gegen den Rennverlauf (+1 gegen, −1 mit, 0 neutral), Tage davor,
               Gegner-Score (wie liefen die Gegner danach gegen ihre Quote), direkter Vergleich mit heutigen Gegnern
 
 Colab:
@@ -40,20 +42,23 @@ import numpy as np
 import pandas as pd
 
 import racecard as rc
+import rtr_arr
 import timeform_ratings
 
 MODELL_ORDNER = "modelle"
 MODELL_DATEI = "power_modell.txt"
 META_DATEI = "power_modell.json"
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
-MERKMAL_VERSION = 2                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+MERKMAL_VERSION = 4                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
-           "jockey_score", "owner_score", "duel_score", "sire_score"]
+           "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
+           "form5_pos", "form5_best", "form5_lb", "form5_arr"]
 RANG_STUFEN = 10            # Lern-Ziel für „rang“: Platzanteil in 11 Stufen (0 … 10)
 RANG_GAIN = [round(2 ** (s / 2) - 1, 3) for s in range(RANG_STUFEN + 1)]   # Sieg zählt am meisten, ohne alles andere zu erdrücken
 LERN_ANTEIL = 0.75          # zeitlich vorne: lernen; die übrigen Tage: prüfen
 FORM_N = 3                  # so viele letzte Läufe als eigene Merkmale
+FORM_VERDICHTET = 5         # verdichtete Form (Ø, Bestwert, Trend) über so viele letzte Läufe
 VERB_TAGE = 365             # Verbindungen: Fenster
 VERB_K = 10                 # Verbindungs-Score zur 100 hin geschrumpft wie mit so vielen Läufen bei 100
 ABST_K = 20                 # dasselbe für Vater/Muttervater
@@ -71,6 +76,9 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("jockey_", "Jockey"), ("owner_", "Besitzer"), ("breeder_", "Züchter"), ("sire_", "Vater"),
            ("dam_sire_", "Muttervater"), ("arr", "ARR"), ("tr", "TR"), ("rtr", "RTR"), ("dl600", "ΔL600 A"),
            ("db200", "ΔB200 A"), ("duel", "Duell"), ("box", "Startbox"), ("early", "Laufstil"), ("pace", "Tempo-Szenario"),
+           ("form5_", "letzte 5 Läufe"), ("chg_", "Wechsel zum letzten Lauf"), ("blink", "Scheuklappen"),
+           ("race_prize", "Preisgeld des Rennens"), ("feld_val", "Klasse des Feldes"),
+           ("lgo_", "letzter Lauf auf heutigem Boden"), ("ldi_", "letzter Lauf auf heutiger Distanz"),
            ("won_", "Sieg-Vorlieben"), ("placed_", "Platz-Vorlieben"), ("best_", "beste Gruppe Pferd"),
            ("rating", "Rating"), ("weight", "Gewicht"), ("epr365", "€/Lauf 365"), ("days", "Tage seit Lauf"),
            ("runs", "Läufe"), ("age", "Alter"), ("sex", "Geschlecht"), ("draw", "Startbox")]
@@ -105,6 +113,21 @@ def _score(placed, exp, rp, lp, n, g_rp, g_lp) -> float:
     if n and g_lp:
         teile.append(100 * (lp / n) / g_lp)
     return float(np.mean(teile)) if teile else np.nan
+
+
+def _verlauf(h: pd.DataFrame) -> np.ndarray:
+    """Rennverlauf je Starter als Zahl: +1 gegen den Verlauf gelaufen, −1 mit dem Verlauf, 0 neutral, sonst NaN.
+    Nimmt verlauf_pferd aus h (Race Card), sonst rechnet racecard.rennverlauf es nach (Norm aus der ganzen Historie,
+    wie in der Karte). Fehlen die nötigen Spalten, bleibt alles NaN."""
+    if "verlauf_pferd" in h:
+        vp = h["verlauf_pferd"].to_numpy()
+    else:
+        try:
+            d = h.reset_index(drop=True)
+            vp = rc.rennverlauf(d, d)["verlauf_pferd"].to_numpy()        # Left-Merge: Reihenfolge bleibt
+        except (KeyError, ValueError):
+            vp = np.full(len(h), None, dtype=object)
+    return np.array([{"gegen": 1.0, "mit": -1.0, "neutral": 0.0}.get(v, np.nan) for v in vp], dtype=float)
 
 
 def ziel(h: pd.DataFrame) -> pd.Series:
@@ -160,6 +183,15 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
               "lengths_behind"]:
         werte[c][hm] = np.nan                                     # heutige Zeilen haben keine Laufwerte
     lb = np.where(fpos == 1, 0.0, werte["lengths_behind"])
+    bgrp = np.array([rtr_arr.boden_gruppe(g) for g in going], dtype=object)      # Bodengruppe (FAST, SLOW, PSF …)
+    vlf = _verlauf(h)                                                             # +1 gegen / −1 mit / 0 neutral
+    vlf[hm] = np.nan
+    preis = np.log1p(np.clip(_zahl(h, "prize_eur"), 0, None))                      # Preisgeld des Rennens (vorab bekannt)
+    feld_val = pd.Series(werte["valeur"]).groupby(rid).transform("mean").to_numpy(dtype=float)   # Ø Rating des Feldes
+    blink = np.array([{"ohne": 0.0, "klassisch": 1.0, "australisch": 2.0}.get(rc.scheuklappen_gruppe(b), np.nan)
+                      for b in _text(h, "blinkers")], dtype=float)
+    jk, tk = _text(h, "jockey_key"), _text(h, "trainer_key")
+    letzter_jk = np.full(n, None, dtype=object)                                    # Jockey des letzten Laufs (je Zeile)
     F: dict[str, np.ndarray] = {}
 
     def feld(name, wert=np.nan):
@@ -177,12 +209,16 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
            "sex": np.array([str(s)[:1].upper() if s is not None else None for s in _text(h, "sex")], dtype=object)}
 
     # ---- je Pferd: Kacheln, Form, Vorlieben ----------------------------------------------------------------------
-    for c in ["runs", "days", "rtr", "arr", "tr", "dl600", "db200", "early", "epr365",
+    F["race_prize"], F["feld_val"], F["blink"] = preis, feld_val, blink
+    for c in ["form5_pos", "form5_best", "form5_lb", "form5_arr", "form5_trend", "chg_weight", "chg_dist", "chg_class",
+              "chg_prize", "chg_jockey", "chg_trainer", "blink_first", "blink_change"]:
+        feld(c)
+    for c in ["runs", "runs365", "lgo_pos", "lgo_arr", "ldi_pos", "ldi_arr", "days", "rtr", "arr", "tr", "dl600", "db200", "early", "epr365",
               "won_course", "won_dist", "won_going", "placed_course", "placed_dist", "placed_going", "best_dist", "best_going"]:
         feld(c)
     for k in range(1, FORM_N + 1):
         for c in ["val", "epr", "lb", "pos", "same_going", "same_dist", "arr", "tr", "fi", "g800", "weg", "odds", "orank",
-                  "pm", "tage", "gegner", "duell"]:
+                  "pm", "verlauf", "tage", "gegner", "duell"]:
             feld(f"f{k}_{c}")
     # nächster Start jedes Laufs (für den Gegner-Score): Datum und Urteil gegen den Quotenrang
     ord_h = np.lexsort((tag, hid))
@@ -254,6 +290,42 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             if not vor:
                 continue
             F["days"][i] = tag[i] - tag[vor[0]]
+            F["runs365"][i] = sum(tag[i] - tag[j] <= 365 for j in vor)
+            # verdichtete Form der letzten FORM_VERDICHTET Läufe (fehlende Werte zählen nicht)
+            v5 = vor[:FORM_VERDICHTET]
+            pos5, lb5 = rp0[v5], lb[v5]
+            arr5 = werte["arr"][v5] - gew[i] + rc.GEWICHT_REF
+            if np.isfinite(pos5).any():
+                F["form5_pos"][i], F["form5_best"][i] = np.nanmean(pos5), np.nanmax(pos5)
+                if len(v5) > 1 and np.isfinite(pos5[0]) and np.isfinite(pos5[1:]).any():
+                    F["form5_trend"][i] = pos5[0] - np.nanmean(pos5[1:])         # > 0: zuletzt besser als davor
+            if np.isfinite(lb5).any():
+                F["form5_lb"][i] = np.nanmean(lb5)
+            if np.isfinite(arr5).any():
+                F["form5_arr"][i] = np.nanmean(arr5)
+            # Wechsel gegenüber dem letzten Lauf
+            j = vor[0]
+            F["chg_weight"][i], F["chg_dist"][i] = gew[i] - gew[j], dist[i] - dist[j]
+            F["chg_class"][i], F["chg_prize"][i] = feld_val[i] - feld_val[j], preis[i] - preis[j]
+            if jk[i] is not None and jk[j] is not None:
+                F["chg_jockey"][i] = float(jk[i] != jk[j])
+                letzter_jk[i] = jk[j]
+            if tk[i] is not None and tk[j] is not None:
+                F["chg_trainer"][i] = float(tk[i] != tk[j])
+            if not np.isnan(blink[i]):
+                frueher = blink[vor][~np.isnan(blink[vor])]
+                if len(frueher):
+                    F["blink_first"][i] = float(blink[i] > 0 and (frueher == 0).all())
+                if not np.isnan(blink[j]):
+                    F["blink_change"][i] = float(blink[i] != blink[j])
+            # letzter Lauf auf heutiger Bodengruppe / Distanzgruppe: Platzanteil und ARR (heutiges Gewicht)
+            for name, gruppe in (("lgo", bgrp), ("ldi", dgrp)):
+                if gruppe[i] is None:
+                    continue
+                j = next((j for j in vor if gruppe[j] == gruppe[i]), None)
+                if j is not None:
+                    F[f"{name}_pos"][i] = rp0[j]
+                    F[f"{name}_arr"][i] = werte["arr"][j] - gew[i] + rc.GEWICHT_REF
             ok = lambda j: not ausg[j]
             a = gew_schnitt(vor, werte["arr"], i, ok)
             F["arr"][i] = a - gew[i] + rc.GEWICHT_REF
@@ -290,6 +362,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 F[f"f{k}_fi"][i], F[f"f{k}_g800"][i] = werte["fi_adj"][j], werte["pos_gain_800_finish"][j]
                 F[f"f{k}_weg"][i], F[f"f{k}_odds"][i] = werte["weg_med"][j], werte["odds_final"][j]
                 F[f"f{k}_orank"][i], F[f"f{k}_pm"][i] = o_rel[j], p_markt[j]
+                F[f"f{k}_verlauf"][i] = vlf[j]
                 F[f"f{k}_tage"][i] = tag[i] - tag[j]
                 feld_j = rennen_pos.get(rid[j], np.array([], dtype=int))
                 andere = feld_j[hid[feld_j] != hid[j]]
@@ -319,7 +392,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     for l_ in linien:
         for c in ("score", "epr", "val3", "runs", "best_dist", "best_going"):
             feld(f"{l_}_{c}")
-    feld("box_mean"), feld("box_runs")
+    feld("box_mean"), feld("box_runs"), feld("chg_jockey_score")
     verb = {r_: {} for r_ in rollen}                     # Schlüssel -> [deque, n, placed, exp, rp, lp]
     glob = [deque(), 0, 0.0, 0.0]                        # 365-Tage-Schnitt aller Läufe: n, rp, lp
     abst = {l_: {} for l_ in linien}                     # Schlüssel -> [n, placed, exp, rp, lp, n3, val3]
@@ -341,19 +414,25 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             glob[1] -= 1; glob[2] -= rp_; glob[3] -= lp_
         g_rp = glob[2] / glob[1] if glob[1] else np.nan
         g_lpw = glob[3] / glob[1] if glob[1] else np.nan
+        def verb_score(r_, key):
+            """Verbindungs-Score (365 Tage, geschrumpft) und Läufe für einen Schlüssel, Stand vor dem Tag d_."""
+            s = verb[r_].get(key)
+            if s is None:
+                return np.nan, np.nan
+            q = s[0]
+            while q and q[0][0] < d_ - VERB_TAGE:
+                _, pl_, ex_, rp_, lp_ = q.popleft()
+                s[1] -= 1; s[2] -= pl_; s[3] -= ex_; s[4] -= rp_; s[5] -= lp_
+            if not s[1]:
+                return np.nan, np.nan
+            sc = _score(s[2], s[3], s[4], s[5], s[1], g_rp, g_lpw)
+            return ((s[1] * sc + VERB_K * 100) / (s[1] + VERB_K) if not np.isnan(sc) else np.nan), s[1]
+
         for i in pos[zm[pos]]:
             for r_, keys in rollen.items():
-                s = verb[r_].get(keys[i])
-                if s is None:
-                    continue
-                q = s[0]
-                while q and q[0][0] < d_ - VERB_TAGE:
-                    _, pl_, ex_, rp_, lp_ = q.popleft()
-                    s[1] -= 1; s[2] -= pl_; s[3] -= ex_; s[4] -= rp_; s[5] -= lp_
-                if s[1]:
-                    sc = _score(s[2], s[3], s[4], s[5], s[1], g_rp, g_lpw)
-                    F[f"{r_}_score"][i] = (s[1] * sc + VERB_K * 100) / (s[1] + VERB_K) if not np.isnan(sc) else np.nan
-                    F[f"{r_}_runs"][i] = s[1]
+                F[f"{r_}_score"][i], F[f"{r_}_runs"][i] = verb_score(r_, keys[i])
+            if letzter_jk[i] is not None:                 # Jockey besser/schlechter als beim letzten Lauf (Score heute)
+                F["chg_jockey_score"][i] = F["jockey_score"][i] - verb_score("jockey", letzter_jk[i])[0]
             ga_rp = g_all[1] / g_all[0] if g_all[0] else np.nan
             ga_lp = g_all[2] / g_all[0] if g_all[0] else np.nan
             for l_, keys in linien.items():
@@ -506,6 +585,72 @@ def abdeckung(X: pd.DataFrame, tage: pd.Series) -> pd.DataFrame:
     return a
 
 
+def _z_im_rennen(pred, rennen) -> np.ndarray:
+    """Vorhersage als z-Wert im eigenen Rennen (so wie Power daraus entsteht)."""
+    s = pd.Series(np.asarray(pred, dtype=float))
+    g = s.groupby(np.asarray(rennen))
+    sd = g.transform("std", ddof=0)
+    return ((s - g.transform("mean")) / sd.where(sd > 0)).fillna(0.0).to_numpy()
+
+
+def _softmax_im_rennen(eta, rennen) -> np.ndarray:
+    g = pd.factorize(np.asarray(rennen))[0]
+    eta = np.asarray(eta, dtype=float)
+    eta = eta - pd.Series(eta).groupby(g).transform("max").to_numpy()
+    e = np.exp(eta)
+    return e / np.bincount(g, weights=e)[g]
+
+
+def _a_schaetzen(z, won, rennen, iter_max: int = 50) -> float:
+    """Siegchance = Softmax(a × z) je Rennen: a per Maximum-Likelihood (nur Rennen mit genau einem Sieger)."""
+    d = pd.DataFrame({"z": z, "w": won, "r": rennen})
+    d = d[d.groupby("r")["w"].transform("sum") == 1]
+    if d.empty:
+        return 1.0
+    zz, w, g = d["z"].to_numpy(float), d["w"].to_numpy(float), pd.factorize(d["r"])[0]
+    a = 1.0
+    for _ in range(iter_max):
+        p = _softmax_im_rennen(a * zz, g)
+        m1 = np.bincount(g, weights=p * zz)
+        grad = (w * zz).sum() - m1.sum()
+        hess = -(np.bincount(g, weights=p * zz * zz) - m1 ** 2).sum()
+        if hess >= 0:
+            break
+        schritt = grad / hess
+        a -= schritt
+        if abs(schritt) < 1e-8:
+            break
+    return float(a)
+
+
+def markt_test(pred, rennen, won, odds) -> dict:
+    """Siegchance aus Power (Softmax(a × z), a geschätzt) gegen den Markt (1/Quote, je Rennen normiert):
+    mittlerer Log-Loss des Siegers (kleiner = besser) und bedingtes Logit mit ln(Marktchance) und Power-z.
+    power_koef > 0 mit |z| ≥ 2: Power weiß etwas, das die Endquote noch nicht enthält."""
+    import hypothesen_backtest as hb
+    rennen = np.asarray(rennen).astype(str)
+    z = _z_im_rennen(pred, rennen)
+    won = np.asarray(won, dtype=float)
+    inv = pd.Series(np.where(np.asarray(odds, dtype=float) > 1, 1.0 / np.asarray(odds, dtype=float), np.nan))
+    p_mkt = (inv / inv.groupby(rennen).transform("sum")).to_numpy()
+    d = pd.DataFrame({"race_id": rennen, "won": won, "z": z, "p_mkt": p_mkt})
+    d = d[d.groupby("race_id")["p_mkt"].transform(lambda s: s.notna().all())]       # nur Rennen mit allen Quoten
+    d = d[d.groupby("race_id")["won"].transform("sum") == 1]
+    if d.empty:
+        return {}
+    a = _a_schaetzen(d["z"], d["won"], d["race_id"])
+    p_mod = _softmax_im_rennen(a * d["z"].to_numpy(), d["race_id"])
+    sieger = d["won"].to_numpy() == 1
+    d["ln_p"] = np.log(d["p_mkt"])
+    cl = hb.clogit(d, ["z"]).set_index("variable")
+    return {"rennen": int(d["race_id"].nunique()), "a": round(a, 3),
+            "logloss_power": round(float(-np.log(p_mod[sieger]).mean()), 4),
+            "logloss_markt": round(float(-np.log(d["p_mkt"].to_numpy()[sieger]).mean()), 4),
+            "markt_koef": float(cl.loc["ln p_mkt (Markt)", "koef"]),
+            "power_koef": float(cl.loc["z", "koef"]) if "z" in cl.index else None,
+            "power_z": float(cl.loc["z", "z"]) if "z" in cl.index else None}
+
+
 def _lgb_daten(lgb, Xk, y, rennen, art, ref=None):
     """LightGBM-Datensatz; für „rang“ nach Rennen gruppiert (Zeilen eines Rennens hintereinander) mit Stufen-Ziel."""
     if art == "rang":
@@ -597,6 +742,10 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     bericht["markt (Endquote)"] = _bewerten(pt, "markt")
     bericht["rating (bereinigt)"] = _bewerten(pt, "rating")
     sieger = max(arten, key=lambda a_: bericht[f"modell ({a_})"]["rang_korr"] or -1)
+    # Siegchance aus Power und Test gegen den Markt (auf den Prüftagen, mit dem gewählten Modell)
+    bericht["markt_test"] = markt_test(pt[sieger].to_numpy(), pt["race_id"].to_numpy(),
+                                       hist.loc[X.index[test], "won"].to_numpy(),
+                                       hist.loc[X.index[test], "odds_final"].to_numpy())
     bericht.update({"gewaehlt": sieger, "lernen_bis": f"{pd.Timestamp(grenze):%Y-%m-%d}", "ab": ab})
     log("Prüfung auf den letzten Tagen (je Rennen):")
     for k, v in bericht.items():
@@ -609,6 +758,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     ordner.mkdir(parents=True, exist_ok=True)
     final.save_model(str(ordner / MODELL_DATEI))
     meta = {"spalten": list(Xk.columns), "stufen": stufen, "art": sieger, "bericht": bericht,
+            "sieg_a": bericht["markt_test"].get("a", 1.0),
             "wichtig": {k: round(float(v / imp.sum()), 4) for k, v in imp.head(30).items()},
             "trainiert": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"), "starter": int(len(X))}
     (ordner / META_DATEI).write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -661,6 +811,7 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
     beitr = modell["booster"].predict(Xk, pred_contrib=True)[:, :-1]
     out = {}
     df = pd.DataFrame({"race_id": hz["race_id"].astype(str).to_numpy(), "no": hz["saddle_no"].to_numpy(), "pred": pred})
+    df["sieg"] = _softmax_im_rennen(meta.get("sieg_a", 1.0) * _z_im_rennen(df["pred"], df["race_id"]), df["race_id"])
     for r_, g in df.groupby("race_id"):
         mu, sd = g["pred"].mean(), g["pred"].std(ddof=0)
         for k, z in g.iterrows():
@@ -671,5 +822,6 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
             p = 100 + 10 * (z["pred"] - mu) / sd if sd and sd > 0 else 100.0
             out[(r_, int(z["no"]))] = {"p": int(round(p)),
                                        "pred": round(float(z["pred"]), 3) if meta.get("art", "regression") == "regression" else None,
+                                       "sieg": round(float(z["sieg"]), 3),
                                        "treiber": [[n_, round(v_ * 100, 1)] for n_, v_ in top]}
     return out

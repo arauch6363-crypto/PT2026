@@ -153,16 +153,24 @@ erg = pm.trainieren(BASE, ab="2024-01-01")   # schnell: Merkmale aus BASE/modell
 
 Abhängige Variable: Platzanteil (Starter − Platz) / (Starter − 1), nicht im Ziel = 0. Merkmale nur aus Läufen vor dem
 Renntag (`pm.merkmale`, dieselbe Funktion für Training und Karte): Rennen (Typ, Starter, Altersklasse, Distanz, Boden,
-Tempo-Szenario), Pferd (Alter, Geschlecht, €/Lauf 365 Tage, Gewicht, Rating, Tage, RTR/ARR/TR/ΔL600 A/ΔB200 A wie die
+Tempo-Szenario), Pferd (Alter, Geschlecht, €/Lauf 365 Tage, Gewicht, Rating, Tage, Starts gesamt und 365 Tage, letzter Lauf auf heutiger
+Boden-/Distanzgruppe mit Platzanteil und ARR, RTR/ARR/TR/ΔL600 A/ΔB200 A wie die
 Kacheln, Duell-Rang, Startbox, Laufstil), Vorlieben (gewonnen/platziert auf Kurs, Distanz, Boden; beste Gruppe des
 Pferdes), Trainer/Jockey/Besitzer/Züchter (Score aus A/E Platz, Platzanteil, €/Lauf, 365 Tage), Vater/Muttervater
 (Score, €/Lauf+, Valeur der 3-Jährigen, beste Distanz-/Bodengruppe) und die letzten drei Läufe (Klasse, Längen, Platzanteil,
 gleicher Boden/Distanz, ARR, TR, Finish-Index, ±800, Weg, Endquote, Quotenrang relativ und Marktchance (1/Quote, je
-Rennen normiert), Gegner-Score, Vergleich mit heutigen Gegnern). Wichtige Werte (Rating bereinigt, Gewicht, €/Lauf, RTR,
+Rennen normiert), mit/gegen den Rennverlauf, Gegner-Score, Vergleich mit heutigen Gegnern). Wichtige Werte (Rating bereinigt, Gewicht, €/Lauf, RTR,
 ARR, TR, letzter Platzanteil/Längen/Marktchance, Trainer, Jockey, Besitzer, Duell, Vater) gehen zusätzlich relativ zum
 heutigen Feld ein (`pm.feld_relativ`: Rang 0–1 und Abstand zum Feldschnitt). `art="beide"` (Vorgabe) prüft Regression
 auf den Platzanteil und ein Rang-Modell (LightGBM lambdarank, Rennen als Gruppe) und speichert das mit der besseren
 Rangkorrelation auf den Prüftagen.
+Dazu: verdichtete Form der letzten 5 Läufe (Ø/bester Platzanteil, Ø Längen, Ø ARR, Trend), Wechsel zum letzten Lauf
+(Gewicht, Distanz, Klasse = Ø Rating des Feldes, Preisgeld des Rennens, Jockey mit Score-Differenz, Trainer,
+Scheuklappen erstmals/gewechselt) und die Klasse des heutigen Rennens (Preisgeld, Ø Rating des Feldes).
+`markt_test` im Bericht: Siegchance = Softmax(a × Power-z) je Rennen (a auf den Prüftagen geschätzt, steht in der
+Meta-Datei; die Karte zeigt Siegchance und faire Quote im Power-Tooltip), Log-Loss des Siegers gegen die Endquote und
+bedingtes Logit mit ln(Marktchance) + Power-z – `power_koef` > 0 mit `power_z` ≥ 2 heißt: Power weiß etwas, das die
+Quote noch nicht enthält.
 Keine heutige Prognose oder Quote. Fehlende Werte bleiben leer (LightGBM verteilt sie selbst). Gelernt auf den ersten
 75 % der Tage, geprüft auf dem Rest (Rangkorrelation je Rennen, Sieger getroffen, Sieger unter den Top 3 – gegen
 Endquote und Rating), dann auf allen Tagen neu gelernt. `racecard.run` lädt `BASE/modelle/power_modell.txt` und zeigt

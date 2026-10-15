@@ -552,7 +552,9 @@ def _power_synth(tage=40, rennen=3, feld=8, pferde=90, seed=3) -> pd.DataFrame:
                               tr=np.nan if fehlt else 80 + 8 * perf[k], rtr=30 + 5 * fae[i], d_L600_A=np.nan if fehlt else .5 * perf[k],
                               d_B200_A=np.nan, early_pct=rng.random(), tracking=not fehlt, ausgeritten=False, cls_val=30.0,
                               cls_epr_kl=7.0, trainer_key=f"T{trn[i]}", jockey_key=None if fehlt else f"J{k}",
-                              owner_key=f"O{i % 20}", breeder_key=None, sire_key=f"S{i % 10}", dam_sire_key=f"D{i % 12}"))
+                              owner_key=f"O{i % 20}", breeder_key=None, sire_key=f"S{i % 10}", dam_sire_key=f"D{i % 12}",
+                              prize_eur=[8000, 15000, 30000][c],
+                              blinkers=None if fehlt else ("OEILLERES_CLASSIQUE" if (i + d) % 9 == 0 else "SANS_OEILLERES")))
     h = pd.DataFrame(z)
     h["odds_rank"] = h.groupby("race_id")["odds_final"].rank(method="min")
     return h
@@ -591,6 +593,25 @@ def power_modell_pruefen() -> None:
     ps = [w["p"] for w in v.values()]
     pruefe(mod is not None and len(v) == len(heute) and abs(np.mean(ps) - 100) < 2 and all(w["treiber"] for w in v.values()),
            f"Power-Modell: gespeichert, geladen, Power je heutigem Starter (Ø {np.mean(ps):.0f}, mit Treibern)")
+    sg = [w["sieg"] for w in v.values()]
+    pruefe(abs(sum(sg) - 1) < 1e-2 and sg[int(np.argmax(ps))] == max(sg),
+           f"Power-Modell: Siegchance je Starter (Summe {sum(sg):.2f}, höchste Power = höchste Siegchance)")
+    mt = erg["markt_test"]
+    pruefe(mt and mt["a"] > 0 and mt["logloss_power"] > 0 and mt["power_koef"] is not None,
+           f"Power-Modell: Test gegen den Markt (a {mt.get('a')}, Log-Loss Power {mt.get('logloss_power')} / Markt "
+           f"{mt.get('logloss_markt')}, Power-Koeffizient {mt.get('power_koef')} z {mt.get('power_z')})")
+    # bekannter Fall: reines Markt-Signal -> Power-Koeffizient ≈ 0; Power mit Zusatzwissen -> deutlich positiv
+    rg = np.random.default_rng(1)
+    rr = np.repeat(np.arange(400), 8)
+    st_ = rg.normal(0, 1, len(rr)); extra = rg.normal(0, 1, len(rr))
+    wahr = _sm = pm._softmax_im_rennen(st_ + extra, rr)
+    gew_ = np.zeros(len(rr))
+    for r in range(400):
+        k = np.flatnonzero(rr == r); gew_[rg.choice(k, p=wahr[k] / wahr[k].sum())] = 1
+    quote = 1 / pm._softmax_im_rennen(st_, rr)
+    m_mit = pm.markt_test(st_ + extra, rr, gew_, quote)
+    pruefe(m_mit["power_koef"] > 0 and m_mit["power_z"] > 3 and m_mit["logloss_power"] < m_mit["logloss_markt"],
+           f"Markt-Test erkennt Zusatzwissen (Power-Koeffizient {m_mit['power_koef']}, z {m_mit['power_z']})")
     rk = {a_: erg[f"modell ({a_})"]["rang_korr"] for a_ in ("regression", "rang")}
     pruefe(min(rk.values()) > 0.2 and erg["gewaehlt"] == max(rk, key=rk.get) and mod["meta"]["art"] == erg["gewaehlt"],
            f"Power-Modell findet das eingebaute Signal als Regression und als Rang-Modell (Rangkorrelation {rk}), "
@@ -605,6 +626,50 @@ def power_modell_pruefen() -> None:
     pruefe(len(q) and q["f1_orank"].between(0, 1).all() and q["f1_pm"].between(0, 1).all()
            and q[["f1_odds", "f1_pm"]].corr(method="spearman").iloc[0, 1] < -0.5,
            "Power-Modell: letzte Läufe mit Quotenrang (0 = Favorit) und Marktchance (1/Quote, je Rennen normiert)")
+    # Starts 365 Tage ≤ Starts gesamt; letzter Lauf auf heutigem Boden/Distanz = der neueste frühere Lauf dieser Gruppe
+    i = X["lgo_pos"].dropna().index[-1]
+    hi = h.loc[i]
+    vor = h[(h["horse_id"] == hi["horse_id"]) & (pd.to_datetime(h["date"]) < pd.to_datetime(hi["date"]))
+            & (h["going_pmu"].map(pm.rtr_arr.boden_gruppe) == pm.rtr_arr.boden_gruppe(hi["going_pmu"]))]
+    j = vor.sort_values("date").index[-1]
+    pruefe((X["runs365"].fillna(0) <= X["runs"].fillna(0)).all() and abs(X.at[i, "lgo_pos"] - pm.ziel(h)[j]) < 1e-9
+           and abs(X.at[i, "lgo_arr"] - (h.at[j, "arr"] - hi["weight_kg"] + pm.rc.GEWICHT_REF)) < 1e-9
+           if pd.notna(h.at[j, "arr"]) else True,
+           "Power-Modell: Starts 365 Tage, letzter Lauf auf heutigem Boden (Platzanteil, ARR mit heutigem Gewicht)")
+    # verdichtete Form (letzte 5) und Wechsel zum letzten Lauf, von Hand nachgerechnet für einen Starter
+    i = X["form5_trend"].dropna().index[-1]
+    hi = h.loc[i]
+    vor = h[(h["horse_id"] == hi["horse_id"]) & (pd.to_datetime(h["date"]) < pd.to_datetime(hi["date"]))]
+    vor = vor.sort_values("date", ascending=False).head(pm.FORM_VERDICHTET)
+    rp = pm.ziel(h)[vor.index].to_numpy()
+    j = vor.index[0]
+    fv = h.groupby("race_id")["valeur"].transform("mean")
+    pruefe(abs(X.at[i, "form5_pos"] - np.nanmean(rp)) < 1e-9 and abs(X.at[i, "form5_best"] - np.nanmax(rp)) < 1e-9
+           and abs(X.at[i, "form5_trend"] - (rp[0] - np.nanmean(rp[1:]))) < 1e-9
+           and X.at[i, "chg_weight"] == hi["weight_kg"] - h.at[j, "weight_kg"]
+           and X.at[i, "chg_dist"] == hi["distance_m"] - h.at[j, "distance_m"]
+           and abs(X.at[i, "chg_prize"] - (np.log1p(hi["prize_eur"]) - np.log1p(h.at[j, "prize_eur"]))) < 1e-9
+           and (np.isnan(X.at[i, "chg_class"]) if pd.isna(fv[i]) or pd.isna(fv[j]) else abs(X.at[i, "chg_class"] - (fv[i] - fv[j])) < 1e-9)
+           and X.at[i, "chg_trainer"] == float(hi["trainer_key"] != h.at[j, "trainer_key"]),
+           "Power-Modell: Form der letzten 5 (Ø, Bestwert, Trend) und Wechsel zum letzten Lauf (Gewicht, Distanz, Klasse, Preisgeld, Trainer)")
+    # Scheuklappen: erstmals nur, wenn vorher nie getragen; Jockey-Wechsel mit Score-Differenz
+    ok_b = True
+    for i in X["blink_first"].dropna().index:
+        hi = h.loc[i]
+        frueher = h[(h["horse_id"] == hi["horse_id"]) & (pd.to_datetime(h["date"]) < pd.to_datetime(hi["date"]))]
+        fr = frueher["blinkers"].dropna()
+        soll = float(hi["blinkers"] == "OEILLERES_CLASSIQUE" and (fr == "SANS_OEILLERES").all())
+        ok_b &= X.at[i, "blink_first"] == soll
+    pruefe(ok_b and X["blink_first"].eq(1).any() and X["chg_jockey"].eq(1).any()
+           and X.loc[X["chg_jockey"].eq(0), "chg_jockey_score"].dropna().abs().max() < 1e-9,
+           "Power-Modell: Scheuklappen erstmals, Jockey-Wechsel (gleicher Jockey -> Score-Differenz 0)")
+    # Rennverlauf der Formzeilen: gegen = +1, mit = −1, neutral = 0, unbekannt = leer
+    hv = h.assign(verlauf_pferd=np.where(h["saddle_no"] % 3 == 0, "gegen", np.where(h["saddle_no"] % 3 == 1, "mit", None)))
+    with contextlib.redirect_stdout(io.StringIO()):
+        Xv = pm.merkmale(hv, duelle=False, log=print)
+    w = set(Xv["f1_verlauf"].dropna().unique())
+    pruefe(w == {1.0, -1.0} and Xv["f1_verlauf"].isna().any(),
+           "Power-Modell: Formzeilen mit Rennverlauf (gegen +1, mit −1, unbekannt leer)")
     # Gleichstände (z. B. viele gleiche Ratings) zählen anteilig, nicht nach Zeilenreihenfolge
     gl = pd.DataFrame({"race_id": [1] * 4 + [2] * 4, "y": [1, .66, .33, 0] * 2, "r": [5, 5, 5, 5, 1, 9, 8, 7]})
     b = pm._bewerten(gl, "r")
