@@ -1,6 +1,6 @@
 ---
 name: "rennkarten-durchgang"
-description: Qualitativer Durchgang durch eine französische Galopp-Racecard (Vollblut) in zwei Teilen – zuerst blind (ohne PMU-Prognose, Tipps, Cribles und Rennkommentar) Pferd für Pferd nach Startnummer mit eigener Siegchance und fairer Quote je Starter, danach der Abgleich mit dem Markt – mit dem Ziel, pro Starter einen Wett-Angle zu bejahen oder zu verneinen, zu prüfen, ob die Öffentlichkeit ihn über Prognose, Cribles und Presse-Tipps schon wahrgenommen und eingepreist hat, daraus den Edge zu berechnen und für jedes Pferd mit Angle eine Mindestquote (Festkurs) zu nennen. Verwenden, wann immer eine Racecard durchgegangen, Kandidaten gesucht oder Mindestquoten bestimmt werden sollen.
+description: Qualitativer Durchgang durch eine französische Galopp-Racecard (Vollblut) in zwei Teilen – zuerst blind (ohne PMU-Prognose, Tipps, Cribles und Rennkommentar) Pferd für Pferd in der Reihenfolge des Power-Modells mit eigener Siegchance und fairer Quote je Starter, danach der Abgleich mit dem Markt – mit dem Ziel, pro Starter einen Wett-Angle zu bejahen oder zu verneinen, zu prüfen, ob die Öffentlichkeit ihn über Prognose, Cribles und Presse-Tipps schon wahrgenommen und eingepreist hat, daraus den Edge zu berechnen und für jedes Pferd mit Angle eine Mindestquote (Festkurs) zu nennen. Verwenden, wann immer eine Racecard durchgegangen, Kandidaten gesucht oder Mindestquoten bestimmt werden sollen.
 ---
 
 # Rennkarten-Durchgang
@@ -33,18 +33,23 @@ fast immer auf der Prognose-Chance).
 - **Teil 1 – blind** mit `racecard_JJJJMMTT_claude.json`. Die Datei
   enthält keine Prognose, keine cote probable, kein `p_prog`, keine Tipps,
   keinen Konsens, keine Cribles und keinen Rennkommentar; die Starter
-  stehen nach Startnummer. Durchgang A, B0–B10, B12 (ohne den Absatz zu
-  den vorderen Prognose-Pferden), B13, B-2J. Ergebnis je Starter:
+  stehen in der Reihenfolge des Power-Modells (stärkste zuerst; ohne
+  Modell nach Startnummer). Durchgang A, BM, B0–B10, B12 (ohne den
+  Absatz zu den vorderen Prognose-Pferden), B13, B-2J. Ergebnis je Starter:
   Siegchance als Spanne und Mitte (`p_blind`) und faire Quote (C1,
   Schritte 1, 2 und 4). Die Marktdatei wird in Teil 1 nicht geöffnet,
   auch nicht „nur kurz“.
 - **Teil 2 – Markt** mit `racecard_JJJJMMTT_markt.json`: Prognose-Profil
-  (A), P, B11, die vorderen Prognose-Pferde (B12), Edge, Stufe,
+  (A), P, B11, B11a, die vorderen Prognose-Pferde (B12), Edge, Stufe,
   Mindestquote und Sicherheit (C1), Ausgabe C2. **Die Siegchancen aus
   Teil 1 bleiben fest.** Zeigt der Abgleich, dass die eigene Sicht weit
   danebenliegt, wird das benannt und geht in Stufe und Sicherheit ein,
   nicht in eine neue Zahl.
-- Ratings kommen in Teil 1 erst in B13.
+- Ratings kommen in Teil 1 erst in B13. Das **Power-Modell** (`modell`)
+  ist dagegen von Anfang an dabei: Es bestimmt die Reihenfolge und liefert
+  je Pferd den Ausgangswert der Siegchance (BM). Es nutzt keine Quote und
+  keine Prognose, verrät also nichts vom Markt. Der **Value-Faktor**
+  (`value`) steht nur in der Marktdatei und wird in Teil 2 gelesen (B11a).
 
 **Fehlende Information ist eine Lücke, kein Negativbefund.** Kleine
 Fallzahlen werden als solche gekennzeichnet (D).
@@ -72,6 +77,17 @@ Sektionalzeiten) stammen aus französischen Flachrennen ab
   (B4). `comment_de` ist eine Übersetzung, für Nuancen gilt `comment`.
 - **Laufstil, Tempo und Sektionalwerte brauchen Tracking.** Pferde ohne
   getrackte Läufe stehen in `pace.unknown` und haben kein `style`.
+
+- **Nicht vollständig gezeigte Starter (`weitere`).** Ist ein
+  Power-Modell trainiert, stehen Starter mit roter Power (≤ 95, Modell
+  sieht sie klar unter dem Feldschnitt) **ohne** Value-Hinweis (Faktor
+  höchstens 1,1 und kein goldener Rahmen) nur als
+  Kurzzeile in `weitere`: `anzahl`, `starter_gesamt`, `sieg_summe` und je
+  Starter Nummer, Name, Modell-Siegchance (`sieg`), faire Quote, Power
+  und Rang. Sie laufen mit und werden nicht durchgegangen. Wie oft solche
+  Starter gewinnen, steht in `modelle.power.rote_starter` (Anteil an den
+  Siegern auf den Prüftagen). In der Marktdatei sind sie mit
+  `blind_nur_kurz: true` markiert.
 
 Eine Lücke wird beim Pferd in einem Halbsatz genannt und in der
 Sicherheitsstufe (C1) berücksichtigt, aber nicht als Argument gegen das
@@ -263,19 +279,60 @@ wenige Starter eine Valeur haben (Zweijährige).
 
 ## Abschnitt B — Raster je Starter
 
-**Reihenfolge: nach Startnummer aufsteigend** — nicht nach Prognose
-oder Ratings; die blinde Datei listet die Starter schon so
-(`vorgerechnet.reihenfolge`). Jedes Pferd bekommt eine Siegchance; wer
-keinen Ansatz zeigt, darf kurz bleiben.
+**Reihenfolge: nach dem Power-Modell** — das stärkste Pferd laut Modell
+zuerst, nie nach Prognose; die blinde Datei listet die Starter schon so
+(`vorgerechnet.reihenfolge`; ohne Modell nach Startnummer). So steht die
+Messlatte (B10) früh, und der Durchgang arbeitet sich vom Kern des Feldes
+nach außen. Jedes Pferd bekommt eine Siegchance; wer keinen Ansatz zeigt,
+darf kurz bleiben.
 
 Die Punkte B0 bis B13 sind eine Checkliste, keine starre Abfolge. Je Pferd
-ungefähr: letzter Lauf und Delta zu heute (B0) → Datenlage und Wechsel
+ungefähr: Ausgangswert und Treiber des Modells (BM) → letzter Lauf und
+Delta zu heute (B0) → Datenlage und Wechsel
 (B2) → Bilanz unter heutigen Bedingungen (B6, B6a) → Trainer und Jockey
 (B7) → Fazit mit Einordnung in die laufende Rangfolge (B12, B10) →
 kurzer Blick auf die Ratings (B13). Der Abgleich mit Crible, Tipps und
 Prognose (B11) folgt erst in Teil 2. Wo ein Punkt unten auf Prognose,
 Crible, Tipps oder Prognose-Favoriten verweist, gilt dieser Teil erst in
 Teil 2; in Teil 1 zählt nur das Argument selbst.
+
+### BM — Ausgangspunkt: das Power-Modell
+
+`modell` je Starter: `sieg` (Modell-Siegchance, Feld = 100 %), `fair`
+(1 / sieg), `power` (100 = Feldschnitt, ±10 je Standardabweichung),
+`rang`/`von` und `treiber` (die vier stärksten Gründe des Modells, in
+Prozentpunkten Platzanteil). Wie gut das Modell ist, steht oben in
+**`modelle.power`** (`pruefung`, `einordnung`): Auf den Prüftagen ordnete
+es das Feld fast so gut wie die Endquote (Rangkorrelation und
+Siegertreffer knapp dahinter), wusste aber nichts, was der Markt nicht
+schon einpreiste. `rote_starter` sagt, wie oft Pferde mit roter Power
+trotzdem gewinnen.
+
+**So wird es genutzt:**
+- **`sieg` ist der Ausgangswert der eigenen Siegchance.** Die eigene
+  Analyse sucht, was das Modell **nicht sehen kann**, und verschiebt von
+  dort aus: Kommentare und Laufbild, Entschuldigungen für den letzten
+  Lauf, Tempo- und Bias-Passung heute, Ausrüstungs- und Trainerwechsel mit
+  Vorgeschichte, ein Pferd in Entwicklung (wenig Starts, junge Pferde),
+  Duelle, Gegneraufwertung, Lücken in den Daten (D).
+- **Verschiebungen begründen.** Jede deutliche Abweichung von `sieg`
+  (etwa ab Faktor 1,5 nach oben oder unten) braucht ein konkretes Argument,
+  das das Modell nicht kennt. Ohne ein solches Argument bleibt die
+  Siegchance nahe am Modell — das Modell ordnet im Schnitt besser als eine
+  freie Schätzung.
+- **`treiber` lesen.** Sie zeigen, worauf das Modell seine Zahl stützt
+  (z. B. „letzter Lauf +6", „RTR −5"). Passt ein Treiber nicht zu heute
+  (etwa ein Gewichtswechsel, der das Pferd falsch einordnet), ist das ein
+  Grund für eine Verschiebung.
+- **Kein Angle aus dem Modell allein.** „Modell sieht ihn vorn" ist keine
+  Begründung für einen Edge; der Angle entsteht erst aus Argumenten, die
+  der Markt übersieht (B11). Stimmen eigene Analyse, Ratings (B13) und
+  Modell überein, steigt die Sicherheit (C1), nicht die Siegchance.
+- **`weitere`:** Für diese Starter ohne eigenen Durchgang die
+  Modell-Siegchance als `p_blind` übernehmen (oder begründet abweichen),
+  damit die Summe des Feldes stimmt.
+- Ohne Modell (`modell` fehlt) gilt der Durchgang wie bisher nach
+  Startnummer und ohne Ausgangswert.
 
 ### B0 — Einstieg: der letzte Lauf und was sich heute ändert
 
@@ -561,7 +618,15 @@ Starts (bei Vorlieben fünf) dünn. `ae_win` ist das Gegenstück auf Sieg —
 wichtiger für die Siegwette, aber rauschiger.
 
 **Ablauf:**
-1. `ae.trainer.d365` und `ae.jockey.d365` als Grundniveau.
+1. `ae.trainer.d365` und `ae.jockey.d365` als Grundniveau. **Im
+   Feldvergleich** steht dasselbe je Rennen in
+   `vergleich_365.verbindungen` (alle Starter, auch `weitere`): je Trainer
+   und Jockey A/E Platz, `ae_win`, `pos_idx` (Pos+, Platzanteil-Index,
+   100 = Ø), `epr_idx` (€/L+), Starts, Rang im Feld (`rang_ae`,
+   `rang_pos`, `rang_epr`), `trend_vorjahr` (A/E gegen die 365 Tage davor:
+   steigend/fallend ab ±0,10) und `form_30t` (hot/cold). Damit zuerst
+   einordnen, wer im Feld die stärksten Verbindungen hat, dann je Pferd
+   lesen.
 2. `d30` und `trend` für die aktuelle Form. `trend` ist `hot`/`cold` bei
    mindestens 0,25 Abstand zum Jahreswert, ab fünf Starts. **Unter etwa
    15 Starts in 30 Tagen zählt `d90`**, der Trend ist dann nur ein
@@ -692,6 +757,17 @@ Beispiel: Messlatte TR 105, ARR 32,9 über 1600 m. Ein Konkurrent mit
 TR 84 und ARR 29,2 über 1400 m muss über die längere Strecke deutlich
 zulegen.
 
+**Feldvergleich ARR/TR** (`vergleich_365.arr`, `vergleich_365.tr`, alle
+Starter inklusive `weitere`): je Pferd die Läufe der letzten 365 Tage auf
+das heutige Gewicht gerechnet, ohne ausgerittene: Anzahl `n`, `best`,
+`median`, `last`, **`best_heute_bed`** (bester Wert auf gleicher
+Bodengruppe und ±200 m, mit `n_heute_bed`), Rang des besten Werts im Feld
+(`rang`) und `abstand_zum_besten` (kg bzw. lb). Beim TR zählen gedeckelte
+Läufe nicht als bester Wert. Das ist die Messlatte auf einen Blick: Wer hat
+das heutige Niveau schon gelaufen, und wer **unter heutigen Bedingungen**?
+Ein guter `best` ohne `best_heute_bed` ist ein Fragezeichen für heute, ein
+`best_heute_bed` nahe am Feldbesten ein Argument.
+
 **Laufende Rangfolge.** Der Querbezug passiert nicht erst am Ende,
 sondern nach jedem Pferd: „vor Nr. 3 und Nr. 7", „knapp hinter
 Liseo". So entsteht während des Durchgangs eine eigene Reihenfolge, die
@@ -742,6 +818,31 @@ allem der Favorit). Typisch:
 „Eingepreist?" gilt auch für die **Gegenargumente**: Ein Fragezeichen, das
 die Prognose nicht anspricht, ist beim Favoriten so wertvoll wie ein
 übersehenes Plus bei einem Außenseiter.
+
+### B11a — Value-Signal des Modells (Teil 2)
+
+`value` je Starter in der Marktdatei: `faktor` (geeichter Value-Faktor ≈
+wie oft das Pferd im Verhältnis zur Erwartung des Marktes ins Geld kommt,
+1 = wie der Markt), `gold` (oberste 10 %), `fair` (faire Quote des
+Power-Modells), `cote_ohne_marge` (Prognose-Cote, Marge herausgerechnet),
+`vs_prognose` („Modell stärker"/„Modell schwächer" ab 30 % Abstand, nur bis
+30/1) und `cote_3_10`. Verlässlichkeit in **`modelle.value`**, laufender
+Vorwärts-Test in `modelle.vorwaerts_test`.
+
+- **Faktor ≤ etwa 0,8 ist das verlässlichste Signal: Der Markt überschätzt
+  das Pferd** (unterstes Fünftel im Test A/E ≈ 0,72–0,77, stabil). Beim
+  Prognose-Favoriten ist das ein unabhängiges Fragezeichen (B12), bei einem
+  eigenen Kandidaten ein Grund, die Argumente gegenzulesen und die
+  Sicherheit zu senken.
+- **`gold` mit `cote_3_10`** ist ein Hinweis, einen Angle zu prüfen — nie
+  allein die Begründung. Zur PMU-Endquote war die oberste Auswahl im Test
+  nicht profitabel (Marge, überwettete Außenseiter); am ehesten trägt sie
+  zum Festkurs. `gold` bei Cote über 10 ist schwach.
+- **Stützt `value` einen eigenen, *nicht erkannten* Angle**, ist das eine
+  zweite, unabhängige Bestätigung (Sicherheit hoch, Edge unverändert).
+  Widerspricht ein Faktor ≤ 0,8 einem eigenen ++, Stufe höchstens +.
+- Die blinde Siegchance bleibt fest; das Value-Signal wirkt auf Stufe und
+  Sicherheit.
 
 ### B12 — Fazit je Starter: Angle ja oder nein
 
@@ -828,12 +929,10 @@ Regeln:
   nach Bedingung sehr unterschiedlich läuft. Dann zählt der Wert unter
   heutigen Bedingungen, nicht der Ø.
 
-
-
 ## Abschnitt B-2J — Variante für Zweijährige und Debütanten
 
 Bei Zweijährigen mit null bis drei Starts ersetzt dieses Raster B1, B3, B6
-(Marke) und B9 weitgehend; die Reihenfolge bleibt nach Startnummer. Bei
+(Marke) und B9 weitgehend; die Reihenfolge bleibt wie in B (Power-Modell). Bei
 Debütanten stützt sich die Prognose oft nur auf Stall und Abstammung,
 dieselben Informationen, die hier vorliegen. Ein eigenes Argument darüber
 hinaus ist selten; das im Fazit ehrlich sagen.
@@ -897,7 +996,8 @@ Schritte 1, 2 und 4 gehören zu Teil 1 (blind), 3, 5 und 6 zu Teil 2.
    nichts.
 4. **Gegenprobe über das Feld:** Die Chancen von Favorit und Kandidaten
    müssen zusammen plausibel bleiben und dem Rest des Feldes Raum lassen
-   (drei Pferde zusammen 80 % sind zu großzügig).
+   (drei Pferde zusammen 80 % sind zu großzügig). Die Starter aus
+   `weitere` zählen mit (`sieg_summe`, BM).
 5. **Edge** = eigene Chance (Mitte) / Prognose-Chance (`p_prog`) − 1 (17,5 %
    gegen 10 % = +75 %). Er sagt, wie weit die eigene Sicht von der der
    Öffentlichkeit abweicht, nicht, ob der Festkurs passt.
@@ -946,7 +1046,8 @@ passender Festkurs zu erwarten; das so sagen.
 über alle Starter (Pferd, Siegchance als Spanne mit Mitte, faire Quote,
 Kurzgrund), sortiert nach Siegchance, darunter ein ```json-Block
 `{"blind": [{"race_id": …, "no": …, "p_blind": …}, …]}` mit allen
-Startern. Kein Edge, keine Stufe, keine Mindestquote.
+Startern, auch denen aus `weitere`. Kein Edge, keine Stufe, keine
+Mindestquote.
 
 **Teil 2** pro Rennen, kurz und in dieser Form:
 
@@ -992,7 +1093,8 @@ oder `null`,
 Argumente (auch für − die Gegenargumente): `klasse`, `ratings`, `duell`,
 `bilanz`, `abstammung`, `exposure`, `marke`, `trainer`, `jockey`, `tempo`,
 `bias`, `box`, `verlauf`, `laufbild`, `belag`, `distanz`, `pause`,
-`ausruestung`, `prognose`, `sonstiges`.
+`ausruestung`, `prognose`, `modell` (Power-Modell, BM), `value`
+(Value-Signal, B11a), `sonstiges`.
 
 ## Arbeitsweise im Gespräch
 
@@ -1006,12 +1108,13 @@ Argumente (auch für − die Gegenargumente): `klasse`, `ratings`, `duell`,
      dahinter samt nächstem Start, und `rivals_stat`, B5) und die
      Zwischenwerte der Berechnung (Ergebnisse wie `dl600_a`, `tr_heute`,
      `cls_*_idx` bleiben).
-   - **Starter** stehen nach Startnummer, Nichtstarter
+   - **Starter** stehen nach dem Power-Modell (ohne Modell nach Startnummer), Nichtstarter
      getrennt in `nichtstarter` (Nummern in `nr`); gelaufene Rennen haben
      `offen: false`.
    - **Vorgerechnet:** je Rennen `vorgerechnet` (`reihenfolge` nach
-     Startnummer, `bias_rel`), je Starter `luecke` (D). Direkt
-     übernehmen, nicht neu rechnen.
+     Power, `bias_rel`), je Starter `luecke` (D) und `modell` (BM), je
+     Rennen `weitere` und `vergleich_365` (B7, B10). Direkt übernehmen,
+     nicht neu rechnen.
 2. **`racecard_JJJJMMTT_markt.json` (Teil 2)**, erst nach Teil 1 öffnen:
    je Rennen `prono` (Rennkommentar, Tipps, Konsens, `cribles_ohne`),
    `vorgerechnet` (`marge`, `reihenfolge` nach Prognose-Rang), `nr` und
@@ -1023,7 +1126,7 @@ import json
 DATA = json.load(open(pfad_claude, encoding="utf-8"))      # Teil 1: blind
 offen = {rid: r for rid, r in DATA["races"].items() if r["offen"]}
 for rid, r in offen.items():
-    for x in r["runners"]:                 # schon nach Startnummer
+    for x in r["runners"]:                 # schon nach Power-Modell (stärkste zuerst)
         luecke = x["luecke"]
         alte_zeilen = [f for f in x["form_lines"] if f.get("extra")]
 

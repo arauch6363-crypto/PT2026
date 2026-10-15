@@ -66,6 +66,7 @@ RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_l
 RANG_STUFEN = 10            # Lern-Ziel für „rang“: Platzanteil in 11 Stufen (0 … 10)
 RANG_GAIN = [round(2 ** (s / 2) - 1, 3) for s in range(RANG_STUFEN + 1)]   # Sieg zählt am meisten, ohne alles andere zu erdrücken
 LERN_ANTEIL = 0.75          # zeitlich vorne: lernen; die übrigen Tage: prüfen
+ROT_AB = 95                 # Power bis hier = rot (klar unter dem Feldschnitt)
 FORM_N = 3                  # so viele letzte Läufe als eigene Merkmale
 FORM_VERDICHTET = 5         # verdichtete Form (Ø, Bestwert, Trend) über so viele letzte Läufe
 VERB_TAGE = 365             # Verbindungen: Fenster
@@ -775,6 +776,14 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     bericht["markt_test"] = markt_test(pt[sieger].to_numpy(), pt["race_id"].to_numpy(),
                                        hist.loc[X.index[test], "won"].to_numpy(),
                                        hist.loc[X.index[test], "odds_final"].to_numpy())
+    # Rote Starter (Power ≤ 95): wie oft gewinnen / platzieren sie sich? (fürs Weglassen in der Claude-JSON)
+    pw_test = 100 + 10 * _z_im_rennen(pt[sieger].to_numpy(), pt["race_id"].to_numpy())
+    rot = pw_test <= ROT_AB
+    w_t = pd.to_numeric(hist.loc[X.index[test], "won"], errors="coerce").fillna(0).to_numpy() == 1
+    p_t = pd.to_numeric(hist.loc[X.index[test], "placed"], errors="coerce").fillna(0).to_numpy() == 1
+    bericht["rot"] = {"anteil_starter": round(float(rot.mean()), 3),
+                      "anteil_sieger": round(float(rot[w_t].mean()), 3) if w_t.any() else None,
+                      "anteil_platz": round(float(rot[p_t].mean()), 3) if p_t.any() else None}
     bericht.update({"gewaehlt": sieger, "lernen_bis": f"{pd.Timestamp(grenze):%Y-%m-%d}", "ab": ab})
     log("Prüfung auf den letzten Tagen (je Rennen):")
     for k, v in bericht.items():
@@ -1129,4 +1138,57 @@ def value_auswertung(base: Path, hist: pd.DataFrame | None = None, log=print) ->
     zeit = f"{d['date'].min()} bis {d['date'].max()}" if len(d) else "–"
     log(f"Vorwärts-Test Value-Modell ({zeit}, {d['race_id'].nunique()} Rennen mit Ergebnis):")
     log(out.to_string(index=False))
+    return out
+
+
+# --------------------------------------------------------------------------
+# Verlässlichkeit der Modelle für die Claude-JSON (aus den gespeicherten Trainingsberichten)
+# --------------------------------------------------------------------------
+def modell_info(modell: dict | None, vorwaerts: list | None = None) -> dict | None:
+    """Kurzfassung der Prüfung beider Modelle mit Einordnung im Klartext – für Claude (Skill rennkarten-durchgang).
+    power: Stärke-Einschätzung (blind nutzbar); value: Abweichung vom Markt (nur Marktteil); vorwaerts: laufender
+    Vorwärts-Test aus dem Protokoll (value_auswertung), falls vorhanden."""
+    if not modell:
+        return None
+    b = (modell.get("meta") or {}).get("bericht") or {}
+    art = b.get("gewaehlt", "regression")
+    m, mk, mt = b.get(f"modell ({art})") or b.get("modell") or {}, b.get("markt (Endquote)") or {}, b.get("markt_test") or {}
+    z = mt.get("power_z")
+    rot = b.get("rot") or {}
+    power = {
+        "pruefung": {"rennen": m.get("rennen"), "rang_korr": m.get("rang_korr"), "rang_korr_markt": mk.get("rang_korr"),
+                     "sieger_getroffen": m.get("sieger_getroffen"), "sieger_getroffen_markt": mk.get("sieger_getroffen"),
+                     "markt_test_z": z, "pruef_ab": b.get("lernen_bis")},
+        "rote_starter": rot or None,
+        "einordnung": ("Stärke-Einschätzung aus Form, Kennzahlen, Verbindungen und Abstammung (ohne heutige Quote). "
+                       "Ordnet das Feld fast so gut wie die Endquote"
+                       + (", weiß aber nichts, was der Markt nicht schon einpreist (Markttest z < 2): als eine Meinung "
+                          "neben den Kennzahlen nutzen, nicht als Edge." if z is None or z < 2 else
+                          "; der Markttest zeigt Zusatzwissen gegenüber der Endquote (z ≥ 2).")
+                       + (f" Rote Starter (Power ≤ {ROT_AB}) stellten auf den Prüftagen {rot['anteil_sieger']:.0%} der "
+                          f"Sieger bei {rot['anteil_starter']:.0%} der Starter." if rot.get("anteil_sieger") is not None
+                          else " Anteil roter Starter an den Siegern: erst nach neuem Training (power_modell.trainieren)."))}
+    out = {"power": power}
+    w = modell.get("wert")
+    if w:
+        bw = (w.get("meta") or {}).get("bericht") or {}
+        f5 = bw.get("fuenftel") or []
+        rt = {z_["auswahl"]: z_.get("rendite") for z_ in bw.get("rendite") or []}
+        zw = bw.get("sieg_value_z")
+        out["value"] = {
+            "pruefung": {"ziel": bw.get("ziel", "platz"), "sieg_z": zw,
+                         "ae_unterstes_fuenftel": {k: f5[0].get(k) for k in ("ae_platz", "ae_sieg", "ae_kombi")} if f5 else None,
+                         "ae_oberstes_fuenftel": {k: f5[-1].get(k) for k in ("ae_platz", "ae_sieg", "ae_kombi")} if f5 else None,
+                         "rendite_endquote": {k: rt.get(k) for k in ("alle", "oberste 10 %", "oberste 5 %")},
+                         "gold_ab_faktor": bw.get("gold_ab_faktor"), "pruef_ab": bw.get("lernen_bis")},
+            "einordnung": ("Value-Faktor ≈ wie oft das Pferd im Vergleich zur Erwartung des Marktes ins Geld kommt "
+                           "(1 = wie der Markt, geeicht auf die Prüftage). "
+                           + ("Signal gegenüber der Endquote belegt (z ≥ 2). " if zw is not None and zw >= 2 else
+                              "Signal gegenüber der Endquote nicht belegt. ")
+                           + "Unterstes Fünftel (Faktor ≈ ≤ 0,8) ist ein verlässliches Warnsignal: Markt überschätzt. "
+                             "Goldener Rahmen (oberste 10 %) ist ein Hinweis, zur PMU-Endquote kein belegter Gewinn "
+                             "(Marge, Außenseiter überwettet) – am ehesten bei Cote 3–10 und zum Festkurs. "
+                             "Nie alleinige Begründung für einen Angle.")}
+    if vorwaerts:
+        out["vorwaerts_test"] = vorwaerts
     return out
