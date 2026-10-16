@@ -677,6 +677,35 @@ def power_modell_pruefen() -> None:
     pruefe(ek["ziel"] == "kombi" and fk[5] > 1.1 and fk[1] < 0.9
            and ek["verlust_kombi_mit_value"] < ek["verlust_kombi_markt"] and 0 < ek["kalib_k"] < 2,
            f"Value-Modell mit Kombi-Ziel (Sieg + Platz): A/E Kombi Fünftel 1 {fk[1]} … 5 {fk[5]}, Sieg-z {ek['sieg_value_z']}")
+    # Segment-Modelle je Renntyp (Schwellen für die kleine Historie gesenkt, damit sie behalten werden)
+    alt = (pm.SEG_MIN_STARTER, pm.SEG_MIN_GEWINN, pm.SEG_MIN_VERLUST, pm.SEG_PARAMS)
+    pm.SEG_MIN_STARTER, pm.SEG_MIN_GEWINN, pm.SEG_MIN_VERLUST = 50, -1.0, -1.0
+    pm.SEG_PARAMS = {**pm.SEG_PARAMS, "min_data_in_leaf": 20}
+    try:
+        with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+            es = pm.trainieren(hist=hw, X=Xw, out=Path(tmp) / pm.MODELL_ORDNER, runden=30, segmente="racetype",
+                               log=print)
+            ews = pm.trainieren_wert(hist=hw, X=Xw, out=Path(tmp) / pm.MODELL_ORDNER, runden=100, ziel_art="kombi",
+                                     segmente="racetype", params={"min_data_in_leaf": 20}, log=print)
+            ms_ = pm.laden(Path(tmp))
+            dateien = sorted(q.name for q in (Path(tmp) / pm.MODELL_ORDNER).glob("*_seg_*.txt"))
+            vs_ = pm.vorhersage(hw, hz.assign(race_id="20260601R1C1", date=pd.Timestamp("2026-06-01")), ms_, log=print)
+    finally:
+        pm.SEG_MIN_STARTER, pm.SEG_MIN_GEWINN, pm.SEG_MIN_VERLUST, pm.SEG_PARAMS = alt
+    js = es["segmente"]["je_segment"]
+    pruefe(set(js) == {"Handicap", "Conditions", "Claimer"} and ms_["segmente"] and ms_["wert"]["segmente"]
+           and len(dateien) == len(ms_["segmente"]) + len(ms_["wert"]["segmente"])
+           and "modell (mit Segmenten)" in es and {z["segment"] for z in es["je_rennart"]["racetype"]} == set(js)
+           and {z["segment"] for z in ews["je_rennart"]["age_group"]} and len(vs_) == len(hz)
+           and abs(sum(w["sieg"] for w in vs_.values()) - 1) < 1e-2,
+           f"Segment-Modelle je Renntyp: gelernt als Korrektur, gespeichert ({', '.join(dateien)}), geladen und in der "
+           f"Vorhersage angewandt; Prüfung je Rennart im Bericht")
+    try:
+        pm.trainieren(hist=hw, X=Xw, out=None, segmente="kurs", log=lambda *a: None)
+        falsch = False
+    except ValueError:
+        falsch = True
+    pruefe(falsch, "Segment-Modelle: unbekannte Segment-Spalte wird abgelehnt")
     # Rendite-Tabelle von Hand: 4 Wetten, 1 Sieg zu 6,0 -> Rendite 6/4 − 1 = 0,5; Eichung erkennt zu starken Faktor
     rt = pm.rendite_tabelle(np.array([4.0, 3.0, 2.0, 1.0]), np.array([1, 0, 0, 0]), np.array([6.0, 5.0, 4.0, 3.0]),
                             anteile=[0.5])
