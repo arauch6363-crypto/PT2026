@@ -15,7 +15,7 @@
     "SLOW": ["Souple", "Très souple"],
     "VERY SLOW": ["Collant", "Lourd", "Très lourd"]
   },
-  "datum": "2026-10-15",
+  "datum": "2026-10-16",
   "bahnen": {
     "AGEN": "Bon",
     "AMIENS": "Bon",
@@ -34,7 +34,7 @@
     "DEAUVILLE": "PSF",
     "DIEPPE": "Bon",
     "DURTAL": "Bon",
-    "FONTAINEBLEAU": "Bon",
+    "FONTAINEBLEAU": "Bon souple",
     "LA TESTE DE BUCH": "Bon",
     "LE CROISE LAROCHE": "Bon",
     "LE LION D ANGERS": "Bon",
@@ -63,7 +63,7 @@
     "SEGRE": "Bon",
     "STRASBOURG": "Bon",
     "TARBES": "Bon",
-    "TOULOUSE": "Très souple",
+    "TOULOUSE": "Souple",
     "VICHY": "Bon",
     "VILLENEUVE SUR LOT": "Bon",
     "VITTEL": "Bon",
