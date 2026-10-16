@@ -55,7 +55,9 @@ WERT_PARAMS = dict(objective="binary", learning_rate=0.02, num_leaves=15, min_da
 WERT_TOP = [0.20, 0.10, 0.05, 0.02]   # Rendite-Tabelle: oberste Anteile des Value-Faktors
 WERT_GOLD = 0.10            # goldener Rahmen in der Karte: oberste 10 % des Faktors (Grenze aus der Validierung)
 QUOTEN_STUFEN = [1, 3, 6, 10, 20, 1000]
-QUOTE_BEREICH = (3.0, 10.0)  # im Test bester Bereich der obersten 10 % (+10 % zur Endquote) – vorwärts zu bestätigen
+GOLD_COTE_MAX = 10.0       # goldener Rahmen nur bis zu dieser Prognose-Cote: darüber verlor die Auswahl im Test klar
+WARN_FAKTOR = 0.8           # Warnsignal (unterstes Fünftel), falls das Modell keine eigene Grenze gespeichert hat
+QUOTE_BEREICH = (1.0, GOLD_COTE_MAX)  # Vorwärts-Test: Gold mit Prognose-Cote in diesem Bereich (im Test ≈ ausgeglichen)
 PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schreibt ihre Value-Faktoren hierher
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
@@ -1265,6 +1267,7 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     # Validierung, damit der Test unberührt bleibt
     k_ = (_kalibrieren_poisson if ziel_art == "kombi" else _kalibrieren)(f_val, basis[valid], y_all[valid].to_numpy())
     gold_ab = float(np.quantile(f_val, 1 - WERT_GOLD))
+    warn_ab = float(np.quantile(f_val, 1 / WERT_STUFEN))                   # Grenze des untersten Fünftels
     gold_test = f >= gold_ab
     d = pd.DataFrame({"race_id": rennen, "won": won, "z": _z_im_rennen(f, rennen), "p_mkt": p_sieg})
     d = d[d.groupby("race_id")["p_mkt"].transform(lambda s_: s_.notna().all())]
@@ -1344,7 +1347,7 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
             seg_meta["modelle"][s_] = datei
         log(f"Value-Segment-Modelle gespeichert ({segmente}): {', '.join(seg_meta['modelle'])}")
     meta = {"spalten": list(Xk.columns), "stufen": stufen, "bericht": bericht, "kalib_k": k_, "gold_ab": gold_ab,
-            "segmente": seg_meta,
+            "warn_ab": warn_ab, "segmente": seg_meta,
             "ziel": ziel_art,
             "wichtig": {k: round(float(v / imp.sum()), 4) for k, v in imp.head(30).items()},
             "trainiert": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"), "starter": int(len(X))}
@@ -1423,7 +1426,7 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
     out = {}
     df = pd.DataFrame({"race_id": hz["race_id"].astype(str).to_numpy(), "no": hz["saddle_no"].to_numpy(), "pred": pred})
     df["sieg"] = _softmax_im_rennen(meta.get("sieg_a", 1.0) * _z_im_rennen(df["pred"], df["race_id"]), df["race_id"])
-    df["wert"], df["gold"] = np.nan, False
+    df["wert"], df["gold"], df["warn"] = np.nan, False, False
     if modell.get("wert"):                      # Value-Faktor ≈ erwartete A/E Platz gegen den Markt (exp der Abweichung)
         wm = modell["wert"]["meta"]
         Xw, _ = _kategorien(X.reindex(columns=wm["spalten"]), wm["stufen"])
@@ -1431,6 +1434,8 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
               + _seg_korrektur(modell["wert"], X, Xw[wm["spalten"]]))
         df["wert"] = np.exp(wm.get("kalib_k", 1.0) * fw)                 # geeicht: was auf der Validierung eintrat
         df["gold"] = fw >= wm["gold_ab"] if "gold_ab" in wm else df["wert"] >= 1.2
+        # Warnsignal: unterstes Fünftel (Grenze aus der Validierung, ältere Modelle: geeichter Faktor ≤ WARN_FAKTOR)
+        df["warn"] = fw <= wm["warn_ab"] if "warn_ab" in wm else df["wert"] <= WARN_FAKTOR
     for r_, g in df.groupby("race_id"):
         mu, sd = g["pred"].mean(), g["pred"].std(ddof=0)
         for k, z in g.iterrows():
@@ -1445,7 +1450,7 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
                                        "pred": round(float(z["pred"]), 3) if meta.get("art", "regression") == "regression" else None,
                                        "sieg": round(float(z["sieg"]), 3),
                                        "wert": round(float(z["wert"]), 2) if pd.notna(z["wert"]) else None,
-                                       "gold": bool(z["gold"]),
+                                       "gold": bool(z["gold"]), "warn": bool(z["warn"]),
                                        "treiber": [[n_, round(v_ * 100, 1)] for n_, v_ in top]}
     return out
 
@@ -1465,7 +1470,7 @@ def protokollieren(daten: dict, base: Path) -> Path | None:
             sel = (x.get("prono") or {}).get("sel") or {}
             zeilen.append({"date": daten.get("date"), "race_id": r.get("race_id"), "saddle_no": x.get("no"),
                            "horse": x.get("horse"), "racetype": r.get("type"), "wert": pw.get("wert"),
-                           "gold": bool(pw.get("gold")), "sieg": pw.get("sieg"),
+                           "gold": bool(pw.get("gold")), "warn": bool(pw.get("warn")), "sieg": pw.get("sieg"),
                            "fair": round(1 / pw["sieg"], 2) if pw.get("sieg") else None,
                            "cote_prono": sel.get("cote_dec"), "festkurs": None})
     if not zeilen:
@@ -1497,7 +1502,8 @@ def value_auswertung(base: Path, hist: pd.DataFrame | None = None, log=print) ->
     d = p.merge(erg, on=["race_id", "saddle_no"], how="inner")
     d = d[d["finish_pos"].notna() | d["won"].notna()]
     lo, hi = QUOTE_BEREICH
-    auswahl = [("alle", d), ("goldener Rahmen", d[d["gold"]]),
+    warn = d["warn"].fillna(False).astype(bool) if "warn" in d else pd.Series(False, index=d.index)
+    auswahl = [("alle", d), ("Warnsignal (unterstes Fünftel)", d[warn]), ("goldener Rahmen", d[d["gold"]]),
                (f"gold · Prognose {lo:g}–{hi:g}", d[d["gold"] & d["cote_prono"].between(lo, hi)]),
                (f"gold · Endquote {lo:g}–{hi:g}", d[d["gold"] & d["odds_final"].between(lo, hi)])]
     zeilen = []
@@ -1521,6 +1527,59 @@ def value_auswertung(base: Path, hist: pd.DataFrame | None = None, log=print) ->
 # --------------------------------------------------------------------------
 # Verlässlichkeit der Modelle für die Claude-JSON (aus den gespeicherten Trainingsberichten)
 # --------------------------------------------------------------------------
+def _power_einordnung(luecke: float | None, rennen: int) -> str | None:
+    """Klartext zum Abstand der Rangkorrelation Markt − Modell in einem Segment."""
+    if luecke is None:
+        return None
+    t = ("fast so gut wie der Markt" if luecke < 0.025 else "etwas schwächer als der Markt" if luecke < 0.04 else
+         "klar schwächer als der Markt – Abweichungen von der Prognose skeptischer sehen")
+    return t + (" (wenige Testrennen, unsicher)" if rennen < 200 else "")
+
+
+def _je_rennart_power(je: dict) -> dict:
+    """Power je Renntyp/Altersgruppe auf den Testtagen, kompakt mit Einordnung gegen die Endquote."""
+    out = {}
+    for sp, zeilen in je.items():
+        out[sp] = {}
+        for z in zeilen:
+            km = next((k for k in z if k.startswith("korr_") and k != "korr_markt"), None)
+            sm = next((k for k in z if k.startswith("sieger_") and k != "sieger_markt"), None)
+            ko, kmkt = z.get(km), z.get("korr_markt")
+            luecke = round(kmkt - ko, 3) if ko is not None and kmkt is not None else None
+            out[sp][z["segment"]] = {
+                "rennen": z.get("rennen"), "rang_korr": ko, "rang_korr_markt": kmkt,
+                "sieger_getroffen": z.get(sm), "sieger_getroffen_markt": z.get("sieger_markt"),
+                "einordnung": _power_einordnung(luecke, z.get("rennen") or 0)}
+    return out
+
+
+def _je_rennart_value(je: dict) -> dict:
+    """Value je Renntyp/Altersgruppe auf den Testtagen: Warnsignal (A/E unterstes Fünftel), A/E oberstes Fünftel,
+    Gold-Rendite zur Endquote, mit Einordnung."""
+    out = {}
+    for sp, zeilen in je.items():
+        out[sp] = {}
+        for z in zeilen:
+            au, gw, gr_ = z.get("ae_kombi_unten"), z.get("gold_wetten") or 0, z.get("gold_rendite")
+            teile = []
+            if au is not None:
+                teile.append(f"Warnsignal {'verlässlich' if au <= 0.85 else 'schwach'} (A/E unten {au:.2f})")
+            if gr_ is not None:
+                teile.append(("Gold wenige Fälle, Rendite unsicher" if gw < 300 else
+                              "Gold etwa ausgeglichen zur Endquote" if gr_ >= -0.05 else
+                              f"Gold verlor im Test deutlich ({gr_:+.0%}) – Value hier nur als Warnsignal nutzen"))
+            out[sp][z["segment"]] = {"starter": z.get("starter"), "ae_kombi_unten": au,
+                                     "ae_kombi_oben": z.get("ae_kombi_oben"), "gold_wetten": gw, "gold_rendite": gr_,
+                                     "einordnung": "; ".join(teile) or None}
+    return out
+
+
+def rennart(typ, alter_klasse=None, alter=None) -> tuple[str | None, str | None]:
+    """Renntyp (3 Gruppen) und Altersgruppe eines heutigen Rennens – wie im Modell."""
+    a = [v for v in (alter or []) if v is not None and not (isinstance(v, float) and np.isnan(v))]
+    return renntyp3(typ), altersgruppe(alter_klasse, min(a) if a else np.nan, max(a) if a else np.nan)
+
+
 def modell_info(modell: dict | None, vorwaerts: list | None = None) -> dict | None:
     """Kurzfassung der Prüfung beider Modelle mit Einordnung im Klartext – für Claude (Skill rennkarten-durchgang).
     power: Stärke-Einschätzung (blind nutzbar); value: Abweichung vom Markt (nur Marktteil); vorwaerts: laufender
@@ -1545,6 +1604,7 @@ def modell_info(modell: dict | None, vorwaerts: list | None = None) -> dict | No
                        + (f" Rote Starter (Power ≤ {ROT_AB}) stellten auf den Testtagen {rot['anteil_sieger']:.0%} der "
                           f"Sieger bei {rot['anteil_starter']:.0%} der Starter." if rot.get("anteil_sieger") is not None
                           else " Anteil roter Starter an den Siegern: erst nach neuem Training (power_modell.trainieren)."))}
+    power["je_rennart"] = _je_rennart_power(b.get("je_rennart") or {})
     out = {"power": power}
     w = modell.get("wert")
     if w:
@@ -1563,10 +1623,12 @@ def modell_info(modell: dict | None, vorwaerts: list | None = None) -> dict | No
                            "(1 = wie der Markt, geeicht auf die Validierung, geprüft auf unberührten Testtagen). "
                            + ("Signal gegenüber der Endquote belegt (z ≥ 2). " if zw is not None and zw >= 2 else
                               "Signal gegenüber der Endquote nicht belegt. ")
-                           + "Unterstes Fünftel (Faktor ≈ ≤ 0,8) ist ein verlässliches Warnsignal: Markt überschätzt. "
-                             "Goldener Rahmen (oberste 10 %) ist ein Hinweis, zur PMU-Endquote kein belegter Gewinn "
-                             "(Marge, Außenseiter überwettet) – am ehesten bei Cote 3–10 und zum Festkurs. "
+                           + "Warnsignal (warnung, unterstes Fünftel) ist das verlässlichste Value-Signal: der Markt "
+                             "überschätzt diese Pferde klar (A/E ≈ 0,7). Goldener Rahmen (oberste 10 %, nur bis "
+                             f"Prognose-Cote {GOLD_COTE_MAX:g}) ist ein Hinweis, zur PMU-Endquote im Test ungefähr "
+                             "ausgeglichen, darüber klar verlustreich (Außenseiter überwettet) – am ehesten zum Festkurs. "
                              "Nie alleinige Begründung für einen Angle.")}
+        out["value"]["je_rennart"] = _je_rennart_value(bw.get("je_rennart") or {})
     if vorwaerts:
         out["vorwaerts_test"] = vorwaerts
     return out

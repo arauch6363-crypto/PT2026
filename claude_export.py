@@ -53,6 +53,7 @@ OHNE_MARKT = {"prono"}                               # Prognose, Tipps, Konsens,
 GEGNER_NAH = 2                                       # rivals_nah: so viele Gegner davor und dahinter
 OFFEN = "PROGRAMMEE"
 ROT_AB = 95                                          # Power bis hier = rot: Starter nur als Kurzzeile („weitere“)
+GOLD_COTE_MAX = 10.0                                 # goldener Rahmen nur bis zu dieser Prognose-Cote (wie die Karte)
 VALUE_HALTEN = 1.1                                   # … außer Value-Faktor darüber oder goldener Rahmen
 VERGLEICH_DIST_M = 200                               # ARR/TR „unter heutigen Bedingungen“: gleiche Bodengruppe, ±200 m
 TREND_AE = 0.10                                      # Verbindungen: A/E 365 Tage gegen den Zeitraum davor
@@ -204,7 +205,18 @@ def _verbindungen(starter: list[dict]) -> list[dict]:
     return list(rows.values())
 
 
-def rennen(r: dict, bias_alle: float | None) -> dict:
+def _rennart(r: dict, starter: list[dict], je: dict | None, praefix: str) -> dict | None:
+    """Verlässlichkeit des Modells im heutigen Renntyp und in der heutigen Altersgruppe (Testtage)."""
+    if not je:
+        return None
+    import power_modell as pm
+    typ, ag = pm.rennart(r.get("type"), r.get("age"), [x.get("age") for x in starter])
+    return {"renntyp": typ, "altersgruppe": ag,
+            f"{praefix}_renntyp": (je.get("racetype") or {}).get(typ),
+            f"{praefix}_altersgruppe": (je.get("age_group") or {}).get(ag)}
+
+
+def rennen(r: dict, bias_alle: float | None, je_rennart: dict | None = None) -> dict:
     """Ein Rennen blind: vollständig ohne Marktangaben; Starter nach Power (sonst Startnummer), Nichtstarter getrennt."""
     alle = r.get("runners") or []
     starter = [x for x in alle if not x.get("nr")]
@@ -242,11 +254,14 @@ def rennen(r: dict, bias_alle: float | None) -> dict:
                                      "inklusive dieser Starter auf 100 % rechnen.",
                           "starter": kurz}
     out["vergleich_365"] = {**_kpi_vergleich(starter, r), "verbindungen": _verbindungen(starter)}
+    ra = _rennart(r, starter, je_rennart, "power") if mit_power else None
+    if ra:
+        out["modell_rennart"] = ra
     out["nichtstarter"] = [_starter(x) for x in nicht]
     return out
 
 
-def rennen_markt(r: dict) -> dict:
+def rennen_markt(r: dict, je_rennart: dict | None = None) -> dict:
     """Ein Rennen für Teil 2: Prognose, Tipps, Konsens, Cribles, Rennkommentar; Marge, Reihenfolge, p_prog."""
     alle = r.get("runners") or []
     starter = [x for x in alle if not x.get("nr")]
@@ -264,12 +279,15 @@ def rennen_markt(r: dict) -> dict:
         cf = cote * marge if cote and marge else None               # Prognose-Cote ohne Marge
         fair = 1 / max(pw["sieg"], 1e-3) if pw.get("sieg") else None
         v = cf / fair if cf and fair and cote <= COTE_MAX else None
-        return {"faktor": pw.get("wert"), "gold": bool(pw.get("gold")), "fair": round(fair, 1) if fair else None,
-                "cote_ohne_marge": round(cf, 1) if cf else None,
+        oben = bool(pw.get("gold"))
+        return {"faktor": pw.get("wert"), "warnung": bool(pw.get("warn")),
+                "oberste_10": oben, "gold": oben and bool(cote) and cote <= GOLD_COTE_MAX,
+                "fair": round(fair, 1) if fair else None, "cote_ohne_marge": round(cf, 1) if cf else None,
                 "vs_prognose": ("Modell stärker" if v and v >= FAIR_WERT else
-                                "Modell schwächer" if v and v <= 1 / FAIR_WERT else None),
-                "cote_3_10": bool(cote and 3 <= cote <= 10)}
+                                "Modell schwächer" if v and v <= 1 / FAIR_WERT else None)}
+    ra = _rennart(r, starter, je_rennart, "value") if mit_power else None
     return {"race_id": r.get("race_id"), "offen": r.get("status") == OFFEN, "prono": copy.deepcopy(r.get("prono")),
+            **({"value_rennart": ra} if ra else {}),
             "vorgerechnet": {"marge": round(sum(roh.values()), 3) if roh else None,   # Σ 1/cote_dec, typisch 1,15–1,50
                              "reihenfolge": reihenfolge},                          # Startnummern nach Prognose-Rang
             "nr": [x["no"] for x in alle if x.get("nr")],
@@ -289,14 +307,16 @@ def export(daten: dict) -> dict:
                       "Modell nach Startnummer), Nichtstarter getrennt in "
                       "nichtstarter (Nummern in nr); vorgerechnet: reihenfolge, bias_rel, luecke; je Formzeile "
                       "zusätzlich rivals_nah. Mit Power-Modell: je Starter modell (Siegchance, faire Quote, Rang, "
-                      "Treiber), oben modelle.power (Verlässlichkeit); rote Starter ohne Value-Hinweis nur als "
+                      "Treiber), oben modelle.power (Verlässlichkeit), je Rennen modell_rennart (Verlässlichkeit im heutigen "
+                      "Renntyp und in der Altersgruppe); rote Starter ohne Value-Hinweis nur als "
                       "Kurzzeile in weitere (Anzahl, Siegchancen); je Rennen vergleich_365 (ARR, TR, Verbindungen "
                       "im Feldvergleich)."}
     out.update({k: copy.deepcopy(v) for k, v in daten.items() if k != "races" and k not in OHNE_OBEN})
     out["params"] = {k: v for k, v in (out.get("params") or {}).items() if k not in OHNE_PARAMS}
     if (daten.get("modelle") or {}).get("power"):
         out["modelle"] = {"power": copy.deepcopy(daten["modelle"]["power"])}
-    out["races"] = {rid: rennen(r, bias_alle) for rid, r in (daten.get("races") or {}).items()}
+    je = ((daten.get("modelle") or {}).get("power") or {}).get("je_rennart")
+    out["races"] = {rid: rennen(r, bias_alle, je) for rid, r in (daten.get("races") or {}).items()}
     return out
 
 
@@ -304,13 +324,15 @@ def export_markt(daten: dict) -> dict:
     """Marktdatei für Teil 2 des Skills (erst nach der blinden Einschätzung laden)."""
     return {"hinweis": "Claude-Version der Race Card, Teil 2 (Markt): je Rennen PMU-Prognose mit Rennkommentar, "
                        "Tipps, Konsens und Cribles, Marge, Reihenfolge nach Prognose-Rang; je Starter prono und "
-                       "p_prog (Potenzmethode); mit Value-Modell je Starter value (Faktor, goldener Rahmen, faire "
-                       "Quote gegen Prognose-Cote ohne Marge) und oben modelle.value / vorwaerts_test "
+                       "p_prog (Potenzmethode); mit Value-Modell je Starter value (Faktor, warnung = unterstes Fünftel, "
+                       "gold = oberste 10 % bis Prognose-Cote 10, faire Quote gegen Prognose-Cote ohne Marge), je Rennen "
+                       "value_rennart (Verlässlichkeit im heutigen Renntyp) und oben modelle.value / vorwaerts_test "
                        "(Verlässlichkeit). Erst nach der blinden Einschätzung lesen.",
             "date": daten.get("date"), "generated": daten.get("generated"),
             **({"modelle": {k: copy.deepcopy(v) for k, v in daten["modelle"].items() if k in ("value", "vorwaerts_test")}}
                if (daten.get("modelle") or {}).get("value") else {}),
-            "races": {rid: rennen_markt(r) for rid, r in (daten.get("races") or {}).items()}}
+            "races": {rid: rennen_markt(r, ((daten.get("modelle") or {}).get("value") or {}).get("je_rennart"))
+                      for rid, r in (daten.get("races") or {}).items()}}
 
 
 def markt_pfad(pfad: Path) -> Path:

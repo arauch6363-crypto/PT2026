@@ -721,7 +721,7 @@ def power_modell_pruefen() -> None:
                        "finish_pos": [1, 2, 3], "odds_final": [5.0, 2.0, 9.0], "odds_morning": [6.0, 2.0, 8.0]})
     dk = {"date": "2026-06-01", "races": {"20260601R1C1": {"race_id": "20260601R1C1", "type": "Handicap", "runners": [
         {"no": 1, "horse": "A", "nr": False, "power": {"wert": 1.3, "gold": True, "sieg": 0.2}, "prono": {"sel": {"cote_dec": 4.0}}},
-        {"no": 2, "horse": "B", "nr": False, "power": {"wert": 0.9, "gold": False, "sieg": 0.5}, "prono": None},
+        {"no": 2, "horse": "B", "nr": False, "power": {"wert": 0.7, "gold": False, "warn": True, "sieg": 0.5}, "prono": None},
         {"no": 3, "horse": "C", "nr": False, "power": {"wert": 1.0, "gold": False, "sieg": 0.3}, "prono": None},
         {"no": 4, "horse": "D", "nr": True, "power": None}]}}}
     with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
@@ -732,7 +732,9 @@ def power_modell_pruefen() -> None:
     pruefe(len(prot) == 3 and va.loc["goldener Rahmen", "rendite_endquote"] == 4.0
            and va.loc["goldener Rahmen", "rendite_morgenquote"] == 5.0
            and abs(va.loc["alle", "rendite_endquote"] - (5 / 3 - 1)) < 1e-3
-           and va.loc["gold · Prognose 3–10", "wetten"] == 1 and va.loc["gold · Endquote 3–10", "wetten"] == 1,
+           and va.loc["gold · Prognose 1–10", "wetten"] == 1 and va.loc["gold · Endquote 1–10", "wetten"] == 1
+           and va.loc["Warnsignal (unterstes Fünftel)", "wetten"] == 1
+           and va.loc["Warnsignal (unterstes Fünftel)", "rendite_endquote"] == -1.0,
            "Vorwärts-Test: Karte protokolliert Value-Faktoren (ohne Doppelte), Auswertung rechnet Rendite zu End- und Morgenquote")
     # bekannter Fall: reines Markt-Signal -> Power-Koeffizient ≈ 0; Power mit Zusatzwissen -> deutlich positiv
     rg = np.random.default_rng(1)
@@ -857,6 +859,35 @@ def power_modell_pruefen() -> None:
            and ce._halten({"power": {"p": 90, "wert": 0.9, "gold": True}}) and ce._halten({"power": {"p": 96}})
            and rf["vorgerechnet"]["reihenfolge"] == [2, 3, 1] and [y["no"] for y in rf["runners"]] == [2, 3, 1],
            "Claude-JSON: rote Starter nur mit Value-Faktor > 1,1 oder Gold vollständig; Reihenfolge nach Power")
+    # Verlässlichkeit je Rennart und Value-Kennzeichen (warnung, gold nur bis Prognose-Cote 10)
+    je_p = pm._je_rennart_power({"racetype": [{"segment": "Handicap", "rennen": 1000, "korr_regression": 0.36,
+                                              "sieger_regression": 0.21, "korr_markt": 0.41, "sieger_markt": 0.26}],
+                                 "age_group": [{"segment": "3yo", "rennen": 900, "korr_regression": 0.46,
+                                                "sieger_regression": 0.28, "korr_markt": 0.48, "sieger_markt": 0.33}]})
+    je_v = pm._je_rennart_value({"racetype": [{"segment": "Handicap", "starter": 9000, "ae_kombi_unten": 0.79,
+                                              "ae_kombi_oben": 1.09, "gold_wetten": 1182, "gold_rendite": -0.18}]})
+    rh = {"race_id": "y", "type": "Handicap Categorie Divise", "age": "TROIS_ANS", "runners": [
+        {"no": 1, "nr": False, "age": 3, "power": {"p": 110, "sieg": 0.5, "wert": 1.3, "gold": True, "warn": False},
+         "prono": {"sel": {"cote_dec": 4.0}}},
+        {"no": 2, "nr": False, "age": 3, "power": {"p": 100, "sieg": 0.3, "wert": 1.3, "gold": True, "warn": False},
+         "prono": {"sel": {"cote_dec": 15.0}}},
+        {"no": 3, "nr": False, "age": 3, "power": {"p": 90, "sieg": 0.2, "wert": 0.6, "gold": False, "warn": True},
+         "prono": {"sel": {"cote_dec": 2.5}}}]}
+    bh, mh = ce.rennen(rh, None, je_p), ce.rennen_markt(rh, je_v)
+    vh = {y["no"]: y["value"] for y in mh["runners"]}
+    pruefe(bh["modell_rennart"]["renntyp"] == "Handicap" and bh["modell_rennart"]["altersgruppe"] == "3yo"
+           and "klar schwächer" in bh["modell_rennart"]["power_renntyp"]["einordnung"]
+           and "fast so gut" in bh["modell_rennart"]["power_altersgruppe"]["einordnung"]
+           and "Gold verlor" in mh["value_rennart"]["value_renntyp"]["einordnung"]
+           and vh[1]["gold"] and not vh[2]["gold"] and vh[2]["oberste_10"] and vh[3]["warnung"]
+           and "value_rennart" not in bh and "modell_rennart" not in mh,
+           "Claude-JSON: Verlässlichkeit im heutigen Renntyp/Altersgruppe (blind Power, Markt Value), gold nur bis "
+           "Prognose-Cote 10, Warnsignal je Starter")
+    mi2 = pm.modell_info(mw)
+    pruefe(set(mi2["power"]["je_rennart"]) == {"racetype", "age_group"} and set(mi2["value"]["je_rennart"]) == {"racetype", "age_group"}
+           and all(isinstance(w["warn"], bool) for w in vw.values())
+           and sum(w["warn"] for w in vw.values()) <= len(vw),
+           "Modell-Info je Rennart aus dem Bericht; Value-Warnsignal (unterstes Fünftel) je Starter in der Vorhersage")
 
 
 def tipp_auswertung_pruefen() -> None:
