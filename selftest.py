@@ -545,7 +545,7 @@ def _power_synth(tage=40, rennen=3, feld=8, pferde=90, seed=3) -> pd.DataFrame:
                               dist_group=f"{dist - 199}-{dist}", course_key=f"B{c}", hippodrome=f"B{c}",
                               racetype=["Handicap Categorie Divise", "Group 3", "Claimer"][c],
                               conditions_age=None if fehlt else "TROIS_ANS_ET_PLUS", konfig=f"K{c}", draw=k + 1,
-                              age=3 + i % 4, sex="MALES", valeur=np.nan if fehlt else 30 + 5 * fae[i],
+                              age=3 + i % 4, sex="HONGRES" if i % 7 == 0 and d >= 20 else "MALES", valeur=np.nan if fehlt else 30 + 5 * fae[i],
                               finish_pos=pos[k], n_runners=feld, rel_place=(feld - pos[k]) / (feld - 1),
                               won=int(pos[k] == 1), placed=int(pos[k] <= 3), exp_place=0.375,
                               prize_won=5000.0 if pos[k] == 1 else 0.0, odds_final=float(np.exp(-fae[i]) * 5 + 1.5),
@@ -554,6 +554,7 @@ def _power_synth(tage=40, rennen=3, feld=8, pferde=90, seed=3) -> pd.DataFrame:
                               d_B200_A=np.nan, early_pct=rng.random(), tracking=not fehlt, ausgeritten=False, cls_val=30.0,
                               cls_epr_kl=7.0, trainer_key=f"T{trn[i]}", jockey_key=None if fehlt else f"J{k}",
                               owner_key=f"O{i % 20}", breeder_key=None, sire_key=f"S{i % 10}", dam_sire_key=f"D{i % 12}",
+                              dam=f"Mutter {i % 30}",
                               prize_eur=[8000, 15000, 30000][c],
                               blinkers=None if fehlt else ("OEILLERES_CLASSIQUE" if (i + d) % 9 == 0 else "SANS_OEILLERES")))
     h = pd.DataFrame(z)
@@ -594,6 +595,17 @@ def power_modell_pruefen() -> None:
           pm.altersgruppe(None, 4, 5), pm.altersgruppe(None)]
     pruefe(ag == ["2yo", "3yo", "3yo+", "4yo+", "3yo+", "2yo", "4yo+", None] and X["age_group"].notna().all(),
            "Power-Modell: Altersgruppe 2yo/3yo/3yo+/4yo+ aus der Altersklasse, sonst aus den Altern im Feld")
+    neu = ["trainer_30_score", "trainer_form", "jockey_30_score", "trainer_typ_score", "trainer_kurs_score",
+           "jockey_trainer_score", "trainer_debuet_score", "trainer_pause_score", "dam_score", "chg_rating",
+           "hcp_sieg_diff", "seit_pause", "arr_best365", "arr_best_dist", "arr_best_abst", "erst_wallach"]
+    deb = X["runs"] == 0
+    wal = X.index[X["erst_wallach"] == 1]
+    pruefe(all(c in X for c in neu) and X.loc[~deb, "trainer_debuet_score"].isna().all()
+           and X.loc[deb, "trainer_debuet_score"].notna().any() and X["seit_pause"].between(0, 10).all() is not None
+           and X["dam_score"].notna().any() and len(wal) and (h.loc[wal, "sex"] == "HONGRES").all()
+           and (X.loc[X["arr_best365"].notna(), "arr_best_abst"].dropna() <= 0).all(),
+           f"Power-Modell: Stallform 30 Tage, Trainer-Lagen (Debüt, Pause, Renntyp, Kurs, Jockey), Mutter, "
+           f"Handicap-Marke, Bestform, Läufe seit Pause, erstmals Wallach ({len(wal)} Fälle)")
     hs = h.sort_values(["date", "saddle_no"])
     i_ = X.index[(X["runs"] >= 5) & X["kennt_jockey"].notna()][-1]
     pid = h.loc[i_, "horse_id"]

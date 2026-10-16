@@ -176,6 +176,11 @@ und Abstand zum Feld, Anteil der Gegner, die älter sind bzw. mehr Starts haben,
 Dazu: verdichtete Form der letzten 5 Läufe (Ø/bester Platzanteil, Ø Längen, Ø ARR, Trend), Wechsel zum letzten Lauf
 (Gewicht, Distanz, Klasse = Ø Rating des Feldes, Preisgeld des Rennens, Jockey mit Score-Differenz, Trainer,
 Scheuklappen erstmals/gewechselt) und die Klasse des heutigen Rennens (Preisgeld, Ø Rating des Feldes).
+Außerdem: Stallform und Jockeyform über 30 Tage (`trainer_30_score`, `trainer_form` = 30 Tage − 365 Tage), Trainer in
+Lagen (mit Debütanten, nach Pause ≥ 60 Tage, im heutigen Renntyp, auf dem Kurs, mit dem heutigen Jockey), Mutter
+(Leistung der Geschwister ohne das Pferd selbst, wie Vater), Rating seit dem letzten Lauf und Abstand zur letzten
+Sieg-/Platzmarke im Handicap, Bestform (bester ARR 365 Tage und auf heutiger Distanzgruppe, letzter Lauf gegen Bestform),
+Läufe seit der letzten Pause und erstmals als Wallach.
 `markt_test` im Bericht: Siegchance = Softmax(a × Power-z) je Rennen (a auf der Validierung geschätzt, auf den Testtagen geprüft, steht in der
 Meta-Datei; die Karte zeigt Siegchance und faire Quote im Power-Tooltip), Log-Loss des Siegers gegen die Endquote und
 bedingtes Logit mit ln(Marktchance) + Power-z – `power_koef` > 0 mit `power_z` ≥ 2 heißt: Power weiß etwas, das die
