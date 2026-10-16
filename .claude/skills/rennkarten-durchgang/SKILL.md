@@ -86,7 +86,7 @@ Sektionalzeiten) stammen aus französischen Flachrennen ab
   Starter Nummer, Name, Modell-Siegchance (`sieg`), faire Quote, Power
   und Rang. Sie laufen mit und werden nicht durchgegangen. Wie oft solche
   Starter gewinnen, steht in `modelle.power.rote_starter` (Anteil an den
-  Siegern auf den Prüftagen). In der Marktdatei sind sie mit
+  Siegern auf den Testtagen). In der Marktdatei sind sie mit
   `blind_nur_kurz: true` markiert.
 
 Eine Lücke wird beim Pferd in einem Halbsatz genannt und in der
@@ -302,7 +302,8 @@ Teil 2; in Teil 1 zählt nur das Argument selbst.
 (1 / sieg), `power` (100 = Feldschnitt, ±10 je Standardabweichung),
 `rang`/`von` und `treiber` (die vier stärksten Gründe des Modells, in
 Prozentpunkten Platzanteil). Wie gut das Modell ist, steht oben in
-**`modelle.power`** (`pruefung`, `einordnung`): Auf den Prüftagen ordnete
+**`modelle.power`** (`pruefung`, `einordnung`): Auf den Testtagen (nie
+zum Lernen oder Einstellen benutzt, `test_ab`) ordnete
 es das Feld fast so gut wie die Endquote (Rangkorrelation und
 Siegertreffer knapp dahinter), wusste aber nichts, was der Markt nicht
 schon einpreiste. `rote_starter` sagt, wie oft Pferde mit roter Power

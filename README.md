@@ -165,13 +165,18 @@ Rennen normiert), mit/gegen den Rennverlauf, Gegner-Score, Vergleich mit heutige
 ARR, TR, letzter Platzanteil/Längen/Marktchance, Trainer, Jockey, Besitzer, Duell, Vater) gehen zusätzlich relativ zum
 heutigen Feld ein (`pm.feld_relativ`: Rang 0–1 und Abstand zum Feldschnitt). `art="beide"` (Vorgabe) prüft Regression
 auf den Platzanteil und ein Rang-Modell (LightGBM lambdarank, Rennen als Gruppe) und speichert das mit der besseren
-Rangkorrelation auf den Prüftagen.
+Rangkorrelation auf der Validierung.
+Zeitliche Aufteilung (`pm.aufteilung`, Power und Value gleich): das erste Jahr der Historie (`AUFWAERM_TAGE` = 365) dient
+nur als Vorgeschichte für die Merkmale und wird nicht gelernt; die übrigen Renntage zeitlich 60/20/20 (`ANTEILE`):
+lernen, validieren (Abbruch der Bäume, Modellwahl, Siegchance-a, Eichung k und Gold-Grenze des Value-Modells), testen
+(nur Bericht – die Kennzahlen dort sind unberührt). Das gespeicherte Modell lernt danach auf allen Tagen nach dem
+Aufwärmen mit derselben Baumzahl.
 Erfahrung im Feld und Jahreszeit (aus dem Zwischenspeicher abgeleitet, kein Neubau nötig): Starts und Alter als Rang
 und Abstand zum Feld, Anteil der Gegner, die älter sind bzw. mehr Starts haben, und der Tag im Jahr (`season_doy`).
 Dazu: verdichtete Form der letzten 5 Läufe (Ø/bester Platzanteil, Ø Längen, Ø ARR, Trend), Wechsel zum letzten Lauf
 (Gewicht, Distanz, Klasse = Ø Rating des Feldes, Preisgeld des Rennens, Jockey mit Score-Differenz, Trainer,
 Scheuklappen erstmals/gewechselt) und die Klasse des heutigen Rennens (Preisgeld, Ø Rating des Feldes).
-`markt_test` im Bericht: Siegchance = Softmax(a × Power-z) je Rennen (a auf den Prüftagen geschätzt, steht in der
+`markt_test` im Bericht: Siegchance = Softmax(a × Power-z) je Rennen (a auf der Validierung geschätzt, auf den Testtagen geprüft, steht in der
 Meta-Datei; die Karte zeigt Siegchance und faire Quote im Power-Tooltip), Log-Loss des Siegers gegen die Endquote und
 bedingtes Logit mit ln(Marktchance) + Power-z – `power_koef` > 0 mit `power_z` ≥ 2 heißt: Power weiß etwas, das die
 Quote noch nicht enthält.
@@ -180,11 +185,11 @@ Zweites Modell (Value): `pm.trainieren_wert(BASE)` bzw. `pm.trainieren_wert(BASE
 Ausgangswert die Platzchance des Marktes (`exp_place`, Harville aus der Endquote) – LightGBM lernt nur die Abweichung.
 Die Quote steckt also nur im Lern-Ziel, nie in den Merkmalen; der Value-Faktor (≈ erwartete A/E Platz gegen den Markt)
 braucht keine heutige Quote. Bericht: Log-Loss der Platzierung Markt gegen Markt + Value, A/E Platz und Sieg je Fünftel
-des Faktors auf den Prüftagen, bedingtes Logit (Sieg) mit Markt + Value. Gespeichert als `power_wert.txt/.json`; die Karte
-zeigt einen goldenen Rahmen um die faire Quote bei den obersten 10 % des Value-Faktors (Grenze aus den Prüftagen).
+des Faktors auf den Testtagen, bedingtes Logit (Sieg) mit Markt + Value. Gespeichert als `power_wert.txt/.json`; die Karte
+zeigt einen goldenen Rahmen um die faire Quote bei den obersten 10 % des Value-Faktors (Grenze aus der Validierung; `gold_test`: Anteil und Rendite dieser Auswahl auf den Testtagen).
 Dazu im Bericht: Rendite einer Siegwette 1 € zur echten Endquote (mit Marge) für alle, die obersten 20/10/5/2 % des
 Faktors, und die obersten 10 % nach Renntyp, Quotenbereich und Monat. Der Faktor in der Karte ist geeicht:
-exp(k × Abweichung), k per Maximum-Likelihood auf den Prüftagen (k < 1: Modell war zu selbstbewusst).
+exp(k × Abweichung), k per Maximum-Likelihood auf der Validierung (k < 1: Modell war zu selbstbewusst).
 Rahmen durchgezogen: Cote der PMU-Prognose 3–10 (im Test bester Bereich), gestrichelt: außerhalb.
 
 Claude-JSON: blind je Starter `modell` (Siegchance, faire Quote, Rang, Treiber) und `modelle.power` (Verlässlichkeit),

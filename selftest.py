@@ -565,6 +565,15 @@ def power_modell_pruefen() -> None:
     import io, contextlib, tempfile
     import numpy as np
     import power_modell as pm
+    tg = pd.Series(pd.date_range("2022-09-01", periods=1500, freq="D"))
+    auf = pm.aufteilung(tg, tg.min())
+    rest = tg[auf["drin"]]
+    pruefe(not auf["drin"][:365].any() and auf["drin"][365:].all()
+           and abs(auf["lern"].sum() / len(rest) - .6) < .01 and abs(auf["valid"].sum() / len(rest) - .2) < .01
+           and tg[auf["lern"]].max() < tg[auf["valid"]].min() and tg[auf["valid"]].max() < tg[auf["test"]].min()
+           and (auf["lern"] | auf["valid"] | auf["test"]).sum() == len(rest),
+           f"Power-Modell: Aufteilung 1 Jahr Aufwärmen, Rest 60/20/20 zeitlich ({auf['grenzen']})")
+    pm.AUFWAERM_TAGE = 3                    # synthetische Historie hat nur 40 Tage
     h = _power_synth()
     with contextlib.redirect_stdout(io.StringIO()):
         X = pm.merkmale(h, log=print)
@@ -697,9 +706,11 @@ def power_modell_pruefen() -> None:
     pruefe(m_mit["power_koef"] > 0 and m_mit["power_z"] > 3 and m_mit["logloss_power"] < m_mit["logloss_markt"],
            f"Markt-Test erkennt Zusatzwissen (Power-Koeffizient {m_mit['power_koef']}, z {m_mit['power_z']})")
     rk = {a_: erg[f"modell ({a_})"]["rang_korr"] for a_ in ("regression", "rang")}
-    pruefe(min(rk.values()) > 0.2 and erg["gewaehlt"] == max(rk, key=rk.get) and mod["meta"]["art"] == erg["gewaehlt"],
-           f"Power-Modell findet das eingebaute Signal als Regression und als Rang-Modell (Rangkorrelation {rk}), "
-           f"gespeichert: {erg['gewaehlt']}")
+    rv = {a_: erg["validierung"][f"modell ({a_})"]["rang_korr"] for a_ in ("regression", "rang")}
+    pruefe(min(rk.values()) > 0.2 and erg["gewaehlt"] == max(rv, key=rv.get) and mod["meta"]["art"] == erg["gewaehlt"]
+           and mod["meta"]["sieg_a"] == erg["validierung"]["markt_test"]["a"] == erg["markt_test"]["a"],
+           f"Power-Modell findet das eingebaute Signal als Regression und als Rang-Modell (Rangkorrelation Test {rk}), "
+           f"gewählt auf der Validierung {rv}: {erg['gewaehlt']}; Siegchance-a aus der Validierung")
     # Feld-relative Merkmale: Rang 0..1 und Abstand zum Feldschnitt je Rennen, NaN bleibt NaN
     fr = pm.feld_relativ(pd.DataFrame({"rating_adj": [50.0, 60.0, np.nan, 70.0]}), pd.Series(["a", "a", "a", "b"]))
     pruefe(fr["rating_adj_rk"].tolist()[:2] == [0.0, 1.0] and np.isnan(fr["rating_adj_rk"][2])
