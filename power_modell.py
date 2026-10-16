@@ -65,6 +65,13 @@ RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_l
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
            "form5_pos", "form5_best", "form5_lb", "form5_arr", "runs", "age", "arr_best365", "trainer_30_score",
            "dam_score"]
+# Segment-Modelle: lernen je Rennart nur die Korrektur zum gemeinsamen Modell (Ausgangswert = dessen Vorhersage)
+SEGMENT_SPALTEN = ("racetype", "age_group")
+SEG_PARAMS = dict(learning_rate=0.02, num_leaves=15, min_data_in_leaf=200, feature_fraction=0.7, bagging_fraction=0.8,
+                  bagging_freq=1, lambda_l2=10.0)
+SEG_MIN_STARTER = 2000      # Segment-Modell erst ab so vielen Lern-Startern im Segment
+SEG_MIN_GEWINN = 0.003      # Power: Segment-Modell nur, wenn die Rangkorrelation auf der Validierung so viel steigt
+SEG_MIN_VERLUST = 0.0003    # Value: ... wenn der Verlust auf der Validierung relativ um so viel sinkt
 RANG_STUFEN = 10            # Lern-Ziel für „rang“: Platzanteil in 11 Stufen (0 … 10)
 RANG_GAIN = [round(2 ** (s / 2) - 1, 3) for s in range(RANG_STUFEN + 1)]   # Sieg zählt am meisten, ohne alles andere zu erdrücken
 AUFWAERM_TAGE = 365         # erstes Jahr der Historie: nur Vorgeschichte für die Merkmale, nicht gelernt
@@ -796,13 +803,35 @@ def markt_test(pred, rennen, won, odds, a: float | None = None) -> dict:
             "power_z": float(cl.loc["z", "z"]) if "z" in cl.index else None}
 
 
-def _lgb_daten(lgb, Xk, y, rennen, art, ref=None):
-    """LightGBM-Datensatz; für „rang“ nach Rennen gruppiert (Zeilen eines Rennens hintereinander) mit Stufen-Ziel."""
+def _lgb_daten(lgb, Xk, y, rennen, art, ref=None, init=None):
+    """LightGBM-Datensatz; für „rang“ nach Rennen gruppiert (Zeilen eines Rennens hintereinander) mit Stufen-Ziel.
+    init: Ausgangswert je Zeile (Segment-Modelle lernen nur die Korrektur dazu)."""
     if art == "rang":
-        return lgb.Dataset(Xk, np.rint(y.to_numpy() * RANG_STUFEN).astype(int), reference=ref,
+        return lgb.Dataset(Xk, np.rint(y.to_numpy() * RANG_STUFEN).astype(int), reference=ref, init_score=init,
                            group=rennen.groupby(rennen, sort=False).size().to_numpy(),
                            categorical_feature=KATEGORISCH, free_raw_data=False)
-    return lgb.Dataset(Xk, y, reference=ref, categorical_feature=KATEGORISCH, free_raw_data=False)
+    return lgb.Dataset(Xk, y, reference=ref, init_score=init, categorical_feature=KATEGORISCH, free_raw_data=False)
+
+
+def _seg_text(X: pd.DataFrame, spalte: str) -> np.ndarray:
+    return X[spalte].astype(object).where(X[spalte].notna(), None).to_numpy() if spalte in X else np.full(len(X), None)
+
+
+def _seg_datei(stamm: str, s_: str) -> str:
+    return f"{stamm}_seg_{str(s_).lower().replace('+', 'plus').replace(' ', '_')}.txt"
+
+
+def segment_tabelle(df: pd.DataFrame, segment: np.ndarray, spalten: list[str]) -> pd.DataFrame:
+    """Prüfung je Segment (Rennart): Rennen, Rangkorrelation und Sieger getroffen für jede Spalte (Modell, Markt …)."""
+    zeilen = []
+    for s_ in sorted({v for v in segment if v is not None}):
+        t = df[segment == s_]
+        z = {"segment": s_, "rennen": int(t["race_id"].nunique())}
+        for c in spalten:
+            b = _bewerten(t, c)
+            z[f"korr_{c}"], z[f"sieger_{c}"] = b["rang_korr"], b["sieger_getroffen"]
+        zeilen.append(z)
+    return pd.DataFrame(zeilen)
 
 
 def _lgb_params(art, params):
@@ -868,7 +897,7 @@ def aufteilung(tage: pd.Series, beginn, ab: str | None = None, aufwaermen: int |
 def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
                X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
                ab: str | None = None, neu: bool = False, art: str = "beide", aufwaermen: int | None = None,
-               log=print) -> dict:
+               segmente: str | None = None, log=print) -> dict:
     """Einmal trainieren: Merkmale über die ganze Historie; das erste Jahr (AUFWAERM_TAGE) dient nur als Vorgeschichte,
     die übrigen Renntage zeitlich 60/20/20 (ANTEILE): lernen, validieren (Abbruch, Wahl Regression/Rang, Siegchance-a),
     testen (nur Bericht, gegen den Marktfavoriten und das Rating). Danach auf allen Tagen nach dem Aufwärmen neu lernen
@@ -878,8 +907,13 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
          Historie davor (Form, Verbindungen, Abstammung).
     neu: Merkmale neu bauen, auch wenn BASE/modelle/merkmale.parquet schon da ist (nötig nach neuen Renntagen).
     art: "regression" (Platzanteil je Pferd schätzen), "rang" (LightGBM lambdarank: Reihenfolge im Rennen lernen) oder
-         "beide" – beide prüfen, das mit der besseren Rangkorrelation auf der Validierung wird gespeichert."""
+         "beide" – beide prüfen, das mit der besseren Rangkorrelation auf der Validierung wird gespeichert.
+    segmente: "racetype" oder "age_group" – je Segment ein Zusatzmodell, das nur die Korrektur zum gemeinsamen Modell
+         lernt; behalten nur, wo es auf der Validierung die Rangkorrelation um SEG_MIN_GEWINN verbessert. Der Bericht
+         zeigt je Segment gemeinsam gegen mit Segment-Modell (Validierung und Test)."""
     import lightgbm as lgb
+    if segmente is not None and segmente not in SEGMENT_SPALTEN:
+        raise ValueError(f"segmente: eins von {SEGMENT_SPALTEN}")
     hist, X, ordner = _merkmale_holen(base, hist, out, X, neu, log)
     y = ziel(hist).reindex(X.index)
     ok = y.notna()
@@ -925,15 +959,59 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     bericht["markt (Endquote)"] = _bewerten(pt, "markt")
     bericht["rating (bereinigt)"] = _bewerten(pt, "rating")
     sieger = max(arten, key=lambda a_: validierung[f"modell ({a_})"]["rang_korr"] or -1)   # Wahl auf der Validierung
+    m, best, p = modelle[sieger]
+    # Segment-Modelle: Korrektur zum gemeinsamen Modell je Rennart, nur wo sie auf der Validierung hilft
+    spalte_p = sieger
+    seg_bericht, seg_behalten = {}, {}
+    if segmente:
+        sv = _seg_text(X, segmente)
+        roh = m.predict(Xk, num_iteration=best, raw_score=True)
+        korr = roh.copy()
+        ps = {**p, **SEG_PARAMS}
+        bew = lambda maske, w: _bewerten(pd.DataFrame({"race_id": rennen[maske].to_numpy(), "y": y[maske].to_numpy(),
+                                                       "x": w}), "x")["rang_korr"]
+        for s_ in sorted({v for v in sv if v is not None}):
+            ms = sv == s_
+            l_, v_, t_ = lern & ms, valid & ms, test & ms
+            if l_.sum() < SEG_MIN_STARTER or not v_.any() or not t_.any():
+                seg_bericht[s_] = {"starter_lernen": int(l_.sum()), "behalten": False, "grund": "zu wenige Starter"}
+                continue
+            d_l = _lgb_daten(lgb, Xk[l_], y[l_], rennen[l_], sieger, init=roh[l_])
+            d_v = _lgb_daten(lgb, Xk[v_], y[v_], rennen[v_], sieger, ref=d_l, init=roh[v_])
+            sm = lgb.train(ps, d_l, num_boost_round=runden, valid_sets=[d_v],
+                           callbacks=[lgb.early_stopping(100, first_metric_only=True, verbose=False)])
+            b_ = int(sm.best_iteration or 0)
+            delta = sm.predict(Xk[ms], num_iteration=b_, raw_score=True) if b_ else np.zeros(int(ms.sum()))
+            neu_ = roh.copy()
+            neu_[ms] += delta
+            vb, vs, tb, ts = bew(v_, roh[v_]), bew(v_, neu_[v_]), bew(t_, roh[t_]), bew(t_, neu_[t_])
+            halten = b_ > 0 and vb is not None and vs is not None and vs - vb >= SEG_MIN_GEWINN
+            seg_bericht[s_] = {"starter_lernen": int(l_.sum()), "baeume": b_, "valid_gemeinsam": vb, "valid_segment": vs,
+                               "test_gemeinsam": tb, "test_segment": ts, "behalten": bool(halten)}
+            if halten:
+                korr[ms] = neu_[ms]
+                seg_behalten[s_] = b_
+        if seg_behalten:
+            pv["segment"], pt["segment"] = korr[valid], korr[test]
+            spalte_p = "segment"
+            validierung["modell (mit Segmenten)"] = _bewerten(pv, "segment")
+            bericht["modell (mit Segmenten)"] = _bewerten(pt, "segment")
+        bericht["segmente"] = {"spalte": segmente, "je_segment": seg_bericht}
+    # Prüfung je Rennart (gemeinsames Modell bzw. mit Segment-Modellen gegen die Endquote)
+    je_art = {}
+    for sp in SEGMENT_SPALTEN:
+        st = segment_tabelle(pt, _seg_text(X, sp)[test], [spalte_p, "markt"])
+        je_art[sp] = st.to_dict("records")
+    bericht["je_rennart"] = je_art
     # Siegchance aus Power: a auf der Validierung geschätzt, Test gegen den Markt mit diesem a
-    mv = markt_test(pv[sieger].to_numpy(), pv["race_id"].to_numpy(), hist.loc[X.index[valid], "won"].to_numpy(),
+    mv = markt_test(pv[spalte_p].to_numpy(), pv["race_id"].to_numpy(), hist.loc[X.index[valid], "won"].to_numpy(),
                     hist.loc[X.index[valid], "odds_final"].to_numpy())
     validierung["markt_test"] = mv
-    bericht["markt_test"] = markt_test(pt[sieger].to_numpy(), pt["race_id"].to_numpy(),
+    bericht["markt_test"] = markt_test(pt[spalte_p].to_numpy(), pt["race_id"].to_numpy(),
                                        hist.loc[X.index[test], "won"].to_numpy(),
                                        hist.loc[X.index[test], "odds_final"].to_numpy(), a=mv.get("a"))
     # Rote Starter (Power ≤ 95): wie oft gewinnen / platzieren sie sich? (fürs Weglassen in der Claude-JSON)
-    pw_test = 100 + 10 * _z_im_rennen(pt[sieger].to_numpy(), pt["race_id"].to_numpy())
+    pw_test = 100 + 10 * _z_im_rennen(pt[spalte_p].to_numpy(), pt["race_id"].to_numpy())
     rot = pw_test <= ROT_AB
     w_t = pd.to_numeric(hist.loc[X.index[test], "won"], errors="coerce").fillna(0).to_numpy() == 1
     p_t = pd.to_numeric(hist.loc[X.index[test], "placed"], errors="coerce").fillna(0).to_numpy() == 1
@@ -947,16 +1025,36 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
         log(f"  {k}: {v}")
     log("Test (unberührt, je Rennen):")
     for k, v in bericht.items():
-        if k not in ("validierung", "aufteilung"):
+        if k not in ("validierung", "aufteilung", "segmente", "je_rennart"):
             log(f"  {k}: {v}")
-    m, best, p = modelle[sieger]
+    for sp, zeilen in je_art.items():
+        log(f"  Test je {'Renntyp' if sp == 'racetype' else 'Altersgruppe'} (Modell gegen Endquote):")
+        log(pd.DataFrame(zeilen).to_string(index=False))
+    if segmente:
+        log(f"  Segment-Modelle je {segmente} (Rangkorrelation gemeinsam → mit Segment-Modell):")
+        log(pd.DataFrame(seg_bericht).T.to_string())
     imp = pd.Series(m.feature_importance("gain"), index=Xk.columns).sort_values(ascending=False)
     log(f"Wichtigste Merkmale ({sieger}, Gain): " + ", ".join(f"{k} {v / imp.sum():.1%}" for k, v in imp.head(15).items()))
     # endgültig: alle Tage nach dem Aufwärmen, gleiche Baumzahl
     final = lgb.train(p, _lgb_daten(lgb, Xk, y, rennen, sieger), num_boost_round=best)
     ordner.mkdir(parents=True, exist_ok=True)
     final.save_model(str(ordner / MODELL_DATEI))
-    meta = {"spalten": list(Xk.columns), "stufen": stufen, "art": sieger, "bericht": bericht,
+    for alt in ordner.glob(_seg_datei(Path(MODELL_DATEI).stem, "*")):        # alte Segment-Modelle weg
+        alt.unlink()
+    seg_meta = None
+    if seg_behalten:
+        roh_f = final.predict(Xk, raw_score=True)
+        sv = _seg_text(X, segmente)
+        seg_meta = {"spalte": segmente, "modelle": {}}
+        for s_, b_ in seg_behalten.items():
+            ms = sv == s_
+            sm = lgb.train({**p, **SEG_PARAMS}, _lgb_daten(lgb, Xk[ms], y[ms], rennen[ms], sieger, init=roh_f[ms]),
+                           num_boost_round=b_)
+            datei = _seg_datei(Path(MODELL_DATEI).stem, s_)
+            sm.save_model(str(ordner / datei))
+            seg_meta["modelle"][s_] = datei
+        log(f"Segment-Modelle gespeichert ({segmente}): {', '.join(seg_meta['modelle'])}")
+    meta = {"spalten": list(Xk.columns), "stufen": stufen, "art": sieger, "bericht": bericht, "segmente": seg_meta,
             "sieg_a": mv.get("a", 1.0),
             "wichtig": {k: round(float(v / imp.sum()), 4) for k, v in imp.head(30).items()},
             "trainiert": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"), "starter": int(len(X))}
@@ -1047,7 +1145,7 @@ def rendite_tabelle(f, won, odds, gruppe=None, anteile=WERT_TOP) -> pd.DataFrame
 def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
                     X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
                     ab: str | None = None, neu: bool = False, ziel_art: str = "platz", aufwaermen: int | None = None,
-                    log=print) -> dict:
+                    segmente: str | None = None, log=print) -> dict:
     """Value-Modell: lernt, wann ein Pferd öfter platziert ist, als seine Endquote erwarten lässt.
     ziel_art="platz": Ziel platziert 0/1 gegen die Platzchance des Marktes (binär, Faktor ≈ A/E Platz).
     ziel_art="kombi": Ziel Sieg + Platz (Sieger = 2, Platzierter = 1, sonst 0) gegen Siegchance + Platzchance des
@@ -1059,6 +1157,8 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     bedingtes Logit Sieg mit Markt + Value) nur auf den Testtagen."""
     import lightgbm as lgb
     import hypothesen_backtest as hb
+    if segmente is not None and segmente not in SEGMENT_SPALTEN:
+        raise ValueError(f"segmente: eins von {SEGMENT_SPALTEN}")
     hist, X, ordner = _merkmale_holen(base, hist, out, X, neu, log)
     if ziel_art not in ("platz", "kombi"):
         raise ValueError("ziel_art: 'platz' oder 'kombi'")
@@ -1096,6 +1196,47 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     best = int(m.best_iteration or runden)
     f = m.predict(Xk[test], num_iteration=best, raw_score=True)          # Abweichung vom Markt (log-odds bzw. log)
     f_val = m.predict(Xk[valid], num_iteration=best, raw_score=True)
+
+    def verlust(eta, y):
+        if ziel_art == "kombi":
+            return float(np.mean(np.exp(eta) - y * eta))
+        q = 1 / (1 + np.exp(-eta))
+        return float(-np.mean(y * np.log(q) + (1 - y) * np.log(1 - q)))
+    # Segment-Modelle: Korrektur zum gemeinsamen Value-Modell je Rennart, nur wo sie auf der Validierung hilft
+    seg_bericht, seg_behalten = {}, {}
+    if segmente:
+        sv = _seg_text(X, segmente)
+        roh = m.predict(Xk, num_iteration=best, raw_score=True)
+        korr = roh.copy()
+        for s_ in sorted({v for v in sv if v is not None}):
+            ms = sv == s_
+            l_, v_, t_ = lern & ms, valid & ms, test & ms
+            if l_.sum() < SEG_MIN_STARTER or not v_.any() or not t_.any():
+                seg_bericht[s_] = {"starter_lernen": int(l_.sum()), "behalten": False, "grund": "zu wenige Starter"}
+                continue
+            d_l = lgb.Dataset(Xk[l_], y_all[l_], init_score=basis[l_] + roh[l_], categorical_feature=KATEGORISCH,
+                              free_raw_data=False)
+            d_v = lgb.Dataset(Xk[v_], y_all[v_], init_score=basis[v_] + roh[v_], reference=d_l,
+                              categorical_feature=KATEGORISCH, free_raw_data=False)
+            sm = lgb.train({**p, **SEG_PARAMS}, d_l, num_boost_round=runden, valid_sets=[d_v],
+                           callbacks=[lgb.early_stopping(100, verbose=False)])
+            b_ = int(sm.best_iteration or 0)
+            neu_ = roh.copy()
+            if b_:
+                neu_[ms] += sm.predict(Xk[ms], num_iteration=b_, raw_score=True)
+            yv, yt = y_all[v_].to_numpy(), y_all[t_].to_numpy()
+            vb, vs = verlust(basis[v_] + roh[v_], yv), verlust(basis[v_] + neu_[v_], yv)
+            tb, ts = verlust(basis[t_] + roh[t_], yt), verlust(basis[t_] + neu_[t_], yt)
+            halten = b_ > 0 and (vb - vs) / vb >= SEG_MIN_VERLUST
+            seg_bericht[s_] = {"starter_lernen": int(l_.sum()), "baeume": b_, "valid_gemeinsam": round(vb, 5),
+                               "valid_segment": round(vs, 5), "test_gemeinsam": round(tb, 5), "test_segment": round(ts, 5),
+                               "behalten": bool(halten)}
+            if halten:
+                korr[ms] = neu_[ms]
+                seg_behalten[s_] = b_
+        if seg_behalten:
+            f, f_val = korr[test], korr[valid]
+
     # Güte des Lern-Ziels: Markt allein gegen Markt + Value-Modell (Platz: Log-Loss, Kombi: Poisson-Abweichung)
     def ll(eta):
         y = y_all[test].to_numpy()
@@ -1113,7 +1254,7 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     tab = wert_tabelle(f, pl[test].to_numpy(), ep[test].to_numpy(), won, p_sieg)
     # Rendite zur echten Endquote (mit Marge des Totalisators) und Aufteilung der obersten 10 %
     rt = rendite_tabelle(f, won, odds)
-    typ = hist.loc[X.index[test], "racetype"].astype(str).to_numpy()
+    typ = np.array([v if v is not None else "unbekannt" for v in _seg_text(X, "racetype")[test]], dtype=object)
     q_st = pd.cut(odds, QUOTEN_STUFEN, right=False,
                   labels=[f"{a}–{b}" if b < 1000 else f"≥ {a}" for a, b in zip(QUOTEN_STUFEN[:-1], QUOTEN_STUFEN[1:])])
     monat = tage[test].dt.strftime("%Y-%m").to_numpy()
@@ -1142,10 +1283,39 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
                              **(rendite_tabelle(f[gold_test], won[gold_test], odds[gold_test], None, [1.0])
                                 .iloc[0].to_dict() if gold_test.any() else {})},
                "test_ab": auf["test_ab"], "aufteilung": gr, "ab": ab}
+    # Prüfung je Rennart: A/E im untersten und obersten Fünftel (Fünftel über alle Testtage) und Gold-Rendite
+    fuenf = pd.qcut(pd.Series(f).rank(method="first"), WERT_STUFEN, labels=False).to_numpy() + 1
+    pl_t, ep_t = pl[test].to_numpy(), ep[test].to_numpy()
+    je_art = {}
+    for sp in SEGMENT_SPALTEN:
+        sv_t = _seg_text(X, sp)[test]
+        zeilen = []
+        for s_ in sorted({v for v in sv_t if v is not None}):
+            z = {"segment": s_, "starter": int((sv_t == s_).sum())}
+            for name, g_ in (("unten", 1), ("oben", WERT_STUFEN)):
+                mk = (sv_t == s_) & (fuenf == g_) & np.isfinite(p_sieg) & np.isfinite(won)
+                z[f"ae_platz_{name}"] = round(float(pl_t[mk].sum() / ep_t[mk].sum()), 3) if mk.any() else None
+                z[f"ae_kombi_{name}"] = (round(float((pl_t[mk].sum() + won[mk].sum()) / (ep_t[mk].sum() + p_sieg[mk].sum())), 3)
+                                         if mk.any() else None)
+            g_m = (sv_t == s_) & gold_test
+            z["gold_wetten"] = int(g_m.sum())
+            z["gold_rendite"] = (rendite_tabelle(f[g_m], won[g_m], odds[g_m], None, [1.0]).iloc[0]["rendite"]
+                                 if g_m.any() else None)
+            zeilen.append(z)
+        je_art[sp] = zeilen
+    bericht["je_rennart"] = je_art
+    if segmente:
+        bericht["segmente"] = {"spalte": segmente, "je_segment": seg_bericht}
     log(f"Value-Modell ({ziel_art}) – Test (unberührt; Eichung und Gold-Grenze aus der Validierung):")
     for k2, v2 in bericht.items():
-        if k2 not in ("fuenftel", "rendite", "rendite_top10"):
+        if k2 not in ("fuenftel", "rendite", "rendite_top10", "je_rennart", "segmente"):
             log(f"  {k2}: {v2}")
+    for sp, zeilen in je_art.items():
+        log(f"  Test je {'Renntyp' if sp == 'racetype' else 'Altersgruppe'} (A/E unterstes/oberstes Fünftel, Gold):")
+        log(pd.DataFrame(zeilen).to_string(index=False))
+    if segmente:
+        log(f"  Segment-Modelle je {segmente} (Verlust gemeinsam → mit Segment-Modell, kleiner = besser):")
+        log(pd.DataFrame(seg_bericht).T.to_string())
     log("  A/E je Fünftel des Value-Faktors (1 = niedrigster, 5 = höchster):")
     log(tab.to_string())
     log("  Siegwette 1 € zur Endquote (Rendite = Gewinn − Einsatz je 1 €):")
@@ -1158,7 +1328,23 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     final = lgb.train(p, lgb.Dataset(Xk, y_all, init_score=basis, categorical_feature=KATEGORISCH), num_boost_round=best)
     ordner.mkdir(parents=True, exist_ok=True)
     final.save_model(str(ordner / WERT_DATEI))
+    for alt in ordner.glob(_seg_datei(Path(WERT_DATEI).stem, "*")):          # alte Segment-Modelle weg
+        alt.unlink()
+    seg_meta = None
+    if seg_behalten:
+        roh_f = final.predict(Xk, raw_score=True)
+        sv = _seg_text(X, segmente)
+        seg_meta = {"spalte": segmente, "modelle": {}}
+        for s_, b_ in seg_behalten.items():
+            ms = sv == s_
+            sm = lgb.train({**p, **SEG_PARAMS}, lgb.Dataset(Xk[ms], y_all[ms], init_score=basis[ms] + roh_f[ms],
+                                                            categorical_feature=KATEGORISCH), num_boost_round=b_)
+            datei = _seg_datei(Path(WERT_DATEI).stem, s_)
+            sm.save_model(str(ordner / datei))
+            seg_meta["modelle"][s_] = datei
+        log(f"Value-Segment-Modelle gespeichert ({segmente}): {', '.join(seg_meta['modelle'])}")
     meta = {"spalten": list(Xk.columns), "stufen": stufen, "bericht": bericht, "kalib_k": k_, "gold_ab": gold_ab,
+            "segmente": seg_meta,
             "ziel": ziel_art,
             "wichtig": {k: round(float(v / imp.sum()), 4) for k, v in imp.head(30).items()},
             "trainiert": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"), "starter": int(len(X))}
@@ -1181,12 +1367,30 @@ def laden(base: Path | None) -> dict | None:
         import lightgbm as lgb
     except ImportError:
         return None
-    out = {"booster": lgb.Booster(model_file=str(ordner / MODELL_DATEI)),
-           "meta": json.loads((ordner / META_DATEI).read_text(encoding="utf-8"))}
+    def seg(meta):                                                           # Segment-Modelle, falls behalten
+        sm = (meta.get("segmente") or {}).get("modelle") or {}
+        return {s_: lgb.Booster(model_file=str(ordner / d_)) for s_, d_ in sm.items() if (ordner / d_).exists()}
+    meta = json.loads((ordner / META_DATEI).read_text(encoding="utf-8"))
+    out = {"booster": lgb.Booster(model_file=str(ordner / MODELL_DATEI)), "meta": meta, "segmente": seg(meta)}
     if (ordner / WERT_DATEI).exists() and (ordner / WERT_META).exists():      # Value-Modell, falls trainiert
-        out["wert"] = {"booster": lgb.Booster(model_file=str(ordner / WERT_DATEI)),
-                       "meta": json.loads((ordner / WERT_META).read_text(encoding="utf-8"))}
+        wm = json.loads((ordner / WERT_META).read_text(encoding="utf-8"))
+        out["wert"] = {"booster": lgb.Booster(model_file=str(ordner / WERT_DATEI)), "meta": wm, "segmente": seg(wm)}
     return out
+
+
+def _seg_korrektur(modell: dict, X: pd.DataFrame, Xk: pd.DataFrame) -> np.ndarray:
+    """Korrektur der Segment-Modelle je Zeile (0, wo es für die Rennart keins gibt)."""
+    d = np.zeros(len(Xk))
+    sm = modell.get("segmente") or {}
+    spalte = (modell["meta"].get("segmente") or {}).get("spalte")
+    if not sm or not spalte:
+        return d
+    sv = _seg_text(X, spalte)
+    for s_, b in sm.items():
+        ms = sv == s_
+        if ms.any():
+            d[ms] = b.predict(Xk[ms], raw_score=True)
+    return d
 
 
 def _gruppe(spalte: str) -> str:
@@ -1213,7 +1417,8 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
     meta = modell["meta"]
     Xk, _ = _kategorien(X.reindex(columns=[c for c in meta["spalten"]]), meta["stufen"])
     Xk = Xk[meta["spalten"]]
-    pred = modell["booster"].predict(Xk)
+    korr = _seg_korrektur(modell, X, Xk)                                     # Rennart-Korrektur (Segment-Modelle)
+    pred = modell["booster"].predict(Xk) + korr
     beitr = modell["booster"].predict(Xk, pred_contrib=True)[:, :-1]
     out = {}
     df = pd.DataFrame({"race_id": hz["race_id"].astype(str).to_numpy(), "no": hz["saddle_no"].to_numpy(), "pred": pred})
@@ -1222,7 +1427,8 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
     if modell.get("wert"):                      # Value-Faktor ≈ erwartete A/E Platz gegen den Markt (exp der Abweichung)
         wm = modell["wert"]["meta"]
         Xw, _ = _kategorien(X.reindex(columns=wm["spalten"]), wm["stufen"])
-        fw = modell["wert"]["booster"].predict(Xw[wm["spalten"]], raw_score=True)
+        fw = (modell["wert"]["booster"].predict(Xw[wm["spalten"]], raw_score=True)
+              + _seg_korrektur(modell["wert"], X, Xw[wm["spalten"]]))
         df["wert"] = np.exp(wm.get("kalib_k", 1.0) * fw)                 # geeicht: was auf der Validierung eintrat
         df["gold"] = fw >= wm["gold_ab"] if "gold_ab" in wm else df["wert"] >= 1.2
     for r_, g in df.groupby("race_id"):
@@ -1231,6 +1437,8 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
             gr: dict = {}
             for spalte, b in zip(meta["spalten"], beitr[k]):
                 gr[_gruppe(spalte)] = gr.get(_gruppe(spalte), 0.0) + float(b)
+            if korr[k]:
+                gr["Rennart-Korrektur"] = float(korr[k])
             top = sorted(gr.items(), key=lambda kv: -abs(kv[1]))[:4]
             p = 100 + 10 * (z["pred"] - mu) / sd if sd and sd > 0 else 100.0
             out[(r_, int(z["no"]))] = {"p": int(round(p)),

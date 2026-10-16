@@ -171,6 +171,14 @@ nur als Vorgeschichte für die Merkmale und wird nicht gelernt; die übrigen Ren
 lernen, validieren (Abbruch der Bäume, Modellwahl, Siegchance-a, Eichung k und Gold-Grenze des Value-Modells), testen
 (nur Bericht – die Kennzahlen dort sind unberührt). Das gespeicherte Modell lernt danach auf allen Tagen nach dem
 Aufwärmen mit derselben Baumzahl.
+Prüfung je Rennart: Der Bericht zeigt auf den Testtagen je Renntyp (Handicap/Conditions/Claimer) und je Altersgruppe
+die Rangkorrelation und Siegertreffer von Modell und Endquote (Power) bzw. A/E im untersten/obersten Fünftel und die
+Gold-Rendite (Value). Segment-Modelle: `pm.trainieren(BASE, segmente="racetype")` bzw. `segmente="age_group"` (ebenso
+`trainieren_wert`) lernen je Segment ein Zusatzmodell, das nur die Korrektur zum gemeinsamen Modell lernt (Ausgangswert
+= dessen Vorhersage, kleine Bäume). Behalten wird es nur, wo es auf der Validierung hilft (Power: Rangkorrelation
++0,003, Value: Verlust −0,03 %); der Bericht zeigt je Segment gemeinsam gegen mit Segment-Modell auf Validierung und
+Test. Gespeichert als `power_modell_seg_<segment>.txt` bzw. `power_wert_seg_<segment>.txt`; die Karte wendet sie an
+(Treiber „Rennart-Korrektur“).
 Erfahrung im Feld und Jahreszeit (aus dem Zwischenspeicher abgeleitet, kein Neubau nötig): Starts und Alter als Rang
 und Abstand zum Feld, Anteil der Gegner, die älter sind bzw. mehr Starts haben, und der Tag im Jahr (`season_doy`).
 Dazu: verdichtete Form der letzten 5 Läufe (Ø/bester Platzanteil, Ø Längen, Ø ARR, Trend), Wechsel zum letzten Lauf
