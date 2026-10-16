@@ -33,6 +33,7 @@ Die Race Card (racecard.run) lädt das Modell danach aus BASE/modelle/ und erset
 """
 from __future__ import annotations
 
+import bisect
 import json
 import time
 from collections import deque
@@ -58,11 +59,12 @@ QUOTE_BEREICH = (3.0, 10.0)  # im Test bester Bereich der obersten 10 % (+10 % z
 PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schreibt ihre Value-Faktoren hierher
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
-MERKMAL_VERSION = 5                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+MERKMAL_VERSION = 6                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
-           "form5_pos", "form5_best", "form5_lb", "form5_arr", "runs", "age"]
+           "form5_pos", "form5_best", "form5_lb", "form5_arr", "runs", "age", "arr_best365", "trainer_30_score",
+           "dam_score"]
 RANG_STUFEN = 10            # Lern-Ziel für „rang“: Platzanteil in 11 Stufen (0 … 10)
 RANG_GAIN = [round(2 ** (s / 2) - 1, 3) for s in range(RANG_STUFEN + 1)]   # Sieg zählt am meisten, ohne alles andere zu erdrücken
 AUFWAERM_TAGE = 365         # erstes Jahr der Historie: nur Vorgeschichte für die Merkmale, nicht gelernt
@@ -71,6 +73,8 @@ ROT_AB = 95                 # Power bis hier = rot (klar unter dem Feldschnitt)
 FORM_N = 3                  # so viele letzte Läufe als eigene Merkmale
 FORM_VERDICHTET = 5         # verdichtete Form (Ø, Bestwert, Trend) über so viele letzte Läufe
 VERB_TAGE = 365             # Verbindungen: Fenster
+KURZ_TAGE = 30              # Stallform / Jockeyform: kurzes Fenster
+PAUSE_TAGE = 60             # ab so vielen Tagen ohne Start gilt ein Lauf als „nach Pause“
 VERB_K = 10                 # Verbindungs-Score zur 100 hin geschrumpft wie mit so vielen Läufen bei 100
 ABST_K = 20                 # dasselbe für Vater/Muttervater
 ABST_MIN = 30               # beste Gruppe von Vater/Muttervater erst ab so vielen Läufen in der Gruppe
@@ -92,7 +96,9 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("db200", "ΔB200 A"), ("duel", "Duell"), ("box", "Startbox"), ("early", "Laufstil"), ("pace", "Tempo-Szenario"),
            ("form5_", "letzte 5 Läufe"), ("season", "Jahreszeit"), ("feld_aelter", "Erfahrung im Feld"),
            ("feld_erfahrener", "Erfahrung im Feld"), ("chg_", "Wechsel zum letzten Lauf"),
-           ("kennt_jockey", "Jockey kennt Pferd"), ("trainerwechsel5", "Trainerwechsel (letzte 5)"), ("blink", "Scheuklappen"),
+           ("kennt_jockey", "Jockey kennt Pferd"), ("trainerwechsel5", "Trainerwechsel (letzte 5)"),
+           ("dam_", "Mutter (Geschwister)"), ("hcp_", "Handicap-Marke"), ("seit_pause", "Läufe seit Pause"),
+           ("erst_wallach", "erstmals Wallach"), ("arr_best", "Bestform ARR"), ("blink", "Scheuklappen"),
            ("race_prize", "Preisgeld des Rennens"), ("feld_val", "Klasse des Feldes"),
            ("lgo_", "letzter Lauf auf heutigem Boden"), ("ldi_", "letzter Lauf auf heutiger Distanz"),
            ("won_", "Sieg-Vorlieben"), ("placed_", "Platz-Vorlieben"), ("best_", "beste Gruppe Pferd"),
@@ -259,7 +265,9 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     # ---- je Pferd: Kacheln, Form, Vorlieben ----------------------------------------------------------------------
     F["race_prize"], F["feld_val"], F["blink"] = preis, feld_val, blink
     for c in ["form5_pos", "form5_best", "form5_lb", "form5_arr", "form5_trend", "chg_weight", "chg_dist", "chg_class",
-              "chg_prize", "chg_jockey", "chg_trainer", "blink_first", "blink_change", "kennt_jockey", "trainerwechsel5"]:
+              "chg_prize", "chg_jockey", "chg_trainer", "blink_first", "blink_change", "kennt_jockey", "trainerwechsel5",
+              "chg_rating", "hcp_sieg_diff", "hcp_platz_diff", "seit_pause", "arr_best365", "arr_best_dist",
+              "arr_best_abst", "erst_wallach"]:
         feld(c)
     for c in ["runs", "runs365", "lgo_pos", "lgo_arr", "ldi_pos", "ldi_arr", "days", "rtr", "arr", "tr", "dl600", "db200", "early", "epr365",
               "won_course", "won_dist", "won_going", "placed_course", "placed_dist", "placed_going", "best_dist", "best_going"]:
@@ -340,6 +348,35 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 F["kennt_jockey"][i] = float(any(jk[j] == jk[i] for j in vor))
             if not vor:
                 continue
+            # Läufe seit der letzten Pause (≥ PAUSE_TAGE): 0 = heute erster Start nach Pause, höchstens 10
+            c_, vt = 0, tag[i]
+            for j in vor:
+                if vt - tag[j] >= PAUSE_TAGE:
+                    break
+                c_, vt = c_ + 1, tag[j]
+            F["seit_pause"][i] = min(c_, 10)
+            # Rating: Änderung seit dem letzten Lauf und Abstand zur letzten Sieg-/Platzmarke im Handicap
+            val_i = werte["valeur"][i]
+            if not np.isnan(val_i):
+                F["chg_rating"][i] = val_i - werte["valeur"][vor[0]]
+                for name, menge in (("sieg", won), ("platz", placed)):
+                    j = next((j for j in vor if typ3[j] == "Handicap" and menge[j] == 1
+                              and not np.isnan(werte["valeur"][j])), None)
+                    if j is not None:
+                        F[f"hcp_{name}_diff"][i] = val_i - werte["valeur"][j]
+            # Bestform: bester ARR der letzten 365 Tage und auf heutiger Distanzgruppe (heutiges Gewicht)
+            a365 = [werte["arr"][j] for j in vor if tag[i] - tag[j] <= 365 and not ausg[j] and not np.isnan(werte["arr"][j])]
+            if a365:
+                F["arr_best365"][i] = max(a365) - gew[i] + rc.GEWICHT_REF
+                if not np.isnan(werte["arr"][vor[0]]):
+                    F["arr_best_abst"][i] = werte["arr"][vor[0]] - max(a365)          # letzter Lauf unter Bestform: < 0
+            if dgrp[i] is not None:
+                ad = [werte["arr"][j] for j in vor if dgrp[j] == dgrp[i] and not ausg[j] and not np.isnan(werte["arr"][j])]
+                if ad:
+                    F["arr_best_dist"][i] = max(ad) - gew[i] + rc.GEWICHT_REF
+            # erstmals als Wallach (Hengst beim letzten Lauf, heute Wallach)
+            if kat["sex"][i] is not None and kat["sex"][vor[0]] is not None:
+                F["erst_wallach"][i] = float(kat["sex"][i] == "H" and kat["sex"][vor[0]] == "M")
             # Trainerwechsel innerhalb der letzten 5 Starts (heute eingeschlossen)
             tz = [t_ for t_ in [tk[i]] + [tk[j] for j in vor[:4]] if t_ is not None]
             if len(tz) > 1:
@@ -441,12 +478,38 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     # ---- Tag für Tag: Verbindungen, Abstammung, Startbox (Stand vor dem Renntag) --------------------------------
     t1 = time.time()
     rollen = {r_: _text(h, r_ + "_key") for r_ in ("trainer", "jockey", "owner", "breeder")}
+    tr_, jo_ = rollen["trainer"], rollen["jockey"]
+
+    def paar(a, b):
+        return np.array([f"{x}|{y}" if x is not None and y is not None else None for x, y in zip(a, b)], dtype=object)
+    # Erststart / Start nach Pause je Zeile (auch Historie): für die Trainer-Scores in diesen Lagen
+    erst_l, pause_l = np.zeros(n, bool), np.zeros(n, bool)
+    for laeufe in pferde.values():
+        frueher = []
+        for i in laeufe:
+            k_ = bisect.bisect_left(frueher, tag[i])
+            erst_l[i] = k_ == 0
+            pause_l[i] = k_ > 0 and tag[i] - frueher[k_ - 1] >= PAUSE_TAGE
+            if not hm[i]:
+                bisect.insort(frueher, tag[i])
+    rollen.update({
+        "trainer_30": tr_, "jockey_30": jo_,                                        # Form im kurzen Fenster
+        "trainer_typ": paar(tr_, typ3), "trainer_kurs": paar(tr_, course), "jockey_trainer": paar(jo_, tr_),
+        "trainer_debuet": np.where(erst_l, tr_, None), "trainer_pause": np.where(pause_l, tr_, None)})
+    fenster = {"trainer_30": KURZ_TAGE, "jockey_30": KURZ_TAGE}
+    mutter = _spalte(h, "dam", None)
+    if "p_nomMere" in h:
+        mutter = mutter.where(mutter.notna() & (mutter.astype("string").str.strip() != ""), h["p_nomMere"])
+    mutter = rc.norm_name(mutter.astype(object).where(mutter.notna(), None))
+    mutter = mutter.where(~mutter.fillna("").isin(["", "NAN", "NONE"]))
     linien = {l_: _text(h, l_ + "_key") for l_ in ("sire", "dam_sire")}
+    linien["dam"] = mutter.astype(object).where(mutter.notna(), None).to_numpy()
+    abst_pferd: dict = {}                                # (Mutter, Pferd) -> eigene Läufe (Geschwister ohne das Pferd selbst)
     konfig = _text(h, "konfig")
     for r_ in rollen:
         feld(f"{r_}_score"), feld(f"{r_}_runs")
     for l_ in linien:
-        for c in ("score", "epr", "val3", "runs", "best_dist", "best_going"):
+        for c in ("score", "epr", "val3", "runs") + (("best_dist", "best_going") if l_ != "dam" else ()):
             feld(f"{l_}_{c}")
     feld("box_mean"), feld("box_runs"), feld("chg_jockey_score")
     verb = {r_: {} for r_ in rollen}                     # Schlüssel -> [deque, n, placed, exp, rp, lp]
@@ -476,7 +539,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             if s is None:
                 return np.nan, np.nan
             q = s[0]
-            while q and q[0][0] < d_ - VERB_TAGE:
+            while q and q[0][0] < d_ - fenster.get(r_, VERB_TAGE):
                 _, pl_, ex_, rp_, lp_ = q.popleft()
                 s[1] -= 1; s[2] -= pl_; s[3] -= ex_; s[4] -= rp_; s[5] -= lp_
             if not s[1]:
@@ -493,6 +556,9 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             ga_lp = g_all[2] / g_all[0] if g_all[0] else np.nan
             for l_, keys in linien.items():
                 s = abst[l_].get(keys[i])
+                eigen = abst_pferd.get((keys[i], hid[i])) if l_ == "dam" else None
+                if s is not None and eigen is not None:
+                    s = [a_ - b_ for a_, b_ in zip(s, eigen)]
                 if s is None or not s[0]:
                     continue
                 sc = _score(s[1], s[2], s[3], s[4], s[0], ga_rp, ga_lp)
@@ -500,6 +566,8 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 F[f"{l_}_epr"][i] = 100 * (s[4] / s[0]) / ga_lp if ga_lp else np.nan
                 F[f"{l_}_val3"][i] = 100 * (s[6] / s[5]) / (g_all[4] / g_all[3]) if s[5] and g_all[3] else np.nan
                 F[f"{l_}_runs"][i] = s[0]
+                if l_ == "dam":
+                    continue
                 for dim, heute_k in (("dist", dgrp[i]), ("going", going[i])):
                     kats = abst_kat[l_][dim].get(keys[i], {})
                     gesamt = sc
@@ -541,6 +609,12 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 s[0] += 1; s[1] += pl_; s[2] += ex_; s[3] += rp_; s[4] += lp_
                 if drei:
                     s[5] += 1; s[6] += werte["valeur"][i]
+                if l_ == "dam":
+                    e_ = abst_pferd.setdefault((keys[i], hid[i]), [0, 0.0, 0.0, 0.0, 0.0, 0, 0.0])
+                    e_[0] += 1; e_[1] += pl_; e_[2] += ex_; e_[3] += rp_; e_[4] += lp_
+                    if drei:
+                        e_[5] += 1; e_[6] += werte["valeur"][i]
+                    continue
                 for dim, kk in (("dist", dgrp[i] if alter[i] != 2 else None), ("going", going[i])):
                     if kk is not None:
                         ks = abst_kat[l_][dim].setdefault(keys[i], {}).setdefault(kk, [0, 0.0, 0.0, 0.0, 0.0])
@@ -548,6 +622,8 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             if konfig[i] is not None and not np.isnan(werte["draw"][i]):
                 bs = box.setdefault((konfig[i], werte["draw"][i]), [0, 0.0])
                 bs[0] += 1; bs[1] += rp_
+    F["trainer_form"] = F["trainer_30_score"] - F["trainer_score"]            # Stall gerade besser/schlechter als im Jahr
+    F["jockey_form"] = F["jockey_30_score"] - F["jockey_score"]
     log(f"  Verbindungen, Abstammung, Startbox: {time.time() - t1:.0f} s")
 
     # ---- Duell-Rang wie die Kachel (direkte und indirekte Duelle vor dem Renntag) ------------------------------
