@@ -542,7 +542,8 @@ def _power_synth(tage=40, rennen=3, feld=8, pferde=90, seed=3) -> pd.DataFrame:
                 fehlt = rng.random() < .25                 # Lücken wie in echt: kein Tracking, kein TR/ARR
                 z.append(dict(race_id=f"{dt:%Y%m%d}R1C{c + 1}", date=dt, horse_id=f"P{i}|S", horse=f"P{i}",
                               saddle_no=k + 1, weight_kg=55.0 + k % 4, distance_m=dist, going=going, going_pmu=going,
-                              dist_group=f"{dist - 199}-{dist}", course_key=f"B{c}", hippodrome=f"B{c}", racetype="Handicap",
+                              dist_group=f"{dist - 199}-{dist}", course_key=f"B{c}", hippodrome=f"B{c}",
+                              racetype=["Handicap Categorie Divise", "Group 3", "Claimer"][c],
                               conditions_age=None if fehlt else "TROIS_ANS_ET_PLUS", konfig=f"K{c}", draw=k + 1,
                               age=3 + i % 4, sex="MALES", valeur=np.nan if fehlt else 30 + 5 * fae[i],
                               finish_pos=pos[k], n_runners=feld, rel_place=(feld - pos[k]) / (feld - 1),
@@ -564,6 +565,15 @@ def power_modell_pruefen() -> None:
     import io, contextlib, tempfile
     import numpy as np
     import power_modell as pm
+    tg = pd.Series(pd.date_range("2022-09-01", periods=1500, freq="D"))
+    auf = pm.aufteilung(tg, tg.min())
+    rest = tg[auf["drin"]]
+    pruefe(not auf["drin"][:365].any() and auf["drin"][365:].all()
+           and abs(auf["lern"].sum() / len(rest) - .6) < .01 and abs(auf["valid"].sum() / len(rest) - .2) < .01
+           and tg[auf["lern"]].max() < tg[auf["valid"]].min() and tg[auf["valid"]].max() < tg[auf["test"]].min()
+           and (auf["lern"] | auf["valid"] | auf["test"]).sum() == len(rest),
+           f"Power-Modell: Aufteilung 1 Jahr Aufwärmen, Rest 60/20/20 zeitlich ({auf['grenzen']})")
+    pm.AUFWAERM_TAGE = 3                    # synthetische Historie hat nur 40 Tage
     h = _power_synth()
     with contextlib.redirect_stdout(io.StringIO()):
         X = pm.merkmale(h, log=print)
@@ -571,8 +581,29 @@ def power_modell_pruefen() -> None:
     pruefe(len(X) == len(h) and erst["runs"].eq(0).all() and erst["arr"].isna().all() and erst["f1_pos"].isna().all()
            and erst["trainer_score"].iloc[:3].isna().all(),
            f"Power-Modell: {X.shape[1]} Merkmale je Starter; erster Lauf ohne Vorwerte, erster Tag ohne Verbindungs-Score")
-    pruefe(X["arr"].isna().any() and X["arr"].notna().any() and X["cond_age"].isna().any(),
+    pruefe(X["arr"].isna().any() and X["arr"].notna().any() and X["f1_typ"].isna().any(),
            "Power-Modell: fehlende Werte bleiben leer (NaN), statt ersetzt zu werden")
+    typen = [pm.renntyp3(t) for t in ["Handicap Categorie Divise", "Handicap A Reclamer", "Claimer", "Group 1",
+                                      "Listed", "Conditions", "Course A Condition Qualif Hp", "Inconnu", None]]
+    pruefe(typen == ["Handicap", "Handicap", "Claimer", "Conditions", "Conditions", "Conditions", "Conditions", None, None]
+           and set(X["racetype"].dropna()) == {"Handicap", "Conditions", "Claimer"}
+           and set(X["f1_typ"].dropna()) <= {"Handicap", "Conditions", "Claimer"},
+           "Power-Modell: Renntyp in drei Gruppen (Handicap/Conditions/Claimer), auch für die letzten Läufe")
+    ag = [pm.altersgruppe("DEUX_ANS"), pm.altersgruppe("TROIS_ANS"), pm.altersgruppe("TROIS_QUATRE_CINQ_ANS"),
+          pm.altersgruppe("QUATRE_ANS_ET_PLUS"), pm.altersgruppe(None, 3, 6), pm.altersgruppe(None, 2, 2),
+          pm.altersgruppe(None, 4, 5), pm.altersgruppe(None)]
+    pruefe(ag == ["2yo", "3yo", "3yo+", "4yo+", "3yo+", "2yo", "4yo+", None] and X["age_group"].notna().all(),
+           "Power-Modell: Altersgruppe 2yo/3yo/3yo+/4yo+ aus der Altersklasse, sonst aus den Altern im Feld")
+    hs = h.sort_values(["date", "saddle_no"])
+    i_ = X.index[(X["runs"] >= 5) & X["kennt_jockey"].notna()][-1]
+    pid = h.loc[i_, "horse_id"]
+    vor = hs[(hs["horse_id"] == pid) & (hs["date"] < h.loc[i_, "date"])].iloc[::-1]
+    kj = float((vor["jockey_key"] == h.loc[i_, "jockey_key"]).any())
+    tz = [h.loc[i_, "trainer_key"]] + list(vor["trainer_key"].iloc[:4])
+    pruefe(X.loc[i_, "kennt_jockey"] == kj and X.loc[i_, "trainerwechsel5"] == float(len(set(tz)) > 1)
+           and X["kennt_jockey"].isin([0.0, 1.0]).any() and X.loc[X["runs"] == 0, "kennt_jockey"].fillna(0).eq(0).all(),
+           f"Power-Modell: kennt_jockey ({X['kennt_jockey'].mean():.0%} ja) und Trainerwechsel in den letzten 5 Starts "
+           f"({X['trainerwechsel5'].mean():.0%} ja)")
     h2 = h.copy()
     letzt = h2["date"] == h2["date"].max()
     h2.loc[letzt, "finish_pos"] = h2.loc[letzt, "finish_pos"].to_numpy()[::-1]          # Ergebnis des letzten Tages ändern
@@ -675,9 +706,11 @@ def power_modell_pruefen() -> None:
     pruefe(m_mit["power_koef"] > 0 and m_mit["power_z"] > 3 and m_mit["logloss_power"] < m_mit["logloss_markt"],
            f"Markt-Test erkennt Zusatzwissen (Power-Koeffizient {m_mit['power_koef']}, z {m_mit['power_z']})")
     rk = {a_: erg[f"modell ({a_})"]["rang_korr"] for a_ in ("regression", "rang")}
-    pruefe(min(rk.values()) > 0.2 and erg["gewaehlt"] == max(rk, key=rk.get) and mod["meta"]["art"] == erg["gewaehlt"],
-           f"Power-Modell findet das eingebaute Signal als Regression und als Rang-Modell (Rangkorrelation {rk}), "
-           f"gespeichert: {erg['gewaehlt']}")
+    rv = {a_: erg["validierung"][f"modell ({a_})"]["rang_korr"] for a_ in ("regression", "rang")}
+    pruefe(min(rk.values()) > 0.2 and erg["gewaehlt"] == max(rv, key=rv.get) and mod["meta"]["art"] == erg["gewaehlt"]
+           and mod["meta"]["sieg_a"] == erg["validierung"]["markt_test"]["a"] == erg["markt_test"]["a"],
+           f"Power-Modell findet das eingebaute Signal als Regression und als Rang-Modell (Rangkorrelation Test {rk}), "
+           f"gewählt auf der Validierung {rv}: {erg['gewaehlt']}; Siegchance-a aus der Validierung")
     # Feld-relative Merkmale: Rang 0..1 und Abstand zum Feldschnitt je Rennen, NaN bleibt NaN
     fr = pm.feld_relativ(pd.DataFrame({"rating_adj": [50.0, 60.0, np.nan, 70.0]}), pd.Series(["a", "a", "a", "b"]))
     pruefe(fr["rating_adj_rk"].tolist()[:2] == [0.0, 1.0] and np.isnan(fr["rating_adj_rk"][2])

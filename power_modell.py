@@ -26,7 +26,7 @@ Merkmale (Gruppen wie in der Karte):
 
 Colab:
     import power_modell as pm
-    erg = pm.trainieren(BASE)        # einmalig (~1 h): Merkmale, Prüfung auf den letzten 25 % der Tage, Modell speichern
+    erg = pm.trainieren(BASE)        # einmalig (~1 h): Merkmale, 1 Jahr Aufwärmen, Rest 60/20/20 lernen/validieren/testen
     erg = pm.trainieren(BASE, ab="2024-01-01")   # danach schnell: Merkmale aus BASE/modelle/merkmale.parquet,
                                                  # lernen/prüfen nur ab dem Datum (z. B. ab da, wo es Tracking gibt)
 Die Race Card (racecard.run) lädt das Modell danach aus BASE/modelle/ und ersetzt den bisherigen Power-Wert.
@@ -52,20 +52,21 @@ WERT_DATEI, WERT_META = "power_wert.txt", "power_wert.json"   # zweites Modell: 
 WERT_PARAMS = dict(objective="binary", learning_rate=0.02, num_leaves=15, min_data_in_leaf=300, feature_fraction=0.7,
                    bagging_fraction=0.8, bagging_freq=1, lambda_l2=10.0, verbosity=-1)   # vorsichtig: kleines Signal
 WERT_TOP = [0.20, 0.10, 0.05, 0.02]   # Rendite-Tabelle: oberste Anteile des Value-Faktors
-WERT_GOLD = 0.10            # goldener Rahmen in der Karte: oberste 10 % des Faktors (Grenze aus den Prüftagen)
+WERT_GOLD = 0.10            # goldener Rahmen in der Karte: oberste 10 % des Faktors (Grenze aus der Validierung)
 QUOTEN_STUFEN = [1, 3, 6, 10, 20, 1000]
 QUOTE_BEREICH = (3.0, 10.0)  # im Test bester Bereich der obersten 10 % (+10 % zur Endquote) – vorwärts zu bestätigen
 PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schreibt ihre Value-Faktoren hierher
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
-MERKMAL_VERSION = 4                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+MERKMAL_VERSION = 5                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
            "form5_pos", "form5_best", "form5_lb", "form5_arr", "runs", "age"]
 RANG_STUFEN = 10            # Lern-Ziel für „rang“: Platzanteil in 11 Stufen (0 … 10)
 RANG_GAIN = [round(2 ** (s / 2) - 1, 3) for s in range(RANG_STUFEN + 1)]   # Sieg zählt am meisten, ohne alles andere zu erdrücken
-LERN_ANTEIL = 0.75          # zeitlich vorne: lernen; die übrigen Tage: prüfen
+AUFWAERM_TAGE = 365         # erstes Jahr der Historie: nur Vorgeschichte für die Merkmale, nicht gelernt
+ANTEILE = (0.6, 0.2, 0.2)   # übrige Renntage zeitlich: lernen / validieren (Abbruch, Modellwahl, Eichung) / testen (Bericht)
 ROT_AB = 95                 # Power bis hier = rot (klar unter dem Feldschnitt)
 FORM_N = 3                  # so viele letzte Läufe als eigene Merkmale
 FORM_VERDICHTET = 5         # verdichtete Form (Ø, Bestwert, Trend) über so viele letzte Läufe
@@ -74,7 +75,10 @@ VERB_K = 10                 # Verbindungs-Score zur 100 hin geschrumpft wie mit 
 ABST_K = 20                 # dasselbe für Vater/Muttervater
 ABST_MIN = 30               # beste Gruppe von Vater/Muttervater erst ab so vielen Läufen in der Gruppe
 PFERD_MIN = 2               # beste Gruppe des Pferdes erst ab so vielen Läufen in der Gruppe
-KATEGORISCH = ["racetype", "going", "dist_group", "cond_age", "sex"]
+KATEGORISCH = ["racetype", "going", "dist_group", "age_group", "sex", "f1_typ", "f2_typ", "f3_typ"]
+# Altersklasse (conditions_age) -> Altersgruppe des Rennens; nicht aufgeführte Werte über die Alter im Feld
+ALTERSGRUPPE = {"DEUX_ANS": "2yo", "TROIS_ANS": "3yo", "TROIS_ANS_ET_PLUS": "3yo+", "TROIS_QUATRE_CINQ_ANS": "3yo+",
+                "QUATRE_ANS": "4yo+", "QUATRE_ANS_ET_PLUS": "4yo+", "QUATRE_CINQ_ANS": "4yo+", "CINQ_ANS_ET_PLUS": "4yo+"}
 LGB_PARAMS = dict(objective="regression", learning_rate=0.03, num_leaves=63, min_data_in_leaf=50, bagging_fraction=0.8,
                   bagging_freq=1, feature_fraction=0.8, lambda_l2=1.0, verbosity=-1)
 LGB_RUNDEN = 3000           # höchstens so viele Bäume; Abbruch, wenn sich die Prüfung 100 Runden nicht verbessert
@@ -87,12 +91,13 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("dam_sire_", "Muttervater"), ("arr", "ARR"), ("tr", "TR"), ("rtr", "RTR"), ("dl600", "ΔL600 A"),
            ("db200", "ΔB200 A"), ("duel", "Duell"), ("box", "Startbox"), ("early", "Laufstil"), ("pace", "Tempo-Szenario"),
            ("form5_", "letzte 5 Läufe"), ("season", "Jahreszeit"), ("feld_aelter", "Erfahrung im Feld"),
-           ("feld_erfahrener", "Erfahrung im Feld"), ("chg_", "Wechsel zum letzten Lauf"), ("blink", "Scheuklappen"),
+           ("feld_erfahrener", "Erfahrung im Feld"), ("chg_", "Wechsel zum letzten Lauf"),
+           ("kennt_jockey", "Jockey kennt Pferd"), ("trainerwechsel5", "Trainerwechsel (letzte 5)"), ("blink", "Scheuklappen"),
            ("race_prize", "Preisgeld des Rennens"), ("feld_val", "Klasse des Feldes"),
            ("lgo_", "letzter Lauf auf heutigem Boden"), ("ldi_", "letzter Lauf auf heutiger Distanz"),
            ("won_", "Sieg-Vorlieben"), ("placed_", "Platz-Vorlieben"), ("best_", "beste Gruppe Pferd"),
            ("rating", "Rating"), ("weight", "Gewicht"), ("epr365", "€/Lauf 365"), ("days", "Tage seit Lauf"),
-           ("runs", "Läufe"), ("age", "Alter"), ("sex", "Geschlecht"), ("draw", "Startbox")]
+           ("runs", "Läufe"), ("age_group", "Altersgruppe"), ("age", "Alter"), ("sex", "Geschlecht"), ("draw", "Startbox")]
 
 
 # --------------------------------------------------------------------------
@@ -108,6 +113,34 @@ def _zahl(h: pd.DataFrame, c: str) -> np.ndarray:
 
 def _text(h: pd.DataFrame, c: str) -> np.ndarray:
     return _spalte(h, c, None).astype(object).where(_spalte(h, c, None).notna(), None).to_numpy()
+
+
+def renntyp3(t) -> str | None:
+    """Renntyp für das Modell in drei Gruppen: alles mit „Handicap“ -> Handicap (auch Handicap Categorie Divise,
+    Handicap A Reclamer), Claimer -> Claimer, alles andere (Conditions, Listed, Gruppe, International …) -> Conditions;
+    die Klasse dazwischen trennt das Preisgeld."""
+    if t is None or (isinstance(t, float) and np.isnan(t)):
+        return None
+    t = str(t).strip().lower()
+    if not t or t == "inconnu":
+        return None
+    if "handicap" in t:
+        return "Handicap"
+    if "claim" in t or "reclam" in t:
+        return "Claimer"
+    return "Conditions"
+
+
+def altersgruppe(klasse, alter_min=np.nan, alter_max=np.nan) -> str | None:
+    """Altersgruppe des Rennens (2yo, 3yo, 3yo+, 4yo+) aus der Altersklasse, sonst aus den Altern im Feld."""
+    g = ALTERSGRUPPE.get(str(klasse).strip().upper()) if klasse is not None else None
+    if g is not None or np.isnan(alter_min):
+        return g
+    if alter_min >= 4:
+        return "4yo+"
+    if alter_max <= alter_min:
+        return {2: "2yo", 3: "3yo"}.get(int(alter_min))
+    return "3yo+"
 
 
 def _going_w(a, b) -> float:
@@ -215,14 +248,18 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     F["rating_adj"] = werte["valeur"] - gew + rc.GEWICHT_REF
     F["age"], F["draw"] = werte["age"], werte["draw"]
     F["draw_rel"] = werte["draw"] / nrun
-    kat = {"racetype": _text(h, "racetype"), "going": going, "dist_group": dgrp,
-           "cond_age": _text(h, "conditions_age"),
+    typ3 = np.array([renntyp3(t) for t in _text(h, "racetype")], dtype=object)
+    a_min = pd.Series(werte["age"]).groupby(rid).transform("min").to_numpy(dtype=float)
+    a_max = pd.Series(werte["age"]).groupby(rid).transform("max").to_numpy(dtype=float)
+    kat = {"racetype": typ3, "going": going, "dist_group": dgrp,
+           "age_group": np.array([altersgruppe(k, a, b) for k, a, b in zip(_text(h, "conditions_age"), a_min, a_max)],
+                                 dtype=object),
            "sex": np.array([str(s)[:1].upper() if s is not None else None for s in _text(h, "sex")], dtype=object)}
 
     # ---- je Pferd: Kacheln, Form, Vorlieben ----------------------------------------------------------------------
     F["race_prize"], F["feld_val"], F["blink"] = preis, feld_val, blink
     for c in ["form5_pos", "form5_best", "form5_lb", "form5_arr", "form5_trend", "chg_weight", "chg_dist", "chg_class",
-              "chg_prize", "chg_jockey", "chg_trainer", "blink_first", "blink_change"]:
+              "chg_prize", "chg_jockey", "chg_trainer", "blink_first", "blink_change", "kennt_jockey", "trainerwechsel5"]:
         feld(c)
     for c in ["runs", "runs365", "lgo_pos", "lgo_arr", "ldi_pos", "ldi_arr", "days", "rtr", "arr", "tr", "dl600", "db200", "early", "epr365",
               "won_course", "won_dist", "won_going", "placed_course", "placed_dist", "placed_going", "best_dist", "best_going"]:
@@ -286,6 +323,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             return np.nan
         return float(sc[heute_k] >= max(sc.values()))
 
+    f_typ = {k: np.full(n, None, dtype=object) for k in range(1, FORM_N + 1)}   # Renntyp der letzten Läufe
     pferde = {}
     for p in ord_h:
         pferde.setdefault(hid[p], []).append(p)
@@ -298,8 +336,14 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 continue
             vor = [j for j in reversed(laeufe[:pos_i]) if tag[j] < tag[i] and not hm[j]]   # neueste zuerst
             F["runs"][i] = len(vor)
+            if jk[i] is not None:                              # Jockey hat das Pferd schon geritten
+                F["kennt_jockey"][i] = float(any(jk[j] == jk[i] for j in vor))
             if not vor:
                 continue
+            # Trainerwechsel innerhalb der letzten 5 Starts (heute eingeschlossen)
+            tz = [t_ for t_ in [tk[i]] + [tk[j] for j in vor[:4]] if t_ is not None]
+            if len(tz) > 1:
+                F["trainerwechsel5"][i] = float(len(set(tz)) > 1)
             F["days"][i] = tag[i] - tag[vor[0]]
             F["runs365"][i] = sum(tag[i] - tag[j] <= 365 for j in vor)
             # verdichtete Form der letzten FORM_VERDICHTET Läufe (fehlende Werte zählen nicht)
@@ -375,6 +419,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 F[f"f{k}_orank"][i], F[f"f{k}_pm"][i] = o_rel[j], p_markt[j]
                 F[f"f{k}_verlauf"][i] = vlf[j]
                 F[f"f{k}_tage"][i] = tag[i] - tag[j]
+                f_typ[k][i] = typ3[j]
                 feld_j = rennen_pos.get(rid[j], np.array([], dtype=int))
                 andere = feld_j[hid[feld_j] != hid[j]]
                 if len(andere):                                    # Gegner danach: nur Starts vor heute zählen
@@ -519,6 +564,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
         log(f"  Duelle: {time.time() - t2:.0f} s")
 
     out = pd.DataFrame(F, index=idx)
+    kat.update({f"f{k}_typ": v for k, v in f_typ.items()})
     for c, v in kat.items():
         out[c] = v
     out = out.loc[idx[zm]]
@@ -530,7 +576,7 @@ def _kategorien(X: pd.DataFrame, stufen: dict | None = None) -> tuple[pd.DataFra
     """Kategorische Spalten als pandas-Kategorie mit festen Stufen (aus dem Training)."""
     X = X.copy()
     stufen = dict(stufen or {})
-    for c in KATEGORISCH:
+    for c in (list(stufen) if stufen else KATEGORISCH):     # gespeichertes Modell: seine eigenen Kategorien
         if c not in X:
             X[c] = None
         werte = X[c].astype(object).where(X[c].notna(), None)
@@ -646,7 +692,7 @@ def _a_schaetzen(z, won, rennen, iter_max: int = 50) -> float:
     return float(a)
 
 
-def markt_test(pred, rennen, won, odds) -> dict:
+def markt_test(pred, rennen, won, odds, a: float | None = None) -> dict:
     """Siegchance aus Power (Softmax(a × z), a geschätzt) gegen den Markt (1/Quote, je Rennen normiert):
     mittlerer Log-Loss des Siegers (kleiner = besser) und bedingtes Logit mit ln(Marktchance) und Power-z.
     power_koef > 0 mit |z| ≥ 2: Power weiß etwas, das die Endquote noch nicht enthält."""
@@ -661,7 +707,7 @@ def markt_test(pred, rennen, won, odds) -> dict:
     d = d[d.groupby("race_id")["won"].transform("sum") == 1]
     if d.empty:
         return {}
-    a = _a_schaetzen(d["z"], d["won"], d["race_id"])
+    a = _a_schaetzen(d["z"], d["won"], d["race_id"]) if a is None else float(a)   # a vorgegeben: aus der Validierung
     p_mod = _softmax_im_rennen(a * d["z"].to_numpy(), d["race_id"])
     sieger = d["won"].to_numpy() == 1
     d["ln_p"] = np.log(d["p_mkt"])
@@ -721,17 +767,42 @@ def _merkmale_holen(base, hist, out, X, neu, log):
     return hist, X, ordner
 
 
+def aufteilung(tage: pd.Series, beginn, ab: str | None = None, aufwaermen: int | None = None) -> dict:
+    """Zeitliche Aufteilung: die ersten `aufwaermen` Tage ab Beginn der Historie (und alles vor `ab`) nur Vorgeschichte,
+    die übrigen Renntage nach ANTEILE in lernen / validieren / testen. Rückgabe: Masken und Grenzdaten."""
+    tage = pd.to_datetime(pd.Series(tage))
+    start = pd.Timestamp(beginn) + pd.Timedelta(days=AUFWAERM_TAGE if aufwaermen is None else aufwaermen)
+    if ab:
+        start = max(start, pd.Timestamp(ab))
+    drin = tage >= start
+    tg = np.sort(tage[drin].unique())
+    if len(tg) < 3:
+        raise ValueError(f"Zu wenige Renntage nach dem Aufwärmen (ab {start:%Y-%m-%d}): {len(tg)}")
+    g1 = tg[min(max(int(len(tg) * ANTEILE[0]), 1), len(tg) - 2)]
+    g2 = tg[min(max(int(len(tg) * (ANTEILE[0] + ANTEILE[1])), 1), len(tg) - 1)]
+    g2 = max(g2, tg[np.searchsorted(tg, g1) + 1])
+    t = lambda x: f"{pd.Timestamp(x):%Y-%m-%d}"
+    return {"drin": drin.to_numpy(), "lern": (drin & (tage < g1)).to_numpy(),
+            "valid": ((tage >= g1) & (tage < g2)).to_numpy(), "test": (tage >= g2).to_numpy(),
+            "grenzen": {"aufwaermen_bis": t(start), "lernen": f"{t(tg[0])} – {t(tg[np.searchsorted(tg, g1) - 1])}",
+                        "validieren": f"{t(g1)} – {t(tg[np.searchsorted(tg, g2) - 1])}", "testen": f"{t(g2)} – {t(tg[-1])}"},
+            "test_ab": t(g2)}
+
+
 def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
                X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
-               ab: str | None = None, neu: bool = False, art: str = "beide", log=print) -> dict:
-    """Einmal trainieren: Merkmale über die ganze Historie, lernen auf den ersten LERN_ANTEIL der Tage, prüfen auf dem
-    Rest (gegen den Marktfavoriten und das Rating), dann auf allen Tagen neu lernen und speichern.
+               ab: str | None = None, neu: bool = False, art: str = "beide", aufwaermen: int | None = None,
+               log=print) -> dict:
+    """Einmal trainieren: Merkmale über die ganze Historie; das erste Jahr (AUFWAERM_TAGE) dient nur als Vorgeschichte,
+    die übrigen Renntage zeitlich 60/20/20 (ANTEILE): lernen, validieren (Abbruch, Wahl Regression/Rang, Siegchance-a),
+    testen (nur Bericht, gegen den Marktfavoriten und das Rating). Danach auf allen Tagen nach dem Aufwärmen neu lernen
+    und speichern.
 
-    ab:  nur Rennen ab diesem Datum lernen/prüfen (z. B. "2024-01-01", wenn Tracking erst ab da vorliegt). Die Merkmale
-         nutzen trotzdem die ganze Historie davor (Form, Verbindungen, Abstammung).
+    ab:  zusätzlich erst ab diesem Datum lernen/prüfen (z. B. "2024-01-01"). Die Merkmale nutzen trotzdem die ganze
+         Historie davor (Form, Verbindungen, Abstammung).
     neu: Merkmale neu bauen, auch wenn BASE/modelle/merkmale.parquet schon da ist (nötig nach neuen Renntagen).
     art: "regression" (Platzanteil je Pferd schätzen), "rang" (LightGBM lambdarank: Reihenfolge im Rennen lernen) oder
-         "beide" – beide prüfen, das mit der besseren Rangkorrelation auf den Prüftagen wird gespeichert."""
+         "beide" – beide prüfen, das mit der besseren Rangkorrelation auf der Validierung wird gespeichert."""
     import lightgbm as lgb
     hist, X, ordner = _merkmale_holen(base, hist, out, X, neu, log)
     y = ziel(hist).reindex(X.index)
@@ -741,41 +812,50 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     tage = pd.to_datetime(hist.loc[X.index, "date"])
     log("Abdeckung je Jahr (% der Starter mit Wert):")
     log(abdeckung(X, tage).to_string())
-    if ab:
-        drin = tage >= pd.Timestamp(ab)
-        X, y, tage = X[drin], y[drin], tage[drin]
-        log(f"Nur Rennen ab {ab}: {len(X):,} Starter")
+    auf = aufteilung(tage, hist["date"].min(), ab, aufwaermen)
+    X, y, tage = X[auf["drin"]], y[auf["drin"]], tage[auf["drin"]]
     # nach Datum und Rennen sortieren: für „rang“ müssen die Zeilen eines Rennens zusammenstehen
     rennen = hist.loc[X.index, "race_id"].astype(str)
     reihe = pd.DataFrame({"t": tage, "r": rennen}).sort_values(["t", "r"], kind="stable").index
     X, y, tage, rennen = X.loc[reihe], y.loc[reihe], tage.loc[reihe], rennen.loc[reihe]
-    grenze = np.sort(tage.unique())[int(len(tage.unique()) * LERN_ANTEIL)]
-    lern, test = (tage < grenze).to_numpy(), (tage >= grenze).to_numpy()
+    auf = aufteilung(tage, hist["date"].min(), ab, aufwaermen)
+    lern, valid, test = auf["lern"], auf["valid"], auf["test"]
     Xk, stufen = _kategorien(X)
-    log(f"Lernen: {int(lern.sum()):,} Starter bis {pd.Timestamp(grenze):%Y-%m-%d}, prüfen: {int(test.sum()):,}")
-    pt = pd.DataFrame({"race_id": rennen[test].to_numpy(), "y": y[test].to_numpy(),
-                       "markt": -pd.to_numeric(hist.loc[X.index[test], "odds_final"], errors="coerce").to_numpy(),
-                       "rating": X.loc[test, "rating_adj"].to_numpy()})
+    gr = auf["grenzen"]
+    log(f"Aufwärmen bis {gr['aufwaermen_bis']} (nur Vorgeschichte) · lernen {gr['lernen']}: {int(lern.sum()):,} Starter · "
+        f"validieren {gr['validieren']}: {int(valid.sum()):,} · testen {gr['testen']}: {int(test.sum()):,}")
+
+    def tafel(maske):
+        return pd.DataFrame({"race_id": rennen[maske].to_numpy(), "y": y[maske].to_numpy(),
+                             "markt": -pd.to_numeric(hist.loc[X.index[maske], "odds_final"], errors="coerce").to_numpy(),
+                             "rating": X.loc[maske, "rating_adj"].to_numpy()})
+    pv, pt = tafel(valid), tafel(test)
     arten = ["regression", "rang"] if art == "beide" else [art]
     bericht: dict = {}
+    validierung: dict = {}
     modelle = {}
     for a_ in arten:
         p = _lgb_params(a_, params)
         d_lern = _lgb_daten(lgb, Xk[lern], y[lern], rennen[lern], a_)
-        d_test = _lgb_daten(lgb, Xk[test], y[test], rennen[test], a_, ref=d_lern)
-        m = lgb.train(p, d_lern, num_boost_round=runden, valid_sets=[d_test],
+        d_val = _lgb_daten(lgb, Xk[valid], y[valid], rennen[valid], a_, ref=d_lern)
+        m = lgb.train(p, d_lern, num_boost_round=runden, valid_sets=[d_val],
                       callbacks=[lgb.early_stopping(100, first_metric_only=True, verbose=False)])
         best = int(m.best_iteration or runden)
+        pv[a_] = m.predict(Xk[valid], num_iteration=best)
         pt[a_] = m.predict(Xk[test], num_iteration=best)
+        validierung[f"modell ({a_})"] = {**_bewerten(pv, a_), "baeume": best}
         bericht[f"modell ({a_})"] = {**_bewerten(pt, a_), "baeume": best}
         modelle[a_] = (m, best, p)
     bericht["markt (Endquote)"] = _bewerten(pt, "markt")
     bericht["rating (bereinigt)"] = _bewerten(pt, "rating")
-    sieger = max(arten, key=lambda a_: bericht[f"modell ({a_})"]["rang_korr"] or -1)
-    # Siegchance aus Power und Test gegen den Markt (auf den Prüftagen, mit dem gewählten Modell)
+    sieger = max(arten, key=lambda a_: validierung[f"modell ({a_})"]["rang_korr"] or -1)   # Wahl auf der Validierung
+    # Siegchance aus Power: a auf der Validierung geschätzt, Test gegen den Markt mit diesem a
+    mv = markt_test(pv[sieger].to_numpy(), pv["race_id"].to_numpy(), hist.loc[X.index[valid], "won"].to_numpy(),
+                    hist.loc[X.index[valid], "odds_final"].to_numpy())
+    validierung["markt_test"] = mv
     bericht["markt_test"] = markt_test(pt[sieger].to_numpy(), pt["race_id"].to_numpy(),
                                        hist.loc[X.index[test], "won"].to_numpy(),
-                                       hist.loc[X.index[test], "odds_final"].to_numpy())
+                                       hist.loc[X.index[test], "odds_final"].to_numpy(), a=mv.get("a"))
     # Rote Starter (Power ≤ 95): wie oft gewinnen / platzieren sie sich? (fürs Weglassen in der Claude-JSON)
     pw_test = 100 + 10 * _z_im_rennen(pt[sieger].to_numpy(), pt["race_id"].to_numpy())
     rot = pw_test <= ROT_AB
@@ -784,19 +864,24 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     bericht["rot"] = {"anteil_starter": round(float(rot.mean()), 3),
                       "anteil_sieger": round(float(rot[w_t].mean()), 3) if w_t.any() else None,
                       "anteil_platz": round(float(rot[p_t].mean()), 3) if p_t.any() else None}
-    bericht.update({"gewaehlt": sieger, "lernen_bis": f"{pd.Timestamp(grenze):%Y-%m-%d}", "ab": ab})
-    log("Prüfung auf den letzten Tagen (je Rennen):")
-    for k, v in bericht.items():
+    bericht.update({"gewaehlt": sieger, "test_ab": auf["test_ab"], "aufteilung": gr, "ab": ab,
+                    "validierung": validierung})
+    log("Validierung (Abbruch, Modellwahl, Siegchance-a):")
+    for k, v in validierung.items():
         log(f"  {k}: {v}")
+    log("Test (unberührt, je Rennen):")
+    for k, v in bericht.items():
+        if k not in ("validierung", "aufteilung"):
+            log(f"  {k}: {v}")
     m, best, p = modelle[sieger]
     imp = pd.Series(m.feature_importance("gain"), index=Xk.columns).sort_values(ascending=False)
     log(f"Wichtigste Merkmale ({sieger}, Gain): " + ", ".join(f"{k} {v / imp.sum():.1%}" for k, v in imp.head(15).items()))
-    # endgültig: alle Tage, gleiche Baumzahl
+    # endgültig: alle Tage nach dem Aufwärmen, gleiche Baumzahl
     final = lgb.train(p, _lgb_daten(lgb, Xk, y, rennen, sieger), num_boost_round=best)
     ordner.mkdir(parents=True, exist_ok=True)
     final.save_model(str(ordner / MODELL_DATEI))
     meta = {"spalten": list(Xk.columns), "stufen": stufen, "art": sieger, "bericht": bericht,
-            "sieg_a": bericht["markt_test"].get("a", 1.0),
+            "sieg_a": mv.get("a", 1.0),
             "wichtig": {k: round(float(v / imp.sum()), 4) for k, v in imp.head(30).items()},
             "trainiert": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"), "starter": int(len(X))}
     (ordner / META_DATEI).write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -826,8 +911,8 @@ def wert_tabelle(f, placed, exp_place, won, p_sieg, stufen: int = WERT_STUFEN) -
 
 
 def _kalibrieren(f, basis, y, iter_max: int = 50) -> float:
-    """Eichung des Value-Modells: Platzchance = sigmoid(Markt-log-odds + k × f), k per Maximum-Likelihood auf den
-    Prüftagen. k < 1 heißt: das Modell war zu selbstbewusst, der geeichte Faktor exp(k × f) liegt näher an 1."""
+    """Eichung des Value-Modells: Platzchance = sigmoid(Markt-log-odds + k × f), k per Maximum-Likelihood auf der
+    Validierung. k < 1 heißt: das Modell war zu selbstbewusst, der geeichte Faktor exp(k × f) liegt näher an 1."""
     f, basis, y = (np.asarray(v, dtype=float) for v in (f, basis, y))
     k = 1.0
     for _ in range(iter_max):
@@ -885,15 +970,17 @@ def rendite_tabelle(f, won, odds, gruppe=None, anteile=WERT_TOP) -> pd.DataFrame
 
 def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
                     X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
-                    ab: str | None = None, neu: bool = False, ziel_art: str = "platz", log=print) -> dict:
+                    ab: str | None = None, neu: bool = False, ziel_art: str = "platz", aufwaermen: int | None = None,
+                    log=print) -> dict:
     """Value-Modell: lernt, wann ein Pferd öfter platziert ist, als seine Endquote erwarten lässt.
     ziel_art="platz": Ziel platziert 0/1 gegen die Platzchance des Marktes (binär, Faktor ≈ A/E Platz).
     ziel_art="kombi": Ziel Sieg + Platz (Sieger = 2, Platzierter = 1, sonst 0) gegen Siegchance + Platzchance des
     Marktes (Poisson, Faktor ≈ A/E Kombi) – ein Sieg zählt doppelt, das Signal bleibt dank der Plätze stabil.
     Ziel: platziert (0/1); Ausgangswert je Starter: die Platzchance des Marktes (exp_place, Harville aus der Endquote) –
     LightGBM lernt nur die Abweichung davon. Die Quote ist also nur im Lern-Ziel, nie Merkmal: die Vorhersage
-    (Value-Faktor ≈ A/E Platz) braucht keine heutige Quote. Merkmale wie Power (Zwischenspeicher), gleiche Prüftage.
-    Bericht: A/E Platz und Sieg je Fünftel des Faktors auf den Prüftagen, bedingtes Logit (Sieg) mit Markt + Value."""
+    (Value-Faktor ≈ A/E Platz) braucht keine heutige Quote. Merkmale wie Power (Zwischenspeicher), gleiche Aufteilung
+    (Aufwärmen, 60/20/20): Abbruch, Eichung und Gold-Grenze auf der Validierung; Bericht (A/E je Fünftel, Rendite,
+    bedingtes Logit Sieg mit Markt + Value) nur auf den Testtagen."""
     import lightgbm as lgb
     import hypothesen_backtest as hb
     hist, X, ordner = _merkmale_holen(base, hist, out, X, neu, log)
@@ -911,12 +998,11 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     X = feld_relativ(X[ok], hist.loc[X.index[ok], "race_id"], hist.loc[X.index[ok], "date"])
     ep, pl, wn, ps = ep[ok], pl[ok], wn[ok], ps[ok]
     tage = pd.to_datetime(hist.loc[X.index, "date"])
-    if ab:
-        drin = tage >= pd.Timestamp(ab)
-        X, ep, pl, wn, ps, tage = X[drin], ep[drin], pl[drin], wn[drin], ps[drin], tage[drin]
-        log(f"Nur Rennen ab {ab}: {len(X):,} Starter")
-    grenze = np.sort(tage.unique())[int(len(tage.unique()) * LERN_ANTEIL)]
-    lern, test = (tage < grenze).to_numpy(), (tage >= grenze).to_numpy()
+    auf = aufteilung(tage, hist["date"].min(), ab, aufwaermen)
+    drin = auf["drin"]
+    X, ep, pl, wn, ps, tage = X[drin], ep[drin], pl[drin], wn[drin], ps[drin], tage[drin]
+    lern, valid, test = auf["lern"][drin], auf["valid"][drin], auf["test"][drin]
+    gr = auf["grenzen"]
     Xk, stufen = _kategorien(X)
     if ziel_art == "kombi":
         y_all, basis = pl + wn, np.log((ep + ps).to_numpy())
@@ -924,14 +1010,16 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     else:
         y_all, basis = pl, _logit(ep)
         p = {**WERT_PARAMS, **(params or {})}
-    log(f"Value-Modell ({ziel_art}) – lernen: {int(lern.sum()):,} Starter bis {pd.Timestamp(grenze):%Y-%m-%d}, prüfen: {int(test.sum()):,}")
+    log(f"Value-Modell ({ziel_art}) – Aufwärmen bis {gr['aufwaermen_bis']} · lernen {gr['lernen']}: {int(lern.sum()):,} "
+        f"Starter · validieren {gr['validieren']}: {int(valid.sum()):,} · testen {gr['testen']}: {int(test.sum()):,}")
     d_lern = lgb.Dataset(Xk[lern], y_all[lern], init_score=basis[lern], categorical_feature=KATEGORISCH, free_raw_data=False)
-    d_test = lgb.Dataset(Xk[test], y_all[test], init_score=basis[test], reference=d_lern, categorical_feature=KATEGORISCH,
-                         free_raw_data=False)
-    m = lgb.train(p, d_lern, num_boost_round=runden, valid_sets=[d_test],
+    d_val = lgb.Dataset(Xk[valid], y_all[valid], init_score=basis[valid], reference=d_lern, categorical_feature=KATEGORISCH,
+                        free_raw_data=False)
+    m = lgb.train(p, d_lern, num_boost_round=runden, valid_sets=[d_val],
                   callbacks=[lgb.early_stopping(100, verbose=False)])
     best = int(m.best_iteration or runden)
     f = m.predict(Xk[test], num_iteration=best, raw_score=True)          # Abweichung vom Markt (log-odds bzw. log)
+    f_val = m.predict(Xk[valid], num_iteration=best, raw_score=True)
     # Güte des Lern-Ziels: Markt allein gegen Markt + Value-Modell (Platz: Log-Loss, Kombi: Poisson-Abweichung)
     def ll(eta):
         y = y_all[test].to_numpy()
@@ -956,9 +1044,11 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     teil = {"renntyp": rendite_tabelle(f, won, odds, typ, [0.10]),
             "quote": rendite_tabelle(f, won, odds, q_st, [0.10]),
             "monat": rendite_tabelle(f, won, odds, monat, [0.10])}
-    # Eichung: geeichter Faktor exp(k × f); goldener Rahmen ab der Grenze der obersten WERT_GOLD auf den Prüftagen
-    k_ = (_kalibrieren_poisson if ziel_art == "kombi" else _kalibrieren)(f, basis[test], y_all[test].to_numpy())
-    gold_ab = float(np.quantile(f, 1 - WERT_GOLD))
+    # Eichung: geeichter Faktor exp(k × f); goldener Rahmen ab der Grenze der obersten WERT_GOLD – beides auf der
+    # Validierung, damit der Test unberührt bleibt
+    k_ = (_kalibrieren_poisson if ziel_art == "kombi" else _kalibrieren)(f_val, basis[valid], y_all[valid].to_numpy())
+    gold_ab = float(np.quantile(f_val, 1 - WERT_GOLD))
+    gold_test = f >= gold_ab
     d = pd.DataFrame({"race_id": rennen, "won": won, "z": _z_im_rennen(f, rennen), "p_mkt": p_sieg})
     d = d[d.groupby("race_id")["p_mkt"].transform(lambda s_: s_.notna().all())]
     d = d[d.groupby("race_id")["won"].transform("sum") == 1]
@@ -972,8 +1062,11 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
                "rendite": rt.to_dict("records"), "rendite_top10": {k: v.to_dict("records") for k, v in teil.items()},
                "kalib_k": round(k_, 3), "gold_ab_roh": round(gold_ab, 4),
                "gold_ab_faktor": round(float(np.exp(k_ * gold_ab)), 3),
-               "lernen_bis": f"{pd.Timestamp(grenze):%Y-%m-%d}", "ab": ab}
-    log(f"Value-Modell ({ziel_art}) – Prüfung auf den letzten Tagen:")
+               "gold_test": {"anteil": round(float(gold_test.mean()), 3),
+                             **(rendite_tabelle(f[gold_test], won[gold_test], odds[gold_test], None, [1.0])
+                                .iloc[0].to_dict() if gold_test.any() else {})},
+               "test_ab": auf["test_ab"], "aufteilung": gr, "ab": ab}
+    log(f"Value-Modell ({ziel_art}) – Test (unberührt; Eichung und Gold-Grenze aus der Validierung):")
     for k2, v2 in bericht.items():
         if k2 not in ("fuenftel", "rendite", "rendite_top10"):
             log(f"  {k2}: {v2}")
@@ -1054,7 +1147,7 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
         wm = modell["wert"]["meta"]
         Xw, _ = _kategorien(X.reindex(columns=wm["spalten"]), wm["stufen"])
         fw = modell["wert"]["booster"].predict(Xw[wm["spalten"]], raw_score=True)
-        df["wert"] = np.exp(wm.get("kalib_k", 1.0) * fw)                 # geeicht: was auf den Prüftagen eintrat
+        df["wert"] = np.exp(wm.get("kalib_k", 1.0) * fw)                 # geeicht: was auf der Validierung eintrat
         df["gold"] = fw >= wm["gold_ab"] if "gold_ab" in wm else df["wert"] >= 1.2
     for r_, g in df.groupby("race_id"):
         mu, sd = g["pred"].mean(), g["pred"].std(ddof=0)
@@ -1158,14 +1251,14 @@ def modell_info(modell: dict | None, vorwaerts: list | None = None) -> dict | No
     power = {
         "pruefung": {"rennen": m.get("rennen"), "rang_korr": m.get("rang_korr"), "rang_korr_markt": mk.get("rang_korr"),
                      "sieger_getroffen": m.get("sieger_getroffen"), "sieger_getroffen_markt": mk.get("sieger_getroffen"),
-                     "markt_test_z": z, "pruef_ab": b.get("lernen_bis")},
+                     "markt_test_z": z, "test_ab": b.get("test_ab") or b.get("lernen_bis")},
         "rote_starter": rot or None,
         "einordnung": ("Stärke-Einschätzung aus Form, Kennzahlen, Verbindungen und Abstammung (ohne heutige Quote). "
                        "Ordnet das Feld fast so gut wie die Endquote"
                        + (", weiß aber nichts, was der Markt nicht schon einpreist (Markttest z < 2): als eine Meinung "
                           "neben den Kennzahlen nutzen, nicht als Edge." if z is None or z < 2 else
                           "; der Markttest zeigt Zusatzwissen gegenüber der Endquote (z ≥ 2).")
-                       + (f" Rote Starter (Power ≤ {ROT_AB}) stellten auf den Prüftagen {rot['anteil_sieger']:.0%} der "
+                       + (f" Rote Starter (Power ≤ {ROT_AB}) stellten auf den Testtagen {rot['anteil_sieger']:.0%} der "
                           f"Sieger bei {rot['anteil_starter']:.0%} der Starter." if rot.get("anteil_sieger") is not None
                           else " Anteil roter Starter an den Siegern: erst nach neuem Training (power_modell.trainieren)."))}
     out = {"power": power}
@@ -1180,9 +1273,10 @@ def modell_info(modell: dict | None, vorwaerts: list | None = None) -> dict | No
                          "ae_unterstes_fuenftel": {k: f5[0].get(k) for k in ("ae_platz", "ae_sieg", "ae_kombi")} if f5 else None,
                          "ae_oberstes_fuenftel": {k: f5[-1].get(k) for k in ("ae_platz", "ae_sieg", "ae_kombi")} if f5 else None,
                          "rendite_endquote": {k: rt.get(k) for k in ("alle", "oberste 10 %", "oberste 5 %")},
-                         "gold_ab_faktor": bw.get("gold_ab_faktor"), "pruef_ab": bw.get("lernen_bis")},
+                         "gold_ab_faktor": bw.get("gold_ab_faktor"),
+                         "test_ab": bw.get("test_ab") or bw.get("lernen_bis")},
             "einordnung": ("Value-Faktor ≈ wie oft das Pferd im Vergleich zur Erwartung des Marktes ins Geld kommt "
-                           "(1 = wie der Markt, geeicht auf die Prüftage). "
+                           "(1 = wie der Markt, geeicht auf die Validierung, geprüft auf unberührten Testtagen). "
                            + ("Signal gegenüber der Endquote belegt (z ≥ 2). " if zw is not None and zw >= 2 else
                               "Signal gegenüber der Endquote nicht belegt. ")
                            + "Unterstes Fünftel (Faktor ≈ ≤ 0,8) ist ein verlässliches Warnsignal: Markt überschätzt. "
