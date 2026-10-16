@@ -58,7 +58,7 @@ QUOTE_BEREICH = (3.0, 10.0)  # im Test bester Bereich der obersten 10 % (+10 % z
 PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schreibt ihre Value-Faktoren hierher
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
-MERKMAL_VERSION = 4                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+MERKMAL_VERSION = 5                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
@@ -74,7 +74,10 @@ VERB_K = 10                 # Verbindungs-Score zur 100 hin geschrumpft wie mit 
 ABST_K = 20                 # dasselbe für Vater/Muttervater
 ABST_MIN = 30               # beste Gruppe von Vater/Muttervater erst ab so vielen Läufen in der Gruppe
 PFERD_MIN = 2               # beste Gruppe des Pferdes erst ab so vielen Läufen in der Gruppe
-KATEGORISCH = ["racetype", "going", "dist_group", "cond_age", "sex"]
+KATEGORISCH = ["racetype", "going", "dist_group", "age_group", "sex", "f1_typ", "f2_typ", "f3_typ"]
+# Altersklasse (conditions_age) -> Altersgruppe des Rennens; nicht aufgeführte Werte über die Alter im Feld
+ALTERSGRUPPE = {"DEUX_ANS": "2yo", "TROIS_ANS": "3yo", "TROIS_ANS_ET_PLUS": "3yo+", "TROIS_QUATRE_CINQ_ANS": "3yo+",
+                "QUATRE_ANS": "4yo+", "QUATRE_ANS_ET_PLUS": "4yo+", "QUATRE_CINQ_ANS": "4yo+", "CINQ_ANS_ET_PLUS": "4yo+"}
 LGB_PARAMS = dict(objective="regression", learning_rate=0.03, num_leaves=63, min_data_in_leaf=50, bagging_fraction=0.8,
                   bagging_freq=1, feature_fraction=0.8, lambda_l2=1.0, verbosity=-1)
 LGB_RUNDEN = 3000           # höchstens so viele Bäume; Abbruch, wenn sich die Prüfung 100 Runden nicht verbessert
@@ -87,12 +90,13 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("dam_sire_", "Muttervater"), ("arr", "ARR"), ("tr", "TR"), ("rtr", "RTR"), ("dl600", "ΔL600 A"),
            ("db200", "ΔB200 A"), ("duel", "Duell"), ("box", "Startbox"), ("early", "Laufstil"), ("pace", "Tempo-Szenario"),
            ("form5_", "letzte 5 Läufe"), ("season", "Jahreszeit"), ("feld_aelter", "Erfahrung im Feld"),
-           ("feld_erfahrener", "Erfahrung im Feld"), ("chg_", "Wechsel zum letzten Lauf"), ("blink", "Scheuklappen"),
+           ("feld_erfahrener", "Erfahrung im Feld"), ("chg_", "Wechsel zum letzten Lauf"),
+           ("kennt_jockey", "Jockey kennt Pferd"), ("trainerwechsel5", "Trainerwechsel (letzte 5)"), ("blink", "Scheuklappen"),
            ("race_prize", "Preisgeld des Rennens"), ("feld_val", "Klasse des Feldes"),
            ("lgo_", "letzter Lauf auf heutigem Boden"), ("ldi_", "letzter Lauf auf heutiger Distanz"),
            ("won_", "Sieg-Vorlieben"), ("placed_", "Platz-Vorlieben"), ("best_", "beste Gruppe Pferd"),
            ("rating", "Rating"), ("weight", "Gewicht"), ("epr365", "€/Lauf 365"), ("days", "Tage seit Lauf"),
-           ("runs", "Läufe"), ("age", "Alter"), ("sex", "Geschlecht"), ("draw", "Startbox")]
+           ("runs", "Läufe"), ("age_group", "Altersgruppe"), ("age", "Alter"), ("sex", "Geschlecht"), ("draw", "Startbox")]
 
 
 # --------------------------------------------------------------------------
@@ -108,6 +112,34 @@ def _zahl(h: pd.DataFrame, c: str) -> np.ndarray:
 
 def _text(h: pd.DataFrame, c: str) -> np.ndarray:
     return _spalte(h, c, None).astype(object).where(_spalte(h, c, None).notna(), None).to_numpy()
+
+
+def renntyp3(t) -> str | None:
+    """Renntyp für das Modell in drei Gruppen: alles mit „Handicap“ -> Handicap (auch Handicap Categorie Divise,
+    Handicap A Reclamer), Claimer -> Claimer, alles andere (Conditions, Listed, Gruppe, International …) -> Conditions;
+    die Klasse dazwischen trennt das Preisgeld."""
+    if t is None or (isinstance(t, float) and np.isnan(t)):
+        return None
+    t = str(t).strip().lower()
+    if not t or t == "inconnu":
+        return None
+    if "handicap" in t:
+        return "Handicap"
+    if "claim" in t or "reclam" in t:
+        return "Claimer"
+    return "Conditions"
+
+
+def altersgruppe(klasse, alter_min=np.nan, alter_max=np.nan) -> str | None:
+    """Altersgruppe des Rennens (2yo, 3yo, 3yo+, 4yo+) aus der Altersklasse, sonst aus den Altern im Feld."""
+    g = ALTERSGRUPPE.get(str(klasse).strip().upper()) if klasse is not None else None
+    if g is not None or np.isnan(alter_min):
+        return g
+    if alter_min >= 4:
+        return "4yo+"
+    if alter_max <= alter_min:
+        return {2: "2yo", 3: "3yo"}.get(int(alter_min))
+    return "3yo+"
 
 
 def _going_w(a, b) -> float:
@@ -215,14 +247,18 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     F["rating_adj"] = werte["valeur"] - gew + rc.GEWICHT_REF
     F["age"], F["draw"] = werte["age"], werte["draw"]
     F["draw_rel"] = werte["draw"] / nrun
-    kat = {"racetype": _text(h, "racetype"), "going": going, "dist_group": dgrp,
-           "cond_age": _text(h, "conditions_age"),
+    typ3 = np.array([renntyp3(t) for t in _text(h, "racetype")], dtype=object)
+    a_min = pd.Series(werte["age"]).groupby(rid).transform("min").to_numpy(dtype=float)
+    a_max = pd.Series(werte["age"]).groupby(rid).transform("max").to_numpy(dtype=float)
+    kat = {"racetype": typ3, "going": going, "dist_group": dgrp,
+           "age_group": np.array([altersgruppe(k, a, b) for k, a, b in zip(_text(h, "conditions_age"), a_min, a_max)],
+                                 dtype=object),
            "sex": np.array([str(s)[:1].upper() if s is not None else None for s in _text(h, "sex")], dtype=object)}
 
     # ---- je Pferd: Kacheln, Form, Vorlieben ----------------------------------------------------------------------
     F["race_prize"], F["feld_val"], F["blink"] = preis, feld_val, blink
     for c in ["form5_pos", "form5_best", "form5_lb", "form5_arr", "form5_trend", "chg_weight", "chg_dist", "chg_class",
-              "chg_prize", "chg_jockey", "chg_trainer", "blink_first", "blink_change"]:
+              "chg_prize", "chg_jockey", "chg_trainer", "blink_first", "blink_change", "kennt_jockey", "trainerwechsel5"]:
         feld(c)
     for c in ["runs", "runs365", "lgo_pos", "lgo_arr", "ldi_pos", "ldi_arr", "days", "rtr", "arr", "tr", "dl600", "db200", "early", "epr365",
               "won_course", "won_dist", "won_going", "placed_course", "placed_dist", "placed_going", "best_dist", "best_going"]:
@@ -286,6 +322,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             return np.nan
         return float(sc[heute_k] >= max(sc.values()))
 
+    f_typ = {k: np.full(n, None, dtype=object) for k in range(1, FORM_N + 1)}   # Renntyp der letzten Läufe
     pferde = {}
     for p in ord_h:
         pferde.setdefault(hid[p], []).append(p)
@@ -298,8 +335,14 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 continue
             vor = [j for j in reversed(laeufe[:pos_i]) if tag[j] < tag[i] and not hm[j]]   # neueste zuerst
             F["runs"][i] = len(vor)
+            if jk[i] is not None:                              # Jockey hat das Pferd schon geritten
+                F["kennt_jockey"][i] = float(any(jk[j] == jk[i] for j in vor))
             if not vor:
                 continue
+            # Trainerwechsel innerhalb der letzten 5 Starts (heute eingeschlossen)
+            tz = [t_ for t_ in [tk[i]] + [tk[j] for j in vor[:4]] if t_ is not None]
+            if len(tz) > 1:
+                F["trainerwechsel5"][i] = float(len(set(tz)) > 1)
             F["days"][i] = tag[i] - tag[vor[0]]
             F["runs365"][i] = sum(tag[i] - tag[j] <= 365 for j in vor)
             # verdichtete Form der letzten FORM_VERDICHTET Läufe (fehlende Werte zählen nicht)
@@ -375,6 +418,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 F[f"f{k}_orank"][i], F[f"f{k}_pm"][i] = o_rel[j], p_markt[j]
                 F[f"f{k}_verlauf"][i] = vlf[j]
                 F[f"f{k}_tage"][i] = tag[i] - tag[j]
+                f_typ[k][i] = typ3[j]
                 feld_j = rennen_pos.get(rid[j], np.array([], dtype=int))
                 andere = feld_j[hid[feld_j] != hid[j]]
                 if len(andere):                                    # Gegner danach: nur Starts vor heute zählen
@@ -519,6 +563,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
         log(f"  Duelle: {time.time() - t2:.0f} s")
 
     out = pd.DataFrame(F, index=idx)
+    kat.update({f"f{k}_typ": v for k, v in f_typ.items()})
     for c, v in kat.items():
         out[c] = v
     out = out.loc[idx[zm]]
@@ -530,7 +575,7 @@ def _kategorien(X: pd.DataFrame, stufen: dict | None = None) -> tuple[pd.DataFra
     """Kategorische Spalten als pandas-Kategorie mit festen Stufen (aus dem Training)."""
     X = X.copy()
     stufen = dict(stufen or {})
-    for c in KATEGORISCH:
+    for c in (list(stufen) if stufen else KATEGORISCH):     # gespeichertes Modell: seine eigenen Kategorien
         if c not in X:
             X[c] = None
         werte = X[c].astype(object).where(X[c].notna(), None)

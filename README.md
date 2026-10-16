@@ -152,12 +152,14 @@ erg = pm.trainieren(BASE, ab="2024-01-01")   # schnell: Merkmale aus BASE/modell
 ```
 
 Abhängige Variable: Platzanteil (Starter − Platz) / (Starter − 1), nicht im Ziel = 0. Merkmale nur aus Läufen vor dem
-Renntag (`pm.merkmale`, dieselbe Funktion für Training und Karte): Rennen (Typ, Starter, Altersklasse, Distanz, Boden,
-Tempo-Szenario), Pferd (Alter, Geschlecht, €/Lauf 365 Tage, Gewicht, Rating, Tage, Starts gesamt und 365 Tage, letzter Lauf auf heutiger
+Renntag (`pm.merkmale`, dieselbe Funktion für Training und Karte): Rennen (Typ in drei Gruppen – alles mit
+„Handicap“ = Handicap, Claimer, alles andere inkl. Listed/Gruppe = Conditions, die Klasse trennt das Preisgeld –,
+Altersgruppe 2yo/3yo/3yo+/4yo+, Starter, Distanz, Boden, Tempo-Szenario), Pferd (Jockey kennt das Pferd, Trainerwechsel in
+den letzten 5 Starts, Alter, Geschlecht, €/Lauf 365 Tage, Gewicht, Rating, Tage, Starts gesamt und 365 Tage, letzter Lauf auf heutiger
 Boden-/Distanzgruppe mit Platzanteil und ARR, RTR/ARR/TR/ΔL600 A/ΔB200 A wie die
 Kacheln, Duell-Rang, Startbox, Laufstil), Vorlieben (gewonnen/platziert auf Kurs, Distanz, Boden; beste Gruppe des
 Pferdes), Trainer/Jockey/Besitzer/Züchter (Score aus A/E Platz, Platzanteil, €/Lauf, 365 Tage), Vater/Muttervater
-(Score, €/Lauf+, Valeur der 3-Jährigen, beste Distanz-/Bodengruppe) und die letzten drei Läufe (Klasse, Längen, Platzanteil,
+(Score, €/Lauf+, Valeur der 3-Jährigen, beste Distanz-/Bodengruppe) und die letzten drei Läufe (Renntyp, Klasse, Längen, Platzanteil,
 gleicher Boden/Distanz, ARR, TR, Finish-Index, ±800, Weg, Endquote, Quotenrang relativ und Marktchance (1/Quote, je
 Rennen normiert), mit/gegen den Rennverlauf, Gegner-Score, Vergleich mit heutigen Gegnern). Wichtige Werte (Rating bereinigt, Gewicht, €/Lauf, RTR,
 ARR, TR, letzter Platzanteil/Längen/Marktchance, Trainer, Jockey, Besitzer, Duell, Vater) gehen zusätzlich relativ zum

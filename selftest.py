@@ -542,7 +542,8 @@ def _power_synth(tage=40, rennen=3, feld=8, pferde=90, seed=3) -> pd.DataFrame:
                 fehlt = rng.random() < .25                 # Lücken wie in echt: kein Tracking, kein TR/ARR
                 z.append(dict(race_id=f"{dt:%Y%m%d}R1C{c + 1}", date=dt, horse_id=f"P{i}|S", horse=f"P{i}",
                               saddle_no=k + 1, weight_kg=55.0 + k % 4, distance_m=dist, going=going, going_pmu=going,
-                              dist_group=f"{dist - 199}-{dist}", course_key=f"B{c}", hippodrome=f"B{c}", racetype="Handicap",
+                              dist_group=f"{dist - 199}-{dist}", course_key=f"B{c}", hippodrome=f"B{c}",
+                              racetype=["Handicap Categorie Divise", "Group 3", "Claimer"][c],
                               conditions_age=None if fehlt else "TROIS_ANS_ET_PLUS", konfig=f"K{c}", draw=k + 1,
                               age=3 + i % 4, sex="MALES", valeur=np.nan if fehlt else 30 + 5 * fae[i],
                               finish_pos=pos[k], n_runners=feld, rel_place=(feld - pos[k]) / (feld - 1),
@@ -571,8 +572,29 @@ def power_modell_pruefen() -> None:
     pruefe(len(X) == len(h) and erst["runs"].eq(0).all() and erst["arr"].isna().all() and erst["f1_pos"].isna().all()
            and erst["trainer_score"].iloc[:3].isna().all(),
            f"Power-Modell: {X.shape[1]} Merkmale je Starter; erster Lauf ohne Vorwerte, erster Tag ohne Verbindungs-Score")
-    pruefe(X["arr"].isna().any() and X["arr"].notna().any() and X["cond_age"].isna().any(),
+    pruefe(X["arr"].isna().any() and X["arr"].notna().any() and X["f1_typ"].isna().any(),
            "Power-Modell: fehlende Werte bleiben leer (NaN), statt ersetzt zu werden")
+    typen = [pm.renntyp3(t) for t in ["Handicap Categorie Divise", "Handicap A Reclamer", "Claimer", "Group 1",
+                                      "Listed", "Conditions", "Course A Condition Qualif Hp", "Inconnu", None]]
+    pruefe(typen == ["Handicap", "Handicap", "Claimer", "Conditions", "Conditions", "Conditions", "Conditions", None, None]
+           and set(X["racetype"].dropna()) == {"Handicap", "Conditions", "Claimer"}
+           and set(X["f1_typ"].dropna()) <= {"Handicap", "Conditions", "Claimer"},
+           "Power-Modell: Renntyp in drei Gruppen (Handicap/Conditions/Claimer), auch für die letzten Läufe")
+    ag = [pm.altersgruppe("DEUX_ANS"), pm.altersgruppe("TROIS_ANS"), pm.altersgruppe("TROIS_QUATRE_CINQ_ANS"),
+          pm.altersgruppe("QUATRE_ANS_ET_PLUS"), pm.altersgruppe(None, 3, 6), pm.altersgruppe(None, 2, 2),
+          pm.altersgruppe(None, 4, 5), pm.altersgruppe(None)]
+    pruefe(ag == ["2yo", "3yo", "3yo+", "4yo+", "3yo+", "2yo", "4yo+", None] and X["age_group"].notna().all(),
+           "Power-Modell: Altersgruppe 2yo/3yo/3yo+/4yo+ aus der Altersklasse, sonst aus den Altern im Feld")
+    hs = h.sort_values(["date", "saddle_no"])
+    i_ = X.index[(X["runs"] >= 5) & X["kennt_jockey"].notna()][-1]
+    pid = h.loc[i_, "horse_id"]
+    vor = hs[(hs["horse_id"] == pid) & (hs["date"] < h.loc[i_, "date"])].iloc[::-1]
+    kj = float((vor["jockey_key"] == h.loc[i_, "jockey_key"]).any())
+    tz = [h.loc[i_, "trainer_key"]] + list(vor["trainer_key"].iloc[:4])
+    pruefe(X.loc[i_, "kennt_jockey"] == kj and X.loc[i_, "trainerwechsel5"] == float(len(set(tz)) > 1)
+           and X["kennt_jockey"].isin([0.0, 1.0]).any() and X.loc[X["runs"] == 0, "kennt_jockey"].fillna(0).eq(0).all(),
+           f"Power-Modell: kennt_jockey ({X['kennt_jockey'].mean():.0%} ja) und Trainerwechsel in den letzten 5 Starts "
+           f"({X['trainerwechsel5'].mean():.0%} ja)")
     h2 = h.copy()
     letzt = h2["date"] == h2["date"].max()
     h2.loc[letzt, "finish_pos"] = h2.loc[letzt, "finish_pos"].to_numpy()[::-1]          # Ergebnis des letzten Tages ändern
