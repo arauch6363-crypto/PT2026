@@ -203,7 +203,12 @@ zeigt einen goldenen Rahmen um die faire Quote bei den obersten 10 % des Value-F
 Dazu im Bericht: Rendite einer Siegwette 1 € zur echten Endquote (mit Marge) für alle, die obersten 20/10/5/2 % des
 Faktors, und die obersten 10 % nach Renntyp, Quotenbereich und Monat. Der Faktor in der Karte ist geeicht:
 exp(k × Abweichung), k per Maximum-Likelihood auf der Validierung (k < 1: Modell war zu selbstbewusst).
-Rahmen durchgezogen: Cote der PMU-Prognose 3–10 (im Test bester Bereich), gestrichelt: außerhalb.
+Goldener Rahmen nur bis Cote der PMU-Prognose 10/1 (`GOLD_COTE_MAX`; darüber verlor die Auswahl im Test klar,
+gestrichelt: Cote unbekannt). Roter Rahmen: Warnsignal – unterstes Fünftel des Value-Faktors (Grenze `warn_ab` aus der
+Validierung, ältere Modelle: Faktor ≤ 0,8), im Test A/E ≈ 0,7 in allen Renntypen. Claude-JSON: je Rennen
+`modell_rennart` (blind: Power-Testwerte im heutigen Renntyp und in der Altersgruppe mit Einordnung) bzw.
+`value_rennart` (Markt: Warnsignal und Gold-Rendite dort), je Starter `value.warnung`, `value.oberste_10` und
+`value.gold` (oberste 10 % und Cote bis 10).
 
 Claude-JSON: blind je Starter `modell` (Siegchance, faire Quote, Rang, Treiber) und `modelle.power` (Verlässlichkeit),
 Starter nach Power sortiert, rote Starter (Power ≤ 95) ohne Value-Hinweis (Faktor ≤ 1,1, kein Gold) nur als Kurzzeile in `weitere`; je Rennen `vergleich_365` (ARR/TR- und

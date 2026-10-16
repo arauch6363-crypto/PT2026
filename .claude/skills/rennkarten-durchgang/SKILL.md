@@ -81,7 +81,7 @@ Sektionalzeiten) stammen aus französischen Flachrennen ab
 - **Nicht vollständig gezeigte Starter (`weitere`).** Ist ein
   Power-Modell trainiert, stehen Starter mit roter Power (≤ 95, Modell
   sieht sie klar unter dem Feldschnitt) **ohne** Value-Hinweis (Faktor
-  höchstens 1,1 und kein goldener Rahmen) nur als
+  höchstens 1,1 und nicht unter den obersten 10 %) nur als
   Kurzzeile in `weitere`: `anzahl`, `starter_gesamt`, `sieg_summe` und je
   Starter Nummer, Name, Modell-Siegchance (`sieg`), faire Quote, Power
   und Rang. Sie laufen mit und werden nicht durchgegangen. Wie oft solche
@@ -308,6 +308,15 @@ es das Feld fast so gut wie die Endquote (Rangkorrelation und
 Siegertreffer knapp dahinter), wusste aber nichts, was der Markt nicht
 schon einpreiste. `rote_starter` sagt, wie oft Pferde mit roter Power
 trotzdem gewinnen.
+
+**Je Rennen `modell_rennart`:** Renntyp (Handicap/Conditions/Claimer) und
+Altersgruppe (2yo/3yo/3yo+/4yo+) des heutigen Rennens mit den Testwerten
+des Modells genau dort (`power_renntyp`, `power_altersgruppe`: Rangkorrelation
+und Siegertreffer gegen die Endquote, `einordnung`). Im Test war das Modell
+in Claimern fast so gut wie der Markt, in Handicaps klar schwächer. Heißt
+die Einordnung „klar schwächer als der Markt", dann bei Abweichungen von
+der Prognose (Teil 2) skeptischer sein und die Sicherheit eines nur vom
+Modell gestützten Arguments senken. „wenige Testrennen" heißt: Wert unsicher.
 
 **So wird es genutzt:**
 - **`sieg` ist der Ausgangswert der eigenen Siegchance.** Die eigene
@@ -824,21 +833,26 @@ die Prognose nicht anspricht, ist beim Favoriten so wertvoll wie ein
 
 `value` je Starter in der Marktdatei: `faktor` (geeichter Value-Faktor ≈
 wie oft das Pferd im Verhältnis zur Erwartung des Marktes ins Geld kommt,
-1 = wie der Markt), `gold` (oberste 10 %), `fair` (faire Quote des
-Power-Modells), `cote_ohne_marge` (Prognose-Cote, Marge herausgerechnet),
-`vs_prognose` („Modell stärker"/„Modell schwächer" ab 30 % Abstand, nur bis
-30/1) und `cote_3_10`. Verlässlichkeit in **`modelle.value`**, laufender
-Vorwärts-Test in `modelle.vorwaerts_test`.
+1 = wie der Markt), `warnung` (unterstes Fünftel), `oberste_10` (oberste
+10 % des Faktors), `gold` (oberste 10 % **und** Prognose-Cote bis 10),
+`fair` (faire Quote des Power-Modells), `cote_ohne_marge` (Prognose-Cote,
+Marge herausgerechnet) und `vs_prognose` („Modell stärker"/„Modell
+schwächer" ab 30 % Abstand, nur bis 30/1). Verlässlichkeit in
+**`modelle.value`**, je Rennen in **`value_rennart`** (Warnsignal und
+Gold-Rendite im heutigen Renntyp und in der Altersgruppe, `einordnung`),
+laufender Vorwärts-Test in `modelle.vorwaerts_test`.
 
-- **Faktor ≤ etwa 0,8 ist das verlässlichste Signal: Der Markt überschätzt
-  das Pferd** (unterstes Fünftel im Test A/E ≈ 0,72–0,77, stabil). Beim
+- **`warnung` ist das verlässlichste Signal: Der Markt überschätzt das
+  Pferd** (unterstes Fünftel im Test A/E ≈ 0,7, in allen Renntypen). Beim
   Prognose-Favoriten ist das ein unabhängiges Fragezeichen (B12), bei einem
   eigenen Kandidaten ein Grund, die Argumente gegenzulesen und die
   Sicherheit zu senken.
-- **`gold` mit `cote_3_10`** ist ein Hinweis, einen Angle zu prüfen — nie
-  allein die Begründung. Zur PMU-Endquote war die oberste Auswahl im Test
-  nicht profitabel (Marge, überwettete Außenseiter); am ehesten trägt sie
-  zum Festkurs. `gold` bei Cote über 10 ist schwach.
+- **`gold`** ist ein Hinweis, einen Angle zu prüfen — nie allein die
+  Begründung. Zur PMU-Endquote war die Auswahl im Test bis Cote 10 etwa
+  ausgeglichen; am ehesten trägt sie zum Festkurs. `oberste_10` ohne `gold`
+  (Cote über 10) verlor im Test klar: kein Argument. Sagt `value_rennart`
+  „Gold verlor im Test deutlich" (im Test v. a. Handicaps und Claimer),
+  dort `gold` nicht als Plus werten, nur `warnung` nutzen.
 - **Stützt `value` einen eigenen, *nicht erkannten* Angle**, ist das eine
   zweite, unabhängige Bestätigung (Sicherheit hoch, Edge unverändert).
   Widerspricht ein Faktor ≤ 0,8 einem eigenen ++, Stufe höchstens +.
@@ -1114,13 +1128,14 @@ Argumente (auch für − die Gegenargumente): `klasse`, `ratings`, `duell`,
      `offen: false`.
    - **Vorgerechnet:** je Rennen `vorgerechnet` (`reihenfolge` nach
      Power, `bias_rel`), je Starter `luecke` (D) und `modell` (BM), je
-     Rennen `weitere` und `vergleich_365` (B7, B10). Direkt übernehmen,
+     Rennen `weitere`, `modell_rennart` (BM) und `vergleich_365` (B7, B10). Direkt übernehmen,
      nicht neu rechnen.
 2. **`racecard_JJJJMMTT_markt.json` (Teil 2)**, erst nach Teil 1 öffnen:
    je Rennen `prono` (Rennkommentar, Tipps, Konsens, `cribles_ohne`),
    `vorgerechnet` (`marge`, `reihenfolge` nach Prognose-Rang), `nr` und
    je Starter `no`, `horse`, `prono` (`sel`, `tips`, `konsens`,
-   `crible`) und `p_prog` (P2).
+   `crible`), `p_prog` (P2) und `value` (B11a), je Rennen `value_rennart`
+   (B11a).
 
 ```python
 import json
