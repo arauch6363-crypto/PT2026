@@ -343,7 +343,7 @@ Je Starter:
 * **Abstammungsprofil** (Detailseite, ersetzt Vater/Muttervater in den Vorlieben und den „optimalen Bereich“):
   vier Skalen je Linie als Perzentil gegen alle Väter bzw. alle Muttervater mit ≥ 50 Läufen in der Dimension –
   Distanz Sprinter (bis 1400 m) / Mitteldistanz / Steher (über 2400 m), Boden Slow / Fast (nur Gras), Belag Gras /
-  PSF, Reife frühreif (2-Jährige und 3-Jährige bis Juni) / spät (`racecard.abstammung_profil`). Wert je Kategorie =
+  PSF, Alter 2yo / 3yo / 4yo+ (alle ab 4 Jahren gemeinsam) (`racecard.abstammung_profil`). Wert je Kategorie =
   Ø aus A/E+, Pos+ und €/L+ (Pos+ und €/L+ gegen den Schnitt aller Läufe in Kategorie × Alters-/Jahreszeit-Band);
   Distanz, Boden und Belag um das Alters-Profil der Linie korrigiert (Erwartung × Stärke der Linie im Band 2j / 3j
   bis Juni / 3j ab Juli / 4j+), sonst sähe eine frühreife Linie wie ein Sprinter aus. Neigung = gewichtete Steigung

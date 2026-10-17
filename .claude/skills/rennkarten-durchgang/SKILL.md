@@ -696,8 +696,8 @@ Distanz und den heutigen Boden. **Erste Quelle ist das Profil `abst.sire`
 bzw. `abst.dam_sire`:** vier Skalen, je als **Perzentil gegen alle Väter
 bzw. alle Muttervater** der Historie (0 = ganz links, 100 = ganz rechts):
 `dist` Sprinter (bis 1400 m) – Mitteldistanz – Steher (über 2400 m),
-`boden` Slow – Fast (nur Gras), `belag` Gras – PSF, `reife` frühreif
-(2-Jährige und 3-Jährige bis Juni) – spät. Je Skala: `perzentil`,
+`boden` Slow – Fast (nur Gras), `belag` Gras – PSF, `reife` Alter
+2yo – 3yo – 4yo+ (alle ab 4 Jahren gemeinsam). Je Skala: `perzentil`,
 `heute` (heutige Kategorie), `lage` (Lage des heutigen Rennens auf der
 Skala, stufenlos als Perzentil aller Läufe: Distanz in Metern, Boden in
 vier Stufen, Reife nach Alter und Monat), `passung` („passt" = Linie mit
@@ -984,7 +984,7 @@ hinaus ist selten; das im Fazit ehrlich sagen.
   „2j") statt der Gesamtform. Viele Zweijährigen-Sieger sind ein Plus, 2
   aus 33 ein Fragezeichen; dazu die Bahnstärke des Stalls.
 - **2J-4 Abstammung** trägt hier am meisten: `abst.sire.reife` (Perzentil
-  frühreif – spät) und `pref.sire.age` zeigen, wie die Linie mit Zweijährigen läuft, `ae.pedigree.sire.max_val3_idx`, wie gut die
+  2yo – 4yo+) und `pref.sire.age` zeigen, wie die Linie mit Zweijährigen läuft, `ae.pedigree.sire.max_val3_idx`, wie gut die
   Nachkommen werden. 1800 oder 2000 m sind für Zweijährige weit und müssen
   von Vater- oder Muttervaterseite getragen werden (`pref.*.distance`); die
   Mutterseite kann eine schwache Vaterlinie aufwerten. Ein Distanzschritt

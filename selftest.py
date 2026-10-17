@@ -926,12 +926,12 @@ def abstammung_pruefen() -> None:
            and mid(pz("frueh", "reife")) <= 30 and mid(pz("psf", "belag")) >= 80 and mid(pz("weich", "boden")) <= 20
            and len(z) == 8 and abs(z[4] - (z[5] + z[6] + z[7]) / 3) <= 1
            and x["dist"]["heute"] == "Steher" and x["dist"]["passung"] == "passt" and x["boden"]["heute"] is None
-           and x["belag"]["heute"] == "PSF" and x["reife"]["heute"] == "spät"
+           and x["belag"]["heute"] == "PSF" and x["reife"]["heute"] == "3yo"
            and [rc.abst_dist_kat(m) for m in (1400, 1401, 2400, 2401)] == ["Sprinter", "Mitteldistanz", "Mitteldistanz", "Steher"]
-           and rc.abst_reife_kat(3, 6) == "frühreif" and rc.abst_reife_kat(3, 7) == "spät",
+           and [rc.abst_reife_kat(a_) for a_ in (2, 3, 4, 9)] == ["2yo", "3yo", "4yo+", "4yo+"],
            f"Abstammungsprofil: Perzentile gegen alle Väter – Distanz Sprinter P{mid(pz('sprint', 'dist'))} / Steher "
            f"P{mid(pz('steher', 'dist'))} / frühreife Linie P{mid(pz('frueh', 'dist'))} (korrigiert, kein Sprinter), "
-           f"Reife frühreif P{mid(pz('frueh', 'reife'))}, Belag PSF P{mid(pz('psf', 'belag'))}, Boden weich "
+           f"Alter 2yo-stark P{mid(pz('frueh', 'reife'))}, Belag PSF P{mid(pz('psf', 'belag'))}, Boden weich "
            f"P{mid(pz('weich', 'boden'))}; Wert = Ø aus A/E+, Pos+, €/L+; Passung zur heutigen Kategorie")
     lg = lambda *a_: rc.abst_pferd(p, "neutral5", *a_)
     l15, l18, l24 = (lg(m_, "FAST", 4, 8)["dist"]["lage"] for m_ in (1250, 1800, 2400))
@@ -939,7 +939,7 @@ def abstammung_pruefen() -> None:
     r2, r3, r4 = (lg(2000, "FAST", a_, m_)["reife"]["lage"] for a_, m_ in ((2, 6), (3, 7), (5, 7)))
     pruefe(l15 < l18 < l24 and b_vs < b_s < b_vf and r2 < r3 < r4 and lg(2000, "PSF", 4, 8)["belag"]["lage"] == 100,
            f"Abstammungsprofil: Lage heute stufenlos als Perzentil aller Läufe – 1250/1800/2400 m P{l15}/P{l18}/P{l24}, "
-           f"Boden Very slow/Slow/Very fast P{b_vs}/P{b_s}/P{b_vf}, Reife 2j Juni/3j Juli/5j P{r2}/P{r3}/P{r4}")
+           f"Boden Very slow/Slow/Very fast P{b_vs}/P{b_s}/P{b_vf}, Alter 2yo/3yo/5j (4yo+) P{r2}/P{r3}/P{r4}")
 
 
 def tipp_auswertung_pruefen() -> None:
