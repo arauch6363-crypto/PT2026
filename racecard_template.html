@@ -653,7 +653,8 @@ function renderRace(){
     r.type || null, `${r.runners.filter(x => !x.nr).length} Starter`,
     P_ && P_.label ? `Tempo ${P_.label}` : null,
     B_ ? `Bias ${sgn(A_ ? B_.bias - A_.bias : B_.bias, 2)}` : null,
-    r.class && r.class.val_idx != null ? `Val+ ${r.class.val_idx}` : null, esc(title(r.name))].filter(Boolean);
+    r.class && r.class.val_idx != null ? `Val+ ${r.class.val_idx}` : null,
+    r.class && r.class.epr_idx != null ? `€/L+ ${r.class.epr_idx}` : null, esc(title(r.name))].filter(Boolean);
   const kz = $("#race-kurz");
   kz.innerHTML = kurzTeile.join(" · ");
   if (window._kopfBeob) window._kopfBeob.disconnect();
