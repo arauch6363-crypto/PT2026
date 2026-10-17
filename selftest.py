@@ -338,6 +338,7 @@ def main() -> int:
     hypothesen_pruefen()
     print("\n14) Power-Modell: Merkmale ohne Blick in die Zukunft, Training, Vorhersage")
     power_modell_pruefen()
+    abstammung_pruefen()
 
     pt.read_pages = requests_session_orig
     print("\n" + ("Alle Prüfungen bestanden." if not fehler else f"{len(fehler)} Prüfung(en) fehlgeschlagen:"))
@@ -890,6 +891,34 @@ def power_modell_pruefen() -> None:
            "Modell-Info je Rennart aus dem Bericht; Value-Warnsignal (unterstes Fünftel) je Starter in der Vorhersage")
 
 
+def abstammung_pruefen() -> None:
+    """Abstammungsprofil: frühreife Linie (als 2-Jährige stark, 2-Jährige nur auf Sprintdistanz, sonst überall gleich)
+    darf nach der Alters-/Jahreszeit-Korrektur nicht als Sprinter-Linie erscheinen; Reife zeigt die Frühreife."""
+    import numpy as np
+    import racecard as rc
+    rng = np.random.default_rng(0)
+    z = []
+    for _ in range(6000):
+        a = int(rng.choice([2, 3, 4])); mon = int(rng.integers(3, 11))
+        z.append(dict(sire_key="S1", date=pd.Timestamp(2025, mon, 15), age=a,
+                      distance_m=1200 if a == 2 else int(rng.choice([1200, 2000, 2800])),
+                      going_pmu="VERY FAST" if mon < 6 else "FAST" if mon < 9 else "VERY SLOW", won=0,
+                      placed=int(rng.random() < 0.3 * (1.6 if a == 2 else 1.0)), exp_place=0.3))
+    p = rc.abstammung_profil(pd.DataFrame(z), "sire_key")["S1"]
+    roh = {k: v["ae"] for k, v in p["dist"].items()}
+    korr = {k: v["ae_korr"] for k, v in p["dist"].items()}
+    x = rc.abst_pferd({"S1": p}, "S1", 2100, "VERY SLOW", 3, 8)
+    pruefe(roh["Sprinter"] - roh["Steher"] > 0.3 and max(korr.values()) - min(korr.values()) < 0.06
+           and x["dist"]["best"] is None and x["reife"]["best"] == "frühreif" and x["reife"]["urteil"] == "deutlich"
+           and set(p["boden"]) == {"Fast", "Slow"} and x["dist"]["heute"] == "Mitteldistanz"
+           and x["boden"]["heute"] == "Slow" and x["reife"]["heute"] == "spät"
+           and [rc.abst_dist_kat(m) for m in (1400, 1401, 2400, 2401)] == ["Sprinter", "Mitteldistanz", "Mitteldistanz", "Steher"]
+           and rc.abst_boden_kat("PSF") == "PSF" and rc.abst_reife_kat(3, 6) == "frühreif" and rc.abst_reife_kat(3, 7) == "spät",
+           f"Abstammungsprofil: frühreife Linie roh wie ein Sprinter (A/E {roh['Sprinter']:.2f} gegen {roh['Steher']:.2f}), "
+           f"um Alter und Jahreszeit korrigiert gleichmäßig ({min(korr.values()):.2f}–{max(korr.values()):.2f}); "
+           f"Reife: frühreif deutlich; Kategorien Distanz/Boden/Reife")
+
+
 def tipp_auswertung_pruefen() -> None:
     import io, contextlib, json as _json, tempfile
     import tipp_auswertung as ta
@@ -1063,15 +1092,15 @@ def racecard_pruefen() -> None:
            f"Vorlieben-Overlay: alle Bahnen des Trainers ({len(zl)}), heutige wie in der Vorliebe, nach Läufen sortiert")
     rs = x["pref_ref"]["sire"]["distance"]
     zs = [z for z in d["pref_alle"][rs[0]][rs[1]] if z[0] == rs[2]][0]
-    hs_ = hist[hist["date"] < pd.Timestamp(tag)]
-    rps = hs_["rel_place"].fillna(0).where(hs_["n_runners"] > 1)
-    dg_ = rs[2][:-2]
-    in_b = hs_["dist_group"] == dg_
-    erw_pos = round(100 * rps[in_b & (hs_["sire_key"] == rs[1])].mean() / rps[in_b].mean())
-    lps = np.log1p(hs_["prize_won"].fillna(0).clip(lower=0))
-    erw_epr = round(100 * round(lps[in_b & (hs_["sire_key"] == rs[1])].mean(), 4) / round(lps[in_b].mean(), 4))
-    pruefe(len(zs) == 8 and zs[6] == erw_pos and zs[7] == erw_epr,
-           f"Optimaler Bereich: Vater je Distanzgruppe mit Pos+ {zs[6]} und €/L+ {zs[7]} (log(1 + €) je Lauf, 100 = Ø aller Läufe der Gruppe)")
+    ab = x["abst"]["sire"]
+    rr_ = d["races"][f"{tag:%Y%m%d}R1C1"]
+    hs_ = hist[(hist["date"] < pd.Timestamp(tag)) & (hist["sire_key"] == x["sire"])]
+    pruefe(len(zs) == 6 and ab and {"dist", "boden", "reife"} <= set(ab)
+           and ab["dist"]["heute"] == rc.abst_dist_kat(rr_["distance"])
+           and sum(z[1] for z in ab["dist"]["zeilen"]) == int(hs_["distance_m"].notna().sum())
+           and all(len(z) == 6 for dim in ("dist", "boden", "reife") for z in ab[dim]["zeilen"]),
+           f"Abstammungsprofil in der Karte: Vater mit Distanz/Boden/Reife ({ab['runs']} Läufe), heutige Kategorie markiert; "
+           f"Vorlieben-Overlay ohne Zusatzspalten")
     m90 = x["ae"]["trainer"]["d90"]
     hv = hist[hist["date"] < pd.Timestamp(tag)]
     rp = hv["rel_place"].fillna(0).where(hv["n_runners"] > 1)

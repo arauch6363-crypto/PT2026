@@ -1112,10 +1112,129 @@ PREF_ALLE = {
 }
 
 
-# Optimaler Bereich (Vater/Muttervater): Spalten je Tabelle; Pos+ und €/L+ je Kategorie gegen alle Läufe dieser Kategorie
-OPT_TABS = {"sire_dist": ("sire_key", "dist_group"), "sire_going": ("sire_key", "going_pmu"), "sire_age": ("sire_key", "age_grp"),
-            "dam_sire_dist": ("dam_sire_key", "dist_group"), "dam_sire_going": ("dam_sire_key", "going_pmu"),
-            "dam_sire_age": ("dam_sire_key", "age_grp")}
+# Abstammungsprofil (Vater/Muttervater): Distanz in drei, Boden in drei, Reife in zwei Kategorien
+ABST_DIST_GRENZEN = (1400, 2400)     # Sprinter bis 1400 m, Mitteldistanz bis 2400 m, Steher darüber
+ABST_DIST_KAT = ("Sprinter", "Mitteldistanz", "Steher")
+ABST_BODEN_KAT = ("Fast", "Slow", "PSF")
+ABST_REIFE_KAT = ("frühreif", "spät")
+ABST_REIFE_MONAT = 6                  # frühreif: 2-Jährige und 3-Jährige bis Ende Juni; spät: danach und älter
+ABST_K = 20                           # Alters-/Jahreszeit-Faktor der Linie zum Linienschnitt hin geschrumpft (Läufe)
+ABST_MIN = 30                         # Urteil erst ab so vielen Läufen in der besten Kategorie und im Rest
+ABST_DEUTLICH, ABST_LEICHT = 0.10, 0.05   # A/E-Abstand der besten Kategorie zum Rest für „deutlich“ / „leicht“
+
+
+def abst_dist_kat(m) -> str | None:
+    m = _num(m)
+    if m is None:
+        return None
+    return ABST_DIST_KAT[0] if m <= ABST_DIST_GRENZEN[0] else ABST_DIST_KAT[1] if m <= ABST_DIST_GRENZEN[1] else ABST_DIST_KAT[2]
+
+
+def abst_boden_kat(g) -> str | None:
+    t = str(g or "").upper()
+    return "PSF" if "PSF" in t else "Fast" if "FAST" in t else "Slow" if "SLOW" in t else None
+
+
+def abst_reife_kat(alter, monat) -> str | None:
+    a = _num(alter)
+    if a is None or a < 2:
+        return None
+    return ABST_REIFE_KAT[0] if a == 2 or (a == 3 and monat is not None and monat <= ABST_REIFE_MONAT) else ABST_REIFE_KAT[1]
+
+
+def _abst_band(alter: pd.Series, monat: pd.Series) -> pd.Series:
+    """Alters-/Jahreszeit-Band je Lauf: 2j, 3j bis Juni, 3j ab Juli, 4j+ – Grundlage der Distanz-/Boden-Korrektur."""
+    a = pd.to_numeric(alter, errors="coerce")
+    b = np.where(a == 2, "2j", np.where(a == 3, np.where(monat <= ABST_REIFE_MONAT, "3j-1", "3j-2"),
+                                         np.where(a >= 4, "4j+", None)))
+    return pd.Series(b, index=alter.index, dtype=object)
+
+
+def abstammung_profil(h: pd.DataFrame, key: str) -> dict:
+    """Je Linie (Vater bzw. Muttervater): Bilanz nach Distanz (Sprinter/Mitteldistanz/Steher), Boden (Fast/Slow/PSF)
+    und Reife (frühreif/spät). Distanz und Boden sind um Alter und Jahreszeit korrigiert: 2- und 3-Jährige laufen
+    strukturell kürzer (und je nach Jahreszeit auf anderem Boden) – eine frühreife Linie sähe sonst wie ein Sprinter
+    aus. Dafür zählt jeder Lauf mit der erwarteten Platzierung × Stärke der Linie in seinem Alters-/Jahreszeit-Band
+    (2j, 3j bis Juni, 3j ab Juli, 4j+; relativ zum Linienschnitt, geschrumpft mit ABST_K Läufen).
+    Rückgabe: {Linie: {"ae", "runs", "dist": {Kat: rec}, "boden": {...}, "reife": {...}}}, rec mit ae (roh) und
+    ae_korr."""
+    if not len(h) or key not in h:
+        return {}
+    d = h.dropna(subset=[key])
+    d = d.assign(monat=d["date"].dt.month,
+                 placed=pd.to_numeric(d["placed"], errors="coerce").fillna(0),
+                 won=pd.to_numeric(d["won"], errors="coerce").fillna(0),
+                 ex=pd.to_numeric(d["exp_place"], errors="coerce") if "exp_place" in d else np.nan)
+    d["mit"] = d["ex"].notna()
+    d["pl_mit"] = d["placed"].where(d["mit"], 0)
+    d["ex0"] = d["ex"].fillna(0)
+    d["band"] = _abst_band(d["age"], d["monat"])
+    d["dist"] = d["distance_m"].map(abst_dist_kat)
+    gm = {g: abst_boden_kat(g) for g in d["going_pmu"].dropna().unique()} if "going_pmu" in d else {}
+    d["boden"] = d["going_pmu"].map(gm) if "going_pmu" in d else None
+    d["reife"] = [abst_reife_kat(a, m) for a, m in zip(d["age"], d["monat"])]
+    ges = d.groupby(key).agg(runs=("won", "size"), pl=("pl_mit", "sum"), ex=("ex0", "sum"))
+    A = (ges["pl"] / ges["ex"]).where(ges["ex"] > 0)
+    bd = d.dropna(subset=["band"]).groupby([key, "band"]).agg(pl=("pl_mit", "sum"), ex=("ex0", "sum"))
+    a_l = A.reindex(bd.index.get_level_values(0)).to_numpy()
+    f = ((bd["pl"].to_numpy() + ABST_K * a_l) / (bd["ex"].to_numpy() + ABST_K)) / a_l     # Stärke im Band ÷ Schnitt
+    faktor = pd.Series(np.where(np.isfinite(f), f, 1.0), index=bd.index)
+    idx = pd.MultiIndex.from_arrays([d[key], d["band"]])
+    d["exk"] = d["ex0"] * faktor.reindex(idx).fillna(1.0).to_numpy()
+    out: dict = {}
+    for k_, g in ges.iterrows():
+        out[k_] = {"ae": _num(A.get(k_)), "runs": int(g["runs"]), "dist": {}, "boden": {}, "reife": {}}
+    for dim in ("dist", "boden", "reife"):
+        t = d.dropna(subset=[dim]).groupby([key, dim]).agg(runs=("won", "size"), wins=("won", "sum"),
+                                                           places=("placed", "sum"), pl=("pl_mit", "sum"),
+                                                           ex=("ex0", "sum"), exk=("exk", "sum"))
+        for (k_, kat), z in t.iterrows():
+            out[k_][dim][kat] = {"runs": int(z["runs"]), "wins": int(z["wins"]), "places": int(z["places"]),
+                                 "pl": int(z["pl"]), "ex": float(z["ex"]),
+                                 "ae": _num(z["pl"] / z["ex"]) if z["ex"] > 0 else None,
+                                 "ae_korr": (_num(z["pl"] / z["exk"]) if z["exk"] > 0 else None) if dim != "reife"
+                                 else (_num(z["pl"] / z["ex"]) if z["ex"] > 0 else None)}
+    return out
+
+
+def abst_urteil(zeilen: dict, kats: tuple, a_linie) -> dict:
+    """Beste Kategorie einer Dimension (A/E korrigiert, zum Linienschnitt hin geschrumpft) gegen den Rest:
+    „deutlich“ ab ABST_DEUTLICH, „leicht“ ab ABST_LEICHT Abstand; beide Seiten mit mindestens ABST_MIN Läufen."""
+    A = a_linie or 1.0
+    werte = {}
+    for k in kats:
+        z = zeilen.get(k)
+        if z and z["ex"] > 0 and z["ae_korr"] is not None:
+            exk = z["pl"] / z["ae_korr"] if z["ae_korr"] else z["ex"]
+            werte[k] = ((z["pl"] + ABST_K * A) / (exk + ABST_K), z["runs"], z["pl"], exk)
+    if len(werte) < 2:
+        return {"best": None, "urteil": "zu wenig Läufe"}
+    best = max(werte, key=lambda k: werte[k][0])
+    rest = [v for k, v in werte.items() if k != best]
+    n_rest, pl_r, ex_r = sum(v[1] for v in rest), sum(v[2] for v in rest), sum(v[3] for v in rest)
+    if werte[best][1] < ABST_MIN or n_rest < ABST_MIN or ex_r <= 0:
+        return {"best": None, "urteil": "zu wenig Läufe"}
+    abstand = werte[best][0] - (pl_r + ABST_K * A) / (ex_r + ABST_K)
+    if abstand >= ABST_DEUTLICH:
+        return {"best": best, "urteil": "deutlich", "abstand": _num(abstand, 2)}
+    if abstand >= ABST_LEICHT:
+        return {"best": best, "urteil": "leicht", "abstand": _num(abstand, 2)}
+    return {"best": None, "urteil": "keine klare Vorliebe", "abstand": _num(abstand, 2)}
+
+
+def abst_pferd(profil: dict, linie, dist_m, going, alter, monat) -> dict | None:
+    """Abstammungsprofil einer Linie für einen heutigen Starter: je Dimension die Kategorien (Läufe, S-L, Plätze,
+    A/E roh und korrigiert), die heutige Kategorie und das Urteil."""
+    p = profil.get(linie) if _txt(linie) is not None else None
+    if not p:
+        return None
+    heute = {"dist": abst_dist_kat(dist_m), "boden": abst_boden_kat(going), "reife": abst_reife_kat(alter, monat)}
+    out = {"ae": p["ae"], "runs": p["runs"]}
+    for dim, kats in (("dist", ABST_DIST_KAT), ("boden", ABST_BODEN_KAT), ("reife", ABST_REIFE_KAT)):
+        out[dim] = {"zeilen": [[k, z["runs"], z["wins"], z["places"], z["ae"], z["ae_korr"]]
+                               for k in kats if (z := p[dim].get(k))],
+                    "heute": heute[dim], **abst_urteil(p[dim], kats, p["ae"])}
+    return out
 
 
 def kpi_laeufe(vorher: pd.DataFrame, heute, gewicht_heute=None, klasse=None) -> list[list]:
@@ -1756,25 +1875,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     # Vorlieben-Overlay: je Tabelle und Person alle Kategorien (z. B. alle Bahnen eines Trainers), nach Läufen
     pref_index: dict = {}
     pref_alle: dict = {}
-    opt_basis: dict = {}
-
-    def opt_werte(tab, person, kat, rec_):
-        """[Pos+, €/L+] einer Kategorie (Vater/Muttervater) – 100 = Ø aller Läufe der Kategorie; €/L+ aus
-        log(1 + Preisgeld) je Lauf (wie die Rennstärke), damit einzelne große Rennen den Wert nicht hochziehen."""
-        if tab not in opt_basis:
-            pk, kk = OPT_TABS[tab]
-            ok = h[pk].notna() & h[kk].notna() if pk in h and kk in h else pd.Series(False, index=h.index)
-            if kk == "dist_group" and "age" in h:
-                ok = ok & (h["age"] != 2)                        # Distanz ohne 2-Jährige (wie sire_dist)
-            lp_ = np.log1p(pw.fillna(0).clip(lower=0)) if len(pw) else pd.Series(dtype=float, index=h.index)
-            leer = pd.Series(dtype=float)
-            opt_basis[tab] = (rp0[ok].groupby([h.loc[ok, pk], h.loc[ok, kk]]).mean() if ok.any() else leer,
-                              rp0[ok].groupby(h.loc[ok, kk]).mean() if ok.any() else leer,
-                              lp_[ok].groupby([h.loc[ok, pk], h.loc[ok, kk]]).mean() if ok.any() and len(lp_) else leer,
-                              lp_[ok].groupby(h.loc[ok, kk]).mean() if ok.any() and len(lp_) else leer)
-        pos_g, pos_b, lp_g, lp_b = opt_basis[tab]
-        return [index(_num(pos_g.get((person, kat))), _num(pos_b.get(kat))),
-                index(_num(lp_g.get((person, kat)), 4), _num(lp_b.get(kat), 4))]
+    # Abstammungsprofil (Distanz/Boden alters- und jahreszeitkorrigiert, Reife) je Vater und Muttervater
+    abst_prof = {rolle: abstammung_profil(h, rolle + "_key") for rolle in ("sire", "dam_sire")}
 
     def pref_ref(tab, person, kat):
         """[Tabelle, Person, heutige Kategorie (Beschriftung)] für die Karte; füllt pref_alle[tab][person]."""
@@ -1791,9 +1893,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         heute_lab = lab(kat) if _txt(kat) is not None else None
         if person not in tabelle:
             zeilen = sorted(pref_index[tab].get(person, []), key=lambda cr: -cr[1]["runs"])
-            # [Beschriftung, Läufe, Siege, Plätze, A/E, erwartete Plätze (+ Pos+, €/L+ bei Vater/Muttervater)]
-            tabelle[person] = [[lab(c_), r_["runs"], r_["wins"], r_["places"], r_["ae"], r_["exp"]]
-                               + (opt_werte(tab, person, c_, r_) if tab in OPT_TABS else []) for c_, r_ in zeilen]
+            # [Beschriftung, Läufe, Siege, Plätze, A/E, erwartete Plätze]
+            tabelle[person] = [[lab(c_), r_["runs"], r_["wins"], r_["places"], r_["ae"], r_["exp"]] for c_, r_ in zeilen]
         pref_heute.setdefault((tab, person), set()).add(heute_lab)
         return [tab, person, heute_lab]
     pref_heute: dict = {}                                         # (tab, person) -> heutige Kategorien (bleiben beim Kürzen)
@@ -2057,6 +2158,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                                  "going": q("dam_sire_going", (dk, gb), "dam_sire"),
                                  "age": q("dam_sire_age", (dk, alter_gruppe(p.get("age"))), "dam_sire")},
                 },
+                "abst": {rolle: abst_pferd(abst_prof[rolle], {"sire": sk, "dam_sire": dk}[rolle], dist,
+                                           gb, p.get("age"), heute.month)
+                         for rolle in ("sire", "dam_sire")},
                 "pref_ref": {                                      # Vorlieben-Overlay: Verweis in DATA.pref_alle
                     "trainer": {"jockey": pref_ref("trainer_jockey", tk, jk), "course": pref_ref("trainer_course", tk, course),
                                 "racetype": pref_ref("trainer_type", tk, rt),

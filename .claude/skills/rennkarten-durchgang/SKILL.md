@@ -692,9 +692,22 @@ einem Außenseiter ist eine bewusste Buchung. Die Besitzerstatistik
 ### B8 — Abstammung auf die heutige Bedingung
 
 Vater und Muttervater **getrennt** beurteilen, jeweils auf die heutige
-Distanz und den heutigen Boden: `pref.sire.distance`, `pref.sire.going`,
-`pref.dam_sire.distance`, `pref.dam_sire.going` (bei Zwei- und
-Dreijährigen auch `.age`). Ein schwacher Vater kann durch einen
+Distanz und den heutigen Boden. **Erste Quelle ist das Profil `abst.sire`
+bzw. `abst.dam_sire`:** je Dimension `dist` (Sprinter bis 1400 m,
+Mitteldistanz bis 2400 m, Steher darüber), `boden` (Fast mit Very fast,
+Slow mit Very slow, PSF) und `reife` (frühreif = 2-Jährige und 3-Jährige
+bis Juni, spät = danach und ältere) die `zeilen` [Kategorie, Läufe,
+Siege, Plätze, A/E roh, A/E korrigiert], die heutige Kategorie (`heute`),
+die beste (`best`) und das `urteil` („deutlich", „leicht", „keine klare
+Vorliebe", „zu wenig Läufe"). Distanz und Boden sind **um Alter und
+Jahreszeit korrigiert**: Zwei- und Dreijährige laufen strukturell kürzer,
+eine frühreife Linie sähe roh wie eine Sprinter-Linie aus. Deshalb das
+korrigierte A/E (letzte Zahl) lesen und gegen das A/E der Linie (`ae`)
+vergleichen. „deutlich" mit `best` = heute ist ein Plus, „deutlich" in
+einer anderen Kategorie ein Minus; „keine klare Vorliebe" ist neutral.
+Feiner aufgelöst (200-m-Gruppen, einzelne Böden) stehen dieselben Linien
+in `pref.sire.distance`, `pref.sire.going`, `pref.dam_sire.distance`,
+`pref.dam_sire.going` (`.age`). Ein schwacher Vater kann durch einen
 passenden Muttervater ausgeglichen werden.
 
 Beim **Belagwechsel** (Gras ↔ PSF) zählt die Belagneigung beider Linien
@@ -965,8 +978,8 @@ hinaus ist selten; das im Fazit ehrlich sagen.
 - **2J-3 Trainer mit Zweijährigen:** `pref.trainer.age` (bei `age_label`
   „2j") statt der Gesamtform. Viele Zweijährigen-Sieger sind ein Plus, 2
   aus 33 ein Fragezeichen; dazu die Bahnstärke des Stalls.
-- **2J-4 Abstammung** trägt hier am meisten: `pref.sire.age` zeigt, wie die
-  Linie mit Zweijährigen läuft, `ae.pedigree.sire.max_val3_idx`, wie gut die
+- **2J-4 Abstammung** trägt hier am meisten: `abst.sire.reife` (frühreif
+  gegen spät) und `pref.sire.age` zeigen, wie die Linie mit Zweijährigen läuft, `ae.pedigree.sire.max_val3_idx`, wie gut die
   Nachkommen werden. 1800 oder 2000 m sind für Zweijährige weit und müssen
   von Vater- oder Muttervaterseite getragen werden (`pref.*.distance`); die
   Mutterseite kann eine schwache Vaterlinie aufwerten. Ein Distanzschritt
