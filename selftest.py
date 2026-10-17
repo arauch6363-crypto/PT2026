@@ -1121,8 +1121,12 @@ def racecard_pruefen() -> None:
     pruefe(len(zs) == 6 and ab and {"dist", "boden", "reife"} <= set(ab)
            and ab["dist"]["heute"] == rc.abst_dist_kat(rr_["distance"])
            and sum(z[1] for z in ab["dist"]["zeilen"]) == int(hs_["distance_m"].notna().sum())
-           and all(len(z) == 8 for dim in ("dist", "boden", "belag", "reife") if ab.get(dim) for z in ab[dim]["zeilen"]),
-           f"Abstammungsprofil in der Karte: Vater mit Distanz/Boden/Reife ({ab['runs']} Läufe), heutige Kategorie markiert; "
+           and all(len(z) == 8 for dim in ("dist", "boden", "belag", "reife") if ab.get(dim) for z in ab[dim]["zeilen"])
+           and x["ae"]["pedigree"]["sire"]["pos_idx"] == round(100 * hs_["rel_place"].fillna(0).where(hs_["n_runners"] > 1).mean()
+                                                               / hist.loc[hist["date"] < pd.Timestamp(tag), "rel_place"].fillna(0)
+                                                               .where(hist["n_runners"] > 1).mean()),
+           f"Abstammungsprofil in der Karte: Vater mit Distanz/Boden/Reife ({ab['runs']} Läufe), heutige Kategorie markiert, "
+           f"Pos+ der Abstammung {x['ae']['pedigree']['sire']['pos_idx']}; "
            f"Vorlieben-Overlay ohne Zusatzspalten")
     m90 = x["ae"]["trainer"]["d90"]
     hv = hist[hist["date"] < pd.Timestamp(tag)]
@@ -1856,7 +1860,7 @@ def racecard_pruefen() -> None:
     pfade_ex = {_norm(q) for q in _pfade(ex) | _pfade(mk)}
     pruefe("pref_alle" in dd and not any(q.startswith(".pref_alle") or q.endswith((".kpi", ".pref_ref", ".pos_idx"))
                                          or ".prev." in q or q.startswith(".params.kpi") for q in pfade_ex
-                                         if ".vergleich_365." not in q)
+                                         if ".vergleich_365." not in q and ".pedigree." not in q)
            and any(q.endswith(".pos_idx") for q in {_norm(q) for q in _pfade(dd)}),
            "Claude-Version ohne Overlay-Daten der Karte (kpi, pref_ref, pref_alle, Matrix pos_idx/prev, kpi-Parameter)")
     dn = _copy.deepcopy(dd)

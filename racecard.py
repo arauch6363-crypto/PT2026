@@ -1876,9 +1876,11 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             pferde = mit.groupby(k_)["horse_id"].nunique()
             je3 = mit[mit["age"] == 3].groupby([k_, "horse_id"])["valeur"].max().dropna()
             g3 = je3.groupby(level=0)
-            abst_extra[rolle] = pd.DataFrame({"horses": pferde, "horses3": g3.size(), "max_val3": g3.mean()})
+            pos_ = rp0.loc[mit.index].groupby(mit[k_]).mean()               # Ø Platzanteil der Nachkommen
+            abst_extra[rolle] = pd.DataFrame({"horses": pferde, "horses3": g3.size(), "max_val3": g3.mean(), "pos": pos_})
         else:
-            abst_extra[rolle] = pd.DataFrame(columns=["horses", "horses3", "max_val3"])
+            abst_extra[rolle] = pd.DataFrame(columns=["horses", "horses3", "max_val3", "pos"])
+    pos_alle = float(rp0.mean()) if len(rp0) and rp0.notna().any() else None   # Basis Pos+ der Abstammung
 
     # Population: Ø €/Lauf über alle Personen bzw. Linien (je Gruppe und Zeitfenster, ab POP_MIN_LAEUFE Läufen)
     # und Ø max Val 3j über alle Linien (ab POP_MIN_PFERDE 3-jährigen Nachkommen) – Basis der Indizes €/L+ und Val+
@@ -2171,7 +2173,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 ae_p["pedigree"][rolle] = {**rec_, "epr_idx": index(rec_["epr"], pop[f"{rolle}_all"]),
                                            "horses": int(e_["horses"]) if e_ is not None and pd.notna(e_["horses"]) else 0,
                                            "horses3": int(e_["horses3"]) if e_ is not None and pd.notna(e_["horses3"]) else 0,
-                                           "max_val3": mv3, "max_val3_idx": index(mv3, pop[f"{rolle}_val3"])}
+                                           "max_val3": mv3, "max_val3_idx": index(mv3, pop[f"{rolle}_val3"]),
+                                           "pos_idx": index(_num(e_["pos"]), pos_alle) if e_ is not None and pd.notna(e_["pos"]) else None}
             dr_ = _num(p.get("draw"), 0)
             bx = box.loc[(konfig_heute, dr_)] if dr_ is not None and (konfig_heute, dr_) in box.index else None
             box_p = ({**box_urteil(bx["mean"], bx["count"]), "ok": bool(bx["count"] >= BOX_MIN_LAEUFE)}
