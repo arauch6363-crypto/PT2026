@@ -1108,8 +1108,8 @@ function detailHTML(x, race){
     </div>
     <div class="panels one">
       <div class="panel"><h4>Vorlieben · Trainer, Jockey (${jahre} Jahre) · Jockey auf dem Pferd · Abstammung (gesamt)</h4><div class="pref">
-        <div class="grp"><b>Trainer</b>${it("mit " + (title(x.jockey) || "–"), P.trainer.jockey, "beim Trainer", (PR.trainer || {}).jockey)}${it("in " + title(race.course), P.trainer.course, "beim Trainer", (PR.trainer || {}).course)}${it("Typ: " + (race.type || "–"), P.trainer.racetype, "beim Trainer", (PR.trainer || {}).racetype)}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.trainer.age, "beim Trainer", (PR.trainer || {}).age)}</div>
-        <div class="grp"><b>Jockey</b>${it("in " + title(race.course), P.jockey.course, "beim Jockey", (PR.jockey || {}).course)}${it("für " + (title(x.trainer) || "–"), P.jockey.trainer, "beim Jockey", (PR.jockey || {}).trainer)}${it("auf " + (title(x.horse) || "–"), P.jockey.horse, "beim Jockey (Läufe auf dem Pferd aus der ganzen Historie, Jockey sonst: 2 Jahre)", (PR.jockey || {}).horse)}</div>
+        <div class="grp"><b>Trainer${x.trainer ? ` · ${esc(title(x.trainer))}` : ""}</b>${it("mit " + (title(x.jockey) || "–"), P.trainer.jockey, "beim Trainer", (PR.trainer || {}).jockey)}${it("in " + title(race.course), P.trainer.course, "beim Trainer", (PR.trainer || {}).course)}${it("Typ: " + (race.type || "–"), P.trainer.racetype, "beim Trainer", (PR.trainer || {}).racetype)}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.trainer.age, "beim Trainer", (PR.trainer || {}).age)}</div>
+        <div class="grp"><b>Jockey${x.jockey ? ` · ${esc(title(x.jockey))}` : ""}</b>${it("in " + title(race.course), P.jockey.course, "beim Jockey", (PR.jockey || {}).course)}${it("für " + (title(x.trainer) || "–"), P.jockey.trainer, "beim Jockey", (PR.jockey || {}).trainer)}${it("auf " + (title(x.horse) || "–"), P.jockey.horse, "beim Jockey (Läufe auf dem Pferd aus der ganzen Historie, Jockey sonst: 2 Jahre)", (PR.jockey || {}).horse)}</div>
         ${abstHTML(x)}
       </div></div>
     </div>
