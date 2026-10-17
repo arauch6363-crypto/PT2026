@@ -49,7 +49,8 @@ OHNE_PARAMS = {"kpi_days", "kpi_window"}
 OHNE_AE = {"pos_idx", "prev"}
 OHNE_DUELL = {"race_id"}                             # direkte Duelle: Rennen nur für die Knöpfe in den Formzeilen
 OHNE_INDIREKT = {"via"}                              # indirekte Duelle: Vergleiche je Rennen nur für die Karte
-OHNE_MARKT = {"prono"}                               # Prognose, Tipps, Konsens, Cribles, Rennkommentar: nur Marktdatei
+OHNE_MARKT = {"prono", "fk"}                         # Prognose, Tipps, Konsens, Cribles, Rennkommentar, Festkurse: nur Marktdatei
+FK_VALUE = 1.2                                       # Festkurs × Modell-Chance ab hier: Value gegen das Modell (wie die Karte)
 GEGNER_NAH = 2                                       # rivals_nah: so viele Gegner davor und dahinter
 OFFEN = "PROGRAMMEE"
 ROT_AB = 95                                          # Power bis hier = rot: Starter nur als Kurzzeile („weitere“)
@@ -261,6 +262,42 @@ def rennen(r: dict, bias_alle: float | None, je_rennart: dict | None = None) -> 
     return out
 
 
+def harville_platz(p: list[float], i: int, k: int) -> float:
+    """Wahrscheinlichkeit, dass Starter i unter die ersten k (≤ 3) kommt – aus den Siegchancen p (Harville)."""
+    s = p[i]
+    for j in range(len(p)):
+        if j == i or p[j] >= 1 or k < 2:
+            continue
+        s += p[j] * p[i] / (1 - p[j])
+        if k >= 3:
+            for l_ in range(len(p)):
+                if l_ not in (i, j) and p[j] + p[l_] < 1:
+                    s += p[j] * p[l_] / (1 - p[j]) * p[i] / (1 - p[j] - p[l_])
+    return min(1.0, s)
+
+
+def _festkurs(starter: list[dict]) -> dict:
+    """Je Startnummer: Festkurse Sieg/Platz (Wettstar), Toto und Erwartungswert je 1 € gegen das Modell
+    (Festkurs × Modell-Sieg- bzw. -Platzchance; Platz = unter die ersten 2 bis 7 Starter, sonst 3)."""
+    mit = [x for x in starter if (x.get("power") or {}).get("sieg") is not None]
+    p = [x["power"]["sieg"] for x in mit]
+    k = 2 if len(starter) <= 7 else 3
+    platz = {x["no"]: harville_platz(p, i, k) for i, x in enumerate(mit)}
+    out = {}
+    for x in starter:
+        f = x.get("fk")
+        if not f or (f.get("sieg") is None and f.get("platz") is None and f.get("toto") is None):
+            continue
+        ps, pp = (x.get("power") or {}).get("sieg"), platz.get(x["no"])
+        ev_s = round(f["sieg"] * ps, 2) if f.get("sieg") and ps else None
+        ev_p = round(f["platz"] * pp, 2) if f.get("platz") and pp else None
+        ev_t = round(f["toto"] * ps, 2) if f.get("toto") and ps else None
+        out[x["no"]] = {"sieg": f.get("sieg"), "platz": f.get("platz"), "toto": f.get("toto"),
+                        "platz_bis": k, "ev_sieg": ev_s, "ev_platz": ev_p, "ev_toto": ev_t,
+                        "value_sieg": bool(ev_s and ev_s >= FK_VALUE), "value_platz": bool(ev_p and ev_p >= FK_VALUE)}
+    return out
+
+
 def rennen_markt(r: dict, je_rennart: dict | None = None) -> dict:
     """Ein Rennen für Teil 2: Prognose, Tipps, Konsens, Cribles, Rennkommentar; Marge, Reihenfolge, p_prog."""
     alle = r.get("runners") or []
@@ -286,6 +323,7 @@ def rennen_markt(r: dict, je_rennart: dict | None = None) -> dict:
                 "vs_prognose": ("Modell stärker" if v and v >= FAIR_WERT else
                                 "Modell schwächer" if v and v <= 1 / FAIR_WERT else None)}
     ra = _rennart(r, starter, je_rennart, "value") if mit_power else None
+    fk = _festkurs(starter)
     return {"race_id": r.get("race_id"), "offen": r.get("status") == OFFEN, "prono": copy.deepcopy(r.get("prono")),
             **({"value_rennart": ra} if ra else {}),
             "vorgerechnet": {"marge": round(sum(roh.values()), 3) if roh else None,   # Σ 1/cote_dec, typisch 1,15–1,50
@@ -293,6 +331,7 @@ def rennen_markt(r: dict, je_rennart: dict | None = None) -> dict:
             "nr": [x["no"] for x in alle if x.get("nr")],
             "runners": [{"no": no, "horse": nach_no[no].get("horse"), "prono": copy.deepcopy(nach_no[no].get("prono")),
                          "p_prog": round(p[no], 4) if no in p else None,
+                         **({"festkurs": fk[no]} if no in fk else {}),
                          **({"value": value(nach_no[no]), "blind_nur_kurz": not _halten(nach_no[no])} if mit_power else {})}
                         for no in reihenfolge]}
 
@@ -325,7 +364,8 @@ def export_markt(daten: dict) -> dict:
     return {"hinweis": "Claude-Version der Race Card, Teil 2 (Markt): je Rennen PMU-Prognose mit Rennkommentar, "
                        "Tipps, Konsens und Cribles, Marge, Reihenfolge nach Prognose-Rang; je Starter prono und "
                        "p_prog (Potenzmethode); mit Value-Modell je Starter value (Faktor, warnung = unterstes Fünftel, "
-                       "gold = oberste 10 % bis Prognose-Cote 10, faire Quote gegen Prognose-Cote ohne Marge), je Rennen "
+                       "gold = oberste 10 % bis Prognose-Cote 10, faire Quote gegen Prognose-Cote ohne Marge), festkurs (Festkurse "
+                       "Sieg/Platz von Wettstar mit Erwartungswert je 1 € gegen das Modell, value_* ab 1,2), je Rennen "
                        "value_rennart (Verlässlichkeit im heutigen Renntyp) und oben modelle.value / vorwaerts_test "
                        "(Verlässlichkeit). Erst nach der blinden Einschätzung lesen.",
             "date": daten.get("date"), "generated": daten.get("generated"),

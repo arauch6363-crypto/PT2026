@@ -340,6 +340,15 @@ Je Starter:
   (FR). Abschalten mit `racecard.run(..., uebersetzen_aktiv=False)`.
 * **A/E** zusätzlich für Besitzer und Züchter; Abstammung mit Zahl der Pferde und Ø der höchsten Valeur der
   Nachkommen als 3-Jährige (Ø max Val 3j).
+* **Festkurse** (`wettstar.py`, beim Erstellen der Karte mit `racecard.run(..., festkurse=True)`, braucht Playwright –
+  in Colab einmal `!pip install -q playwright && playwright install --with-deps chromium`): Festkurs Sieg/Platz und
+  Toto aller französischen Flachrennen mit FK von wettstar-pferdewetten.de. Zuordnung: Bahn über den ähnlichsten Namen
+  (ohne Akzente, Bindestriche, Leerzeichen), Rennen über die Rennnummer (sonst Startzeit), Pferd über die Startnummer
+  mit Namensprüfung, sonst über den ähnlichsten Namen im Rennen (Schreibweisen weichen ab). Karte: Kasten „FK“ neben
+  der fairen Quote mit Festkurs Sieg und darunter dem aktuellen Toto-Kurs (ohne Festkurs nur „Toto“), grün = Kurs ×
+  Modell-Siegchance ≥ 1,2 (kräftig ab 1,5). Marktdatei der Claude-JSON: je Starter `festkurs` mit Erwartungswerten; Vorwärts-Test: Spalte
+  `festkurs` im Value-Protokoll wird automatisch gefüllt. Eine fertige Tabelle aus `wettstar.festkurse(datum)` kann
+  auch übergeben werden (`festkurse=df`), `festkurse=False` schaltet es ab.
 * **Abstammungsprofil** (Detailseite, ersetzt Vater/Muttervater in den Vorlieben und den „optimalen Bereich“):
   vier Skalen je Linie als Perzentil gegen alle Väter bzw. alle Muttervater mit ≥ 50 Läufen in der Dimension –
   Distanz Sprinter (bis 1400 m) / Mitteldistanz / Steher (über 2400 m), Boden Slow / Fast (nur Gras), Belag Gras /

@@ -2407,9 +2407,11 @@ def html(daten: dict, template: Path = TEMPLATE, *, eigenstaendig: bool = True) 
 
 
 def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True,
-        uebersetzen_aktiv: bool = True, claude: bool = True) -> Path:
+        uebersetzen_aktiv: bool = True, claude: bool = True, festkurse=True) -> Path:
     """Race Card für `tag` (Vorgabe: heute) bauen und als HTML speichern; mit claude=True zusätzlich die kompakte
-    Claude-Version racecard_JJJJMMTT_claude.json daneben (claude_export)."""
+    Claude-Version racecard_JJJJMMTT_claude.json daneben (claude_export).
+    festkurse: True = Festkurse Sieg/Platz und Toto von Wettstar holen (wettstar, braucht Playwright), eine fertige
+    Tabelle aus wettstar.festkurse(...) übernehmen oder False = ohne."""
     import pipeline as tp
     base = Path(base)
     tag = pd.to_datetime(tag).date() if tag else pmu.heute()
@@ -2450,6 +2452,9 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     pmod = power_modell.laden(base)
     print("Power-Modell geladen." if pmod else "Kein Power-Modell (power_modell.trainieren) – Power aus sechs Kennzahlen.")
     daten = baue_daten(hist, races_heute, runners_heute, tag, silks, prognosen, power=pmod)
+    if festkurse is not False:                            # Festkurse Sieg/Platz (Wettstar) je Starter: x["fk"]
+        import wettstar
+        wettstar.anhaengen(daten, None if festkurse is True else festkurse, tag=tag)
     if pmod and pmod.get("wert"):                         # Vorwärts-Test: Value-Faktoren der Karte protokollieren
         try:
             print(f"Value-Protokoll: {power_modell.protokollieren(daten, base)}")

@@ -1472,7 +1472,8 @@ def protokollieren(daten: dict, base: Path) -> Path | None:
                            "horse": x.get("horse"), "racetype": r.get("type"), "wert": pw.get("wert"),
                            "gold": bool(pw.get("gold")), "warn": bool(pw.get("warn")), "sieg": pw.get("sieg"),
                            "fair": round(1 / pw["sieg"], 2) if pw.get("sieg") else None,
-                           "cote_prono": sel.get("cote_dec"), "festkurs": None})
+                           "cote_prono": sel.get("cote_dec"), "festkurs": (x.get("fk") or {}).get("sieg"),
+                           "festkurs_platz": (x.get("fk") or {}).get("platz")})
     if not zeilen:
         return None
     pfad = Path(base) / PROTOKOLL

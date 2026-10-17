@@ -339,6 +339,7 @@ def main() -> int:
     print("\n14) Power-Modell: Merkmale ohne Blick in die Zukunft, Training, Vorhersage")
     power_modell_pruefen()
     abstammung_pruefen()
+    festkurse_pruefen()
 
     pt.read_pages = requests_session_orig
     print("\n" + ("Alle Prüfungen bestanden." if not fehler else f"{len(fehler)} Prüfung(en) fehlgeschlagen:"))
@@ -940,6 +941,45 @@ def abstammung_pruefen() -> None:
     pruefe(l15 < l18 < l24 and b_vs < b_s < b_vf and r2 < r3 < r4 and lg(2000, "PSF", 4, 8)["belag"]["lage"] == 100,
            f"Abstammungsprofil: Lage heute stufenlos als Perzentil aller Läufe – 1250/1800/2400 m P{l15}/P{l18}/P{l24}, "
            f"Boden Very slow/Slow/Very fast P{b_vs}/P{b_s}/P{b_vf}, Alter 2yo/3yo/5j (4yo+) P{r2}/P{r3}/P{r4}")
+
+
+def festkurse_pruefen() -> None:
+    """Wettstar-Festkurse: Zuordnung zur PMU-Karte trotz anderer Schreibweise (Akzente, Apostroph, Bindestrich,
+    Herkunft), vertauschter Startnummer und anderer Bahnschreibweise; Erwartungswert gegen das Modell in der
+    Marktdatei, nichts davon in der blinden Datei."""
+    import wettstar as ws
+    import claude_export as ce
+    df = pd.DataFrame([
+        dict(Veranstaltung="Marseille-Borely", Rennen="2", Start="12:02", Nr=1, Pferd="Hugo Cabret", Toto=2.9, FK_Sieg=3.0, FK_Platz=1.5, NS=False),
+        dict(Veranstaltung="Marseille-Borely", Rennen="2", Start="12:02", Nr=2, Pferd="L'Abbaye", Toto=8.1, FK_Sieg=7.0, FK_Platz=2.5, NS=False),
+        dict(Veranstaltung="Marseille-Borely", Rennen="2", Start="12:02", Nr=4, Pferd="Saint Martin", Toto=15.8, FK_Sieg=25.0, FK_Platz=4.4, NS=False),
+        dict(Veranstaltung="Marseille-Borely", Rennen="2", Start="12:02", Nr=3, Pferd="Ritzy Roxy", Toto=8.6, FK_Sieg=6.5, FK_Platz=2.4, NS=False),
+        dict(Veranstaltung="Dax", Rennen="2", Start="14:30", Nr=1, Pferd="Jour De Coeur", Toto=3.9, FK_Sieg=5.5, FK_Platz=1.9, NS=False)])
+    runner = lambda no, horse, sieg: {"no": no, "horse": horse, "nr": False, "power": {"p": 100, "sieg": sieg}}
+    daten = {"races": {"R1C2": {"race_id": "R1C2", "course": "MARSEILLE BORELY", "race_no": 2, "time": "12h02", "runners": [
+        runner(1, "HUGO CABRET", 0.4), runner(2, "L ABBAYE", 0.3), runner(3, "SAINT-MARTIN (FR)", 0.2),
+        runner(4, "RITZY ROXY", 0.1), runner(5, "UNBEKANNT", None)]},
+        "R2C1": {"race_id": "R2C1", "course": "PARISLONGCHAMP", "race_no": 1, "time": "13:50",
+                 "runners": [runner(1, "JOUR DE COEUR", 0.5)]}}}
+    n = ws.anhaengen(daten, df, log=lambda *a: None)
+    x = {y["no"]: y for y in daten["races"]["R1C2"]["runners"]}
+    p_ = [0.4, 0.3, 0.2, 0.1]
+    summe = sum(ce.harville_platz(p_, i, 2) for i in range(4))
+    mk = ce.rennen_markt(daten["races"]["R1C2"])
+    fk = {y["no"]: y.get("festkurs") for y in mk["runners"]}
+    bl = ce.rennen(daten["races"]["R1C2"], None)
+    pruefe(n == 4 and x[1]["fk"]["sieg"] == 3.0 and x[2]["fk"]["sieg"] == 7.0 and x[3]["fk"]["sieg"] == 25.0
+           and x[3]["fk"]["name"] == "Saint Martin" and x[4]["fk"]["sieg"] == 6.5 and "fk" not in x[5]
+           and "fk" not in daten["races"]["R2C1"]["runners"][0]
+           and abs(summe - 2) < 1e-9 and fk[1]["ev_sieg"] == 1.2 and fk[1]["value_sieg"] and not fk[4]["value_sieg"]
+           and fk[3]["value_sieg"] and fk[1]["platz_bis"] == 2
+           and not any("fk" in y or "festkurs" in y for y in bl["runners"]),
+           "Festkurse (Wettstar): Zuordnung trotz Schreibweise (L'Abbaye/L ABBAYE, Saint Martin/SAINT-MARTIN (FR), "
+           "Marseille-Borely/MARSEILLE BORELY) und vertauschter Startnummer, fremde Bahn ohne Zuordnung; "
+           "Harville-Platzchancen summieren sich zu k; Erwartungswert gegen das Modell nur in der Marktdatei")
+    pruefe(ws.num("57,0") == 57.0 and ws.num("3.90") == 3.9 and ws.num("1.234,5") == 1234.5 and ws.num("") is None
+           and ws.aehnlich("Grisy April", "GRISY-APRIL") == 1.0 and ws.aehnlich("Hugo Cabret", "Ritzy Roxy") < 0.6,
+           "Festkurse: Zahlen (Komma/Punkt) und Namensvergleich")
 
 
 def tipp_auswertung_pruefen() -> None:

@@ -102,6 +102,13 @@ button,select{font:inherit;color:inherit}
 .fair-hw{position:absolute;top:-6px;right:-6px;width:15px;height:15px;border-radius:50%;display:grid;place-items:center;font:700 8px/1 var(--f-body);box-shadow:0 0 0 2px var(--surface)}
 .fair-hw.plus{background:var(--hi);color:#fff}
 .fair-hw.minus{background:var(--surface-2);color:var(--ink-3);border:1px solid var(--line)}
+.kurz-fk{display:grid;justify-items:center;align-content:center;border:1px solid var(--line);border-radius:4px;padding:2px 7px;min-width:50px;line-height:1.15;background:var(--surface)}
+.kurz-fk i{font:600 9px var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-style:normal}
+.kurz-fk b{font:700 15px var(--f-mono);padding:0 3px;border-radius:3px}
+.kurz-fk small{font:500 10.5px var(--f-mono);color:var(--ink-3)}
+.kurz-fk small span{padding:0 3px;border-radius:3px;color:var(--ink-2)}
+.kurz-fk .fk-v{background:var(--good-soft);color:var(--good)}
+.kurz-fk .fk-s{background:var(--good);color:var(--surface)}
 .kurz-q{display:grid;justify-items:center;background:var(--accent);color:var(--accent-ink);border-radius:4px;padding:3px 8px;min-width:58px;line-height:1.15}
 .kurz-q > b{font:700 17px var(--f-display)}
 .kurz-q small{font:500 10.5px var(--f-mono)}
@@ -367,6 +374,8 @@ td.num,.adj,.ae{white-space:nowrap}
   .kurz-r{flex-direction:column;gap:3px}
   .kurz-pw{min-width:56px;padding:1px 4px;grid-auto-flow:column;gap:4px;align-items:baseline}
   .kurz-pw i{display:none}
+  .kurz-fk{min-width:56px;padding:1px 4px;grid-auto-flow:column;gap:4px;align-items:baseline}
+  .kurz-fk b{font-size:13px}
   .fair-hw{right:auto;left:-7px;width:13px;height:13px;font-size:7px}
   .kurz-pw b{font-size:14px}
   .kurz-q{min-width:56px}
@@ -844,7 +853,7 @@ function kurzHTML(x, age){
         <div class="name"><strong>${esc(x.horse)}</strong><span class="muted">${age}</span>${x.nr ? `<span class="badge">NP</span>` : ""}</div>
         <div class="line2"><span><em>J</em> ${esc(title(x.jockey) || "–")}</span><span><em>T</em> ${esc(title(x.trainer) || "–")}</span><span><em>Gew.</em> ${x.weight != null ? fx(x.weight, 1) : "–"}</span>${x.draw != null ? `<span><em>Box</em> ${x.draw}</span>` : ""}</div>
       </div>
-      <div class="kurz-r">${x._power && x._power.sieg != null ? powerQuote(x) : powerHTML(x)}${kurzQuote(x)}</div>
+      <div class="kurz-r">${x._power && x._power.sieg != null ? powerQuote(x) : powerHTML(x)}${kurzFK(x)}${kurzQuote(x)}</div>
     </div>
   </article>`;
 }
@@ -877,6 +886,22 @@ function powerQuote(x){
     + (val ? ` – goldener Rahmen: oberste 10 % des Value-Faktors bei Prognose-Cote bis ${GOLD_COTE_MAX}${cote == null ? " (Cote unbekannt: gestrichelt)" : ""}; im Test zur PMU-Endquote etwa ausgeglichen, am ehesten zum Festkurs` : "")
     + (oben && !val ? ` – oberste 10 % des Value-Faktors, aber Prognose-Cote ${fx(cote, 1)} über ${GOLD_COTE_MAX}: dort verlor die Auswahl im Test klar (Außenseiter überwettet) – kein Rahmen` : "");
   return `<div class="kurz-pw ${P.p >= 105 ? "up" : P.p <= 95 ? "down" : ""}${val ? (cote == null ? " val aus" : " val") : warn ? " warn" : ""}" title="${esc(tip)}">${hinweis}<i>Fair</i><b>${q >= 100 ? "100+" : fx(q, q < 10 ? 1 : 0)}</b><small>${fx(100 * P.sieg, 0)} % · #${P.rank}</small></div>`;
+}
+// Wettstar: Festkurs Sieg mit Value gegen das Modell (Erwartungswert je 1 € = Kurs × Modell-Siegchance), darunter der
+// aktuelle Toto-Kurs; ohne Festkurs nur der Toto-Kurs (Value dann am Toto)
+const FK_VALUE = 1.2, FK_STARK = 1.5;      // ab +20 % grün, ab +50 % kräftig
+function kurzFK(x){
+  const F = x.fk;
+  if (!F || (F.sieg == null && F.toto == null)) return "";
+  const P = x._power, haupt = F.sieg != null ? F.sieg : F.toto, art = F.sieg != null ? "Festkurs" : "Toto";
+  const ev = P && P.sieg && haupt ? haupt * P.sieg : null;
+  const cls = ev == null ? "" : ev >= FK_STARK ? "fk-s" : ev >= FK_VALUE ? "fk-v" : "";
+  const tip = `Wettstar${F.name ? ` (${F.name})` : ""} – ${F.sieg != null ? `Festkurs Sieg ${fx(F.sieg, 1)}` : "noch kein Festkurs"}`
+    + (F.toto != null ? ` · Toto ${fx(F.toto, 1)} (Stand beim Erstellen der Karte)` : "")
+    + (ev != null ? `\n${art} × Modell-Siegchance ${fx(100 * P.sieg, 0)} % → Erwartungswert ${ev >= 1 ? "+" : "−"}${fx(Math.abs(100 * (ev - 1)), 0)} % je 1 €${ev >= FK_VALUE ? " (Value gegen das Modell)" : ""}` : "")
+    + `\nGrün: Kurs × Modell-Siegchance ≥ ${FK_VALUE} (kräftig ab ${FK_STARK}) – das Modell sieht das Pferd stärker, als der Kurs bezahlt`;
+  const zahl = v => fx(v, v < 10 ? 1 : 0);
+  return `<div class="kurz-fk" title="${esc(tip)}"><i>${F.sieg != null ? "FK" : "Toto"}</i><b class="${cls}">${zahl(haupt)}</b>${F.sieg != null && F.toto != null ? `<small>Toto ${zahl(F.toto)}</small>` : ""}</div>`;
 }
 // PMU-Prognose kompakt: cote probable und Tipp-Konsens
 function kurzQuote(x){
@@ -1682,7 +1707,7 @@ const LEG_THEMEN = [
   ["Modelle", ["Power"]],
   ["Formzeilen & Gegner", ["Gegner", "Heutige Gegner", "Letzte Läufe", "Kommentar", "Vergleich ARR/TR"]],
   ["Vorlieben & Verbindungen", ["Vorlieben", "Vorlieben-Vergleich", "Abstammungsprofil", "A/E-Matrix", "C"]],
-  ["Prognose & Markt", ["PMU-Prognose"]],
+  ["Prognose & Markt", ["PMU-Prognose", "Festkurse"]],
   ["Boden & Bahn", ["Boden"]],
   ["Darstellung & Bedienung", ["Farben", "Aufgeklapptes Pferd", "Starter in drei Stufen"]]];
 function legThema(div){
@@ -1724,6 +1749,7 @@ function renderLegend(){
     <div><b>RTR</b> (Rating nach dem Rennen, in kg): Elo-artig, Rennen für Rennen in zeitlicher Reihenfolge. Start mit dem offiziellen Rating (sonst 30); in jedem Rennen tritt jedes Pferd gegen jedes andere an – erwartet wird ein Abstand aus Rating − 0,625 × Gewicht, verglichen mit dem tatsächlichen Abstand in Längen × kg je Länge (nach Boden und Distanz), beides auf einer log. Stufe von 1 bis 5. Das Rating wandert um 0,5 × Ø Überraschung (+ kleiner Preisgeldbonus). <b>ARR</b> (Leistung im Rennen, in kg): gemessen an den Pferden im vorderen Drittel des Einlaufs – deren Rating plus Längenabstand × kg je Länge (große Abstände logarithmisch gedämpft) plus Gewichtsunterschied, Ø über diese Referenzen; fehlende Ratings der Referenzen werden aus vergleichbaren Pferden ergänzt. <b>Bereinigt</b> = Wert − Gewicht + ${p.weight_ref} – immer mit dem <b>heutigen</b> Gewicht, auch beim ARR in den Formzeilen (ein früherer ARR von 36 wird bei heute 52 kg zu 39), klein daneben der Rohwert. RTR, ΔL600 A und ΔB200 A stehen nur in der Übersicht. Übersicht: RTR = aktuelles Rating, ARR = nach Distanz- und Going-Ähnlichkeit gewichteter Ø der letzten ${p.avg_runs} Läufe (wie ΔL600 A und TR, ohne Schrumpfung); darunter der Rang im heutigen Feld.</div>
     <div><b>Gegner</b>: für die letzten ${p.rivals_runs} Läufe die zwei Gegner direkt vor und die zwei direkt hinter dem Pferd, die seitdem wieder gelaufen sind – mit Platz im nächsten Start, Klasse dieses Rennens (€/L+, Val+) und ob der Platz besser oder schlechter war als der Rang ihrer Quote. Am Knopf (über das ganze Feld): besser / (besser + schlechter); grün, wenn mindestens die Hälfte der Gegner danach besser lief als ihre Quote (starkes Rennen). <b>⏸ Pause</b>: Zeile zwischen zwei früheren Läufen (bzw. über dem letzten Lauf bis heute), wenn dazwischen mindestens 8 Wochen (56 Tage) lagen. <b>Pos. vor Finish</b>: Fünftel des Pferdes 400 m vor dem Ziel, dazu als Punkte, wo der 1. (gold), 2. (silber) und 3. (bronze) lagen. <b>Heutige Gegner · frühere Duelle</b>: Rennen in der Datenbank, in denen das Pferd schon auf einen heutigen Gegner traf – Platz beider, Abstand, Gewichte damals und wie sich der Gewichtsunterschied bis heute verschoben hat (+ = trägt heute im Vergleich mehr). Je Duell „heute erwartet“ = Abstand damals − Verschiebung (1 kg = 1 Länge); am Knopf: vorne erwartet gegen x von y Gegnern (je Gegner das letzte Duell). <b>Duell</b> (Kachel) und <b>Duell-Rang</b> (Rennkopf): Rangfolge aus allen direkten und indirekten Duellen des heutigen Feldes – je Pferd ein Wert in Längen, sodass die Unterschiede möglichst gut alle heute erwarteten Abstände treffen (kleinste Quadrate; A schlägt B, B schlägt C -> A, B, C). Direkte Duelle zählen doppelt, ältere weniger (Halbwertszeit ${p.duel_halflife ?? 60} Tage), Abstände auf ±${p.duel_max_l ?? 5} L begrenzt; Kachel: Längen gegenüber dem Ø der Pferde mit Duellen und #Rang; Pferde ohne Verbindung untereinander bilden getrennte Gruppen (A, B …); blass bei wenig Gewicht. <b>Indirekte Duelle</b>: Vergleich mit heutigen Gegnern über gemeinsame frühere Gegner – Vergleichsrennen der letzten ${p.ind_days} Tage, ±${p.ind_dist} m, Boden innerhalb einer Stufe (PSF nur mit PSF), alle drei Pferde in der vorderen Feldhälfte. Leistung gegen den gemeinsamen Gegner = Längen × kg je Länge (Boden × Distanz) + Mehrgewicht; daraus der Unterschied zum heutigen Gegner, abzüglich des heutigen Mehrgewichts = heute erwartet (kg, in Längen mit kg je Länge von heute); mehrere Vergleiche gemittelt.</div>
     <div><b>Farben</b>: Rating, Tage, RTR, ARR und TR in der Übersicht nach dem Rang im heutigen Feld – grün oberes Drittel, rot unteres Drittel (bei Tagen umgekehrt: grün = frisch, rot = lange Pause). In den früheren Läufen Klasse (Val, €/L) im Vergleich zu allen früheren Läufen der heutigen Starter – grün = hoher Wert für dieses Rennen, rot = niedriger. <b>TR und ARR</b> der früheren Läufe in 7 Stufen nach ihrer Lage unter allen früheren Läufen der heutigen Starter: oberste 10 % kräftig grün hinterlegt, bis 25 % hellgrün fett, bis 40 % hellgrün, Mitte neutral, entsprechend rot nach unten. <b>±800</b> grün ab 3 gewonnenen, rot ab 3 verlorenen Plätzen; <b>Weg m</b> rot ab 7,5 m mehr (≈ 3 Längen, meist weit außen), grün ab 7,5 m weniger. <b>Rating</b>: Valeur bereinigt nach dem heutigen Gewicht wie RTR/ARR (Valeur − Gewicht + ${p.weight_ref}), klein die Valeur selbst; Farbe nach dem bereinigten Wert. Darunter die letzte Siegmarke (S) im Handicap, ohne Handicap-Sieg die letzte Platzmarke (P, 1.–3.), in Klammern heute im Vergleich.</div>
+    <div><b>Festkurse</b> (Kasten „FK“ in der Kurzzeile, von Wettstar beim Erstellen der Karte): oben Festkurs Sieg, darunter der aktuelle Toto-Kurs; gibt es noch keinen Festkurs, steht nur der Toto-Kurs (Kasten „Toto“). Grün = Value gegen das Modell: Kurs × Modell-Siegchance mindestens 1,2 (Erwartungswert +20 % je 1 €), kräftig ab 1,5. Tooltip: Erwartungswert und der Name bei Wettstar. Zuordnung über Bahn, Rennnummer und Startnummer mit Namensprüfung (abweichende Schreibweisen), sonst über den ähnlichsten Namen im Rennen. Das Modell ordnet das Feld nicht besser als der Markt – Value hier heißt: Kurs über der Modell-Meinung, kein belegter Gewinn.</div>
     <div><b>PMU-Prognose</b> (vor dem Rennen): Kommentar der PMU-Redaktion zum Rennen, Auswahl mit <b>cote probable</b> (geschätzte Quote, z. B. 4/1 = 4,0) und Konsens der Tippgeber (Punkte je Liste nach Position, Borda). Am Pferd: <b>P1</b> … Rang in der PMU-Auswahl, <b>T5</b> = in 5 Tipp-Listen, ohne PMU-Auswahl; im Prognose-Kasten rechts die cote probable und <b>Tipp</b> = Platz im Konsens der Tippgeber (z. B. 2./9 = Zweiter von 9 getippten Pferden), ganz unten in der Starterzeile der Kurzkommentar der PMU (kursiv, farbig hinterlegt). Texte auf Deutsch, wo möglich.</div>
     <div><b>Kommentar</b> unter dem Lauf: Kommentar von PMU zum Pferd – auf Deutsch übersetzt (Original im Tooltip), sonst französisch mit <b>FR</b>.</div>
     <div><b>Aufgeklapptes Pferd</b>: sobald sein Name beim Scrollen unter der Navigation verschwindet, bleiben Nummer, Trikot, Name und Prognose oben stehen, bis das Pferd zu Ende ist; ein Klick darauf springt zurück zur Zeile des Pferdes. <b>Startbox</b> (unter der Nummer): Box in Klammern, darunter die Abweichung der Ø relativen Platzierung (Starter − Platz) / (Starter − 1) aller früheren Läufe aus dieser Box auf derselben Konfiguration (Bahn | Distanz | Piste | Parcours | Corde) vom Durchschnitt 0,5; farbig nur, wenn auffällig: mindestens 0,05 entfernt und signifikant (≥ 2 Standardfehler, SE = 0,29 ÷ √Läufe). In den früheren Läufen „Box 3 ▲/▼“ für auffällig gute bzw. schlechte Boxen dieses Rennens. <b>gegen V.</b> beim Platz: Das Pferd lief gegen den Rennverlauf (von hinten in einem Rennen, das vorne gewonnen wurde, oder umgekehrt; Ø frühe Position der ersten drei gegen das Feld, verglichen mit der Norm der Bahn/Distanz, die extremsten 25 %) und landete trotzdem vorne (Platz 1–3 oder vordere 40 %); grau umrandet „gegen V.“ ohne vordere Platzierung und „mit V.“ (Position passte zum Verlauf) – beides im Backtest ohne Effekt, nur zur Einordnung. <b>Scheuklappen</b>: Auge mit geschlossener Klappe = klassisch, mit gestrichelter Fellklappe = australisch – in der Übersicht und je früherem Lauf. <b>Prognose</b> (Kasten rechts): cote probable der PMU-Prognose, darunter dezimal; Morgen- und Totokurs werden nicht angezeigt. <b>B</b> Besitzer mit A/E 365 Tage.</div>

@@ -860,6 +860,14 @@ schwächer" ab 30 % Abstand, nur bis 30/1). Verlässlichkeit in
 Gold-Rendite im heutigen Renntyp und in der Altersgruppe, `einordnung`),
 laufender Vorwärts-Test in `modelle.vorwaerts_test`.
 
+**`festkurs`** je Starter (Marktdatei, falls Wettstar erreichbar war):
+`sieg`, `platz` (Festkurse), `toto`, `platz_bis` (2 oder 3), `ev_sieg` /
+`ev_platz` = Festkurs × Modell-Sieg- bzw. -Platzchance (Erwartungswert je
+1 €) und `value_sieg` / `value_platz` (ab 1,2). Das ist der echte
+Festkurs, mit dem die eigene Mindestquote (Festkurs) verglichen wird:
+liegt er darüber, ist der Angle heute spielbar. `ev_*` gegen das Modell
+ist nur ein Hinweis – das Modell ordnet nicht besser als der Markt.
+
 - **`warnung` ist das verlässlichste Signal: Der Markt überschätzt das
   Pferd** (unterstes Fünftel im Test A/E ≈ 0,7, in allen Renntypen). Beim
   Prognose-Favoriten ist das ein unabhängiges Fragezeichen (B12), bei einem
