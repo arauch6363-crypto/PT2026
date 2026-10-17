@@ -345,8 +345,8 @@ Je Starter:
   Toto aller französischen Flachrennen mit FK von wettstar-pferdewetten.de. Zuordnung: Bahn über den ähnlichsten Namen
   (ohne Akzente, Bindestriche, Leerzeichen), Rennen über die Rennnummer (sonst Startzeit), Pferd über die Startnummer
   mit Namensprüfung, sonst über den ähnlichsten Namen im Rennen (Schreibweisen weichen ab). Karte: Kasten „FK“ neben
-  der fairen Quote, grün = Festkurs × Modell-Chance ≥ 1,2 (kräftig ab 1,5; Platzchance per Harville aus den
-  Siegchancen). Marktdatei der Claude-JSON: je Starter `festkurs` mit Erwartungswerten; Vorwärts-Test: Spalte
+  der fairen Quote mit Festkurs Sieg und darunter dem aktuellen Toto-Kurs (ohne Festkurs nur „Toto“), grün = Kurs ×
+  Modell-Siegchance ≥ 1,2 (kräftig ab 1,5). Marktdatei der Claude-JSON: je Starter `festkurs` mit Erwartungswerten; Vorwärts-Test: Spalte
   `festkurs` im Value-Protokoll wird automatisch gefüllt. Eine fertige Tabelle aus `wettstar.festkurse(datum)` kann
   auch übergeben werden (`festkurse=df`), `festkurse=False` schaltet es ab.
 * **Abstammungsprofil** (Detailseite, ersetzt Vater/Muttervater in den Vorlieben und den „optimalen Bereich“):

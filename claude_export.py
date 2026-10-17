@@ -286,13 +286,14 @@ def _festkurs(starter: list[dict]) -> dict:
     out = {}
     for x in starter:
         f = x.get("fk")
-        if not f or (f.get("sieg") is None and f.get("platz") is None):
+        if not f or (f.get("sieg") is None and f.get("platz") is None and f.get("toto") is None):
             continue
         ps, pp = (x.get("power") or {}).get("sieg"), platz.get(x["no"])
         ev_s = round(f["sieg"] * ps, 2) if f.get("sieg") and ps else None
         ev_p = round(f["platz"] * pp, 2) if f.get("platz") and pp else None
+        ev_t = round(f["toto"] * ps, 2) if f.get("toto") and ps else None
         out[x["no"]] = {"sieg": f.get("sieg"), "platz": f.get("platz"), "toto": f.get("toto"),
-                        "platz_bis": k, "ev_sieg": ev_s, "ev_platz": ev_p,
+                        "platz_bis": k, "ev_sieg": ev_s, "ev_platz": ev_p, "ev_toto": ev_t,
                         "value_sieg": bool(ev_s and ev_s >= FK_VALUE), "value_platz": bool(ev_p and ev_p >= FK_VALUE)}
     return out
 
