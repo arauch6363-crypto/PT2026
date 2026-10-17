@@ -280,27 +280,19 @@ mark.same{background:var(--hi-soft);color:inherit;padding:0 3px;border-radius:2p
 .pv-c:hover span:first-child{color:var(--accent);text-decoration:underline dotted}
 #pv-ov .ov-box.pv{max-width:640px}
 .pv-tab{margin-top:10px}
-.abst{display:grid;gap:12px}
-.abst-linie > b{font:600 10.5px var(--f-body);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
-.abst-linie > b .muted{text-transform:none;letter-spacing:0;font-weight:500}
-.abst-row{display:grid;grid-template-columns:62px minmax(0,1fr) 112px;gap:4px 10px;align-items:center;padding:5px 0;cursor:pointer}
-.abst-row:hover{background:var(--surface-2)}
-.abst-row.unsicher{opacity:.55}
-.abst-dim{font:600 10px var(--f-body);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
-.abst-skala{display:grid;grid-template-columns:58px minmax(60px,1fr) 52px;gap:8px;align-items:center;font:500 11px var(--f-body);color:var(--ink-2)}
+.abst-it{display:grid;grid-template-columns:44px minmax(0,1fr) 46px;gap:6px;align-items:center;font-size:12px;padding:3px 0;border-bottom:1px dotted var(--line);cursor:pointer}
+.abst-it:hover{background:var(--surface-2)}
+.abst-it.unsicher{opacity:.55}
+.abst-it > span:first-child{color:var(--ink-2)}
+.abst-skala{display:grid;grid-template-columns:34px minmax(30px,1fr) 34px;gap:5px;align-items:center;font:500 10px var(--f-body);color:var(--ink-3)}
 .abst-skala .abst-l{text-align:right}
-.abst-skala .abst-l.an,.abst-skala .abst-r.an{color:var(--ink);font-weight:700}
-.abst-bahn{position:relative;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--surface-2),var(--line),var(--surface-2))}
+.abst-skala .an{color:var(--ink);font-weight:700}
+.abst-bahn{position:relative;height:6px;border-radius:3px;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
 .abst-bahn::after{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--ink-3);opacity:.4}
-.abst-pkt{position:absolute;top:50%;width:13px;height:13px;margin:-6.5px 0 0 -6.5px;border-radius:50%;background:var(--ink);box-shadow:0 0 0 2px var(--surface)}
-.abst-hz{position:absolute;top:-7px;width:0;height:0;margin-left:-5px;border:5px solid transparent;border-top:6px solid var(--hi)}
-.abst-u{font:600 11px var(--f-body);color:var(--ink-2);white-space:nowrap;text-align:right}
-.abst-u b{font:700 12px var(--f-mono)}
+.abst-pkt{position:absolute;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:var(--ink);box-shadow:0 0 0 1.5px var(--surface)}
+.abst-hz{position:absolute;top:-6px;width:0;height:0;margin-left:-4px;border:4px solid transparent;border-top:5px solid var(--hi)}
+.abst-u{font:600 11px var(--f-mono);color:var(--ink-2);white-space:nowrap;text-align:right}
 .abst-u.up{color:var(--good)} .abst-u.down{color:var(--bad)}
-@media (max-width:640px){
-  .abst-row{grid-template-columns:minmax(0,1fr) auto}
-  .abst-row .abst-skala{grid-column:1/-1;grid-row:2}
-}
 }
 .abst-u{font:600 11px var(--f-body);color:var(--ink-3);white-space:nowrap}
 .abst-u.up{color:var(--good)}
@@ -1053,34 +1045,38 @@ function prefTable(rows, head){
 // Muttervater der Historie (Punkt; 0 = ganz links, 100 = ganz rechts) – gelbes Dreieck = heutige Kategorie.
 // Wert je Kategorie = Ø aus A/E+, Pos+ und €/L+; Distanz/Boden/Belag um Alter und Jahreszeit korrigiert.
 // Klick auf eine Zeile: alle Gruppen im Überblick (Vorlieben-Overlay).
-const ABST_DIM = [["dist", "Distanz", "distance", ["Sprinter", "Steher"], {Sprinter: "bis 1400 m", Mitteldistanz: "1401–2400 m", Steher: "über 2400 m"}],
-  ["boden", "Boden", "going", ["Slow", "Fast"], {Slow: "Slow und Very slow (Gras)", Fast: "Fast und Very fast (Gras)"}],
-  ["belag", "Belag", "going", ["Gras", "PSF"], {Gras: "alle Grasböden", PSF: "Kunstbahn"}],
-  ["reife", "Reife", "age", ["frühreif", "spät"], {"frühreif": "2-Jährige und 3-Jährige bis Juni", "spät": "3-Jährige ab Juli und ältere"}]];
+const ABST_DIM = [["dist", "Distanz", "distance", ["Sprint", "Steher"], ["Sprinter", "Steher"], {Sprinter: "bis 1400 m", Mitteldistanz: "1401–2400 m", Steher: "über 2400 m"}],
+  ["boden", "Boden", "going", ["Slow", "Fast"], ["Slow", "Fast"], {Slow: "Slow und Very slow (Gras)", Fast: "Fast und Very fast (Gras)"}],
+  ["belag", "Belag", "going", ["Gras", "PSF"], ["Gras", "PSF"], {Gras: "alle Grasböden", PSF: "Kunstbahn"}],
+  ["reife", "Reife", "age", ["früh", "spät"], ["frühreif", "spät"], {"frühreif": "2-Jährige und 3-Jährige bis Juni", "spät": "3-Jährige ab Juli und ältere"}]];
+// Zwei Gruppen für die Vorlieben (Vater, Muttervater): je Skala eine Zeile
 function abstHTML(x){
   const A = x.abst || {}, PR = x.pref_ref || {};
-  const linie = (rolle, name, wer) => {
+  const gruppe = (rolle, name, wer) => {
     const L = A[rolle], viele = rolle === "sire" ? "Vätern" : "Muttervätern";
-    if (!L) return `<div class="abst-linie"><b>${wer}${name ? ` · <span class="muted">${esc(title(name))}</span>` : ""}</b><p class="muted">Keine Läufe von Nachkommen in der Historie.</p></div>`;
-    const zeile = ([dim, lab, refK, [li, re], erkl]) => {
+    const kopf = `<b title="${esc(`${wer}${name ? " " + title(name) : ""}${L ? ` · ${L.runs} Läufe der Nachkommen` : ""} – Lage auf den Skalen als Perzentil gegen alle ${viele}`)}">${wer}${name ? ` · ${esc(title(name))}` : ""}</b>`;
+    if (!L) return `<div class="grp">${kopf}<p class="muted">Keine Läufe von Nachkommen.</p></div>`;
+    const zeile = ([dim, lab, refK, [li, re], [lLang, rLang], erkl]) => {
       const D = L[dim], ref = (PR[rolle] || {})[refK];
       if (!D) return "";
-      const pz = D.perzentil, kats = D.zeilen.map(z => z[0]);
-      const alle = dim === "dist" ? ["Sprinter", "Mitteldistanz", "Steher"] : [li, re];
+      const pz = D.perzentil;
+      const alle = dim === "dist" ? ["Sprinter", "Mitteldistanz", "Steher"] : [lLang, rLang];
       const lage = D.lage != null ? D.lage : D.heute != null && alle.includes(D.heute) ? 100 * alle.indexOf(D.heute) / (alle.length - 1) : null;
-      const tip = D.zeilen.map(([k, runs, wins, places, w, ae, pos, epr]) => `${k} (${erkl[k] || ""}): Wert ${w ?? "–"} (A/E+ ${ae ?? "–"} · Pos+ ${pos ?? "–"} · €/L+ ${epr ?? "–"}), ${runs} Läufe, S-L ${wins}-${runs} (${pct(wins, runs)}), ${places} Plätze`).join("\n")
-        + `\nNeigung ${D.neigung != null ? sgn(D.neigung, 1) : "–"} Punkte von ${li} nach ${re} · Perzentil ${pz ?? "–"} unter ${D.vergleich} ${viele} (ab ${DATA.params.abst_pop_min ?? 50} Läufen)`
-        + (D.sicher ? "" : " · wenig Läufe, unsicher") + (D.heute ? ` · heute: ${D.heute}${lage != null ? ` (Lage P${Math.round(lage)} unter allen Läufen)` : ""}` : "");
-      const seite = pz == null ? "" : pz <= 30 ? li : pz >= 70 ? re : "ausgeglichen";
+      const seite = pz == null ? "" : pz <= 30 ? lLang : pz >= 70 ? rLang : "ausgeglichen";
+      const tip = `${lab}: Perzentil ${pz ?? "–"} unter ${D.vergleich} ${viele} (0 = ganz ${lLang}, 100 = ganz ${rLang}) → ${seite}`
+        + (D.heute ? ` · heute ${D.heute}${lage != null ? ` (Lage P${Math.round(lage)} unter allen Läufen)` : ""}${D.passung ? `: ${D.passung}` : ""}` : "")
+        + (D.sicher ? "" : " · wenig Läufe, unsicher") + "\n"
+        + D.zeilen.map(([k, runs, wins, places, w, ae, pos, epr]) => `${k} (${erkl[k] || ""}): Wert ${w ?? "–"} (A/E+ ${ae ?? "–"} · Pos+ ${pos ?? "–"} · €/L+ ${epr ?? "–"}), ${runs} Läufe, S-L ${wins}-${runs} (${pct(wins, runs)}), ${places} Plätze`).join("\n")
+        + "\nKlick: alle Gruppen im Überblick";
       const pcls = D.passung === "passt" ? "up" : D.passung === "passt nicht" ? "down" : "";
-      const u = `<span class="abst-u ${pcls}" title="${esc(D.passung ? `heute ${D.heute}: ${D.passung}` : "")}"><b>${pz != null ? "P" + pz : "–"}</b> ${esc(seite)}${D.passung === "passt" ? " ✓" : D.passung === "passt nicht" ? " ✗" : ""}</span>`;
       const pv = ref && DATA.pref_alle ? ` data-pv="${esc(ref.join("|") + "|" + x.no)}" role="button" tabindex="0"` : "";
-      return `<div class="abst-row${D.sicher ? "" : " unsicher"}"${pv} title="${esc(tip + "\nKlick: alle Gruppen im Überblick")}"><span class="abst-dim">${lab}</span>
-        <div class="abst-skala"><span class="abst-l${pz != null && pz <= 30 ? " an" : ""}">${li}</span><div class="abst-bahn">${lage != null ? `<span class="abst-hz" style="left:${lage}%"></span>` : ""}${pz != null ? `<span class="abst-pkt" style="left:${pz}%"></span>` : ""}</div><span class="abst-r${pz != null && pz >= 70 ? " an" : ""}">${re}</span></div>${u}</div>`;
+      return `<div class="abst-it${D.sicher ? "" : " unsicher"}"${pv} title="${esc(tip)}"><span>${lab}</span>
+        <span class="abst-skala"><span class="abst-l${pz != null && pz <= 30 ? " an" : ""}">${li}</span><span class="abst-bahn">${lage != null ? `<span class="abst-hz" style="left:${lage}%"></span>` : ""}${pz != null ? `<span class="abst-pkt" style="left:${pz}%"></span>` : ""}</span><span class="${pz != null && pz >= 70 ? "an" : ""}">${re}</span></span>
+        <span class="abst-u ${pcls}">${pz != null ? "P" + pz : "–"}${D.passung === "passt" ? " ✓" : D.passung === "passt nicht" ? " ✗" : ""}</span></div>`;
     };
-    return `<div class="abst-linie"><b>${wer} · <span class="muted">${esc(title(name))} · ${L.runs} Läufe</span></b>${ABST_DIM.map(zeile).join("")}</div>`;
+    return `<div class="grp">${kopf}${ABST_DIM.map(zeile).join("")}</div>`;
   };
-  return `<div class="abst">${linie("sire", x.sire, "Vater")}${linie("dam_sire", x.dam_sire, "Muttervater")}</div>`;
+  return gruppe("sire", x.sire, "Vater") + gruppe("dam_sire", x.dam_sire, "Muttervater");
 }
 function detailHTML(x, race){
   const w = DATA.params.ae_windows;
@@ -1111,10 +1107,10 @@ function detailHTML(x, race){
       </div>
     </div>
     <div class="panels one">
-      <div class="panel"><h4>Abstammung · Profil der Nachkommen (gesamte Historie)</h4>${abstHTML(x)}</div>
-      <div class="panel"><h4>Vorlieben · Trainer, Jockey (${jahre} Jahre) · Jockey auf dem Pferd (gesamt)</h4><div class="pref">
-        <div class="grp"><b>Trainer</b>${it("mit " + (title(x.jockey) || "–"), P.trainer.jockey, "beim Trainer", (PR.trainer || {}).jockey)}${it("in " + title(race.course), P.trainer.course, "beim Trainer", (PR.trainer || {}).course)}${it("Typ: " + (race.type || "–"), P.trainer.racetype, "beim Trainer", (PR.trainer || {}).racetype)}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.trainer.age, "beim Trainer", (PR.trainer || {}).age)}</div>
-        <div class="grp"><b>Jockey</b>${it("in " + title(race.course), P.jockey.course, "beim Jockey", (PR.jockey || {}).course)}${it("für " + (title(x.trainer) || "–"), P.jockey.trainer, "beim Jockey", (PR.jockey || {}).trainer)}${it("auf " + (title(x.horse) || "–"), P.jockey.horse, "beim Jockey (Läufe auf dem Pferd aus der ganzen Historie, Jockey sonst: 2 Jahre)", (PR.jockey || {}).horse)}</div>
+      <div class="panel"><h4>Vorlieben · Trainer, Jockey (${jahre} Jahre) · Jockey auf dem Pferd · Abstammung (gesamt)</h4><div class="pref">
+        <div class="grp"><b>Trainer${x.trainer ? ` · ${esc(title(x.trainer))}` : ""}</b>${it("mit " + (title(x.jockey) || "–"), P.trainer.jockey, "beim Trainer", (PR.trainer || {}).jockey)}${it("in " + title(race.course), P.trainer.course, "beim Trainer", (PR.trainer || {}).course)}${it("Typ: " + (race.type || "–"), P.trainer.racetype, "beim Trainer", (PR.trainer || {}).racetype)}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.trainer.age, "beim Trainer", (PR.trainer || {}).age)}</div>
+        <div class="grp"><b>Jockey${x.jockey ? ` · ${esc(title(x.jockey))}` : ""}</b>${it("in " + title(race.course), P.jockey.course, "beim Jockey", (PR.jockey || {}).course)}${it("für " + (title(x.trainer) || "–"), P.jockey.trainer, "beim Jockey", (PR.jockey || {}).trainer)}${it("auf " + (title(x.horse) || "–"), P.jockey.horse, "beim Jockey (Läufe auf dem Pferd aus der ganzen Historie, Jockey sonst: 2 Jahre)", (PR.jockey || {}).horse)}</div>
+        ${abstHTML(x)}
       </div></div>
     </div>
     <div class="panels four">
