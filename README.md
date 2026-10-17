@@ -340,6 +340,18 @@ Je Starter:
   (FR). Abschalten mit `racecard.run(..., uebersetzen_aktiv=False)`.
 * **A/E** zusätzlich für Besitzer und Züchter; Abstammung mit Zahl der Pferde und Ø der höchsten Valeur der
   Nachkommen als 3-Jährige (Ø max Val 3j).
+* **Abstammungsprofil** (Detailseite, ersetzt Vater/Muttervater in den Vorlieben und den „optimalen Bereich“):
+  vier Skalen je Linie als Perzentil gegen alle Väter bzw. alle Muttervater mit ≥ 50 Läufen in der Dimension –
+  Distanz Sprinter (bis 1400 m) / Mitteldistanz / Steher (über 2400 m), Boden Slow / Fast (nur Gras), Belag Gras /
+  PSF, Reife frühreif (2-Jährige und 3-Jährige bis Juni) / spät (`racecard.abstammung_profil`). Wert je Kategorie =
+  Ø aus A/E+, Pos+ und €/L+ (Pos+ und €/L+ gegen den Schnitt aller Läufe in Kategorie × Alters-/Jahreszeit-Band);
+  Distanz, Boden und Belag um das Alters-Profil der Linie korrigiert (Erwartung × Stärke der Linie im Band 2j / 3j
+  bis Juni / 3j ab Juli / 4j+), sonst sähe eine frühreife Linie wie ein Sprinter aus. Neigung = gewichtete Steigung
+  der (geschrumpften) Werte von links nach rechts → Perzentil. Gelbes Dreieck = Lage des heutigen Rennens, stufenlos als
+  Perzentil aller Läufe (Distanz in Metern, Boden in vier Stufen, Reife nach Alter × Monat, Belag Gras/PSF); ✓/✗ =
+  Linie mit klarer Neigung (unter P30 / über P70) nahe (bis 25 Perzentile) bzw. weit weg (ab 60), ausgeglichene
+  Linien neutral. Klick: alle 200-m-Gruppen bzw. Böden im Überblick. In der
+  Claude-JSON je Starter `abst`.
 * **Indizes €/L+ und Val+**: 100 × Wert ÷ Ø der Population (alle Trainer, Jockeys, Besitzer, Züchter im selben
   Zeitfenster bzw. alle Väter, Muttervater, Crosses; nur ab 5 Läufen bzw. 3 dreijährigen Nachkommen).
   100 = Durchschnitt, über 100 überdurchschnittlich; Chips wie A/E: grün ab 110, rot bis 90, blass bei wenig Daten.

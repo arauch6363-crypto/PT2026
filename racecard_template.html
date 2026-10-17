@@ -280,22 +280,30 @@ mark.same{background:var(--hi-soft);color:inherit;padding:0 3px;border-radius:2p
 .pv-c:hover span:first-child{color:var(--accent);text-decoration:underline dotted}
 #pv-ov .ov-box.pv{max-width:640px}
 .pv-tab{margin-top:10px}
-.opt-box{margin:10px 0 4px;padding:10px 12px;border:1px solid var(--line);border-radius:4px;background:var(--surface-2)}
-.opt-titel{font:600 10.5px var(--f-body);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px}
-.opt-row{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:4px 8px;align-items:center;padding:4px 0}
-.opt-row > b{font:600 10px var(--f-body);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
-.opt-strip{display:flex;flex-wrap:wrap;gap:2px}
-.opt-z{display:inline-flex;flex-direction:column;align-items:center;line-height:1.15;font:500 11px var(--f-mono);padding:2px 5px;border-radius:2px;background:var(--surface);border:2px solid transparent}
-.opt-z.up{background:var(--good-soft);color:var(--good)} .opt-z.down{background:var(--bad-soft);color:var(--bad)}
-.opt-z.thin{opacity:.5}
-.opt-z small{font-size:9.5px;opacity:.8}
-.opt-z.im{border-color:var(--ink)}
-.opt-z.o-heute{box-shadow:0 0 0 2px var(--hi);font-weight:700}
-.opt-sep{width:8px}
-.opt-urteil{font:600 11px var(--f-body);color:var(--ink-2);white-space:nowrap}
-.opt-urteil.up{color:var(--good)}
-.opt-info{grid-column:2/-1;font-size:11.5px;color:var(--ink-2)}
-.opt-leg{font-size:10.5px;color:var(--ink-3);margin-top:6px;line-height:1.5}
+.abst{display:grid;gap:12px}
+.abst-linie > b{font:600 10.5px var(--f-body);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+.abst-linie > b .muted{text-transform:none;letter-spacing:0;font-weight:500}
+.abst-row{display:grid;grid-template-columns:62px minmax(0,1fr) 112px;gap:4px 10px;align-items:center;padding:5px 0;cursor:pointer}
+.abst-row:hover{background:var(--surface-2)}
+.abst-row.unsicher{opacity:.55}
+.abst-dim{font:600 10px var(--f-body);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+.abst-skala{display:grid;grid-template-columns:58px minmax(60px,1fr) 52px;gap:8px;align-items:center;font:500 11px var(--f-body);color:var(--ink-2)}
+.abst-skala .abst-l{text-align:right}
+.abst-skala .abst-l.an,.abst-skala .abst-r.an{color:var(--ink);font-weight:700}
+.abst-bahn{position:relative;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--surface-2),var(--line),var(--surface-2))}
+.abst-bahn::after{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--ink-3);opacity:.4}
+.abst-pkt{position:absolute;top:50%;width:13px;height:13px;margin:-6.5px 0 0 -6.5px;border-radius:50%;background:var(--ink);box-shadow:0 0 0 2px var(--surface)}
+.abst-hz{position:absolute;top:-7px;width:0;height:0;margin-left:-5px;border:5px solid transparent;border-top:6px solid var(--hi)}
+.abst-u{font:600 11px var(--f-body);color:var(--ink-2);white-space:nowrap;text-align:right}
+.abst-u b{font:700 12px var(--f-mono)}
+.abst-u.up{color:var(--good)} .abst-u.down{color:var(--bad)}
+@media (max-width:640px){
+  .abst-row{grid-template-columns:minmax(0,1fr) auto}
+  .abst-row .abst-skala{grid-column:1/-1;grid-row:2}
+}
+}
+.abst-u{font:600 11px var(--f-body);color:var(--ink-3);white-space:nowrap}
+.abst-u.up{color:var(--good)}
 .ov-svg .ae-lab{font-family:var(--f-body);font-size:11px;fill:var(--ink-2)}
 .ov-svg .ae-lab{font-family:var(--f-mono);font-weight:600}
 .ov-svg .ae-lab.ist{font-weight:800;fill:var(--ink);font-size:13px}
@@ -1040,6 +1048,39 @@ function prefTable(rows, head){
     rows.map(z => `<tr class="${z.today ? "today" : ""}"><td>${esc(z.label)}${z.today ? ` <span class="heute">heute</span>` : ""}</td><td class="r num">${z.wins}-${z.runs} (${pct(z.wins,z.runs)})</td><td class="r num">${z.places}</td><td class="r">${aeChip(z, 5)}</td></tr>`).join("")}</tbody></table>`;
 }
 
+// Abstammungsprofil (Vater, Muttervater): Lage der Linie auf vier Skalen als Perzentil gegen alle Väter bzw. alle
+// Muttervater der Historie (Punkt; 0 = ganz links, 100 = ganz rechts) – gelbes Dreieck = heutige Kategorie.
+// Wert je Kategorie = Ø aus A/E+, Pos+ und €/L+; Distanz/Boden/Belag um Alter und Jahreszeit korrigiert.
+// Klick auf eine Zeile: alle Gruppen im Überblick (Vorlieben-Overlay).
+const ABST_DIM = [["dist", "Distanz", "distance", ["Sprinter", "Steher"], {Sprinter: "bis 1400 m", Mitteldistanz: "1401–2400 m", Steher: "über 2400 m"}],
+  ["boden", "Boden", "going", ["Slow", "Fast"], {Slow: "Slow und Very slow (Gras)", Fast: "Fast und Very fast (Gras)"}],
+  ["belag", "Belag", "going", ["Gras", "PSF"], {Gras: "alle Grasböden", PSF: "Kunstbahn"}],
+  ["reife", "Reife", "age", ["frühreif", "spät"], {"frühreif": "2-Jährige und 3-Jährige bis Juni", "spät": "3-Jährige ab Juli und ältere"}]];
+function abstHTML(x){
+  const A = x.abst || {}, PR = x.pref_ref || {};
+  const linie = (rolle, name, wer) => {
+    const L = A[rolle], viele = rolle === "sire" ? "Vätern" : "Muttervätern";
+    if (!L) return `<div class="abst-linie"><b>${wer}${name ? ` · <span class="muted">${esc(title(name))}</span>` : ""}</b><p class="muted">Keine Läufe von Nachkommen in der Historie.</p></div>`;
+    const zeile = ([dim, lab, refK, [li, re], erkl]) => {
+      const D = L[dim], ref = (PR[rolle] || {})[refK];
+      if (!D) return "";
+      const pz = D.perzentil, kats = D.zeilen.map(z => z[0]);
+      const alle = dim === "dist" ? ["Sprinter", "Mitteldistanz", "Steher"] : [li, re];
+      const lage = D.lage != null ? D.lage : D.heute != null && alle.includes(D.heute) ? 100 * alle.indexOf(D.heute) / (alle.length - 1) : null;
+      const tip = D.zeilen.map(([k, runs, wins, places, w, ae, pos, epr]) => `${k} (${erkl[k] || ""}): Wert ${w ?? "–"} (A/E+ ${ae ?? "–"} · Pos+ ${pos ?? "–"} · €/L+ ${epr ?? "–"}), ${runs} Läufe, S-L ${wins}-${runs} (${pct(wins, runs)}), ${places} Plätze`).join("\n")
+        + `\nNeigung ${D.neigung != null ? sgn(D.neigung, 1) : "–"} Punkte von ${li} nach ${re} · Perzentil ${pz ?? "–"} unter ${D.vergleich} ${viele} (ab ${DATA.params.abst_pop_min ?? 50} Läufen)`
+        + (D.sicher ? "" : " · wenig Läufe, unsicher") + (D.heute ? ` · heute: ${D.heute}${lage != null ? ` (Lage P${Math.round(lage)} unter allen Läufen)` : ""}` : "");
+      const seite = pz == null ? "" : pz <= 30 ? li : pz >= 70 ? re : "ausgeglichen";
+      const pcls = D.passung === "passt" ? "up" : D.passung === "passt nicht" ? "down" : "";
+      const u = `<span class="abst-u ${pcls}" title="${esc(D.passung ? `heute ${D.heute}: ${D.passung}` : "")}"><b>${pz != null ? "P" + pz : "–"}</b> ${esc(seite)}${D.passung === "passt" ? " ✓" : D.passung === "passt nicht" ? " ✗" : ""}</span>`;
+      const pv = ref && DATA.pref_alle ? ` data-pv="${esc(ref.join("|") + "|" + x.no)}" role="button" tabindex="0"` : "";
+      return `<div class="abst-row${D.sicher ? "" : " unsicher"}"${pv} title="${esc(tip + "\nKlick: alle Gruppen im Überblick")}"><span class="abst-dim">${lab}</span>
+        <div class="abst-skala"><span class="abst-l${pz != null && pz <= 30 ? " an" : ""}">${li}</span><div class="abst-bahn">${lage != null ? `<span class="abst-hz" style="left:${lage}%"></span>` : ""}${pz != null ? `<span class="abst-pkt" style="left:${pz}%"></span>` : ""}</div><span class="abst-r${pz != null && pz >= 70 ? " an" : ""}">${re}</span></div>${u}</div>`;
+    };
+    return `<div class="abst-linie"><b>${wer} · <span class="muted">${esc(title(name))} · ${L.runs} Läufe</span></b>${ABST_DIM.map(zeile).join("")}</div>`;
+  };
+  return `<div class="abst">${linie("sire", x.sire, "Vater")}${linie("dam_sire", x.dam_sire, "Muttervater")}</div>`;
+}
 function detailHTML(x, race){
   const w = DATA.params.ae_windows;
   const ref = DATA.params.epr_ref || {};
@@ -1049,7 +1090,7 @@ function detailHTML(x, race){
   const PD = x.ae.pedigree;
   const pedRows = [["Vater", x.sire, PD.sire, "sire"], ["Muttervater", x.dam_sire, PD.dam_sire, "dam_sire"],
                    ["Cross", x.sire && x.dam_sire ? `${title(x.sire)} × ${title(x.dam_sire)}` : null, PD.cross, "cross"]].map(([l, n, s, rolle]) =>
-    `<tr><td>${l}${n ? ` <span class="muted ped-n">${esc(title(n))}</span>` : ""}</td><td class="r num" title="${esc(`${s.horses3 ?? 0} davon mit Läufen als 3-Jährige · ${rec(s)} Siege-Starts, ${s.places} Plätze`)}">${s.horses || "–"}</td><td class="r">${aeChip(s)}</td><td class="r">${idxHTML(s.epr_idx, pop[rolle + "_all"] != null ? "€" + fmtEur(pop[rolle + "_all"]) + " je Lauf" : null, `€/L+ ${l} (€${s.epr != null ? fmtEur(s.epr) : "–"} je Lauf)`, s.runs || null)}</td><td class="r">${idxHTML(s.max_val3_idx, pop[rolle + "_val3"] != null ? "Ø max Val 3j " + fx(pop[rolle + "_val3"],1) : null, `max Val+ ${l} (Ø max Val 3j ${s.max_val3 != null ? fx(s.max_val3,1) : "–"})`, s.horses3 || null, 3, "3-jährigen Nachkommen")}</td></tr>`).join("");
+    `<tr><td>${l}${n ? ` <span class="muted ped-n">${esc(title(n))}</span>` : ""}</td><td class="r num" title="${esc(`${s.horses3 ?? 0} davon mit Läufen als 3-Jährige · ${rec(s)} Siege-Starts, ${s.places} Plätze`)}">${s.horses || "–"}</td><td class="r">${aeChip(s)}</td><td class="r">${idxHTML(s.pos_idx, "Ø Platzanteil aller Läufe", `Pos+ ${l}: Ø Platzanteil der Nachkommen ((Starter − Platz) / (Starter − 1), nicht im Ziel = 0) als Index`, s.runs || null)}</td><td class="r">${idxHTML(s.epr_idx, pop[rolle + "_all"] != null ? "€" + fmtEur(pop[rolle + "_all"]) + " je Lauf" : null, `€/L+ ${l} (€${s.epr != null ? fmtEur(s.epr) : "–"} je Lauf)`, s.runs || null)}</td><td class="r">${idxHTML(s.max_val3_idx, pop[rolle + "_val3"] != null ? "Ø max Val 3j " + fx(pop[rolle + "_val3"],1) : null, `max Val+ ${l} (Ø max Val 3j ${s.max_val3 != null ? fx(s.max_val3,1) : "–"})`, s.horses3 || null, 3, "3-jährigen Nachkommen")}</td></tr>`).join("");
   const P = x.pref;
   const PR = x.pref_ref || {};
   const gold = (ref, chip) => ref && bestKat(((DATA.pref_alle || {})[ref[0]] || {})[ref[1]]) === ref[2] ? chip.replace('class="ae ', 'class="ae best ') : chip;
@@ -1065,15 +1106,14 @@ function detailHTML(x, race){
         <div class="scroll"><table class="ae-tab" data-w="${state.aeW}"><thead><tr><th></th>${w.map(t => `<th class="r aew aew-${t}">${t} Tage</th><th class="r aew aew-${t}">A/E</th><th class="r aew aew-${t}" title="€/L+: Gewinn je Lauf als Index – 100 = Ø aller Personen dieser Gruppe im selben Zeitraum (ab ${DATA.params.pop_min_runs} Läufen); grün ab 110, rot bis 90">€/L+</th>`).join("")}</tr></thead><tbody>${aeRows}</tbody></table></div>
       </div>
       <div class="panel"><h4>Abstammung · gesamte Historie</h4>
-        <div class="scroll"><table><thead><tr><th></th><th class="r" title="Verschiedene Pferde mit dieser Abstammung in der Historie">Pferde</th><th class="r" title="A/E Platz der Nachkommen (Siege, Starts und Plätze im Tooltip)">A/E</th><th class="r" title="€/L+: Gewinn je Lauf der Nachkommen als Index – 100 = Ø aller Linien (ab ${DATA.params.pop_min_runs} Läufen); grün ab 110, rot bis 90">€/L+</th><th class="r" title="max Val+: Ø der höchsten Valeur der Nachkommen als 3-Jährige als Index – 100 = Ø aller Linien (ab ${DATA.params.pop_min_horses} 3-jährigen Nachkommen); grün ab 110, rot bis 90">max Val+</th></tr></thead><tbody>${pedRows}</tbody></table></div>
+        <div class="scroll"><table><thead><tr><th></th><th class="r" title="Verschiedene Pferde mit dieser Abstammung in der Historie">Pferde</th><th class="r" title="A/E Platz der Nachkommen (Siege, Starts und Plätze im Tooltip)">A/E</th><th class="r" title="Pos+: Ø Platzanteil der Nachkommen als Index – 100 = Ø aller Läufe; grün ab 110, rot bis 90">Pos+</th><th class="r" title="€/L+: Gewinn je Lauf der Nachkommen als Index – 100 = Ø aller Linien (ab ${DATA.params.pop_min_runs} Läufen); grün ab 110, rot bis 90">€/L+</th><th class="r" title="max Val+: Ø der höchsten Valeur der Nachkommen als 3-Jährige als Index – 100 = Ø aller Linien (ab ${DATA.params.pop_min_horses} 3-jährigen Nachkommen); grün ab 110, rot bis 90">max Val+</th></tr></thead><tbody>${pedRows}</tbody></table></div>
       </div>
     </div>
     <div class="panels one">
-      <div class="panel"><h4>Vorlieben · Trainer, Jockey (${jahre} Jahre) · Jockey auf dem Pferd, Vater, Muttervater (gesamt)</h4><div class="pref">
+      <div class="panel"><h4>Abstammung · Profil der Nachkommen (gesamte Historie)</h4>${abstHTML(x)}</div>
+      <div class="panel"><h4>Vorlieben · Trainer, Jockey (${jahre} Jahre) · Jockey auf dem Pferd (gesamt)</h4><div class="pref">
         <div class="grp"><b>Trainer</b>${it("mit " + (title(x.jockey) || "–"), P.trainer.jockey, "beim Trainer", (PR.trainer || {}).jockey)}${it("in " + title(race.course), P.trainer.course, "beim Trainer", (PR.trainer || {}).course)}${it("Typ: " + (race.type || "–"), P.trainer.racetype, "beim Trainer", (PR.trainer || {}).racetype)}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.trainer.age, "beim Trainer", (PR.trainer || {}).age)}</div>
         <div class="grp"><b>Jockey</b>${it("in " + title(race.course), P.jockey.course, "beim Jockey", (PR.jockey || {}).course)}${it("für " + (title(x.trainer) || "–"), P.jockey.trainer, "beim Jockey", (PR.jockey || {}).trainer)}${it("auf " + (title(x.horse) || "–"), P.jockey.horse, "beim Jockey (Läufe auf dem Pferd aus der ganzen Historie, Jockey sonst: 2 Jahre)", (PR.jockey || {}).horse)}</div>
-        <div class="grp"><b>Vater</b>${it("Distanz: " + (race.dist_group ? race.dist_group + " m" : "–"), P.sire.distance, "beim Vater", (PR.sire || {}).distance)}${it("Boden: " + (race.going_label || "unbekannt"), P.sire.going, "beim Vater", (PR.sire || {}).going)}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.sire.age, "beim Vater", (PR.sire || {}).age)}</div>
-        <div class="grp"><b>Muttervater${x.dam_sire ? ` · ${esc(title(x.dam_sire))}` : ""}</b>${it("Distanz: " + (race.dist_group ? race.dist_group + " m" : "–"), P.dam_sire.distance, "beim Muttervater", (PR.dam_sire || {}).distance)}${it("Boden: " + (race.going_label || "unbekannt"), P.dam_sire.going, "beim Muttervater", (PR.dam_sire || {}).going)}${it("Alter: " + (P.trainer.age_label || "unbekannt"), P.dam_sire.age, "beim Muttervater", (PR.dam_sire || {}).age)}</div>
       </div></div>
     </div>
     <div class="panels four">
@@ -1409,66 +1449,6 @@ const PV_TITEL = {trainer_jockey: ["Trainer", "alle Jockeys", "jt"], trainer_cou
   jockey_course: ["Jockey", "alle Bahnen", "jt"], jockey_trainer: ["Jockey", "alle Trainer", "jt"], jockey_horse: ["Jockey", "alle Pferde", "ges"],
   sire_dist: ["Vater", "alle Distanzen", "ges"], sire_going: ["Vater", "alle Böden", "ges"], sire_age: ["Vater", "alle Altersgruppen", "ges"],
   dam_sire_dist: ["Muttervater", "alle Distanzen", "ges"], dam_sire_going: ["Muttervater", "alle Böden", "ges"], dam_sire_age: ["Muttervater", "alle Altersgruppen", "ges"]};
-// Optimaler Bereich (Vater/Muttervater): je Kategorie Wert = Ø aus A/E+ (100 × A/E Platz), Pos+ und €/L+ (beide
-// 100 = Ø aller Läufe der Kategorie), zur Gesamtlinie hin geschrumpft (n / (n + 20)); bestes zusammenhängendes
-// Fenster (Distanz bis 3 Gruppen, Boden bis 2, Alter 1) mit mindestens 30 Läufen; Urteil nach Abstand zum Rest
-const OPT_K = 20, OPT_MIN = 30;
-const kurzDist = l => { const m = /(\d+) m$/.exec(l); return l[0] === ">" ? l.replace(/ m$/, "") : m ? m[1] : l; };   // „1201-1400 m“ → „1400“
-const OPT_DIM = [["dist", "Distanz (bis m)", 3, l => { const m = /^>?(\d+)/.exec(l); return m ? +m[1] + (l[0] === ">" ? 1 : 0) : null; }],
-  ["going", "Boden", 2, l => ({"Very fast": 0, "Fast": 1, "Slow": 2, "Very slow": 3})[l] ?? null],
-  ["age", "Alter", 1, l => ({"2j": 0, "3j": 1, "4j+": 2})[l] ?? null]];
-function optBereich(linie, person, x){
-  const ref = (x && x.pref_ref && x.pref_ref[linie]) || {};
-  const heuteVon = {dist: (ref.distance || [])[2], going: (ref.going || [])[2], age: (ref.age || [])[2]};
-  const zeilen = {dist: ((DATA.pref_alle[linie + "_dist"] || {})[person]) || [], going: ((DATA.pref_alle[linie + "_going"] || {})[person]) || [],
-                  age: ((DATA.pref_alle[linie + "_age"] || {})[person]) || []};
-  const wert = z => { const v = [z[4] != null ? 100 * z[4] : null, z[6], z[7]].filter(w => w != null); return v.length ? v.reduce((s, w) => s + w, 0) / v.length : null; };
-  const alleZ = Object.values(zeilen).flat().filter(z => wert(z) != null);
-  const nGes = alleZ.reduce((s, z) => s + z[1], 0);
-  if (!nGes) return "";
-  // Gesamtwert der Linie: Ø über alle Kategorien der drei Dimensionen, nach Läufen gewichtet
-  const S0 = alleZ.reduce((s, z) => s + z[1] * wert(z), 0) / nGes;
-  const schr = z => { const w = wert(z); return w == null ? null : (z[1] * w + OPT_K * S0) / (z[1] + OPT_K); };
-  let glatt = schr;                                             // je Dimension gesetzt (geglättet über die Nachbarn)
-  const mittel = zz => { const n = zz.reduce((s, z) => s + z[1], 0); return n ? [zz.reduce((s, z) => s + z[1] * glatt(z), 0) / n, n] : [null, 0]; };
-  const relCls = v => v == null ? "" : idxCls(100 * v / S0);    // Farbe gegen den eigenen Schnitt der Linie
-  const fmt = v => v == null ? "–" : Math.round(v);
-  const zeile = ([dim, name, maxL, ordnung]) => {
-    const heute = heuteVon[dim];
-    const reihe = zeilen[dim].filter(z => ordnung(z[0]) != null && schr(z) != null).sort((a, b) => ordnung(a[0]) - ordnung(b[0]));
-    const extra = zeilen[dim].filter(z => ordnung(z[0]) == null && schr(z) != null);   // z. B. PSF beim Boden
-    // Glätten über die Nachbarn (50 % eigene Gruppe, je 25 % links/rechts; am Rand neu gewichtet), damit einzelne
-    // Ausreißer keinen Bereich machen – nicht beim Alter (nur drei Gruppen)
-    const gm = new Map(reihe.map((z, i) => { if (dim === "age") return [z, schr(z)];
-      const nb = [[i, 0.5], [i - 1, 0.25], [i + 1, 0.25]].filter(([j]) => j >= 0 && j < reihe.length);
-      return [z, nb.reduce((s, [j, w]) => s + w * schr(reihe[j]), 0) / nb.reduce((s, [, w]) => s + w, 0)]; }));
-    glatt = z => gm.has(z) ? gm.get(z) : schr(z);
-    let best = null;
-    for (let i = 0; i < reihe.length; i++) for (let L = 1; L <= maxL && i + L <= reihe.length; L++) {
-      const fen = reihe.slice(i, i + L), [m, n] = mittel(fen);
-      if (n >= OPT_MIN && (!best || m > best.m)) best = {i, L, m, n};
-    }
-    let urteil = "kein klarer Bereich", cls = "", info = "";
-    if (best) {
-      const rest = reihe.filter((z, j) => j < best.i || j >= best.i + best.L), [mo, no] = mittel(rest), diff = mo == null ? null : best.m - mo;
-      if (no < OPT_MIN) { urteil = "zu wenig Vergleich"; best.zeig = false; }
-      else if (diff >= 10) { urteil = "▲ deutlich"; cls = "up"; best.zeig = true; }
-      else if (diff >= 5) { urteil = "leicht"; best.zeig = true; }
-      else { urteil = "gleichmäßig"; best.zeig = false; }
-      const innen = reihe.slice(best.i, best.i + best.L).map(z => z[0]), drin = heute != null && innen.includes(heute);
-      const hj = reihe.findIndex(z => z[0] === heute);
-      const weg = hj < 0 || drin ? "" : hj < best.i ? `, ${best.i - hj} Stufe${best.i - hj > 1 ? "n" : ""} darunter` : `, ${hj - best.i - best.L + 1} Stufe${hj - best.i - best.L + 1 > 1 ? "n" : ""} darüber`;
-      info = best.zeig ? `Wert ${fmt(best.m)} im Bereich · ${fmt(mo)} außerhalb · ${best.n} Läufe · heute ${esc(heute || "–")} ${drin ? "✓ im Bereich" : "✗" + weg}`
-                       : `bester Abschnitt ${fmt(best.m)} gegen ${fmt(mo)} außerhalb · ${best.n} Läufe · heute ${esc(heute || "–")}`;
-    }
-    const zelle = (z, j) => { const v = glatt(z), im = best && best.zeig && j >= best.i && j < best.i + best.L;
-      return `<span class="opt-z ${relCls(v)}${z[1] < 5 ? " thin" : ""}${im ? " im" : ""}${z[0] === heute ? " o-heute" : ""}" title="${esc(`${z[0]}: ${z[1]} Läufe · A/E Platz ${z[4] != null ? fx(z[4], 2) : "–"} · Pos+ ${z[6] ?? "–"} · €/L+ ${z[7] ?? "–"} → Wert ${fmt(wert(z))}, geschrumpft ${fmt(schr(z))}${gm.has(z) && dim !== "age" ? `, geglättet ${fmt(v)}` : ""} · Linie gesamt ${fmt(S0)}`)}">${esc(dim === "dist" ? kurzDist(z[0]) : z[0])}<small>${fmt(v)}</small></span>`; };
-    return `<div class="opt-row"><b>${name}</b><div class="opt-strip">${reihe.map(zelle).join("")}${extra.length ? `<span class="opt-sep"></span>${extra.map(z => zelle(z, -1)).join("")}` : ""}</div>
-      <span class="opt-urteil ${cls}">${urteil}</span>${info ? `<div class="opt-info">${info}</div>` : ""}</div>`;
-  };
-  return `<div class="opt-box"><div class="opt-titel">Optimaler Bereich · ${esc(title(person))} · Linie gesamt ${fmt(S0)}</div>${OPT_DIM.map(zeile).join("")}
-    <div class="opt-leg">Wert je Gruppe = Ø aus A/E+ (100 × A/E Platz), Pos+ und €/L+ (je 100 = Ø aller Läufe dieser Gruppe; €/L+ aus log(1 + Preisgeld) je Lauf), zur Gesamtlinie hin geschrumpft (n / (n + ${OPT_K})) und bei Distanz und Boden mit den Nachbargruppen geglättet (50 / 25 / 25 %); Zahl im Kästchen = dieser Wert, Farbe gegen den Schnitt der Linie (grün ab 10 % darüber, rot ab 10 % darunter); Bereich = bestes zusammenhängendes Fenster (Distanz bis 3 Gruppen, Boden bis 2, Alter 1) ab ${OPT_MIN} Läufen; deutlich ab 10 Punkten über dem Rest, leicht ab 5. Rahmen = Bereich, gelb = heute.</div></div>`;
-}
 // Beste Kategorie einer Person/Linie (goldener Rand am A/E): höchstes A/E Platz, zum Gesamt-A/E hin geschrumpft
 // ((Plätze + 5 × A/E gesamt) / (erwartete Plätze + 5)), nur Kategorien ab 5 Läufen
 const BEST_K = 5, BEST_MIN = 5;
@@ -1499,7 +1479,6 @@ function pvOeffnen(ref){
   o.querySelector(".ov-box").innerHTML = `<div class="ov-kopf"><div><h3>${wer} ${esc(title(person))} · ${was}</h3>
       <div class="muted">${zr} · nach Läufen sortiert · heute: <b>${esc(heute || "–")}</b>${zeilen.length >= 30 ? " · die 30 mit den meisten Läufen (+ heutige)" : ""}</div></div>
       <button type="button" class="ov-zu" aria-label="Schließen">×</button></div>
-    ${/^(sire|dam_sire)_/.test(tab) ? optBereich(tab.startsWith("dam_sire") ? "dam_sire" : "sire", person, DATA.races[state.race].runners.find(y => String(y.no) === no)) : ""}
     <div class="pv-tab"><table class="preftab"><thead><tr><th>${was.replace(/^alle /, "")}</th><th class="r">Läufe</th><th class="r">S-L</th><th class="r">Plätze</th><th class="r">A/E</th></tr></thead><tbody>${
       zeilen.map(([lab, runs, wins, places, ae, exp]) => `<tr class="${lab === heute ? "today" : ""}"><td>${esc(lab)}${lab === heute ? ` <span class="heute">heute</span>` : ""}</td><td class="r num">${runs}</td><td class="r num">${wins}-${runs} (${pct(wins, runs)})</td><td class="r num">${places}</td><td class="r">${(lab === bestLab ? aeChip({runs, wins, places, ae, exp}, 5).replace('class="ae ', 'class="ae best ') : aeChip({runs, wins, places, ae, exp}, 5))}</td></tr>`).join("")}</tbody></table></div>
     <p class="ov-leg">A/E Platz wie in den Vorlieben (blass unter 5 Läufen; goldener Rand = beste Kategorie: höchstes A/E, zum Gesamt-A/E hin geschrumpft, ab 5 Läufen) · ${n} Läufe in ${zeilen.length} Zeilen.</p>`;
@@ -1705,7 +1684,7 @@ const LEG_THEMEN = [
   ["Kennzahlen", ["A/E", "TR", "ΔL600", "Pos. vor Finish", "RTR", "€/Lauf", "Laufstil"]],
   ["Modelle", ["Power"]],
   ["Formzeilen & Gegner", ["Gegner", "Heutige Gegner", "Letzte Läufe", "Kommentar", "Vergleich ARR/TR"]],
-  ["Vorlieben & Verbindungen", ["Vorlieben", "Vorlieben-Vergleich", "A/E-Matrix", "C"]],
+  ["Vorlieben & Verbindungen", ["Vorlieben", "Vorlieben-Vergleich", "Abstammungsprofil", "A/E-Matrix", "C"]],
   ["Prognose & Markt", ["PMU-Prognose"]],
   ["Boden & Bahn", ["Boden"]],
   ["Darstellung & Bedienung", ["Farben", "Aufgeklapptes Pferd", "Starter in drei Stufen"]]];
@@ -1756,7 +1735,8 @@ function renderLegend(){
     <div><b>Laufstil</b> F führend · V vorne dabei · M Mittelfeld · H hinten – aus der Ø frühen Position der letzten ${p.style_runs} Läufe mit Tracking. <b>Pace-Szenario</b>: Norm der Distanzgruppe plus Effekt der Tempomacher und der Feldgröße, geschätzt aus früheren Rennen. <b>Bahn-Bias</b> relativ zum Schnitt aller Bahnen (0 = wie überall): (IV vorne − IV hinten) dieser Bahn/Distanz minus derselbe Wert über alle Bahnen; positiv: Frontrenner hier stärker im Vorteil als sonst, negativ: abwartend Gerittene besser; farbig ab ±0,25. Den Rohwert nennt die Zeile darunter.</div>
     <div><b>C</b> Sieger auf der Bahn · <b>D</b> Sieger über die Distanz (±100 m) · <b>CD</b> beides im selben Rennen · <b>BF</b> letzter Start als Favorit geschlagen. Wechsel (Trainer, Besitzer, Scheuklappen, erstmals Wallach) gegenüber dem letzten Lauf in der Datenbank. <b>Tage</b> seit dem letzten Lauf in der Datenbank.</div>
     <div><b>Vorlieben ▲ / ▼</b> (Trainer, Jockey, Vater, Muttervater): A/E der Vorliebe weicht deutlich und signifikant vom Rest derselben Person bzw. Linie ab – mindestens ×1,2 bzw. ×0,8 des A/E aus ihren übrigen Läufen im selben Zeitraum (Trainer/Jockey 2 Jahre, Vater/Muttervater gesamte Historie) und mindestens 2 Standardfehler, bei mindestens 20 übrigen Läufen. Wie beim Box-Urteil; Werte im Tooltip.</div>
-    <div><b>Vorlieben-Vergleich</b> (Klick auf eine Zeile der Vorlieben): alle Kategorien dieser Person bzw. Linie im selben Zeitraum – z. B. alle Bahnen des Trainers, alle Jockeys, alle Böden des Vaters –, nach Läufen sortiert (höchstens 30 + die heutige), die heutige hervorgehoben. Goldener Rand am A/E (auch in den Vorlieben selbst): beste Kategorie dieser Person/Linie – höchstes A/E Platz, zum Gesamt-A/E hin geschrumpft ((Plätze + 5 × A/E gesamt) / (erwartete Plätze + 5)), ab 5 Läufen. Vater/Muttervater nach Distanz ohne 2-Jährige. Bei Vater und Muttervater oben der <b>optimale Bereich</b> für Distanz, Boden und Alter: Wert je Gruppe = Ø aus A/E+, Pos+ und €/L+ (Pos+ und €/L+ gegen alle Läufe dieser Gruppe, €/L+ aus log(1 + Preisgeld) je Lauf), zur Gesamtlinie hin geschrumpft; bestes zusammenhängendes Fenster ab 30 Läufen, „deutlich“ ab 10 Punkten über dem Rest.</div>
+    <div><b>Vorlieben-Vergleich</b> (Klick auf eine Zeile der Vorlieben): alle Kategorien dieser Person bzw. Linie im selben Zeitraum – z. B. alle Bahnen des Trainers, alle Jockeys, alle Böden des Vaters –, nach Läufen sortiert (höchstens 30 + die heutige), die heutige hervorgehoben. Goldener Rand am A/E (auch in den Vorlieben selbst): beste Kategorie dieser Person/Linie – höchstes A/E Platz, zum Gesamt-A/E hin geschrumpft ((Plätze + 5 × A/E gesamt) / (erwartete Plätze + 5)), ab 5 Läufen. Vater/Muttervater nach Distanz ohne 2-Jährige.</div>
+    <div><b>Abstammungsprofil</b> (Detailseite, Vater und Muttervater, gesamte Historie): Lage der Linie auf vier Skalen als <b>Perzentil gegen alle Väter</b> (bzw. alle Muttervater) mit mindestens 50 Läufen in dieser Dimension – Punkt links = am stärksten links unter allen Linien, rechts = am stärksten rechts, Mitte = ausgeglichen. Skalen: Distanz Sprinter (bis 1400 m) – Mitteldistanz (1401–2400 m) – Steher (über 2400 m); Boden Slow (mit Very slow) – Fast (mit Very fast), nur Gras; Belag Gras – PSF; Reife frühreif (2-Jährige und 3-Jährige bis Juni) – spät (3-Jährige ab Juli und ältere). Wert je Kategorie = Ø aus A/E+ (100 × Plätze ÷ erwartete Plätze laut Quote), Pos+ (Platzanteil) und €/L+ (log(1 + Preisgeld) je Lauf) – Pos+ und €/L+ gegen den Schnitt aller Läufe derselben Kategorie und desselben Alters/Jahreszeit-Bands. Distanz, Boden und Belag sind um das Alters-Profil der Linie korrigiert (2- und 3-Jährige laufen strukturell kürzer – eine frühreife Linie sähe sonst wie ein Sprinter aus): jeder Lauf zählt mit der Erwartung × Stärke der Linie in seinem Band (2j, 3j bis Juni, 3j ab Juli, 4j+; geschrumpft, 20 Läufe). Neigung = Steigung des Werts von links nach rechts (Kategorie-Werte zum Linienwert hin geschrumpft), daraus das Perzentil. Gelbes Dreieck = Lage des heutigen Rennens, stufenlos als Perzentil unter allen Läufen der Historie: Distanz nach Metern (1500 m eher links, 2400 m weit rechts), Boden in vier Stufen (Very slow, Slow, Fast, Very fast), Reife nach Alter und Monat (2-Jähriger im Frühjahr ganz links, Ältere rechts), Belag Gras ganz links / PSF ganz rechts; grün ✓ = Linie mit klarer Neigung (unter P30 oder über P70) liegt nahe am heutigen Rennen (Abstand bis 25 Perzentile), rot ✗ = weit weg (ab 60); ausgeglichene Linien (P30–70) immer neutral; blass = weniger als 50 Läufe. Tooltip: Werte je Kategorie; Klick: alle Distanz-, Boden- bzw. Altersgruppen im Überblick.</div>
     <div><b>A/E-Matrix</b> (Klick auf Trainer, Jockey, Besitzer oder Züchter in „A/E · Siege/Starts“): alle Personen dieser Rolle im heutigen Feld, x = A/E+ (100 × A/E Platz), y = Pos+ (Ø Platzanteil (Starter − Platz) / (Starter − 1), nicht im Ziel = 0; 100 = Ø aller Läufe im Zeitraum), Fläche = €/L+; Farbe: Veränderung gegenüber der Vorperiode (gleich langes Fenster davor), A/E+ und Pos+ zusammen – grün besser, rot schlechter, abgestuft nach Deutlichkeit; blass gestrichelt unter 5 Läufen; an den Bubbles die Startnummern, darunter Legende mit Trikots und Namen. Zeitraum 30/90/365 Tage, Rolle oben umschaltbar.</div>
     <div><b>Heutige Gegner in den letzten Läufen</b>: neben „Gegner“ zusätzlich „Heutige Gegner (n)“, wenn heutige Gegner in diesem Rennen mitliefen (direkte Duelle aus genau diesem Rennen), und „Indirekt (n)“, wenn dieses Rennen Vergleichsrennen eines indirekten Duells ist – aufgeklappt mit gemeinsamem Gegner, Differenz in diesem Rennen, Rennen des heutigen Gegners und dem insgesamt erwarteten Abstand; „vorne x/y“ wie bei den Duell-Knöpfen oben.</div>
     <div><b>Power</b> (Kurzzeile): Rating, RTR, ARR, TR, Duell und Tempo (Ø aus ΔL600 A und ΔB200 A) je als z-Wert im heutigen Feld, gedämpft nach der Zahl der Läufe dahinter (× n / (n + 2)); Median der vorhandenen Werte (ab 3 von 6), Power = 100 + 10 × Median – 100 = Feldschnitt, grün ab 105, rot bis 95 (der Median streut weniger als die einzelnen Kennzahlen); #Rang im Feld. Duell zählt nur, wenn alle Pferde mit Duellen vergleichbar sind (eine Gruppe). Auch als Sortierung. Ist ein Power-Modell trainiert (power_modell.trainieren), ersetzt es diese Rechnung: LightGBM sagt den Platzanteil (bzw. als Rang-Modell die Reihenfolge im Rennen) aus Rennen, Pferd, Kacheln, Vorlieben, Verbindungen, Abstammung und den letzten drei Läufen voraus, viele Werte auch relativ zum heutigen Feld (ohne heutige Prognose und Quote); Power = 100 + 10 × z dieser Vorhersage im Feld; Tooltip mit Siegchance (Softmax über das Feld, auf der Validierung geeicht), fairer Quote und den stärksten Treibern. In der Kurzzeile steht dann statt der Power-Zahl „Fair“: die faire Quote (1 / Siegchance) mit Siegchance und Rang im Feld darunter, grün/rot wie Power (≥ 105 / ≤ 95). Kleiner Punkt oben rechts: ▲ (gold) = Cote der PMU-Prognose – ohne Marge, je Rennen auf 100 % normiert – mindestens 30 % über der fairen Quote (Modell sieht das Pferd stärker als die Prognose), ▼ (grau) = mindestens 30 % darunter; nur bis Cote 30/1. Faire Quoten ab 100 als „100+“. Goldener Rahmen: Value-Modell (power_modell.trainieren_wert) – das Pferd gehört zu den obersten 10 % des Value-Faktors (wird öfter platziert, als seine Quote erwarten lässt), nur bis Cote der PMU-Prognose 10/1 (darüber verlor die Auswahl im Test klar; gestrichelt: Cote unbekannt); im Test zur PMU-Endquote etwa ausgeglichen. Roter Rahmen: unterstes Fünftel des Value-Faktors – der Markt überschätzt solche Pferde klar (A/E ≈ 0,7), das verlässlichste Value-Signal. Der Faktor im Tooltip ist auf die Validierung geeicht. Jede Karte schreibt die Value-Faktoren nach auswertung/value_protokoll.csv; power_modell.value_auswertung(BASE) zeigt die laufende Rendite.</div>

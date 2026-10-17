@@ -1112,10 +1112,210 @@ PREF_ALLE = {
 }
 
 
-# Optimaler Bereich (Vater/Muttervater): Spalten je Tabelle; Pos+ und €/L+ je Kategorie gegen alle Läufe dieser Kategorie
-OPT_TABS = {"sire_dist": ("sire_key", "dist_group"), "sire_going": ("sire_key", "going_pmu"), "sire_age": ("sire_key", "age_grp"),
-            "dam_sire_dist": ("dam_sire_key", "dist_group"), "dam_sire_going": ("dam_sire_key", "going_pmu"),
-            "dam_sire_age": ("dam_sire_key", "age_grp")}
+# Abstammungsprofil (Vater/Muttervater): Lage der Linie auf vier Skalen als Perzentil gegen alle Väter bzw. alle
+# Muttervater der Historie – Distanz (Sprinter … Steher), Boden (Slow … Fast, nur Gras), Belag (Gras … PSF),
+# Reife (frühreif … spät)
+ABST_DIST_GRENZEN = (1400, 2400)     # Sprinter bis 1400 m, Mitteldistanz bis 2400 m, Steher darüber
+ABST_DIST_KAT = ("Sprinter", "Mitteldistanz", "Steher")
+ABST_BODEN_KAT = ("Slow", "Fast")    # nur Gras: Slow mit Very slow, Fast mit Very fast
+ABST_BELAG_KAT = ("Gras", "PSF")
+ABST_REIFE_KAT = ("frühreif", "spät")
+ABST_REIFE_MONAT = 6                  # frühreif: 2-Jährige und 3-Jährige bis Ende Juni; spät: danach und älter
+ABST_K = 20                           # Schrumpfen (Läufe): Alters-Faktor zum Linienschnitt, Kategorie-Wert zum Linienwert
+ABST_POP_MIN = 50                     # Linie zählt zur Vergleichs-Population ab so vielen Läufen in der Dimension
+ABST_SKALEN = {                       # Dimension: (Kategorien links -> rechts, Spalte der Kategorie)
+    "dist": (ABST_DIST_KAT, "dist"), "boden": (ABST_BODEN_KAT, "boden"), "belag": (ABST_BELAG_KAT, "belag"),
+    "reife": (ABST_REIFE_KAT, "reife")}
+ABST_PASST, ABST_PASST_NICHT = 25, 60  # Perzentil-Abstand zur heutigen Kategorie: passt / passt nicht
+ABST_NEUTRAL = (30, 70)               # Linie dazwischen: ausgeglichen, Passung immer neutral
+
+
+def abst_dist_kat(m) -> str | None:
+    m = _num(m)
+    if m is None:
+        return None
+    return ABST_DIST_KAT[0] if m <= ABST_DIST_GRENZEN[0] else ABST_DIST_KAT[1] if m <= ABST_DIST_GRENZEN[1] else ABST_DIST_KAT[2]
+
+
+def abst_boden_kat(g) -> str | None:
+    """Slow/Fast auf Gras; PSF hat keine Kategorie auf dieser Skala (siehe abst_belag_kat)."""
+    t = str(g or "").upper()
+    return None if "PSF" in t else "Fast" if "FAST" in t else "Slow" if "SLOW" in t else None
+
+
+def abst_belag_kat(g) -> str | None:
+    t = str(g or "").upper()
+    return "PSF" if "PSF" in t else "Gras" if ("FAST" in t or "SLOW" in t) else None
+
+
+def abst_reife_kat(alter, monat) -> str | None:
+    a = _num(alter)
+    if a is None or a < 2:
+        return None
+    return ABST_REIFE_KAT[0] if a == 2 or (a == 3 and monat is not None and monat <= ABST_REIFE_MONAT) else ABST_REIFE_KAT[1]
+
+
+ABST_BODEN_STUFE = {"VERY SLOW": 0, "SLOW": 1, "FAST": 2, "VERY FAST": 3}   # Gras, für die Lage des heutigen Rennens
+
+
+def abst_reife_stufe(alter, monat) -> float | None:
+    """Reife als fortlaufende Zahl für die Lage des heutigen Rennens: 2-Jährige nach Monat (1–12), 3-Jährige 13–24,
+    4-Jährige 25–36 …"""
+    a, m = _num(alter), _num(monat)
+    if a is None or m is None or a < 2:
+        return None
+    return 12 * (min(a, 6) - 2) + m
+
+
+def _lage_pz(sortiert: np.ndarray, wert) -> int | None:
+    """Mittleres Perzentil eines Werts unter allen Läufen (Gleichstände zählen halb)."""
+    if wert is None or not len(sortiert):
+        return None
+    return int(round(100 * (np.searchsorted(sortiert, wert, "left") + np.searchsorted(sortiert, wert, "right"))
+                     / 2 / len(sortiert)))
+
+
+def _abst_band(alter: pd.Series, monat: pd.Series) -> pd.Series:
+    """Alters-/Jahreszeit-Band je Lauf: 2j, 3j bis Juni, 3j ab Juli, 4j+ – Grundlage der Korrektur."""
+    a = pd.to_numeric(alter, errors="coerce")
+    b = np.where(a == 2, "2j", np.where(a == 3, np.where(monat <= ABST_REIFE_MONAT, "3j-1", "3j-2"),
+                                         np.where(a >= 4, "4j+", None)))
+    return pd.Series(b, index=alter.index, dtype=object)
+
+
+def abstammung_profil(h: pd.DataFrame, key: str) -> dict:
+    """Je Linie (Vater bzw. Muttervater) und Dimension: Wert je Kategorie = Ø aus A/E+ (100 × Plätze ÷ erwartete
+    Plätze), Pos+ (Platzanteil) und €/L+ (log(1 + Preisgeld) je Lauf), je 100 = Erwartung. Erwartung je Lauf: bei
+    A/E die Platzchance laut Quote, bei Pos+ und €/L+ der Schnitt aller Läufe derselben Kategorie und desselben
+    Alters-/Jahreszeit-Bands. Distanz, Boden und Belag sind zusätzlich um das Alters-Profil der Linie korrigiert
+    (Erwartung × Stärke der Linie in ihrem Band 2j / 3j bis Juni / 3j ab Juli / 4j+, geschrumpft): 2- und 3-Jährige
+    laufen strukturell kürzer, eine frühreife Linie sähe sonst wie ein Sprinter aus.
+    Neigung je Dimension = Steigung des Werts von der linken zur rechten Kategorie (Kategorie-Werte zum Linienwert
+    hin geschrumpft); Perzentil = Rang dieser Neigung unter allen Linien derselben Rolle mit mindestens
+    ABST_POP_MIN Läufen in der Dimension (0 = ganz links, 100 = ganz rechts).
+    Rückgabe {Linie: {"runs", dim: {"zeilen": [[Kat, Läufe, Siege, Plätze, Wert, A/E+, Pos+, €/L+]], "neigung",
+    "perzentil"}}}."""
+    if not len(h) or key not in h:
+        return {}
+    d = h.dropna(subset=[key]).copy()
+    d["monat"] = d["date"].dt.month
+    d["won"] = pd.to_numeric(d["won"], errors="coerce").fillna(0)
+    d["placed"] = pd.to_numeric(d["placed"], errors="coerce").fillna(0)
+    ex = pd.to_numeric(d["exp_place"], errors="coerce") if "exp_place" in d else pd.Series(np.nan, index=d.index)
+    n_r = pd.to_numeric(d["n_runners"], errors="coerce") if "n_runners" in d else pd.Series(np.nan, index=d.index)
+    rp = pd.to_numeric(d["rel_place"], errors="coerce").fillna(0).where(n_r > 1) if "rel_place" in d else n_r * np.nan
+    lp = np.log1p(pd.to_numeric(d["prize_won"], errors="coerce").fillna(0).clip(lower=0)) if "prize_won" in d else n_r * np.nan
+    # Kennzahlen: (Wert je Lauf, Erwartung je Lauf oder None = Schnitt der Population in Kategorie × Band)
+    d["m_ae"], d["e_ae"] = d["placed"].where(ex.notna()), ex
+    d["m_pos"], d["m_epr"] = rp, lp
+    d["band"] = _abst_band(d["age"], d["monat"])
+    d["dist"] = d["distance_m"].map(abst_dist_kat)
+    g_ = d["going_pmu"] if "going_pmu" in d else pd.Series(None, index=d.index)
+    gm = {g: (abst_boden_kat(g), abst_belag_kat(g)) for g in g_.dropna().unique()}
+    d["boden"] = g_.map(lambda g: gm.get(g, (None, None))[0])
+    d["belag"] = g_.map(lambda g: gm.get(g, (None, None))[1])
+    d["reife"] = [abst_reife_kat(a, m) for a, m in zip(d["age"], d["monat"])]
+    out: dict = {}
+    # Lage des heutigen Rennens auf den Skalen: Perzentil unter allen Läufen (Distanz, Boden auf Gras in vier Stufen,
+    # Alter × Monat); Belag nur zwei Kategorien
+    out["_lage"] = {"dist": np.sort(pd.to_numeric(d["distance_m"], errors="coerce").dropna().to_numpy()),
+                    "boden": np.sort(g_.map(lambda g: ABST_BODEN_STUFE.get(str(g).upper())).dropna().to_numpy(float)),
+                    "reife": np.sort(np.array([v for v in (abst_reife_stufe(a, m) for a, m in zip(d["age"], d["monat"]))
+                                               if v is not None], float))}
+    for k_, n in d.groupby(key).size().items():
+        out[k_] = {"runs": int(n)}
+    for dim, (kats, spalte) in ABST_SKALEN.items():
+        t = d.dropna(subset=[spalte]).copy()
+        if not len(t):
+            continue
+        korr = dim != "reife"
+        zelle = [spalte, "band"] if korr else [spalte]
+        idx = {}
+        for m in ("ae", "pos", "epr"):
+            mm = t[f"m_{m}"]
+            if m == "ae":
+                e = t["e_ae"].where(mm.notna())
+            else:                                      # Erwartung: Schnitt aller Läufe in Kategorie (× Band)
+                e = mm.groupby([t[c] for c in zelle]).transform("mean").where(mm.notna())
+            if korr:                                    # Alters-Profil der Linie: Stärke im Band ÷ Linienschnitt
+                lin = pd.DataFrame({"k": t[key], "b": t["band"], "m": mm.fillna(0).where(mm.notna(), 0),
+                                    "e": e.fillna(0), "n": mm.notna().astype(int)})
+                ges = lin.groupby("k")[["m", "e"]].sum()
+                I = (ges["m"] / ges["e"]).where(ges["e"] > 0)
+                bd = lin.dropna(subset=["b"]).groupby(["k", "b"])[["m", "e", "n"]].sum()
+                i_l = I.reindex(bd.index.get_level_values(0)).to_numpy()
+                e_lauf = (bd["e"] / bd["n"].clip(lower=1)).to_numpy()
+                f = ((bd["m"].to_numpy() + ABST_K * i_l * e_lauf) / (bd["e"].to_numpy() + ABST_K * e_lauf)) / i_l
+                fk = pd.Series(np.where(np.isfinite(f), f, 1.0), index=bd.index)
+                e = e * fk.reindex(pd.MultiIndex.from_arrays([t[key], t["band"]])).fillna(1.0).to_numpy()
+            agg = pd.DataFrame({"k": t[key], "c": t[spalte], "m": mm, "e": e}).dropna()
+            s_ = agg.groupby(["k", "c"])[["m", "e"]].sum()
+            idx[m] = (100 * s_["m"] / s_["e"]).where(s_["e"] > 0)
+        bil = t.groupby([key, spalte]).agg(runs=("won", "size"), wins=("won", "sum"), places=("placed", "sum"))
+        ix = pd.DataFrame(idx)
+        ix.index = ix.index.set_names(bil.index.names)
+        tab = bil.join(ix)
+        tab["wert"] = tab[["ae", "pos", "epr"]].mean(axis=1)
+        # Neigung je Linie: Kategorie-Werte zum Linienwert hin geschrumpft, Steigung links -> rechts
+        pos_k = {k: i for i, k in enumerate(kats)}
+        neig = {}
+        for k_, g in tab.groupby(level=0):
+            g = g.droplevel(0)
+            g = g[g.index.isin(kats) & g["wert"].notna()]
+            if len(g) < 2:
+                continue
+            n_, w_ = g["runs"].to_numpy(float), g["wert"].to_numpy(float)
+            W = float((n_ * w_).sum() / n_.sum())
+            ws = (n_ * w_ + ABST_K * W) / (n_ + ABST_K)
+            x_ = np.array([pos_k[c] for c in g.index], float) / (len(kats) - 1)
+            xm = (n_ * x_).sum() / n_.sum()
+            nenner = (n_ * (x_ - xm) ** 2).sum()
+            if nenner > 0:
+                neig[k_] = (float((n_ * (x_ - xm) * (ws - W)).sum() / nenner), int(n_.sum()))
+        pop = pd.Series({k_: v for k_, (v, n_) in neig.items() if n_ >= ABST_POP_MIN}, dtype=float)
+        sortiert = np.sort(pop.to_numpy())
+        for k_, g in tab.groupby(level=0):
+            g = g.droplevel(0)
+            nv = neig.get(k_)
+            pz = (int(round(100 * (np.searchsorted(sortiert, nv[0], side="left")
+                                   + np.searchsorted(sortiert, nv[0], side="right")) / 2 / len(sortiert)))
+                  if nv and len(sortiert) else None)
+            out[k_][dim] = {"zeilen": [[c, int(z["runs"]), int(z["wins"]), int(z["places"]),
+                                        _num(z["wert"], 0), _num(z["ae"], 0), _num(z["pos"], 0), _num(z["epr"], 0)]
+                                       for c in kats if c in g.index for z in [g.loc[c]]],
+                            "neigung": _num(nv[0], 1) if nv else None, "perzentil": pz,
+                            "vergleich": len(sortiert), "runs": int(g["runs"].sum()),
+                            "sicher": bool(nv and nv[1] >= ABST_POP_MIN)}
+    return out
+
+
+def abst_pferd(profil: dict, linie, dist_m, going, alter, monat) -> dict | None:
+    """Abstammungsprofil einer Linie für einen heutigen Starter: je Skala Perzentil, heutige Kategorie und Passung
+    (Abstand des Perzentils zur Lage der heutigen Kategorie auf der Skala: links 0, Mitte 50, rechts 100)."""
+    p = profil.get(linie) if _txt(linie) is not None else None
+    if not p:
+        return None
+    heute = {"dist": abst_dist_kat(dist_m), "boden": abst_boden_kat(going), "belag": abst_belag_kat(going),
+             "reife": abst_reife_kat(alter, monat)}
+    L = profil.get("_lage") or {}
+    stufe = {"dist": _num(dist_m), "boden": ABST_BODEN_STUFE.get(str(going or "").upper()),
+             "reife": abst_reife_stufe(alter, monat)}
+    out = {"runs": p["runs"]}
+    for dim, (kats, _) in ABST_SKALEN.items():
+        s_ = p.get(dim)
+        if not s_:
+            continue
+        h_ = heute[dim]
+        # Lage heute: Perzentil unter allen Läufen (stufenlos), Belag nach Kategorie (Gras 0, PSF 100)
+        lage = (_lage_pz(L.get(dim, np.array([])), stufe.get(dim)) if dim != "belag" and h_ is not None
+                else 100 * kats.index(h_) / (len(kats) - 1) if h_ in kats else None)
+        pz = s_["perzentil"]
+        passung = None
+        if lage is not None and pz is not None and s_["sicher"]:
+            ab = abs(pz - lage) if not ABST_NEUTRAL[0] < pz < ABST_NEUTRAL[1] else ABST_PASST + 1   # ausgeglichen: neutral
+            passung = "passt" if ab <= ABST_PASST else "passt nicht" if ab >= ABST_PASST_NICHT else "neutral"
+        out[dim] = {**s_, "heute": h_, "lage": lage, "passung": passung}
+    return out
 
 
 def kpi_laeufe(vorher: pd.DataFrame, heute, gewicht_heute=None, klasse=None) -> list[list]:
@@ -1676,9 +1876,11 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             pferde = mit.groupby(k_)["horse_id"].nunique()
             je3 = mit[mit["age"] == 3].groupby([k_, "horse_id"])["valeur"].max().dropna()
             g3 = je3.groupby(level=0)
-            abst_extra[rolle] = pd.DataFrame({"horses": pferde, "horses3": g3.size(), "max_val3": g3.mean()})
+            pos_ = rp0.loc[mit.index].groupby(mit[k_]).mean()               # Ø Platzanteil der Nachkommen
+            abst_extra[rolle] = pd.DataFrame({"horses": pferde, "horses3": g3.size(), "max_val3": g3.mean(), "pos": pos_})
         else:
-            abst_extra[rolle] = pd.DataFrame(columns=["horses", "horses3", "max_val3"])
+            abst_extra[rolle] = pd.DataFrame(columns=["horses", "horses3", "max_val3", "pos"])
+    pos_alle = float(rp0.mean()) if len(rp0) and rp0.notna().any() else None   # Basis Pos+ der Abstammung
 
     # Population: Ø €/Lauf über alle Personen bzw. Linien (je Gruppe und Zeitfenster, ab POP_MIN_LAEUFE Läufen)
     # und Ø max Val 3j über alle Linien (ab POP_MIN_PFERDE 3-jährigen Nachkommen) – Basis der Indizes €/L+ und Val+
@@ -1756,25 +1958,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     # Vorlieben-Overlay: je Tabelle und Person alle Kategorien (z. B. alle Bahnen eines Trainers), nach Läufen
     pref_index: dict = {}
     pref_alle: dict = {}
-    opt_basis: dict = {}
-
-    def opt_werte(tab, person, kat, rec_):
-        """[Pos+, €/L+] einer Kategorie (Vater/Muttervater) – 100 = Ø aller Läufe der Kategorie; €/L+ aus
-        log(1 + Preisgeld) je Lauf (wie die Rennstärke), damit einzelne große Rennen den Wert nicht hochziehen."""
-        if tab not in opt_basis:
-            pk, kk = OPT_TABS[tab]
-            ok = h[pk].notna() & h[kk].notna() if pk in h and kk in h else pd.Series(False, index=h.index)
-            if kk == "dist_group" and "age" in h:
-                ok = ok & (h["age"] != 2)                        # Distanz ohne 2-Jährige (wie sire_dist)
-            lp_ = np.log1p(pw.fillna(0).clip(lower=0)) if len(pw) else pd.Series(dtype=float, index=h.index)
-            leer = pd.Series(dtype=float)
-            opt_basis[tab] = (rp0[ok].groupby([h.loc[ok, pk], h.loc[ok, kk]]).mean() if ok.any() else leer,
-                              rp0[ok].groupby(h.loc[ok, kk]).mean() if ok.any() else leer,
-                              lp_[ok].groupby([h.loc[ok, pk], h.loc[ok, kk]]).mean() if ok.any() and len(lp_) else leer,
-                              lp_[ok].groupby(h.loc[ok, kk]).mean() if ok.any() and len(lp_) else leer)
-        pos_g, pos_b, lp_g, lp_b = opt_basis[tab]
-        return [index(_num(pos_g.get((person, kat))), _num(pos_b.get(kat))),
-                index(_num(lp_g.get((person, kat)), 4), _num(lp_b.get(kat), 4))]
+    # Abstammungsprofil (Distanz/Boden alters- und jahreszeitkorrigiert, Reife) je Vater und Muttervater
+    abst_prof = {rolle: abstammung_profil(h, rolle + "_key") for rolle in ("sire", "dam_sire")}
 
     def pref_ref(tab, person, kat):
         """[Tabelle, Person, heutige Kategorie (Beschriftung)] für die Karte; füllt pref_alle[tab][person]."""
@@ -1791,9 +1976,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         heute_lab = lab(kat) if _txt(kat) is not None else None
         if person not in tabelle:
             zeilen = sorted(pref_index[tab].get(person, []), key=lambda cr: -cr[1]["runs"])
-            # [Beschriftung, Läufe, Siege, Plätze, A/E, erwartete Plätze (+ Pos+, €/L+ bei Vater/Muttervater)]
-            tabelle[person] = [[lab(c_), r_["runs"], r_["wins"], r_["places"], r_["ae"], r_["exp"]]
-                               + (opt_werte(tab, person, c_, r_) if tab in OPT_TABS else []) for c_, r_ in zeilen]
+            # [Beschriftung, Läufe, Siege, Plätze, A/E, erwartete Plätze]
+            tabelle[person] = [[lab(c_), r_["runs"], r_["wins"], r_["places"], r_["ae"], r_["exp"]] for c_, r_ in zeilen]
         pref_heute.setdefault((tab, person), set()).add(heute_lab)
         return [tab, person, heute_lab]
     pref_heute: dict = {}                                         # (tab, person) -> heutige Kategorien (bleiben beim Kürzen)
@@ -1989,7 +2173,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 ae_p["pedigree"][rolle] = {**rec_, "epr_idx": index(rec_["epr"], pop[f"{rolle}_all"]),
                                            "horses": int(e_["horses"]) if e_ is not None and pd.notna(e_["horses"]) else 0,
                                            "horses3": int(e_["horses3"]) if e_ is not None and pd.notna(e_["horses3"]) else 0,
-                                           "max_val3": mv3, "max_val3_idx": index(mv3, pop[f"{rolle}_val3"])}
+                                           "max_val3": mv3, "max_val3_idx": index(mv3, pop[f"{rolle}_val3"]),
+                                           "pos_idx": index(_num(e_["pos"]), pos_alle) if e_ is not None and pd.notna(e_["pos"]) else None}
             dr_ = _num(p.get("draw"), 0)
             bx = box.loc[(konfig_heute, dr_)] if dr_ is not None and (konfig_heute, dr_) in box.index else None
             box_p = ({**box_urteil(bx["mean"], bx["count"]), "ok": bool(bx["count"] >= BOX_MIN_LAEUFE)}
@@ -2057,6 +2242,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                                  "going": q("dam_sire_going", (dk, gb), "dam_sire"),
                                  "age": q("dam_sire_age", (dk, alter_gruppe(p.get("age"))), "dam_sire")},
                 },
+                "abst": {rolle: abst_pferd(abst_prof[rolle], {"sire": sk, "dam_sire": dk}[rolle], dist,
+                                           gb, p.get("age"), heute.month)
+                         for rolle in ("sire", "dam_sire")},
                 "pref_ref": {                                      # Vorlieben-Overlay: Verweis in DATA.pref_alle
                     "trainer": {"jockey": pref_ref("trainer_jockey", tk, jk), "course": pref_ref("trainer_course", tk, course),
                                 "racetype": pref_ref("trainer_type", tk, rt),
@@ -2142,7 +2330,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                    "epr_ref": epr_ref, "class_races": int(len(kl_vert["cls_epr_kl"])),
                    "pop": {k: _num(v, 1) for k, v in pop.items()}, "pop_min_runs": POP_MIN_LAEUFE,
                    "pop_min_horses": POP_MIN_PFERDE,
-                   "box_min": BOX_MIN_LAEUFE, "duel_days": DUELL_TAGE, "duel_dist": DUELL_DIST_M, "duel_halflife": DUELL_RANG_HALBWERT,
+                   "box_min": BOX_MIN_LAEUFE, "abst_pop_min": ABST_POP_MIN, "duel_days": DUELL_TAGE, "duel_dist": DUELL_DIST_M, "duel_halflife": DUELL_RANG_HALBWERT,
                    "duel_w": [DUELL_RANG_DIREKT, DUELL_RANG_INDIREKT], "duel_max_l": DUELL_RANG_MAX_L,
                    "best_seg_m": speedfig.BEST_SEG_BEREICH_M, "beaten_l": speedfig.AUSGERITTEN_L,
                    "avg_prior": SCHNITT_PRIOR, "avg_dist_m": SCHNITT_DIST_M, "weight_ref": GEWICHT_REF, "going_stufen": SCHNITT_GOING_STUFEN, "going_psf": GOING_PSF_GRAS, "tr_upg_max": timeform_ratings.UPGRADE_MAX_LB,
