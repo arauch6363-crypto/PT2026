@@ -891,32 +891,48 @@ def power_modell_pruefen() -> None:
            "Modell-Info je Rennart aus dem Bericht; Value-Warnsignal (unterstes Fünftel) je Starter in der Vorhersage")
 
 
-def abstammung_pruefen() -> None:
-    """Abstammungsprofil: frühreife Linie (als 2-Jährige stark, 2-Jährige nur auf Sprintdistanz, sonst überall gleich)
-    darf nach der Alters-/Jahreszeit-Korrektur nicht als Sprinter-Linie erscheinen; Reife zeigt die Frühreife."""
+def _abst_population(seed=0, n_linien=36, laeufe=400) -> pd.DataFrame:
+    """Väter mit eingebauter Neigung: Sprinter, Steher, frühreif (als 2-Jährige stark; 2-Jährige laufen nur kurz),
+    PSF, weicher Boden, neutral."""
     import numpy as np
-    import racecard as rc
-    rng = np.random.default_rng(0)
+    rng = np.random.default_rng(seed)
     z = []
-    for _ in range(6000):
-        a = int(rng.choice([2, 3, 4])); mon = int(rng.integers(3, 11))
-        z.append(dict(sire_key="S1", date=pd.Timestamp(2025, mon, 15), age=a,
-                      distance_m=1200 if a == 2 else int(rng.choice([1200, 2000, 2800])),
-                      going_pmu="VERY FAST" if mon < 6 else "FAST" if mon < 9 else "VERY SLOW", won=0,
-                      placed=int(rng.random() < 0.3 * (1.6 if a == 2 else 1.0)), exp_place=0.3))
-    p = rc.abstammung_profil(pd.DataFrame(z), "sire_key")["S1"]
-    roh = {k: v["ae"] for k, v in p["dist"].items()}
-    korr = {k: v["ae_korr"] for k, v in p["dist"].items()}
-    x = rc.abst_pferd({"S1": p}, "S1", 2100, "VERY SLOW", 3, 8)
-    pruefe(roh["Sprinter"] - roh["Steher"] > 0.3 and max(korr.values()) - min(korr.values()) < 0.06
-           and x["dist"]["best"] is None and x["reife"]["best"] == "frühreif" and x["reife"]["urteil"] == "deutlich"
-           and set(p["boden"]) == {"Fast", "Slow"} and x["dist"]["heute"] == "Mitteldistanz"
-           and x["boden"]["heute"] == "Slow" and x["reife"]["heute"] == "spät"
+    for li in range(n_linien):
+        typ = ["sprint", "steher", "frueh", "psf", "weich", "neutral"][li % 6]
+        for _ in range(laeufe):
+            a = int(rng.choice([2, 3, 4])); mon = int(rng.integers(3, 12))
+            d = int(rng.choice([1200, 1300])) if a == 2 else int(rng.choice([1200, 2000, 2800]))
+            g = str(rng.choice(["VERY FAST", "FAST", "SLOW", "VERY SLOW", "PSF"]))
+            f = {"sprint": 1.5 if d <= 1400 else 0.7, "steher": 1.5 if d > 2400 else 0.8, "frueh": 1.7 if a == 2 else 1.0,
+                 "psf": 1.6 if g == "PSF" else 0.9, "weich": 1.5 if "SLOW" in g else 0.8 if "FAST" in g else 1.0}.get(typ, 1.0)
+            pl = rng.random() < min(0.95, 0.3 * f)
+            pos = 1 if pl and rng.random() < 0.3 else (int(rng.integers(1, 4)) if pl else int(rng.integers(4, 11)))
+            z.append(dict(sire_key=f"{typ}{li}", date=pd.Timestamp(2025, mon, 15), age=a, distance_m=d, going_pmu=g,
+                          won=int(pos == 1), placed=int(pl), exp_place=0.3, n_runners=10, rel_place=(10 - pos) / 9,
+                          prize_won=5000.0 * (pos == 1) + 1000.0 * pl))
+    return pd.DataFrame(z)
+
+
+def abstammung_pruefen() -> None:
+    """Abstammungsprofil: Perzentile gegen alle Väter auf vier Skalen; Wert = Ø aus A/E+, Pos+, €/L+; die frühreife
+    Linie (2-Jährige stark und nur auf kurzen Strecken) darf nach der Korrektur nicht als Sprinter erscheinen."""
+    import racecard as rc
+    p = rc.abstammung_profil(_abst_population(), "sire_key")
+    pz = lambda typ, dim: [v[dim]["perzentil"] for k, v in p.items() if k.startswith(typ)]
+    mid = lambda l: sorted(l)[len(l) // 2]
+    z = p["steher1"]["dist"]["zeilen"][0]
+    x = rc.abst_pferd(p, "steher1", 2800, "PSF", 3, 8)
+    pruefe(mid(pz("sprint", "dist")) <= 20 and mid(pz("steher", "dist")) >= 80 and 25 <= mid(pz("frueh", "dist")) <= 75
+           and mid(pz("frueh", "reife")) <= 30 and mid(pz("psf", "belag")) >= 80 and mid(pz("weich", "boden")) <= 20
+           and len(z) == 8 and abs(z[4] - (z[5] + z[6] + z[7]) / 3) <= 1
+           and x["dist"]["heute"] == "Steher" and x["dist"]["passung"] == "passt" and x["boden"]["heute"] is None
+           and x["belag"]["heute"] == "PSF" and x["reife"]["heute"] == "spät"
            and [rc.abst_dist_kat(m) for m in (1400, 1401, 2400, 2401)] == ["Sprinter", "Mitteldistanz", "Mitteldistanz", "Steher"]
-           and rc.abst_boden_kat("PSF") == "PSF" and rc.abst_reife_kat(3, 6) == "frühreif" and rc.abst_reife_kat(3, 7) == "spät",
-           f"Abstammungsprofil: frühreife Linie roh wie ein Sprinter (A/E {roh['Sprinter']:.2f} gegen {roh['Steher']:.2f}), "
-           f"um Alter und Jahreszeit korrigiert gleichmäßig ({min(korr.values()):.2f}–{max(korr.values()):.2f}); "
-           f"Reife: frühreif deutlich; Kategorien Distanz/Boden/Reife")
+           and rc.abst_reife_kat(3, 6) == "frühreif" and rc.abst_reife_kat(3, 7) == "spät",
+           f"Abstammungsprofil: Perzentile gegen alle Väter – Distanz Sprinter P{mid(pz('sprint', 'dist'))} / Steher "
+           f"P{mid(pz('steher', 'dist'))} / frühreife Linie P{mid(pz('frueh', 'dist'))} (korrigiert, kein Sprinter), "
+           f"Reife frühreif P{mid(pz('frueh', 'reife'))}, Belag PSF P{mid(pz('psf', 'belag'))}, Boden weich "
+           f"P{mid(pz('weich', 'boden'))}; Wert = Ø aus A/E+, Pos+, €/L+; Passung zur heutigen Kategorie")
 
 
 def tipp_auswertung_pruefen() -> None:
@@ -1098,7 +1114,7 @@ def racecard_pruefen() -> None:
     pruefe(len(zs) == 6 and ab and {"dist", "boden", "reife"} <= set(ab)
            and ab["dist"]["heute"] == rc.abst_dist_kat(rr_["distance"])
            and sum(z[1] for z in ab["dist"]["zeilen"]) == int(hs_["distance_m"].notna().sum())
-           and all(len(z) == 6 for dim in ("dist", "boden", "reife") for z in ab[dim]["zeilen"]),
+           and all(len(z) == 8 for dim in ("dist", "boden", "belag", "reife") if ab.get(dim) for z in ab[dim]["zeilen"]),
            f"Abstammungsprofil in der Karte: Vater mit Distanz/Boden/Reife ({ab['runs']} Läufe), heutige Kategorie markiert; "
            f"Vorlieben-Overlay ohne Zusatzspalten")
     m90 = x["ae"]["trainer"]["d90"]

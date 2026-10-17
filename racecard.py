@@ -1112,15 +1112,21 @@ PREF_ALLE = {
 }
 
 
-# Abstammungsprofil (Vater/Muttervater): Distanz in drei, Boden in drei, Reife in zwei Kategorien
+# Abstammungsprofil (Vater/Muttervater): Lage der Linie auf vier Skalen als Perzentil gegen alle Väter bzw. alle
+# Muttervater der Historie – Distanz (Sprinter … Steher), Boden (Slow … Fast, nur Gras), Belag (Gras … PSF),
+# Reife (frühreif … spät)
 ABST_DIST_GRENZEN = (1400, 2400)     # Sprinter bis 1400 m, Mitteldistanz bis 2400 m, Steher darüber
 ABST_DIST_KAT = ("Sprinter", "Mitteldistanz", "Steher")
-ABST_BODEN_KAT = ("Fast", "Slow", "PSF")
+ABST_BODEN_KAT = ("Slow", "Fast")    # nur Gras: Slow mit Very slow, Fast mit Very fast
+ABST_BELAG_KAT = ("Gras", "PSF")
 ABST_REIFE_KAT = ("frühreif", "spät")
 ABST_REIFE_MONAT = 6                  # frühreif: 2-Jährige und 3-Jährige bis Ende Juni; spät: danach und älter
-ABST_K = 20                           # Alters-/Jahreszeit-Faktor der Linie zum Linienschnitt hin geschrumpft (Läufe)
-ABST_MIN = 30                         # Urteil erst ab so vielen Läufen in der besten Kategorie und im Rest
-ABST_DEUTLICH, ABST_LEICHT = 0.10, 0.05   # A/E-Abstand der besten Kategorie zum Rest für „deutlich“ / „leicht“
+ABST_K = 20                           # Schrumpfen (Läufe): Alters-Faktor zum Linienschnitt, Kategorie-Wert zum Linienwert
+ABST_POP_MIN = 50                     # Linie zählt zur Vergleichs-Population ab so vielen Läufen in der Dimension
+ABST_SKALEN = {                       # Dimension: (Kategorien links -> rechts, Spalte der Kategorie)
+    "dist": (ABST_DIST_KAT, "dist"), "boden": (ABST_BODEN_KAT, "boden"), "belag": (ABST_BELAG_KAT, "belag"),
+    "reife": (ABST_REIFE_KAT, "reife")}
+ABST_PASST, ABST_PASST_NICHT = 25, 60  # Perzentil-Abstand zur heutigen Kategorie: passt / passt nicht
 
 
 def abst_dist_kat(m) -> str | None:
@@ -1131,8 +1137,14 @@ def abst_dist_kat(m) -> str | None:
 
 
 def abst_boden_kat(g) -> str | None:
+    """Slow/Fast auf Gras; PSF hat keine Kategorie auf dieser Skala (siehe abst_belag_kat)."""
     t = str(g or "").upper()
-    return "PSF" if "PSF" in t else "Fast" if "FAST" in t else "Slow" if "SLOW" in t else None
+    return None if "PSF" in t else "Fast" if "FAST" in t else "Slow" if "SLOW" in t else None
+
+
+def abst_belag_kat(g) -> str | None:
+    t = str(g or "").upper()
+    return "PSF" if "PSF" in t else "Gras" if ("FAST" in t or "SLOW" in t) else None
 
 
 def abst_reife_kat(alter, monat) -> str | None:
@@ -1143,7 +1155,7 @@ def abst_reife_kat(alter, monat) -> str | None:
 
 
 def _abst_band(alter: pd.Series, monat: pd.Series) -> pd.Series:
-    """Alters-/Jahreszeit-Band je Lauf: 2j, 3j bis Juni, 3j ab Juli, 4j+ – Grundlage der Distanz-/Boden-Korrektur."""
+    """Alters-/Jahreszeit-Band je Lauf: 2j, 3j bis Juni, 3j ab Juli, 4j+ – Grundlage der Korrektur."""
     a = pd.to_numeric(alter, errors="coerce")
     b = np.where(a == 2, "2j", np.where(a == 3, np.where(monat <= ABST_REIFE_MONAT, "3j-1", "3j-2"),
                                          np.where(a >= 4, "4j+", None)))
@@ -1151,89 +1163,126 @@ def _abst_band(alter: pd.Series, monat: pd.Series) -> pd.Series:
 
 
 def abstammung_profil(h: pd.DataFrame, key: str) -> dict:
-    """Je Linie (Vater bzw. Muttervater): Bilanz nach Distanz (Sprinter/Mitteldistanz/Steher), Boden (Fast/Slow/PSF)
-    und Reife (frühreif/spät). Distanz und Boden sind um Alter und Jahreszeit korrigiert: 2- und 3-Jährige laufen
-    strukturell kürzer (und je nach Jahreszeit auf anderem Boden) – eine frühreife Linie sähe sonst wie ein Sprinter
-    aus. Dafür zählt jeder Lauf mit der erwarteten Platzierung × Stärke der Linie in seinem Alters-/Jahreszeit-Band
-    (2j, 3j bis Juni, 3j ab Juli, 4j+; relativ zum Linienschnitt, geschrumpft mit ABST_K Läufen).
-    Rückgabe: {Linie: {"ae", "runs", "dist": {Kat: rec}, "boden": {...}, "reife": {...}}}, rec mit ae (roh) und
-    ae_korr."""
+    """Je Linie (Vater bzw. Muttervater) und Dimension: Wert je Kategorie = Ø aus A/E+ (100 × Plätze ÷ erwartete
+    Plätze), Pos+ (Platzanteil) und €/L+ (log(1 + Preisgeld) je Lauf), je 100 = Erwartung. Erwartung je Lauf: bei
+    A/E die Platzchance laut Quote, bei Pos+ und €/L+ der Schnitt aller Läufe derselben Kategorie und desselben
+    Alters-/Jahreszeit-Bands. Distanz, Boden und Belag sind zusätzlich um das Alters-Profil der Linie korrigiert
+    (Erwartung × Stärke der Linie in ihrem Band 2j / 3j bis Juni / 3j ab Juli / 4j+, geschrumpft): 2- und 3-Jährige
+    laufen strukturell kürzer, eine frühreife Linie sähe sonst wie ein Sprinter aus.
+    Neigung je Dimension = Steigung des Werts von der linken zur rechten Kategorie (Kategorie-Werte zum Linienwert
+    hin geschrumpft); Perzentil = Rang dieser Neigung unter allen Linien derselben Rolle mit mindestens
+    ABST_POP_MIN Läufen in der Dimension (0 = ganz links, 100 = ganz rechts).
+    Rückgabe {Linie: {"runs", dim: {"zeilen": [[Kat, Läufe, Siege, Plätze, Wert, A/E+, Pos+, €/L+]], "neigung",
+    "perzentil"}}}."""
     if not len(h) or key not in h:
         return {}
-    d = h.dropna(subset=[key])
-    d = d.assign(monat=d["date"].dt.month,
-                 placed=pd.to_numeric(d["placed"], errors="coerce").fillna(0),
-                 won=pd.to_numeric(d["won"], errors="coerce").fillna(0),
-                 ex=pd.to_numeric(d["exp_place"], errors="coerce") if "exp_place" in d else np.nan)
-    d["mit"] = d["ex"].notna()
-    d["pl_mit"] = d["placed"].where(d["mit"], 0)
-    d["ex0"] = d["ex"].fillna(0)
+    d = h.dropna(subset=[key]).copy()
+    d["monat"] = d["date"].dt.month
+    d["won"] = pd.to_numeric(d["won"], errors="coerce").fillna(0)
+    d["placed"] = pd.to_numeric(d["placed"], errors="coerce").fillna(0)
+    ex = pd.to_numeric(d["exp_place"], errors="coerce") if "exp_place" in d else pd.Series(np.nan, index=d.index)
+    n_r = pd.to_numeric(d["n_runners"], errors="coerce") if "n_runners" in d else pd.Series(np.nan, index=d.index)
+    rp = pd.to_numeric(d["rel_place"], errors="coerce").fillna(0).where(n_r > 1) if "rel_place" in d else n_r * np.nan
+    lp = np.log1p(pd.to_numeric(d["prize_won"], errors="coerce").fillna(0).clip(lower=0)) if "prize_won" in d else n_r * np.nan
+    # Kennzahlen: (Wert je Lauf, Erwartung je Lauf oder None = Schnitt der Population in Kategorie × Band)
+    d["m_ae"], d["e_ae"] = d["placed"].where(ex.notna()), ex
+    d["m_pos"], d["m_epr"] = rp, lp
     d["band"] = _abst_band(d["age"], d["monat"])
     d["dist"] = d["distance_m"].map(abst_dist_kat)
-    gm = {g: abst_boden_kat(g) for g in d["going_pmu"].dropna().unique()} if "going_pmu" in d else {}
-    d["boden"] = d["going_pmu"].map(gm) if "going_pmu" in d else None
+    g_ = d["going_pmu"] if "going_pmu" in d else pd.Series(None, index=d.index)
+    gm = {g: (abst_boden_kat(g), abst_belag_kat(g)) for g in g_.dropna().unique()}
+    d["boden"] = g_.map(lambda g: gm.get(g, (None, None))[0])
+    d["belag"] = g_.map(lambda g: gm.get(g, (None, None))[1])
     d["reife"] = [abst_reife_kat(a, m) for a, m in zip(d["age"], d["monat"])]
-    ges = d.groupby(key).agg(runs=("won", "size"), pl=("pl_mit", "sum"), ex=("ex0", "sum"))
-    A = (ges["pl"] / ges["ex"]).where(ges["ex"] > 0)
-    bd = d.dropna(subset=["band"]).groupby([key, "band"]).agg(pl=("pl_mit", "sum"), ex=("ex0", "sum"))
-    a_l = A.reindex(bd.index.get_level_values(0)).to_numpy()
-    f = ((bd["pl"].to_numpy() + ABST_K * a_l) / (bd["ex"].to_numpy() + ABST_K)) / a_l     # Stärke im Band ÷ Schnitt
-    faktor = pd.Series(np.where(np.isfinite(f), f, 1.0), index=bd.index)
-    idx = pd.MultiIndex.from_arrays([d[key], d["band"]])
-    d["exk"] = d["ex0"] * faktor.reindex(idx).fillna(1.0).to_numpy()
     out: dict = {}
-    for k_, g in ges.iterrows():
-        out[k_] = {"ae": _num(A.get(k_)), "runs": int(g["runs"]), "dist": {}, "boden": {}, "reife": {}}
-    for dim in ("dist", "boden", "reife"):
-        t = d.dropna(subset=[dim]).groupby([key, dim]).agg(runs=("won", "size"), wins=("won", "sum"),
-                                                           places=("placed", "sum"), pl=("pl_mit", "sum"),
-                                                           ex=("ex0", "sum"), exk=("exk", "sum"))
-        for (k_, kat), z in t.iterrows():
-            out[k_][dim][kat] = {"runs": int(z["runs"]), "wins": int(z["wins"]), "places": int(z["places"]),
-                                 "pl": int(z["pl"]), "ex": float(z["ex"]),
-                                 "ae": _num(z["pl"] / z["ex"]) if z["ex"] > 0 else None,
-                                 "ae_korr": (_num(z["pl"] / z["exk"]) if z["exk"] > 0 else None) if dim != "reife"
-                                 else (_num(z["pl"] / z["ex"]) if z["ex"] > 0 else None)}
+    for k_, n in d.groupby(key).size().items():
+        out[k_] = {"runs": int(n)}
+    for dim, (kats, spalte) in ABST_SKALEN.items():
+        t = d.dropna(subset=[spalte]).copy()
+        if not len(t):
+            continue
+        korr = dim != "reife"
+        zelle = [spalte, "band"] if korr else [spalte]
+        idx = {}
+        for m in ("ae", "pos", "epr"):
+            mm = t[f"m_{m}"]
+            if m == "ae":
+                e = t["e_ae"].where(mm.notna())
+            else:                                      # Erwartung: Schnitt aller Läufe in Kategorie (× Band)
+                e = mm.groupby([t[c] for c in zelle]).transform("mean").where(mm.notna())
+            if korr:                                    # Alters-Profil der Linie: Stärke im Band ÷ Linienschnitt
+                lin = pd.DataFrame({"k": t[key], "b": t["band"], "m": mm.fillna(0).where(mm.notna(), 0),
+                                    "e": e.fillna(0), "n": mm.notna().astype(int)})
+                ges = lin.groupby("k")[["m", "e"]].sum()
+                I = (ges["m"] / ges["e"]).where(ges["e"] > 0)
+                bd = lin.dropna(subset=["b"]).groupby(["k", "b"])[["m", "e", "n"]].sum()
+                i_l = I.reindex(bd.index.get_level_values(0)).to_numpy()
+                e_lauf = (bd["e"] / bd["n"].clip(lower=1)).to_numpy()
+                f = ((bd["m"].to_numpy() + ABST_K * i_l * e_lauf) / (bd["e"].to_numpy() + ABST_K * e_lauf)) / i_l
+                fk = pd.Series(np.where(np.isfinite(f), f, 1.0), index=bd.index)
+                e = e * fk.reindex(pd.MultiIndex.from_arrays([t[key], t["band"]])).fillna(1.0).to_numpy()
+            agg = pd.DataFrame({"k": t[key], "c": t[spalte], "m": mm, "e": e}).dropna()
+            s_ = agg.groupby(["k", "c"])[["m", "e"]].sum()
+            idx[m] = (100 * s_["m"] / s_["e"]).where(s_["e"] > 0)
+        bil = t.groupby([key, spalte]).agg(runs=("won", "size"), wins=("won", "sum"), places=("placed", "sum"))
+        ix = pd.DataFrame(idx)
+        ix.index = ix.index.set_names(bil.index.names)
+        tab = bil.join(ix)
+        tab["wert"] = tab[["ae", "pos", "epr"]].mean(axis=1)
+        # Neigung je Linie: Kategorie-Werte zum Linienwert hin geschrumpft, Steigung links -> rechts
+        pos_k = {k: i for i, k in enumerate(kats)}
+        neig = {}
+        for k_, g in tab.groupby(level=0):
+            g = g.droplevel(0)
+            g = g[g.index.isin(kats) & g["wert"].notna()]
+            if len(g) < 2:
+                continue
+            n_, w_ = g["runs"].to_numpy(float), g["wert"].to_numpy(float)
+            W = float((n_ * w_).sum() / n_.sum())
+            ws = (n_ * w_ + ABST_K * W) / (n_ + ABST_K)
+            x_ = np.array([pos_k[c] for c in g.index], float) / (len(kats) - 1)
+            xm = (n_ * x_).sum() / n_.sum()
+            nenner = (n_ * (x_ - xm) ** 2).sum()
+            if nenner > 0:
+                neig[k_] = (float((n_ * (x_ - xm) * (ws - W)).sum() / nenner), int(n_.sum()))
+        pop = pd.Series({k_: v for k_, (v, n_) in neig.items() if n_ >= ABST_POP_MIN}, dtype=float)
+        sortiert = np.sort(pop.to_numpy())
+        for k_, g in tab.groupby(level=0):
+            g = g.droplevel(0)
+            nv = neig.get(k_)
+            pz = (int(round(100 * (np.searchsorted(sortiert, nv[0], side="left")
+                                   + np.searchsorted(sortiert, nv[0], side="right")) / 2 / len(sortiert)))
+                  if nv and len(sortiert) else None)
+            out[k_][dim] = {"zeilen": [[c, int(z["runs"]), int(z["wins"]), int(z["places"]),
+                                        _num(z["wert"], 0), _num(z["ae"], 0), _num(z["pos"], 0), _num(z["epr"], 0)]
+                                       for c in kats if c in g.index for z in [g.loc[c]]],
+                            "neigung": _num(nv[0], 1) if nv else None, "perzentil": pz,
+                            "vergleich": len(sortiert), "runs": int(g["runs"].sum()),
+                            "sicher": bool(nv and nv[1] >= ABST_POP_MIN)}
     return out
 
 
-def abst_urteil(zeilen: dict, kats: tuple, a_linie) -> dict:
-    """Beste Kategorie einer Dimension (A/E korrigiert, zum Linienschnitt hin geschrumpft) gegen den Rest:
-    „deutlich“ ab ABST_DEUTLICH, „leicht“ ab ABST_LEICHT Abstand; beide Seiten mit mindestens ABST_MIN Läufen."""
-    A = a_linie or 1.0
-    werte = {}
-    for k in kats:
-        z = zeilen.get(k)
-        if z and z["ex"] > 0 and z["ae_korr"] is not None:
-            exk = z["pl"] / z["ae_korr"] if z["ae_korr"] else z["ex"]
-            werte[k] = ((z["pl"] + ABST_K * A) / (exk + ABST_K), z["runs"], z["pl"], exk)
-    if len(werte) < 2:
-        return {"best": None, "urteil": "zu wenig Läufe"}
-    best = max(werte, key=lambda k: werte[k][0])
-    rest = [v for k, v in werte.items() if k != best]
-    n_rest, pl_r, ex_r = sum(v[1] for v in rest), sum(v[2] for v in rest), sum(v[3] for v in rest)
-    if werte[best][1] < ABST_MIN or n_rest < ABST_MIN or ex_r <= 0:
-        return {"best": None, "urteil": "zu wenig Läufe"}
-    abstand = werte[best][0] - (pl_r + ABST_K * A) / (ex_r + ABST_K)
-    if abstand >= ABST_DEUTLICH:
-        return {"best": best, "urteil": "deutlich", "abstand": _num(abstand, 2)}
-    if abstand >= ABST_LEICHT:
-        return {"best": best, "urteil": "leicht", "abstand": _num(abstand, 2)}
-    return {"best": None, "urteil": "keine klare Vorliebe", "abstand": _num(abstand, 2)}
-
-
 def abst_pferd(profil: dict, linie, dist_m, going, alter, monat) -> dict | None:
-    """Abstammungsprofil einer Linie für einen heutigen Starter: je Dimension die Kategorien (Läufe, S-L, Plätze,
-    A/E roh und korrigiert), die heutige Kategorie und das Urteil."""
+    """Abstammungsprofil einer Linie für einen heutigen Starter: je Skala Perzentil, heutige Kategorie und Passung
+    (Abstand des Perzentils zur Lage der heutigen Kategorie auf der Skala: links 0, Mitte 50, rechts 100)."""
     p = profil.get(linie) if _txt(linie) is not None else None
     if not p:
         return None
-    heute = {"dist": abst_dist_kat(dist_m), "boden": abst_boden_kat(going), "reife": abst_reife_kat(alter, monat)}
-    out = {"ae": p["ae"], "runs": p["runs"]}
-    for dim, kats in (("dist", ABST_DIST_KAT), ("boden", ABST_BODEN_KAT), ("reife", ABST_REIFE_KAT)):
-        out[dim] = {"zeilen": [[k, z["runs"], z["wins"], z["places"], z["ae"], z["ae_korr"]]
-                               for k in kats if (z := p[dim].get(k))],
-                    "heute": heute[dim], **abst_urteil(p[dim], kats, p["ae"])}
+    heute = {"dist": abst_dist_kat(dist_m), "boden": abst_boden_kat(going), "belag": abst_belag_kat(going),
+             "reife": abst_reife_kat(alter, monat)}
+    out = {"runs": p["runs"]}
+    for dim, (kats, _) in ABST_SKALEN.items():
+        s_ = p.get(dim)
+        if not s_:
+            continue
+        h_ = heute[dim]
+        lage = 100 * kats.index(h_) / (len(kats) - 1) if h_ in kats else None
+        pz = s_["perzentil"]
+        passung = None
+        if lage is not None and pz is not None and s_["sicher"]:
+            ab = abs(pz - lage)
+            passung = "passt" if ab <= ABST_PASST else "passt nicht" if ab >= ABST_PASST_NICHT else "neutral"
+        out[dim] = {**s_, "heute": h_, "passung": passung}
     return out
 
 
@@ -2246,7 +2295,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                    "epr_ref": epr_ref, "class_races": int(len(kl_vert["cls_epr_kl"])),
                    "pop": {k: _num(v, 1) for k, v in pop.items()}, "pop_min_runs": POP_MIN_LAEUFE,
                    "pop_min_horses": POP_MIN_PFERDE,
-                   "box_min": BOX_MIN_LAEUFE, "duel_days": DUELL_TAGE, "duel_dist": DUELL_DIST_M, "duel_halflife": DUELL_RANG_HALBWERT,
+                   "box_min": BOX_MIN_LAEUFE, "abst_pop_min": ABST_POP_MIN, "duel_days": DUELL_TAGE, "duel_dist": DUELL_DIST_M, "duel_halflife": DUELL_RANG_HALBWERT,
                    "duel_w": [DUELL_RANG_DIREKT, DUELL_RANG_INDIREKT], "duel_max_l": DUELL_RANG_MAX_L,
                    "best_seg_m": speedfig.BEST_SEG_BEREICH_M, "beaten_l": speedfig.AUSGERITTEN_L,
                    "avg_prior": SCHNITT_PRIOR, "avg_dist_m": SCHNITT_DIST_M, "weight_ref": GEWICHT_REF, "going_stufen": SCHNITT_GOING_STUFEN, "going_psf": GOING_PSF_GRAS, "tr_upg_max": timeform_ratings.UPGRADE_MAX_LB,

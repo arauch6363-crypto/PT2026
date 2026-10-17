@@ -341,12 +341,14 @@ Je Starter:
 * **A/E** zusätzlich für Besitzer und Züchter; Abstammung mit Zahl der Pferde und Ø der höchsten Valeur der
   Nachkommen als 3-Jährige (Ø max Val 3j).
 * **Abstammungsprofil** (Detailseite, ersetzt Vater/Muttervater in den Vorlieben und den „optimalen Bereich“):
-  Distanz Sprinter (bis 1400 m) / Mitteldistanz (bis 2400 m) / Steher, Boden Fast (mit Very fast) / Slow (mit Very
-  slow) / PSF, Reife frühreif (2-Jährige und 3-Jährige bis Juni) / spät – je A/E Platz und Läufe, heutige Kategorie
-  gelb, beste grün mit Urteil (deutlich ab A/E +0,10 zum Rest, leicht ab +0,05; beide Seiten ab 30 Läufen,
-  geschrumpft). Distanz und Boden um Alter und Jahreszeit korrigiert (`racecard.abstammung_profil`): erwartete
-  Platzierung je Lauf × Stärke der Linie in ihrem Band (2j, 3j bis Juni, 3j ab Juli, 4j+), sonst sähe eine frühreife
-  Linie wie eine Sprinter-Linie aus. Klick auf eine Zeile: alle 200-m-Gruppen bzw. Böden im Überblick. In der
+  vier Skalen je Linie als Perzentil gegen alle Väter bzw. alle Muttervater mit ≥ 50 Läufen in der Dimension –
+  Distanz Sprinter (bis 1400 m) / Mitteldistanz / Steher (über 2400 m), Boden Slow / Fast (nur Gras), Belag Gras /
+  PSF, Reife frühreif (2-Jährige und 3-Jährige bis Juni) / spät (`racecard.abstammung_profil`). Wert je Kategorie =
+  Ø aus A/E+, Pos+ und €/L+ (Pos+ und €/L+ gegen den Schnitt aller Läufe in Kategorie × Alters-/Jahreszeit-Band);
+  Distanz, Boden und Belag um das Alters-Profil der Linie korrigiert (Erwartung × Stärke der Linie im Band 2j / 3j
+  bis Juni / 3j ab Juli / 4j+), sonst sähe eine frühreife Linie wie ein Sprinter aus. Neigung = gewichtete Steigung
+  der (geschrumpften) Werte von links nach rechts → Perzentil. Gelbes Dreieck = heutige Kategorie, ✓/✗ = Linie
+  nahe (bis 25 Perzentile) bzw. weit weg (ab 60). Klick: alle 200-m-Gruppen bzw. Böden im Überblick. In der
   Claude-JSON je Starter `abst`.
 * **Indizes €/L+ und Val+**: 100 × Wert ÷ Ø der Population (alle Trainer, Jockeys, Besitzer, Züchter im selben
   Zeitfenster bzw. alle Väter, Muttervater, Crosses; nur ab 5 Läufen bzw. 3 dreijährigen Nachkommen).
