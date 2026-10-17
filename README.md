@@ -347,8 +347,10 @@ Je Starter:
   Ø aus A/E+, Pos+ und €/L+ (Pos+ und €/L+ gegen den Schnitt aller Läufe in Kategorie × Alters-/Jahreszeit-Band);
   Distanz, Boden und Belag um das Alters-Profil der Linie korrigiert (Erwartung × Stärke der Linie im Band 2j / 3j
   bis Juni / 3j ab Juli / 4j+), sonst sähe eine frühreife Linie wie ein Sprinter aus. Neigung = gewichtete Steigung
-  der (geschrumpften) Werte von links nach rechts → Perzentil. Gelbes Dreieck = heutige Kategorie, ✓/✗ = Linie
-  nahe (bis 25 Perzentile) bzw. weit weg (ab 60). Klick: alle 200-m-Gruppen bzw. Böden im Überblick. In der
+  der (geschrumpften) Werte von links nach rechts → Perzentil. Gelbes Dreieck = Lage des heutigen Rennens, stufenlos als
+  Perzentil aller Läufe (Distanz in Metern, Boden in vier Stufen, Reife nach Alter × Monat, Belag Gras/PSF); ✓/✗ =
+  Linie mit klarer Neigung (unter P30 / über P70) nahe (bis 25 Perzentile) bzw. weit weg (ab 60), ausgeglichene
+  Linien neutral. Klick: alle 200-m-Gruppen bzw. Böden im Überblick. In der
   Claude-JSON je Starter `abst`.
 * **Indizes €/L+ und Val+**: 100 × Wert ÷ Ø der Population (alle Trainer, Jockeys, Besitzer, Züchter im selben
   Zeitfenster bzw. alle Väter, Muttervater, Crosses; nur ab 5 Läufen bzw. 3 dreijährigen Nachkommen).

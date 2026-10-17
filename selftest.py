@@ -933,6 +933,13 @@ def abstammung_pruefen() -> None:
            f"P{mid(pz('steher', 'dist'))} / frühreife Linie P{mid(pz('frueh', 'dist'))} (korrigiert, kein Sprinter), "
            f"Reife frühreif P{mid(pz('frueh', 'reife'))}, Belag PSF P{mid(pz('psf', 'belag'))}, Boden weich "
            f"P{mid(pz('weich', 'boden'))}; Wert = Ø aus A/E+, Pos+, €/L+; Passung zur heutigen Kategorie")
+    lg = lambda *a_: rc.abst_pferd(p, "neutral5", *a_)
+    l15, l18, l24 = (lg(m_, "FAST", 4, 8)["dist"]["lage"] for m_ in (1250, 1800, 2400))
+    b_vs, b_s, b_vf = (lg(2000, g_, 4, 8)["boden"]["lage"] for g_ in ("VERY SLOW", "SLOW", "VERY FAST"))
+    r2, r3, r4 = (lg(2000, "FAST", a_, m_)["reife"]["lage"] for a_, m_ in ((2, 6), (3, 7), (5, 7)))
+    pruefe(l15 < l18 < l24 and b_vs < b_s < b_vf and r2 < r3 < r4 and lg(2000, "PSF", 4, 8)["belag"]["lage"] == 100,
+           f"Abstammungsprofil: Lage heute stufenlos als Perzentil aller Läufe – 1250/1800/2400 m P{l15}/P{l18}/P{l24}, "
+           f"Boden Very slow/Slow/Very fast P{b_vs}/P{b_s}/P{b_vf}, Reife 2j Juni/3j Juli/5j P{r2}/P{r3}/P{r4}")
 
 
 def tipp_auswertung_pruefen() -> None:

@@ -698,8 +698,11 @@ bzw. alle Muttervater** der Historie (0 = ganz links, 100 = ganz rechts):
 `dist` Sprinter (bis 1400 m) – Mitteldistanz – Steher (über 2400 m),
 `boden` Slow – Fast (nur Gras), `belag` Gras – PSF, `reife` frühreif
 (2-Jährige und 3-Jährige bis Juni) – spät. Je Skala: `perzentil`,
-`heute` (heutige Kategorie), `passung` („passt" = Linie liegt nahe der
-heutigen Kategorie, „passt nicht" = weit weg, „neutral"), `sicher`
+`heute` (heutige Kategorie), `lage` (Lage des heutigen Rennens auf der
+Skala, stufenlos als Perzentil aller Läufe: Distanz in Metern, Boden in
+vier Stufen, Reife nach Alter und Monat), `passung` („passt" = Linie mit
+klarer Neigung liegt nahe an `lage`, „passt nicht" = weit weg,
+„neutral" – ausgeglichene Linien P30–70 immer), `sicher`
 (mindestens 50 Läufe) und `zeilen` [Kategorie, Läufe, Siege, Plätze,
 Wert, A/E+, Pos+, €/L+] — Wert = Ø aus A/E+, Pos+ und €/L+ (100 =
 Erwartung). Distanz, Boden und Belag sind **um Alter und Jahreszeit

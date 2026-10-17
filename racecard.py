@@ -1127,6 +1127,7 @@ ABST_SKALEN = {                       # Dimension: (Kategorien links -> rechts, 
     "dist": (ABST_DIST_KAT, "dist"), "boden": (ABST_BODEN_KAT, "boden"), "belag": (ABST_BELAG_KAT, "belag"),
     "reife": (ABST_REIFE_KAT, "reife")}
 ABST_PASST, ABST_PASST_NICHT = 25, 60  # Perzentil-Abstand zur heutigen Kategorie: passt / passt nicht
+ABST_NEUTRAL = (30, 70)               # Linie dazwischen: ausgeglichen, Passung immer neutral
 
 
 def abst_dist_kat(m) -> str | None:
@@ -1152,6 +1153,26 @@ def abst_reife_kat(alter, monat) -> str | None:
     if a is None or a < 2:
         return None
     return ABST_REIFE_KAT[0] if a == 2 or (a == 3 and monat is not None and monat <= ABST_REIFE_MONAT) else ABST_REIFE_KAT[1]
+
+
+ABST_BODEN_STUFE = {"VERY SLOW": 0, "SLOW": 1, "FAST": 2, "VERY FAST": 3}   # Gras, für die Lage des heutigen Rennens
+
+
+def abst_reife_stufe(alter, monat) -> float | None:
+    """Reife als fortlaufende Zahl für die Lage des heutigen Rennens: 2-Jährige nach Monat (1–12), 3-Jährige 13–24,
+    4-Jährige 25–36 …"""
+    a, m = _num(alter), _num(monat)
+    if a is None or m is None or a < 2:
+        return None
+    return 12 * (min(a, 6) - 2) + m
+
+
+def _lage_pz(sortiert: np.ndarray, wert) -> int | None:
+    """Mittleres Perzentil eines Werts unter allen Läufen (Gleichstände zählen halb)."""
+    if wert is None or not len(sortiert):
+        return None
+    return int(round(100 * (np.searchsorted(sortiert, wert, "left") + np.searchsorted(sortiert, wert, "right"))
+                     / 2 / len(sortiert)))
 
 
 def _abst_band(alter: pd.Series, monat: pd.Series) -> pd.Series:
@@ -1195,6 +1216,12 @@ def abstammung_profil(h: pd.DataFrame, key: str) -> dict:
     d["belag"] = g_.map(lambda g: gm.get(g, (None, None))[1])
     d["reife"] = [abst_reife_kat(a, m) for a, m in zip(d["age"], d["monat"])]
     out: dict = {}
+    # Lage des heutigen Rennens auf den Skalen: Perzentil unter allen Läufen (Distanz, Boden auf Gras in vier Stufen,
+    # Alter × Monat); Belag nur zwei Kategorien
+    out["_lage"] = {"dist": np.sort(pd.to_numeric(d["distance_m"], errors="coerce").dropna().to_numpy()),
+                    "boden": np.sort(g_.map(lambda g: ABST_BODEN_STUFE.get(str(g).upper())).dropna().to_numpy(float)),
+                    "reife": np.sort(np.array([v for v in (abst_reife_stufe(a, m) for a, m in zip(d["age"], d["monat"]))
+                                               if v is not None], float))}
     for k_, n in d.groupby(key).size().items():
         out[k_] = {"runs": int(n)}
     for dim, (kats, spalte) in ABST_SKALEN.items():
@@ -1270,19 +1297,24 @@ def abst_pferd(profil: dict, linie, dist_m, going, alter, monat) -> dict | None:
         return None
     heute = {"dist": abst_dist_kat(dist_m), "boden": abst_boden_kat(going), "belag": abst_belag_kat(going),
              "reife": abst_reife_kat(alter, monat)}
+    L = profil.get("_lage") or {}
+    stufe = {"dist": _num(dist_m), "boden": ABST_BODEN_STUFE.get(str(going or "").upper()),
+             "reife": abst_reife_stufe(alter, monat)}
     out = {"runs": p["runs"]}
     for dim, (kats, _) in ABST_SKALEN.items():
         s_ = p.get(dim)
         if not s_:
             continue
         h_ = heute[dim]
-        lage = 100 * kats.index(h_) / (len(kats) - 1) if h_ in kats else None
+        # Lage heute: Perzentil unter allen Läufen (stufenlos), Belag nach Kategorie (Gras 0, PSF 100)
+        lage = (_lage_pz(L.get(dim, np.array([])), stufe.get(dim)) if dim != "belag" and h_ is not None
+                else 100 * kats.index(h_) / (len(kats) - 1) if h_ in kats else None)
         pz = s_["perzentil"]
         passung = None
         if lage is not None and pz is not None and s_["sicher"]:
-            ab = abs(pz - lage)
+            ab = abs(pz - lage) if not ABST_NEUTRAL[0] < pz < ABST_NEUTRAL[1] else ABST_PASST + 1   # ausgeglichen: neutral
             passung = "passt" if ab <= ABST_PASST else "passt nicht" if ab >= ABST_PASST_NICHT else "neutral"
-        out[dim] = {**s_, "heute": h_, "passung": passung}
+        out[dim] = {**s_, "heute": h_, "lage": lage, "passung": passung}
     return out
 
 
