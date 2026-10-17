@@ -1114,13 +1114,13 @@ PREF_ALLE = {
 
 # Abstammungsprofil (Vater/Muttervater): Lage der Linie auf vier Skalen als Perzentil gegen alle Väter bzw. alle
 # Muttervater der Historie – Distanz (Sprinter … Steher), Boden (Slow … Fast, nur Gras), Belag (Gras … PSF),
-# Reife (frühreif … spät)
+# Alter (2yo … 4yo+)
 ABST_DIST_GRENZEN = (1400, 2400)     # Sprinter bis 1400 m, Mitteldistanz bis 2400 m, Steher darüber
 ABST_DIST_KAT = ("Sprinter", "Mitteldistanz", "Steher")
 ABST_BODEN_KAT = ("Slow", "Fast")    # nur Gras: Slow mit Very slow, Fast mit Very fast
 ABST_BELAG_KAT = ("Gras", "PSF")
-ABST_REIFE_KAT = ("frühreif", "spät")
-ABST_REIFE_MONAT = 6                  # frühreif: 2-Jährige und 3-Jährige bis Ende Juni; spät: danach und älter
+ABST_REIFE_KAT = ("2yo", "3yo", "4yo+")   # Alter der Nachkommen im Lauf; alle ab 4 Jahren gemeinsam
+ABST_REIFE_MONAT = 6                  # Alters-Korrektur von Distanz/Boden/Belag: 3-Jährige bis Juni / ab Juli getrennt
 ABST_K = 20                           # Schrumpfen (Läufe): Alters-Faktor zum Linienschnitt, Kategorie-Wert zum Linienwert
 ABST_POP_MIN = 50                     # Linie zählt zur Vergleichs-Population ab so vielen Läufen in der Dimension
 ABST_SKALEN = {                       # Dimension: (Kategorien links -> rechts, Spalte der Kategorie)
@@ -1148,23 +1148,24 @@ def abst_belag_kat(g) -> str | None:
     return "PSF" if "PSF" in t else "Gras" if ("FAST" in t or "SLOW" in t) else None
 
 
-def abst_reife_kat(alter, monat) -> str | None:
+def abst_reife_kat(alter, monat=None) -> str | None:
+    """Altersgruppe 2yo / 3yo / 4yo+ (4-, 7- oder 10-Jährige gleich); der Monat spielt keine Rolle."""
     a = _num(alter)
     if a is None or a < 2:
         return None
-    return ABST_REIFE_KAT[0] if a == 2 or (a == 3 and monat is not None and monat <= ABST_REIFE_MONAT) else ABST_REIFE_KAT[1]
+    return ABST_REIFE_KAT[0] if a == 2 else ABST_REIFE_KAT[1] if a == 3 else ABST_REIFE_KAT[2]
 
 
 ABST_BODEN_STUFE = {"VERY SLOW": 0, "SLOW": 1, "FAST": 2, "VERY FAST": 3}   # Gras, für die Lage des heutigen Rennens
 
 
-def abst_reife_stufe(alter, monat) -> float | None:
-    """Reife als fortlaufende Zahl für die Lage des heutigen Rennens: 2-Jährige nach Monat (1–12), 3-Jährige 13–24,
-    4-Jährige 25–36 …"""
-    a, m = _num(alter), _num(monat)
-    if a is None or m is None or a < 2:
+def abst_reife_stufe(alter, monat=None) -> float | None:
+    """Altersgruppe als Zahl für die Lage des heutigen Rennens: 2yo = 2, 3yo = 3, 4yo+ = 4 (Perzentil unter allen
+    Läufen: 2-Jährige links, 4yo+ rechts)."""
+    a = _num(alter)
+    if a is None or a < 2:
         return None
-    return 12 * (min(a, 6) - 2) + m
+    return float(min(a, 4))
 
 
 def _lage_pz(sortiert: np.ndarray, wert) -> int | None:
