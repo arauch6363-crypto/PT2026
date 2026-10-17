@@ -1245,7 +1245,8 @@ def abstammung_profil(h: pd.DataFrame, key: str) -> dict:
                 bd = lin.dropna(subset=["b"]).groupby(["k", "b"])[["m", "e", "n"]].sum()
                 i_l = I.reindex(bd.index.get_level_values(0)).to_numpy()
                 e_lauf = (bd["e"] / bd["n"].clip(lower=1)).to_numpy()
-                f = ((bd["m"].to_numpy() + ABST_K * i_l * e_lauf) / (bd["e"].to_numpy() + ABST_K * e_lauf)) / i_l
+                with np.errstate(divide="ignore", invalid="ignore"):   # Linie ohne Platz / ohne Erwartung: Faktor 1
+                    f = ((bd["m"].to_numpy() + ABST_K * i_l * e_lauf) / (bd["e"].to_numpy() + ABST_K * e_lauf)) / i_l
                 fk = pd.Series(np.where(np.isfinite(f), f, 1.0), index=bd.index)
                 e = e * fk.reindex(pd.MultiIndex.from_arrays([t[key], t["band"]])).fillna(1.0).to_numpy()
             agg = pd.DataFrame({"k": t[key], "c": t[spalte], "m": mm, "e": e}).dropna()

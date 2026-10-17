@@ -232,8 +232,8 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     placed = np.where(hm, np.nan, _zahl(h, "placed"))
     expp = np.where(hm, np.nan, _zahl(h, "exp_place"))
     won = np.where(hm, np.nan, _zahl(h, "won"))
-    ausg = _spalte(h, "ausgeritten", False).fillna(False).astype(bool).to_numpy()
-    trk = _spalte(h, "tracking", False).fillna(False).astype(bool).to_numpy()
+    ausg = _spalte(h, "ausgeritten", False).eq(True).to_numpy()
+    trk = _spalte(h, "tracking", False).eq(True).to_numpy()
     trcap = _zahl(h, "tr_gedeckelt")
     werte = {c: _zahl(h, c) for c in ["arr", "tr", "rtr", "d_L600_A", "d_B200_A", "early_pct", "cls_val", "cls_epr_kl",
                                        "lengths_behind", "fi_adj", "pos_gain_800_finish", "weg_med", "odds_final",
@@ -1502,7 +1502,7 @@ def value_auswertung(base: Path, hist: pd.DataFrame | None = None, log=print) ->
     d = p.merge(erg, on=["race_id", "saddle_no"], how="inner")
     d = d[d["finish_pos"].notna() | d["won"].notna()]
     lo, hi = QUOTE_BEREICH
-    warn = d["warn"].fillna(False).astype(bool) if "warn" in d else pd.Series(False, index=d.index)
+    warn = d["warn"].eq(True) if "warn" in d else pd.Series(False, index=d.index)
     auswahl = [("alle", d), ("Warnsignal (unterstes Fünftel)", d[warn]), ("goldener Rahmen", d[d["gold"]]),
                (f"gold · Prognose {lo:g}–{hi:g}", d[d["gold"] & d["cote_prono"].between(lo, hi)]),
                (f"gold · Endquote {lo:g}–{hi:g}", d[d["gold"] & d["odds_final"].between(lo, hi)])]

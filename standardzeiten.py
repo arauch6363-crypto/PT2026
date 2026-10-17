@@ -399,7 +399,7 @@ def je_rennen(base: Path) -> pd.DataFrame:
     s = std.set_index("konfiguration")
     out = r[["race_id", "konfiguration"]].copy()
     out["std_skm"] = out["konfiguration"].map(s["std_skm"])
-    out["belastbar"] = out["konfiguration"].map(s["belastbar"]).fillna(False).astype(bool)
+    out["belastbar"] = out["konfiguration"].map(s["belastbar"]).eq(True)
     f = ordner(base) / "going_allowances.parquet"
     if f.exists():
         ga = pd.read_parquet(f)
