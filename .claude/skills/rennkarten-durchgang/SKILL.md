@@ -309,7 +309,7 @@ Siegertreffer knapp dahinter), wusste aber nichts, was der Markt nicht
 schon einpreiste. `rote_starter` sagt, wie oft Pferde mit roter Power
 trotzdem gewinnen.
 
-**Je Rennen `modell_rennart`:** Renntyp (Handicap/Conditions/Claimer) und
+**Je Rennen `modell_rennart`:** Renntyp (Handicap/Conditions/Claimer/Blacktype) und
 Altersgruppe (2yo/3yo/3yo+/4yo+) des heutigen Rennens mit den Testwerten
 des Modells genau dort (`power_renntyp`, `power_altersgruppe`: Rangkorrelation
 und Siegertreffer gegen die Endquote, `einordnung`). Im Test war das Modell

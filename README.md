@@ -152,8 +152,9 @@ erg = pm.trainieren(BASE, ab="2024-01-01")   # schnell: Merkmale aus BASE/modell
 ```
 
 Abhängige Variable: Platzanteil (Starter − Platz) / (Starter − 1), nicht im Ziel = 0. Merkmale nur aus Läufen vor dem
-Renntag (`pm.merkmale`, dieselbe Funktion für Training und Karte): Rennen (Typ in drei Gruppen – alles mit
-„Handicap“ = Handicap, Claimer, alles andere inkl. Listed/Gruppe = Conditions, die Klasse trennt das Preisgeld –,
+Renntag (`pm.merkmale`, dieselbe Funktion für Training und Karte): Rennen (Typ in vier Gruppen – alles mit
+„Handicap“ = Handicap, Claimer, Gruppe 1–3 und Listed = Blacktype, alles andere = Conditions, innerhalb trennt das
+Preisgeld die Klasse –,
 Altersgruppe 2yo/3yo/3yo+/4yo+, Starter, Distanz, Boden, Tempo-Szenario), Pferd (Jockey kennt das Pferd, Trainerwechsel in
 den letzten 5 Starts, Alter, Geschlecht, €/Lauf 365 Tage, Gewicht, Rating, Tage, Starts gesamt und 365 Tage, letzter Lauf auf heutiger
 Boden-/Distanzgruppe mit Platzanteil und ARR, RTR/ARR/TR/ΔL600 A/ΔB200 A wie die
@@ -171,7 +172,7 @@ nur als Vorgeschichte für die Merkmale und wird nicht gelernt; die übrigen Ren
 lernen, validieren (Abbruch der Bäume, Modellwahl, Siegchance-a, Eichung k und Gold-Grenze des Value-Modells), testen
 (nur Bericht – die Kennzahlen dort sind unberührt). Das gespeicherte Modell lernt danach auf allen Tagen nach dem
 Aufwärmen mit derselben Baumzahl.
-Prüfung je Rennart: Der Bericht zeigt auf den Testtagen je Renntyp (Handicap/Conditions/Claimer) und je Altersgruppe
+Prüfung je Rennart: Der Bericht zeigt auf den Testtagen je Renntyp (Handicap/Conditions/Claimer/Blacktype) und je Altersgruppe
 die Rangkorrelation und Siegertreffer von Modell und Endquote (Power) bzw. A/E im untersten/obersten Fünftel und die
 Gold-Rendite (Value). Segment-Modelle: `pm.trainieren(BASE, segmente="racetype")` bzw. `segmente="age_group"` (ebenso
 `trainieren_wert`) lernen je Segment ein Zusatzmodell, das nur die Korrektur zum gemeinsamen Modell lernt (Ausgangswert

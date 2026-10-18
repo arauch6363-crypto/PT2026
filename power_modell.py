@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import bisect
 import json
+import re
 import time
 import warnings
 from collections import deque
@@ -62,7 +63,7 @@ QUOTE_BEREICH = (1.0, GOLD_COTE_MAX)  # Vorwärts-Test: Gold mit Prognose-Cote i
 PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schreibt ihre Value-Faktoren hierher
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
-MERKMAL_VERSION = 6                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+MERKMAL_VERSION = 7                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
@@ -132,9 +133,9 @@ def _text(h: pd.DataFrame, c: str) -> np.ndarray:
 
 
 def renntyp3(t) -> str | None:
-    """Renntyp für das Modell in drei Gruppen: alles mit „Handicap“ -> Handicap (auch Handicap Categorie Divise,
-    Handicap A Reclamer), Claimer -> Claimer, alles andere (Conditions, Listed, Gruppe, International …) -> Conditions;
-    die Klasse dazwischen trennt das Preisgeld."""
+    """Renntyp für das Modell in vier Gruppen: alles mit „Handicap“ -> Handicap (auch Handicap Categorie Divise,
+    Handicap A Reclamer), Claimer -> Claimer, Gruppe 1–3 und Listed -> Blacktype, alles andere (Conditions,
+    International, Accaf …) -> Conditions; innerhalb der Gruppen trennt das Preisgeld die Klasse."""
     if t is None or (isinstance(t, float) and np.isnan(t)):
         return None
     t = str(t).strip().lower()
@@ -144,6 +145,8 @@ def renntyp3(t) -> str | None:
         return "Handicap"
     if "claim" in t or "reclam" in t:
         return "Claimer"
+    if re.search(r"\b(group|groupe|listed|liste)\b", t):
+        return "Blacktype"
     return "Conditions"
 
 
@@ -1580,7 +1583,7 @@ def _je_rennart_value(je: dict) -> dict:
 
 
 def rennart(typ, alter_klasse=None, alter=None) -> tuple[str | None, str | None]:
-    """Renntyp (3 Gruppen) und Altersgruppe eines heutigen Rennens – wie im Modell."""
+    """Renntyp (4 Gruppen) und Altersgruppe eines heutigen Rennens – wie im Modell."""
     a = [v for v in (alter or []) if v is not None and not (isinstance(v, float) and np.isnan(v))]
     return renntyp3(typ), altersgruppe(alter_klasse, min(a) if a else np.nan, max(a) if a else np.nan)
 

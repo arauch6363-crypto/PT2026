@@ -589,10 +589,13 @@ def power_modell_pruefen() -> None:
            "Power-Modell: fehlende Werte bleiben leer (NaN), statt ersetzt zu werden")
     typen = [pm.renntyp3(t) for t in ["Handicap Categorie Divise", "Handicap A Reclamer", "Claimer", "Group 1",
                                       "Listed", "Conditions", "Course A Condition Qualif Hp", "Inconnu", None]]
-    pruefe(typen == ["Handicap", "Handicap", "Claimer", "Conditions", "Conditions", "Conditions", "Conditions", None, None]
-           and set(X["racetype"].dropna()) == {"Handicap", "Conditions", "Claimer"}
-           and set(X["f1_typ"].dropna()) <= {"Handicap", "Conditions", "Claimer"},
-           "Power-Modell: Renntyp in drei Gruppen (Handicap/Conditions/Claimer), auch für die letzten Läufe")
+    typen += [pm.renntyp3(t) for t in ["Group 3", "International", "Groupe II"]]
+    pruefe(typen == ["Handicap", "Handicap", "Claimer", "Blacktype", "Blacktype", "Conditions", "Conditions", None, None,
+                     "Blacktype", "Conditions", "Blacktype"]
+           and set(X["racetype"].dropna()) == {"Handicap", "Blacktype", "Claimer"}
+           and set(X["f1_typ"].dropna()) <= {"Handicap", "Blacktype", "Claimer", "Conditions"},
+           "Power-Modell: Renntyp in vier Gruppen (Handicap/Conditions/Claimer/Blacktype = Gruppe und Listed), "
+           "auch für die letzten Läufe")
     ag = [pm.altersgruppe("DEUX_ANS"), pm.altersgruppe("TROIS_ANS"), pm.altersgruppe("TROIS_QUATRE_CINQ_ANS"),
           pm.altersgruppe("QUATRE_ANS_ET_PLUS"), pm.altersgruppe(None, 3, 6), pm.altersgruppe(None, 2, 2),
           pm.altersgruppe(None, 4, 5), pm.altersgruppe(None)]
@@ -696,7 +699,7 @@ def power_modell_pruefen() -> None:
     finally:
         pm.SEG_MIN_STARTER, pm.SEG_MIN_GEWINN, pm.SEG_MIN_VERLUST, pm.SEG_PARAMS = alt
     js = es["segmente"]["je_segment"]
-    pruefe(set(js) == {"Handicap", "Conditions", "Claimer"} and ms_["segmente"] and ms_["wert"]["segmente"]
+    pruefe(set(js) == {"Handicap", "Blacktype", "Claimer"} and ms_["segmente"] and ms_["wert"]["segmente"]
            and len(dateien) == len(ms_["segmente"]) + len(ms_["wert"]["segmente"])
            and "modell (mit Segmenten)" in es and {z["segment"] for z in es["je_rennart"]["racetype"]} == set(js)
            and {z["segment"] for z in ews["je_rennart"]["age_group"]} and len(vs_) == len(hz)
