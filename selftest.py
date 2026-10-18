@@ -786,7 +786,7 @@ def power_modell_pruefen() -> None:
            if pd.notna(h.at[j, "arr"]) else True,
            "Power-Modell: Starts 365 Tage, letzter Lauf auf heutigem Boden (Platzanteil, ARR mit heutigem Gewicht)")
     # verdichtete Form (letzte 5) und Wechsel zum letzten Lauf, von Hand nachgerechnet für einen Starter
-    i = X["form5_trend"].dropna().index[-1]
+    i = X["form_steig_pos"].dropna().index[-1]
     hi = h.loc[i]
     vor = h[(h["horse_id"] == hi["horse_id"]) & (pd.to_datetime(h["date"]) < pd.to_datetime(hi["date"]))]
     vor = vor.sort_values("date", ascending=False).head(pm.FORM_VERDICHTET)
@@ -794,13 +794,31 @@ def power_modell_pruefen() -> None:
     j = vor.index[0]
     fv = h.groupby("race_id")["valeur"].transform("mean")
     pruefe(abs(X.at[i, "form5_pos"] - np.nanmean(rp)) < 1e-9 and abs(X.at[i, "form5_best"] - np.nanmax(rp)) < 1e-9
-           and abs(X.at[i, "form5_trend"] - (rp[0] - np.nanmean(rp[1:]))) < 1e-9
+           and abs(X.at[i, "form5_top"] - np.mean(rp[np.isfinite(rp)] >= pm.FORM_TOP)) < 1e-9
            and X.at[i, "chg_weight"] == hi["weight_kg"] - h.at[j, "weight_kg"]
            and X.at[i, "chg_dist"] == hi["distance_m"] - h.at[j, "distance_m"]
            and abs(X.at[i, "chg_prize"] - (np.log1p(hi["prize_eur"]) - np.log1p(h.at[j, "prize_eur"]))) < 1e-9
            and (np.isnan(X.at[i, "chg_class"]) if pd.isna(fv[i]) or pd.isna(fv[j]) else abs(X.at[i, "chg_class"] - (fv[i] - fv[j])) < 1e-9)
            and X.at[i, "chg_trainer"] == float(hi["trainer_key"] != h.at[j, "trainer_key"]),
-           "Power-Modell: Form der letzten 5 (Ø, Bestwert, Trend) und Wechsel zum letzten Lauf (Gewicht, Distanz, Klasse, Preisgeld, Trainer)")
+           "Power-Modell: Form der letzten 5 (Ø, Bestwert, Spitzenläufe) und Wechsel zum letzten Lauf (Gewicht, Distanz, Klasse, Preisgeld, Trainer)")
+    # Formtrend (Steigung je Lauf), zeitgewichtete Form und Form über Erwartung, von Hand nachgerechnet
+    vt = h[(h["horse_id"] == hi["horse_id"]) & (pd.to_datetime(h["date"]) < pd.to_datetime(hi["date"]))]
+    vt = vt.sort_values("date", ascending=False)
+    y = pm.ziel(h)[vt.index[:pm.FORM_TREND_N]].to_numpy(dtype=float)
+    x = -np.arange(len(y), dtype=float)
+    m = np.isfinite(y)
+    soll_st = np.polyfit(x[m], y[m], 1)[0]
+    vz = vt.head(pm.FORM_ZEIT_N)
+    tage = (pd.to_datetime(hi["date"]) - pd.to_datetime(vz["date"])).dt.days.to_numpy()
+    yz = pm.ziel(h)[vz.index].to_numpy(dtype=float)
+    wz = 0.5 ** (tage / pm.FORM_HWZ)
+    mz = np.isfinite(yz)
+    soll_z = (wz[mz] * yz[mz]).sum() / wz[mz].sum()
+    pruefe(abs(X.at[i, "form_steig_pos"] - soll_st) < 1e-9 and abs(X.at[i, "formz_pos"] - soll_z) < 1e-9
+           and pm._steigung(np.array([0.9, 0.5, 0.1])) > 0 and np.isnan(pm._steigung(np.array([0.9, np.nan, 0.1])))
+           and X["form5_ue"].dropna().between(-1, 1).all() and X["form5_ue"].notna().any()
+           and "form5_trend" not in X.columns,
+           "Power-Modell: Formtrend (Steigung je Lauf, ab 3 Werten), zeitgewichtete Form (Halbwertszeit) und Pos über Erwartung")
     # Scheuklappen: erstmals nur, wenn vorher nie getragen; Jockey-Wechsel mit Score-Differenz
     ok_b = True
     for i in X["blink_first"].dropna().index:

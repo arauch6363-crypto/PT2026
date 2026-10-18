@@ -182,7 +182,12 @@ Test. Gespeichert als `power_modell_seg_<segment>.txt` bzw. `power_wert_seg_<seg
 (Treiber „Rennart-Korrektur“).
 Erfahrung im Feld und Jahreszeit (aus dem Zwischenspeicher abgeleitet, kein Neubau nötig): Starts und Alter als Rang
 und Abstand zum Feld, Anteil der Gegner, die älter sind bzw. mehr Starts haben, und der Tag im Jahr (`season_doy`).
-Dazu: verdichtete Form der letzten 5 Läufe (Ø/bester Pos, Ø Längen, Ø ARR, Trend), Wechsel zum letzten Lauf
+Dazu: verdichtete Form der letzten 5 Läufe (Ø/bester Pos, Ø Längen, Ø ARR, Streuung der Pos, Anteil Spitzenläufe
+Pos ≥ 0,75, Pos über Erwartung = Pos − (1 − damaliger Quotenrang relativ), Klasse und Preisgeld dieser Läufe gegen
+heute), zeitgewichtete Form (bis 10 Läufe, Gewicht 0,5 ^ (Tage / 90): Pos, ARR, Pos über Erwartung), Formtrend als
+Steigung je Lauf über die letzten 6 (Pos, ARR, Längen, Pos über Erwartung; ab 3 Werten), Bestwert der letzten 3 gegen
+die 5 davor, Ø Pos in gleicher oder höherer Klasse (Preisgeld); die wichtigsten davon auch relativ zum Feld. Die
+damalige Quote früherer Rennen ist zum Renntag bekannt – die heutige Quote bleibt draußen. Wechsel zum letzten Lauf
 (Gewicht, Distanz, Klasse = Ø Rating des Feldes, Preisgeld des Rennens, Jockey mit Score-Differenz, Trainer,
 Scheuklappen erstmals/gewechselt) und die Klasse des heutigen Rennens (Preisgeld, Ø Rating des Feldes).
 Außerdem: Stallform und Jockeyform über 30 Tage (`trainer_30_score`, `trainer_form` = 30 Tage − 365 Tage), Trainer in

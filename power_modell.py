@@ -63,12 +63,13 @@ QUOTE_BEREICH = (1.0, GOLD_COTE_MAX)  # Vorwärts-Test: Gold mit Prognose-Cote i
 PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schreibt ihre Value-Faktoren hierher
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
-MERKMAL_VERSION = 7                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+MERKMAL_VERSION = 8                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
            "form5_pos", "form5_best", "form5_lb", "form5_arr", "runs", "age", "arr_best365", "trainer_30_score",
-           "dam_score"]
+           "dam_score", "form5_ue", "formz_pos", "formz_arr", "formz_ue", "form_steig_pos", "form_steig_arr",
+           "form_pos_hoeher"]
 # Segment-Modelle: lernen je Rennart nur die Korrektur zum gemeinsamen Modell (Ausgangswert = dessen Vorhersage)
 SEGMENT_SPALTEN = ("racetype", "age_group")
 SEG_PARAMS = dict(learning_rate=0.02, num_leaves=15, min_data_in_leaf=200, feature_fraction=0.7, bagging_fraction=0.8,
@@ -82,7 +83,12 @@ AUFWAERM_TAGE = 365         # erstes Jahr der Historie: nur Vorgeschichte für d
 ANTEILE = (0.6, 0.2, 0.2)   # übrige Renntage zeitlich: lernen / validieren (Abbruch, Modellwahl, Eichung) / testen (Bericht)
 ROT_AB = 95                 # Power bis hier = rot (klar unter dem Feldschnitt)
 FORM_N = 3                  # so viele letzte Läufe als eigene Merkmale
-FORM_VERDICHTET = 5         # verdichtete Form (Ø, Bestwert, Trend) über so viele letzte Läufe
+FORM_VERDICHTET = 5         # verdichtete Form (Ø, Bestwert, Streuung …) über so viele letzte Läufe
+FORM_TREND_N = 6            # Formtrend: Steigung über so viele letzte Läufe (ab 3 Werten)
+FORM_ZEIT_N = 10            # zeitgewichtete Form: höchstens so viele letzte Läufe …
+FORM_HWZ = 90               # … mit Gewicht 0,5 ^ (Tage / FORM_HWZ)
+FORM_TOP = 0.75             # „Spitzenlauf“: Pos ab hier
+FORM_KLASSE_TOL = 0.2       # Form in gleicher/höherer Klasse: Preisgeld (log) höchstens so viel unter heute
 VERB_TAGE = 365             # Verbindungen: Fenster
 KURZ_TAGE = 30              # Stallform / Jockeyform: kurzes Fenster
 PAUSE_TAGE = 60             # ab so vielen Tagen ohne Start gilt ein Lauf als „nach Pause“
@@ -105,7 +111,8 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("jockey_", "Jockey"), ("owner_", "Besitzer"), ("breeder_", "Züchter"), ("sire_", "Vater"),
            ("dam_sire_", "Muttervater"), ("arr", "ARR"), ("tr", "TR"), ("rtr", "RTR"), ("dl600", "ΔL600 A"),
            ("db200", "ΔB200 A"), ("duel", "Duell"), ("box", "Startbox"), ("early", "Laufstil"), ("pace", "Tempo-Szenario"),
-           ("form5_", "letzte 5 Läufe"), ("season", "Jahreszeit"), ("feld_aelter", "Erfahrung im Feld"),
+           ("form5_", "letzte 5 Läufe"), ("formz_", "Form zeitgewichtet"), ("form_steig", "Formtrend"),
+           ("form_best3", "Formtrend"), ("form_pos_hoeher", "Form in gleicher/höherer Klasse"), ("season", "Jahreszeit"), ("feld_aelter", "Erfahrung im Feld"),
            ("feld_erfahrener", "Erfahrung im Feld"), ("chg_", "Wechsel zum letzten Lauf"),
            ("kennt_jockey", "Jockey kennt Pferd"), ("trainerwechsel5", "Trainerwechsel (letzte 5)"),
            ("dam_", "Mutter (Geschwister)"), ("hcp_", "Handicap-Marke"), ("seit_pause", "Läufe seit Pause"),
@@ -203,6 +210,18 @@ def ziel(h: pd.DataFrame) -> pd.Series:
 # --------------------------------------------------------------------------
 # Merkmale
 # --------------------------------------------------------------------------
+def _steigung(y: np.ndarray) -> float:
+    """Steigung je Lauf (Kleinste Quadrate), y neueste zuerst; > 0 = Werte steigen zu den jüngsten Läufen hin.
+    Erst ab 3 gültigen Werten."""
+    x = -np.arange(len(y), dtype=float)
+    m = np.isfinite(y)
+    if m.sum() < 3:
+        return np.nan
+    x, y = x[m], y[m]
+    xc = x - x.mean()
+    return float((xc * (y - y.mean())).sum() / (xc * xc).sum())
+
+
 def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Series | None = None,
              duelle: bool = True, log=print) -> pd.DataFrame:
     """Merkmale je Starter aus Läufen vor dem Renntag. h: vorbereitete Historie (racecard.vorbereiten), optional mit
@@ -277,7 +296,9 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
 
     # ---- je Pferd: Kacheln, Form, Vorlieben ----------------------------------------------------------------------
     F["race_prize"], F["feld_val"], F["blink"] = preis, feld_val, blink
-    for c in ["form5_pos", "form5_best", "form5_lb", "form5_arr", "form5_trend", "chg_weight", "chg_dist", "chg_class",
+    for c in ["form5_pos", "form5_best", "form5_lb", "form5_arr", "form5_ue", "form5_std", "form5_top", "form5_klasse",
+              "form5_preis", "formz_pos", "formz_arr", "formz_ue", "form_steig_pos", "form_steig_arr", "form_steig_lb",
+              "form_steig_ue", "form_best3_diff", "form_pos_hoeher", "chg_weight", "chg_dist", "chg_class",
               "chg_prize", "chg_jockey", "chg_trainer", "blink_first", "blink_change", "kennt_jockey", "trainerwechsel5",
               "chg_rating", "hcp_sieg_diff", "hcp_platz_diff", "seit_pause", "arr_best365", "arr_best_dist",
               "arr_best_abst", "erst_wallach"]:
@@ -307,6 +328,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     o_n = inv.notna().groupby(rid).transform("sum")
     o_rel = ((o_rang - 1) / (o_n - 1)).where(o_n > 1).to_numpy(dtype=float)
     feld_heute = {r: set(hid[p]) for r, p in rennen_pos.items()}
+    ue = rp0 - (1.0 - o_rel)                     # Pos über Erwartung: erwartete Pos aus dem damaligen Quotenrang
     g_lp = float(np.nanmean(lp[~hm])) if (~hm).any() else np.nan
 
     def gew_schnitt(vor, spalte, i, gueltig, prior=0.0):
@@ -403,12 +425,37 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             arr5 = werte["arr"][v5] - gew[i] + rc.GEWICHT_REF
             if np.isfinite(pos5).any():
                 F["form5_pos"][i], F["form5_best"][i] = np.nanmean(pos5), np.nanmax(pos5)
-                if len(v5) > 1 and np.isfinite(pos5[0]) and np.isfinite(pos5[1:]).any():
-                    F["form5_trend"][i] = pos5[0] - np.nanmean(pos5[1:])         # > 0: zuletzt besser als davor
+                F["form5_top"][i] = float(np.mean(pos5[np.isfinite(pos5)] >= FORM_TOP))
+                if np.isfinite(pos5).sum() >= 3:
+                    F["form5_std"][i] = np.nanstd(pos5)                         # Konstanz: klein = beständig
             if np.isfinite(lb5).any():
                 F["form5_lb"][i] = np.nanmean(lb5)
             if np.isfinite(arr5).any():
                 F["form5_arr"][i] = np.nanmean(arr5)
+            if np.isfinite(ue[v5]).any():                                        # Pos über der Erwartung des damaligen Markts
+                F["form5_ue"][i] = np.nanmean(ue[v5])
+            if np.isfinite(feld_val[v5]).any() and not np.isnan(feld_val[i]):    # > 0: zuletzt in stärkeren Feldern als heute
+                F["form5_klasse"][i] = np.nanmean(feld_val[v5]) - feld_val[i]
+            if np.isfinite(preis[v5]).any() and not np.isnan(preis[i]):
+                F["form5_preis"][i] = np.nanmean(preis[v5]) - preis[i]
+            # zeitgewichtete Form: jüngere Läufe zählen mehr (Halbwertszeit FORM_HWZ Tage)
+            vz = np.array(vor[:FORM_ZEIT_N])
+            wz = 0.5 ** ((tag[i] - tag[vz]) / FORM_HWZ)
+            for name, y in (("pos", rp0[vz]), ("arr", werte["arr"][vz] - gew[i] + rc.GEWICHT_REF), ("ue", ue[vz])):
+                m_ = np.isfinite(y)
+                if m_.any():
+                    F[f"formz_{name}"][i] = float((wz[m_] * y[m_]).sum() / wz[m_].sum())
+            # Formtrend: Steigung je Lauf über die letzten FORM_TREND_N (> 0: wird besser bzw. bei lb: mehr Längen zurück)
+            vt_ = vor[:FORM_TREND_N]
+            for name, y in (("pos", rp0[vt_]), ("arr", werte["arr"][vt_]), ("lb", lb[vt_]), ("ue", ue[vt_])):
+                F[f"form_steig_{name}"][i] = _steigung(y)
+            p3, p_alt = rp0[vor[:3]], rp0[vor[3:8]]
+            if np.isfinite(p3).any() and np.isfinite(p_alt).any():              # > 0: jüngste Spitze über der früheren
+                F["form_best3_diff"][i] = np.nanmax(p3) - np.nanmax(p_alt)
+            if not np.isnan(preis[i]):                                           # Form in gleicher oder höherer Klasse
+                hk = [rp0[j] for j in vor[:FORM_ZEIT_N] if preis[j] >= preis[i] - FORM_KLASSE_TOL and not np.isnan(rp0[j])]
+                if hk:
+                    F["form_pos_hoeher"][i] = float(np.mean(hk))
             # Wechsel gegenüber dem letzten Lauf
             j = vor[0]
             F["chg_weight"][i], F["chg_dist"][i] = gew[i] - gew[j], dist[i] - dist[j]
