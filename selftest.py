@@ -1022,6 +1022,16 @@ def festkurse_pruefen() -> None:
         _time.sleep = schlaf
     pruefe(s2.aufrufe == 3 and aufgegeben and s4.aufrufe == ws.VERSUCHE,
            f"Festkurse: Seitenaufruf bei Zeitüberschreitung bis zu {ws.VERSUCHE}-mal wiederholt, danach Fehler (Karte ohne Kurse)")
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as tmp:
+        csv = Path(tmp) / "kurse.csv"
+        df.assign(Rennart="Flachrennen", Status="OPEN", Titel="", Rennen_ID=1, Box=1, Gewicht="", Jockey="", Tipp="") \
+          .to_csv(csv, index=False, sep=";", decimal=",")             # wie Zelle 3 des Wettstar-Notebooks
+        d_csv = {"races": {"R1C2": {**daten["races"]["R1C2"], "runners": [runner(1, "HUGO CABRET", 0.4)]}}}
+        n_csv = ws.anhaengen(d_csv, str(csv), log=lambda *a: None)
+    f_csv = d_csv["races"]["R1C2"]["runners"][0].get("fk") or {}
+    pruefe(n_csv == 1 and f_csv.get("sieg") == 3.0 and f_csv.get("toto") == 2.9,
+           "Festkurse aus der CSV des Wettstar-Notebooks (Semikolon, Dezimalkomma) übernommen")
 
 
 def festkurse_aktualisieren_pruefen() -> None:

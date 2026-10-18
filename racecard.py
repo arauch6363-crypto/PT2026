@@ -2521,7 +2521,8 @@ def nichtstarter_nachtragen(daten: dict, runners_heute: pd.DataFrame) -> list[st
 def festkurse_aktualisieren(base: Path, tag=None, out: Path | None = None, *, festkurse=True,
                             nichtstarter: bool = True, claude: bool = True) -> Path:
     """Schneller zweiter Lauf: die von run() gespeicherten Kartendaten (racecard_JJJJMMTT_daten.json) laden, nur die
-    Festkurse/Toto von Wettstar neu holen (festkurse: True, fertige Tabelle aus wettstar.festkurse oder False), mit
+    Festkurse/Toto von Wettstar neu holen (festkurse: True, fertige Tabelle aus wettstar.festkurse, Pfad zur CSV aus
+    dem Wettstar-Notebook oder False), mit
     nichtstarter=True neue Nichtstarter aus dem PMU-Programm übernehmen, Value-Protokoll (Festkurs) nachziehen und
     HTML sowie die Claude-JSONs neu schreiben – ohne Historie, Kennzahlen und Modell neu zu rechnen."""
     base = Path(base)
