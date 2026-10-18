@@ -301,7 +301,7 @@ Teil 2; in Teil 1 zählt nur das Argument selbst.
 `modell` je Starter: `sieg` (Modell-Siegchance, Feld = 100 %), `fair`
 (1 / sieg), `power` (100 = Feldschnitt, ±10 je Standardabweichung),
 `rang`/`von` und `treiber` (die vier stärksten Gründe des Modells, in
-Prozentpunkten Platzanteil). Wie gut das Modell ist, steht oben in
+Prozentpunkten von (Starter − Platz) / (Starter − 1)). Wie gut das Modell ist, steht oben in
 **`modelle.power`** (`pruefung`, `einordnung`): Auf den Testtagen (nie
 zum Lernen oder Einstellen benutzt, `test_ab`) ordnete
 es das Feld fast so gut wie die Endquote (Rangkorrelation und
@@ -309,7 +309,7 @@ Siegertreffer knapp dahinter), wusste aber nichts, was der Markt nicht
 schon einpreiste. `rote_starter` sagt, wie oft Pferde mit roter Power
 trotzdem gewinnen.
 
-**Je Rennen `modell_rennart`:** Renntyp (Handicap/Conditions/Claimer) und
+**Je Rennen `modell_rennart`:** Renntyp (Handicap/Conditions/Claimer/Blacktype) und
 Altersgruppe (2yo/3yo/3yo+/4yo+) des heutigen Rennens mit den Testwerten
 des Modells genau dort (`power_renntyp`, `power_altersgruppe`: Rangkorrelation
 und Siegertreffer gegen die Endquote, `einordnung`). Im Test war das Modell
@@ -631,7 +631,7 @@ wichtiger für die Siegwette, aber rauschiger.
 1. `ae.trainer.d365` und `ae.jockey.d365` als Grundniveau. **Im
    Feldvergleich** steht dasselbe je Rennen in
    `vergleich_365.verbindungen` (alle Starter, auch `weitere`): je Trainer
-   und Jockey A/E Platz, `ae_win`, `pos_idx` (Pos+, Platzanteil-Index,
+   und Jockey A/E Platz, `ae_win`, `pos_idx` (Pos+ = Ø (Starter − Platz) / (Starter − 1) als Index,
    100 = Ø), `epr_idx` (€/L+), Starts, Rang im Feld (`rang_ae`,
    `rang_pos`, `rang_epr`), `trend_vorjahr` (A/E gegen die 365 Tage davor:
    steigend/fallend ab ±0,10) und `form_30t` (hot/cold). Damit zuerst
