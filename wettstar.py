@@ -160,7 +160,7 @@ def veranstaltungen_waehlen(meetings: list[dict], bahnen=None, nur_fk: bool = Fa
         if m.get("art") != "Galopp" or (nur_fk and not m.get("fk")):
             continue
         if bahnen:
-            if max((aehnlich(m.get("name"), b) for b in bahnen), default=0) < BAHN_MIN:
+            if max((bahn_aehnlich(m.get("name"), b) for b in bahnen), default=0) < BAHN_MIN:
                 continue
         elif norm(m.get("name")) in aus:
             continue
@@ -178,10 +178,10 @@ def _collect(overview, land, rennarten, nur_fk, nur_offen, bahnen, log):
         chosen = veranstaltungen_waehlen(meetings, bahnen, nur_fk)
         log(f"Wettstar: {len(meetings)} Veranstaltungen in {land}:")
         for m in meetings:                                 # Übersicht: warum geladen bzw. nicht
-            best = max(bahnen or [None], key=lambda b: aehnlich(m.get("name"), b) if b else 0)
+            best = max(bahnen or [None], key=lambda b: bahn_aehnlich(m.get("name"), b) if b else 0)
             log(f"   {'✔' if m in chosen else '·'} {m.get('name', ''):<20} {m.get('art', ''):<7} "
                 f"{'FK' if m.get('fk') else 'nur Toto':<8}"
-                + (f" ähnlichste Bahn der Karte: {best} ({aehnlich(m.get('name'), best):.2f})" if best else ""))
+                + (f" ähnlichste Bahn der Karte: {best} ({bahn_aehnlich(m.get('name'), best):.2f})" if best else ""))
         for m in chosen:
             try:
                 _load(page, f"{overview}&meeting={m['id']}", f".ttml__meeting.meeting-id--{m['id']} .meetinginfo")
@@ -273,6 +273,20 @@ def aehnlich(a, b) -> float:
     return SequenceMatcher(None, a, b).ratio()
 
 
+BAHN_TEIL_MIN = 5                  # Bahnname ganz im anderen enthalten (Longchamp ⊂ ParisLongchamp) ab so vielen Zeichen
+BAHN_TEIL_WERT = 0.95
+
+
+def bahn_aehnlich(a, b) -> float:
+    """Wie aehnlich, aber für Bahnnamen: steckt der kürzere Name ganz im längeren (Longchamp / PARISLONGCHAMP,
+    La Teste / LA TESTE DE BUCH), zählt das als Treffer (BAHN_TEIL_WERT)."""
+    na, nb = norm(a), norm(b)
+    kurz, lang = sorted((na, nb), key=len)
+    if len(kurz) >= BAHN_TEIL_MIN and kurz != lang and kurz in lang:
+        return BAHN_TEIL_WERT
+    return aehnlich(a, b)
+
+
 def _zeit(s) -> str | None:
     m = re.search(r"(\d{1,2})[:h.](\d{2})", str(s or ""))
     return f"{int(m.group(1)):02d}:{m.group(2)}" if m else None
@@ -287,8 +301,8 @@ def zuordnen(daten: dict, df: pd.DataFrame) -> dict:
     out = {}
     bahnen = df["Veranstaltung"].dropna().unique().tolist()
     for rid, r in (daten.get("races") or {}).items():
-        bahn = max(bahnen, key=lambda b: aehnlich(b, r.get("course")), default=None)
-        if bahn is None or aehnlich(bahn, r.get("course")) < BAHN_MIN:
+        bahn = max(bahnen, key=lambda b: bahn_aehnlich(b, r.get("course")), default=None)
+        if bahn is None or bahn_aehnlich(bahn, r.get("course")) < BAHN_MIN:
             continue
         w = df[df["Veranstaltung"] == bahn]
         rn = pd.to_numeric(w["Rennen"], errors="coerce")
@@ -356,7 +370,7 @@ def anhaengen(daten: dict, df=None, tag=None, log=print) -> int:
             fk = je.get((rid, x.get("no")))
             if fk:
                 x["fk"] = fk
-            elif len(df) and any(aehnlich(b, r.get("course")) >= BAHN_MIN for b in df["Veranstaltung"].dropna().unique()):
+            elif len(df) and any(bahn_aehnlich(b, r.get("course")) >= BAHN_MIN for b in df["Veranstaltung"].dropna().unique()):
                 ohne.append(f"{r.get('course')} C{r.get('race_no')} Nr. {x.get('no')} {x.get('horse')}")
     log(f"Festkurse zugeordnet: {len(je)} von {n_alle} Startern"
         + (f" – ohne Zuordnung: {'; '.join(ohne[:8])}{' …' if len(ohne) > 8 else ''}" if ohne else ""))
