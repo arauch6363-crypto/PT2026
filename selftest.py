@@ -1032,6 +1032,14 @@ def festkurse_pruefen() -> None:
     f_csv = d_csv["races"]["R1C2"]["runners"][0].get("fk") or {}
     pruefe(n_csv == 1 and f_csv.get("sieg") == 3.0 and f_csv.get("toto") == 2.9,
            "Festkurse aus der CSV des Wettstar-Notebooks (Semikolon, Dezimalkomma) übernommen")
+    heute18 = [dict(name=n, art=a_, fk=f) for n, a_, f in [("Zurich", "Galopp", 0), ("Caen", "Trab", 1),
+               ("Longchamp", "Galopp", 1), ("Tarbes", "Galopp", 0), ("Amiens", "Trab", 0), ("Maronas", "Galopp", 0)]]
+    pruefe([m["name"] for m in ws.veranstaltungen_waehlen(heute18, ["HYERES", "PARISLONGCHAMP", "TARBES"])] == ["Longchamp", "Tarbes"]
+           and ws.bahn_aehnlich("La Teste", "LA TESTE DE BUCH") >= ws.BAHN_MIN
+           and ws.bahn_aehnlich("Marseille-Vivaux", "MARSEILLE BORELY") < ws.BAHN_MIN
+           and ws.aehnlich("Max", "Max Win") < ws.NAME_MIN,
+           "Festkurse: Bahnname im anderen enthalten zählt (Longchamp = PARISLONGCHAMP, La Teste = LA TESTE DE BUCH; "
+           "Liste vom 18.10.: Longchamp und Tarbes, nicht Zurich/Maronas/Trab); bei Pferdenamen nicht")
 
 
 def festkurse_aktualisieren_pruefen() -> None:
