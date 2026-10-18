@@ -182,7 +182,7 @@ def _kpi_vergleich(starter: list[dict], r: dict) -> dict:
 
 def _verbindungen(starter: list[dict]) -> list[dict]:
     """Trainer und Jockey (365 Tage) im Feldvergleich – die Zahlen der A/E-Matrix der Karte: A/E Platz, A/E Sieg,
-    Pos+ (Platzanteil-Index), €/L+, Starts, Rang im Feld, Trend gegen den Zeitraum davor und Form der letzten 30 Tage."""
+    Pos+ (Ø (Starter − Platz) / (Starter − 1) als Index), €/L+, Starts, Rang im Feld, Trend gegen den Zeitraum davor und Form der letzten 30 Tage."""
     rows = {x["no"]: {"no": x["no"]} for x in starter}
     for rolle in ("trainer", "jockey"):
         d = {x["no"]: ((x.get("ae") or {}).get(rolle) or {}) for x in starter}

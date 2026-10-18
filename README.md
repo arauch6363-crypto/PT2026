@@ -73,7 +73,7 @@ Tracking ist eine Eigenschaft von **Renntag und Rennen**, nicht von der Bahn:
 | `timeform_ratings.py` | TR: Zeit-Rating nach Timeform-Art (Standardzeiten, Going Allowance) mit Finishing-Speed-Upgrade, Backtest |
 | `rtr_arr.py` | Ratings aus PT_Vorarbeiten: RTR (Elo-artiges Rating nach dem Rennen) und ARR (Leistung im Rennen) |
 | `tipp_auswertung.py` | Claude-Tipps (Ausgabe des Skills) gegen die Ergebnisse: Treffsicherheit, Stufen, Angle-Typen, Wett-Ergebnis |
-| `power_modell.py` | Power-Modell: LightGBM sagt den Platzanteil voraus (Merkmale nur aus Läufen vor dem Renntag), einmal trainiert, die Race Card zeigt daraus „Power“ |
+| `power_modell.py` | Power-Modell: LightGBM sagt Pos = (Starter − Platz) / (Starter − 1) voraus (Merkmale nur aus Läufen vor dem Renntag), einmal trainiert, die Race Card zeigt daraus „Power“ |
 | `hypothesen_backtest.py` | Hypothesen H1–H6 (Rennverlauf, Überreaktion, Handicap-Erhöhung, Tempo × Stil, Presse-Konsens, Duell-Rangfolge) per A/E und bedingtem Logit |
 | `regel_backtest.py` | Regeln des Skills gegen die Datenbank prüfen: A/E gegen den Markt (Endquote) je Regel |
 | `racecard_template.html` | Layout der Race Card; die Daten werden als JSON eingesetzt |
@@ -151,21 +151,21 @@ erg = pm.trainieren(BASE)   # ~1 h: Merkmale über die ganze Historie, Prüfung,
 erg = pm.trainieren(BASE, ab="2024-01-01")   # schnell: Merkmale aus BASE/modelle/merkmale.parquet, nur ab Datum lernen
 ```
 
-Abhängige Variable: Platzanteil (Starter − Platz) / (Starter − 1), nicht im Ziel = 0. Merkmale nur aus Läufen vor dem
+Abhängige Variable: Pos = (Starter − Platz) / (Starter − 1), nicht im Ziel = 0 (dieselbe Größe wie in Pos+, dort als Index: 100 = Ø der Vergleichsläufe). Merkmale nur aus Läufen vor dem
 Renntag (`pm.merkmale`, dieselbe Funktion für Training und Karte): Rennen (Typ in vier Gruppen – alles mit
 „Handicap“ = Handicap, Claimer, Gruppe 1–3 und Listed = Blacktype, alles andere = Conditions, innerhalb trennt das
 Preisgeld die Klasse –,
 Altersgruppe 2yo/3yo/3yo+/4yo+, Starter, Distanz, Boden, Tempo-Szenario), Pferd (Jockey kennt das Pferd, Trainerwechsel in
 den letzten 5 Starts, Alter, Geschlecht, €/Lauf 365 Tage, Gewicht, Rating, Tage, Starts gesamt und 365 Tage, letzter Lauf auf heutiger
-Boden-/Distanzgruppe mit Platzanteil und ARR, RTR/ARR/TR/ΔL600 A/ΔB200 A wie die
+Boden-/Distanzgruppe mit Pos und ARR, RTR/ARR/TR/ΔL600 A/ΔB200 A wie die
 Kacheln, Duell-Rang, Startbox, Laufstil), Vorlieben (gewonnen/platziert auf Kurs, Distanz, Boden; beste Gruppe des
-Pferdes), Trainer/Jockey/Besitzer/Züchter (Score aus A/E Platz, Platzanteil, €/Lauf, 365 Tage), Vater/Muttervater
-(Score, €/Lauf+, Valeur der 3-Jährigen, beste Distanz-/Bodengruppe) und die letzten drei Läufe (Renntyp, Klasse, Längen, Platzanteil,
+Pferdes), Trainer/Jockey/Besitzer/Züchter (Score aus A/E Platz, Pos, €/Lauf, 365 Tage), Vater/Muttervater
+(Score, €/Lauf+, Valeur der 3-Jährigen, beste Distanz-/Bodengruppe) und die letzten drei Läufe (Renntyp, Klasse, Längen, Pos,
 gleicher Boden/Distanz, ARR, TR, Finish-Index, ±800, Weg, Endquote, Quotenrang relativ und Marktchance (1/Quote, je
 Rennen normiert), mit/gegen den Rennverlauf, Gegner-Score, Vergleich mit heutigen Gegnern). Wichtige Werte (Rating bereinigt, Gewicht, €/Lauf, RTR,
-ARR, TR, letzter Platzanteil/Längen/Marktchance, Trainer, Jockey, Besitzer, Duell, Vater) gehen zusätzlich relativ zum
+ARR, TR, letzter Pos/Längen/Marktchance, Trainer, Jockey, Besitzer, Duell, Vater) gehen zusätzlich relativ zum
 heutigen Feld ein (`pm.feld_relativ`: Rang 0–1 und Abstand zum Feldschnitt). `art="beide"` (Vorgabe) prüft Regression
-auf den Platzanteil und ein Rang-Modell (LightGBM lambdarank, Rennen als Gruppe) und speichert das mit der besseren
+auf Pos und ein Rang-Modell (LightGBM lambdarank, Rennen als Gruppe) und speichert das mit der besseren
 Rangkorrelation auf der Validierung.
 Zeitliche Aufteilung (`pm.aufteilung`, Power und Value gleich): das erste Jahr der Historie (`AUFWAERM_TAGE` = 365) dient
 nur als Vorgeschichte für die Merkmale und wird nicht gelernt; die übrigen Renntage zeitlich 60/20/20 (`ANTEILE`):
@@ -182,7 +182,7 @@ Test. Gespeichert als `power_modell_seg_<segment>.txt` bzw. `power_wert_seg_<seg
 (Treiber „Rennart-Korrektur“).
 Erfahrung im Feld und Jahreszeit (aus dem Zwischenspeicher abgeleitet, kein Neubau nötig): Starts und Alter als Rang
 und Abstand zum Feld, Anteil der Gegner, die älter sind bzw. mehr Starts haben, und der Tag im Jahr (`season_doy`).
-Dazu: verdichtete Form der letzten 5 Läufe (Ø/bester Platzanteil, Ø Längen, Ø ARR, Trend), Wechsel zum letzten Lauf
+Dazu: verdichtete Form der letzten 5 Läufe (Ø/bester Pos, Ø Längen, Ø ARR, Trend), Wechsel zum letzten Lauf
 (Gewicht, Distanz, Klasse = Ø Rating des Feldes, Preisgeld des Rennens, Jockey mit Score-Differenz, Trainer,
 Scheuklappen erstmals/gewechselt) und die Klasse des heutigen Rennens (Preisgeld, Ø Rating des Feldes).
 Außerdem: Stallform und Jockeyform über 30 Tage (`trainer_30_score`, `trainer_form` = 30 Tage − 365 Tage), Trainer in
