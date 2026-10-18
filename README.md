@@ -342,7 +342,9 @@ Je Starter:
   Nachkommen als 3-Jährige (Ø max Val 3j).
 * **Festkurse** (`wettstar.py`, beim Erstellen der Karte mit `racecard.run(..., festkurse=True)`, braucht Playwright –
   in Colab einmal `!pip install -q playwright && playwright install --with-deps chromium`): Festkurs Sieg/Platz und
-  Toto aller französischen Flachrennen mit FK von wettstar-pferdewetten.de. Zuordnung: Bahn über den ähnlichsten Namen
+  Toto der französischen Flachrennen von wettstar-pferdewetten.de – auch Veranstaltungen nur mit Toto; geladen werden
+  nur Galopp-Veranstaltungen, deren Name zu einer Bahn der PMU-Karte passt (ausländische Bahnen, die Wettstar unter
+  „Frankreich“ führt, fallen so weg; ohne Karte gilt die Liste `AUSLAND_BAHNEN`). Zuordnung: Bahn über den ähnlichsten Namen
   (ohne Akzente, Bindestriche, Leerzeichen), Rennen über die Rennnummer (sonst Startzeit), Pferd über die Startnummer
   mit Namensprüfung, sonst über den ähnlichsten Namen im Rennen (Schreibweisen weichen ab). Karte: Kasten „FK“ neben
   der fairen Quote mit Festkurs Sieg und darunter dem aktuellen Toto-Kurs (ohne Festkurs nur „Toto“), grün = Kurs ×

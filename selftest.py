@@ -980,6 +980,21 @@ def festkurse_pruefen() -> None:
     pruefe(ws.num("57,0") == 57.0 and ws.num("3.90") == 3.9 and ws.num("1.234,5") == 1234.5 and ws.num("") is None
            and ws.aehnlich("Grisy April", "GRISY-APRIL") == 1.0 and ws.aehnlich("Hugo Cabret", "Ritzy Roxy") < 0.6,
            "Festkurse: Zahlen (Komma/Punkt) und Namensvergleich")
+    mt = [dict(name="Marseille-Borely", art="Galopp", fk=True), dict(name="Dax", art="Galopp", fk=False),
+          dict(name="Vincennes", art="Trab", fk=True), dict(name="Ascot", art="Galopp", fk=False),
+          dict(name="Marseille-Vivaux", art="Galopp", fk=False)]
+    nur_toto = {"races": {"R9C2": {"race_id": "R9C2", "course": "DAX", "race_no": 2, "time": "14:30",
+                                   "runners": [runner(1, "JOUR DE COEUR", 0.3)]}}}
+    df2 = df.assign(FK_Sieg=lambda d: d["FK_Sieg"].where(d["Veranstaltung"] != "Dax"),
+                    FK_Platz=lambda d: d["FK_Platz"].where(d["Veranstaltung"] != "Dax"))
+    ws.anhaengen(nur_toto, df2, log=lambda *a: None)
+    jt = nur_toto["races"]["R9C2"]["runners"][0].get("fk") or {}
+    pruefe([m["name"] for m in ws.veranstaltungen_waehlen(mt, ["MARSEILLE BORELY", "DAX"])] == ["Marseille-Borely", "Dax"]
+           and [m["name"] for m in ws.veranstaltungen_waehlen(mt)] == ["Marseille-Borely", "Dax", "Marseille-Vivaux"]
+           and [m["name"] for m in ws.veranstaltungen_waehlen(mt, nur_fk=True)] == ["Marseille-Borely"]
+           and jt.get("toto") == 3.9 and jt.get("sieg") is None,
+           "Festkurse: nur Galopp-Veranstaltungen, die zu den Bahnen der Karte passen (Trab, Ausland und "
+           "Marseille-Vivaux ≠ Marseille-Borely fallen weg), auch ohne FK-Kennzeichen; reine Toto-Rennen werden zugeordnet")
 
 
 def tipp_auswertung_pruefen() -> None:
