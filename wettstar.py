@@ -29,6 +29,8 @@ import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from difflib import SequenceMatcher
 
+from pathlib import Path
+
 import pandas as pd
 
 BASE_URL = "https://wettstar-pferdewetten.de"
@@ -315,10 +317,27 @@ def zuordnen(daten: dict, df: pd.DataFrame) -> dict:
     return out
 
 
-def anhaengen(daten: dict, df: pd.DataFrame | None = None, tag=None, log=print) -> int:
-    """Festkurse an die Starter der Kartendaten hängen (x["fk"]); df: fertige Tabelle (festkurse) oder None =
-    jetzt holen. Rückgabe: Zahl zugeordneter Starter. Fehler oder fehlendes Playwright: Karte ohne Festkurse."""
+def lesen(pfad) -> pd.DataFrame:
+    """CSV aus dem Wettstar-Notebook (Semikolon, Dezimalkomma) oder aus df.to_csv() als Tabelle wie festkurse()."""
+    txt = open(pfad, encoding="utf-8-sig").readline()
+    df = pd.read_csv(pfad, sep=";", decimal=",") if ";" in txt else pd.read_csv(pfad)
+    for c in ("Toto", "FK_Sieg", "FK_Platz"):
+        if c in df:
+            df[c] = df[c].map(lambda v: num(v) if isinstance(v, str) else (v if pd.notna(v) and v > 0 else None))
+    df["Nr"] = pd.to_numeric(df.get("Nr"), errors="coerce").astype("Int64")
+    if "NS" in df:
+        df["NS"] = df["NS"].astype(str).str.lower().isin(["true", "1", "ja"])
+    return df.reindex(columns=SPALTEN)
+
+
+def anhaengen(daten: dict, df=None, tag=None, log=print) -> int:
+    """Festkurse an die Starter der Kartendaten hängen (x["fk"]); df: fertige Tabelle (festkurse), Pfad zu einer
+    CSV aus dem Wettstar-Notebook oder None = jetzt holen. Rückgabe: Zahl zugeordneter Starter. Fehler oder
+    fehlendes Playwright: Karte ohne Festkurse."""
     try:
+        if isinstance(df, (str, Path)):
+            log(f"Festkurse aus {df}")
+            df = lesen(df)
         if df is None:                                   # nur Veranstaltungen, die zu den Bahnen der Karte passen
             bahnen = sorted({r.get("course") for r in (daten.get("races") or {}).values() if r.get("course")})
             log(f"Bahnen der Karte: {', '.join(bahnen)}")
