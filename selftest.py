@@ -996,6 +996,32 @@ def festkurse_pruefen() -> None:
            and jt.get("toto") == 3.9 and jt.get("sieg") is None,
            "Festkurse: nur Galopp-Veranstaltungen, die zu den Bahnen der Karte passen (Trab, Ausland und "
            "Marseille-Vivaux ≠ Marseille-Borely fallen weg), auch ohne FK-Kennzeichen; reine Toto-Rennen werden zugeordnet")
+    import time as _time
+
+    class _Seite:                                          # Seite, die zweimal nicht antwortet
+        def __init__(self, fehler):
+            self.fehler, self.aufrufe = fehler, 0
+        def goto(self, url, **k):
+            self.aufrufe += 1
+            if self.aufrufe <= self.fehler:
+                raise TimeoutError("Page.goto: Timeout 45000ms exceeded.\nCall log: …")
+        def wait_for_selector(self, sel, **k):
+            pass
+        def wait_for_timeout(self, ms):
+            pass
+    schlaf, _time.sleep = _time.sleep, lambda s_: None
+    try:
+        s2, s4 = _Seite(2), _Seite(4)
+        ws._load(s2, "https://x", "body")
+        try:
+            ws._load(s4, "https://x", "body")
+            aufgegeben = False
+        except TimeoutError:
+            aufgegeben = True
+    finally:
+        _time.sleep = schlaf
+    pruefe(s2.aufrufe == 3 and aufgegeben and s4.aufrufe == ws.VERSUCHE,
+           f"Festkurse: Seitenaufruf bei Zeitüberschreitung bis zu {ws.VERSUCHE}-mal wiederholt, danach Fehler (Karte ohne Kurse)")
 
 
 def festkurse_aktualisieren_pruefen() -> None:
