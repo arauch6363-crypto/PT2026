@@ -2454,7 +2454,8 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     daten = baue_daten(hist, races_heute, runners_heute, tag, silks, prognosen, power=pmod)
     if festkurse is not False:                            # Festkurse Sieg/Platz (Wettstar) je Starter: x["fk"]
         import wettstar
-        wettstar.anhaengen(daten, None if festkurse is True else festkurse, tag=tag)
+        if wettstar.anhaengen(daten, None if festkurse is True else festkurse, tag=tag):
+            daten["festkurse_stand"] = datetime.now(pmu.PARIS).strftime("%H:%M")
     if pmod and pmod.get("wert"):                         # Vorwärts-Test: Value-Faktoren der Karte protokollieren
         try:
             print(f"Value-Protokoll: {power_modell.protokollieren(daten, base)}")
@@ -2468,6 +2469,20 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
         print(f"Kommentare in den Formzeilen: {mit_k}, davon auf Deutsch: {kommentare_uebersetzen(daten, base)}")
     out = Path(out) if out else base / "racecards" / f"racecard_{tag:%Y%m%d}.html"
     out.parent.mkdir(parents=True, exist_ok=True)
+    sp = daten_pfad(out)                                   # fertig berechnete Daten für festkurse_aktualisieren
+    sp.write_text(json.dumps(daten, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"Kartendaten gespeichert (für festkurse_aktualisieren): {sp}  ({sp.stat().st_size / 1e6:.1f} MB)")
+    _ausgeben(daten, out, claude)
+    return out
+
+
+def daten_pfad(out: Path) -> Path:
+    """Gespeicherte Kartendaten neben der HTML-Datei: racecard_JJJJMMTT_daten.json."""
+    return Path(out).with_name(Path(out).stem + "_daten.json")
+
+
+def _ausgeben(daten: dict, out: Path, claude: bool = True) -> None:
+    """HTML und (mit claude=True) die beiden Claude-JSONs schreiben."""
     out.write_text(html(daten), encoding="utf-8")
     print(f"Race Card gespeichert: {out}  ({daten['history']['runs']} historische Läufe, "
           f"davon {daten['history']['tracked']} mit Tracking)")
@@ -2476,6 +2491,69 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
         cj = claude_export.schreiben(daten, out.with_name(out.stem + "_claude.json"))
         print(f"Claude-Version (blind): {cj}  ({cj.stat().st_size / 1e6:.1f} MB)")
         print(f"Claude-Version (Markt): {claude_export.markt_pfad(cj)}")
+
+
+def nichtstarter_nachtragen(daten: dict, runners_heute: pd.DataFrame) -> list[str]:
+    """Starter, die laut aktuellem PMU-Programm inzwischen Nichtstarter sind, als nr markieren und die
+    Modell-Siegchancen der übrigen im Rennen wieder auf 100 % bringen. Rückgabe: Liste „Bahn C3 Nr. 5 Name“."""
+    if runners_heute is None or runners_heute.empty:
+        return []
+    st = runners_heute.get("status", pd.Series("", index=runners_heute.index)).astype("string").str.upper().fillna("")
+    inc = runners_heute.get("incident", pd.Series("", index=runners_heute.index)).astype("string").str.upper().fillna("")
+    nr = runners_heute[(st == "NON_PARTANT") | (inc == "NON_PARTANT")]
+    weg = {(str(r), int(n)) for r, n in zip(nr["race_id"], nr["saddle_no"]) if pd.notna(n)}
+    neu = []
+    for rid, r in (daten.get("races") or {}).items():
+        geaendert = False
+        for x in r.get("runners") or []:
+            if not x.get("nr") and (str(rid), int(x.get("no") or 0)) in weg:
+                x["nr"] = True
+                geaendert = True
+                neu.append(f"{r.get('course')} C{r.get('race_no')} Nr. {x.get('no')} {x.get('horse')}")
+        if geaendert:                                     # Siegchancen der verbleibenden Starter neu normieren
+            bleiben = [x for x in r["runners"] if not x.get("nr") and (x.get("power") or {}).get("sieg") is not None]
+            summe = sum(x["power"]["sieg"] for x in bleiben)
+            for x in bleiben:
+                x["power"]["sieg"] = round(x["power"]["sieg"] / summe, 3) if summe else x["power"]["sieg"]
+    return neu
+
+
+def festkurse_aktualisieren(base: Path, tag=None, out: Path | None = None, *, festkurse=True,
+                            nichtstarter: bool = True, claude: bool = True) -> Path:
+    """Schneller zweiter Lauf: die von run() gespeicherten Kartendaten (racecard_JJJJMMTT_daten.json) laden, nur die
+    Festkurse/Toto von Wettstar neu holen (festkurse: True, fertige Tabelle aus wettstar.festkurse oder False), mit
+    nichtstarter=True neue Nichtstarter aus dem PMU-Programm übernehmen, Value-Protokoll (Festkurs) nachziehen und
+    HTML sowie die Claude-JSONs neu schreiben – ohne Historie, Kennzahlen und Modell neu zu rechnen."""
+    base = Path(base)
+    tag = pd.to_datetime(tag).date() if tag else pmu.heute()
+    out = Path(out) if out else base / "racecards" / f"racecard_{tag:%Y%m%d}.html"
+    sp = daten_pfad(out)
+    if not sp.exists():
+        raise FileNotFoundError(f"Keine gespeicherten Kartendaten {sp} – zuerst racecard.run(BASE) für {tag}.")
+    daten = json.loads(sp.read_text(encoding="utf-8"))
+    print(f"Kartendaten geladen: {sp} (erstellt {daten.get('generated', '?')})")
+    if nichtstarter:
+        try:
+            _, ru = programm(tag)
+            neu = nichtstarter_nachtragen(daten, ru)
+            print(f"Nichtstarter neu: {len(neu)}" + (f" – {'; '.join(neu)}" if neu else ""))
+        except Exception as e:
+            print(f"Nichtstarter nicht geprüft ({e})")
+    if festkurse is not False:
+        import wettstar
+        for r in (daten.get("races") or {}).values():
+            for x in r.get("runners") or []:
+                x.pop("fk", None)                          # alte Kurse weg, neu holen
+        wettstar.anhaengen(daten, None if festkurse is True else festkurse, tag=tag)
+    if any((x.get("power") or {}).get("wert") is not None for r in daten["races"].values() for x in r["runners"]):
+        try:
+            import power_modell
+            print(f"Value-Protokoll: {power_modell.protokollieren(daten, base)}")
+        except Exception as e:
+            print(f"Value-Protokoll nicht geschrieben: {e}")
+    daten["festkurse_stand"] = datetime.now(pmu.PARIS).strftime("%H:%M")
+    sp.write_text(json.dumps(daten, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    _ausgeben(daten, out, claude)
     return out
 
 

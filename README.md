@@ -351,6 +351,12 @@ Je Starter:
   Modell-Siegchance ≥ 1,2 (kräftig ab 1,5). Marktdatei der Claude-JSON: je Starter `festkurs` mit Erwartungswerten; Vorwärts-Test: Spalte
   `festkurs` im Value-Protokoll wird automatisch gefüllt. Eine fertige Tabelle aus `wettstar.festkurse(datum)` kann
   auch übergeben werden (`festkurse=df`), `festkurse=False` schaltet es ab.
+* **Karte vorberechnen, Kurse später nachtragen**: `racecard.run(BASE)` speichert neben der HTML-Datei die fertig
+  berechneten Kartendaten (`racecard_JJJJMMTT_daten.json`). `racecard.festkurse_aktualisieren(BASE)` lädt sie, holt
+  nur Festkurse/Toto von Wettstar neu, übernimmt neue Nichtstarter aus dem PMU-Programm (Modell-Siegchancen der übrigen
+  wieder auf 100 %), zieht das Value-Protokoll nach und schreibt HTML und Claude-JSONs neu – ein bis zwei Minuten
+  statt des vollen Laufs. Oben in der Karte steht „Kurse HH:MM“. Optionen: `festkurse=df` (fertige Tabelle),
+  `nichtstarter=False`, `tag="JJJJ-MM-TT"`.
 * **Abstammungsprofil** (Detailseite, ersetzt Vater/Muttervater in den Vorlieben und den „optimalen Bereich“):
   vier Skalen je Linie als Perzentil gegen alle Väter bzw. alle Muttervater mit ≥ 50 Läufen in der Dimension –
   Distanz Sprinter (bis 1400 m) / Mitteldistanz / Steher (über 2400 m), Boden Slow / Fast (nur Gras), Belag Gras /
