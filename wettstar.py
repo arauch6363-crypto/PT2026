@@ -34,7 +34,9 @@ import pandas as pd
 BASE_URL = "https://wettstar-pferdewetten.de"
 LAND_CODE = "FRA"
 RENNARTEN = ("Flachrennen",)       # () = alle
-WORKER = 4
+WORKER = 2                         # parallele Browser (mehr führte zu Zeitüberschreitungen)
+VERSUCHE = 3                       # Seitenaufruf so oft versuchen, mit wachsender Pause
+LADE_TIMEOUT_MS = 45000
 # Ausländische Bahnen, die Wettstar unter „Frankreich“ listet (französische Toto-Pools) – nur der Rückfall, wenn
 # festkurse() ohne die Bahnen der PMU-Karte läuft (sonst zählen nur Veranstaltungen, die zu einer Bahn passen)
 AUSLAND_BAHNEN = (
@@ -124,16 +126,25 @@ def num(s) -> float | None:
 def _new_page(p):
     browser = p.chromium.launch(headless=True)
     ctx = browser.new_context(**p.devices["Pixel 7"], locale="de-DE")
+    # Bilder, Schriften, Medien nicht laden: nur Text und Skripte werden gebraucht, Seiten laden so deutlich schneller
+    ctx.route("**/*", lambda route: route.abort() if route.request.resource_type in ("image", "font", "media")
+              else route.continue_())
     return browser, ctx.new_page()
 
 
-def _load(page, url, selector):
-    page.goto(url, wait_until="domcontentloaded", timeout=60000)
-    try:
-        page.wait_for_selector(selector, timeout=25000)
-    except Exception:
-        pass
-    page.wait_for_timeout(1500)        # Kurse nachladen lassen
+def _load(page, url, selector, versuche: int = VERSUCHE):
+    """Seite laden und auf `selector` warten; bei Zeitüberschreitung bis zu `versuche` Mal mit wachsender Pause."""
+    import time
+    for n in range(1, versuche + 1):
+        try:
+            page.goto(url, wait_until="commit", timeout=LADE_TIMEOUT_MS)
+            page.wait_for_selector(selector, timeout=LADE_TIMEOUT_MS)
+            page.wait_for_timeout(1500)    # Kurse nachladen lassen
+            return
+        except Exception:
+            if n == versuche:
+                raise
+            time.sleep(5 * n)
 
 
 def veranstaltungen_waehlen(meetings: list[dict], bahnen=None, nur_fk: bool = False,
@@ -163,10 +174,18 @@ def _collect(overview, land, rennarten, nur_fk, nur_offen, bahnen, log):
         _load(page, overview, ".ttml__meeting")
         meetings = page.evaluate(JS_MEETINGS, land)
         chosen = veranstaltungen_waehlen(meetings, bahnen, nur_fk)
-        log(f"Wettstar: {len(meetings)} Veranstaltungen in {land}, davon geladen: "
-            + (", ".join(f"{m['name']} ({'FK' if m.get('fk') else 'nur Toto'})" for m in chosen) or "keine"))
+        log(f"Wettstar: {len(meetings)} Veranstaltungen in {land}:")
+        for m in meetings:                                 # Übersicht: warum geladen bzw. nicht
+            best = max(bahnen or [None], key=lambda b: aehnlich(m.get("name"), b) if b else 0)
+            log(f"   {'✔' if m in chosen else '·'} {m.get('name', ''):<20} {m.get('art', ''):<7} "
+                f"{'FK' if m.get('fk') else 'nur Toto':<8}"
+                + (f" ähnlichste Bahn der Karte: {best} ({aehnlich(m.get('name'), best):.2f})" if best else ""))
         for m in chosen:
-            _load(page, f"{overview}&meeting={m['id']}", f".ttml__meeting.meeting-id--{m['id']} .meetinginfo")
+            try:
+                _load(page, f"{overview}&meeting={m['id']}", f".ttml__meeting.meeting-id--{m['id']} .meetinginfo")
+            except Exception as e:
+                log(f"   Wettstar {m.get('name')}: Rennen nicht geladen – {str(e).splitlines()[0]}")
+                continue
             for r in page.evaluate(JS_RACES, m["id"]):
                 art_ok = not rennarten or (r["art"] or "").lower() in [a.lower() for a in rennarten]
                 if not art_ok or (nur_offen and r["status"] == "OFFICIAL"):
@@ -194,7 +213,7 @@ def _scrape(items, total, done, lock, log):
                                 "NS": not r["starter"], "Gewicht": r["gewicht"], "Jockey": r["jockey"],
                                 "Tipp": r["tipp"]})
             except Exception as e:                                # ein Rennen darf den Rest nicht verhindern
-                log(f"   Wettstar Rennen {rid}: Fehler – {e}")
+                log(f"   Wettstar {meta.get('Veranstaltung')} R{meta.get('Rennen')}: Fehler – {str(e).splitlines()[0]}")
             with lock:
                 done[0] += 1
         browser.close()
@@ -302,10 +321,11 @@ def anhaengen(daten: dict, df: pd.DataFrame | None = None, tag=None, log=print) 
     try:
         if df is None:                                   # nur Veranstaltungen, die zu den Bahnen der Karte passen
             bahnen = sorted({r.get("course") for r in (daten.get("races") or {}).values() if r.get("course")})
+            log(f"Bahnen der Karte: {', '.join(bahnen)}")
             df = festkurse(tag or daten.get("date"), bahnen=bahnen, log=log)
         je = zuordnen(daten, df)
     except Exception as e:
-        log(f"Wettstar: Festkurse nicht geholt ({e}) – Karte ohne Festkurse.")
+        log(f"Wettstar: Festkurse nicht geholt ({str(e).splitlines()[0]}) – Karte ohne Festkurse.")
         return 0
     n_alle = 0
     ohne = []

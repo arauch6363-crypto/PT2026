@@ -36,6 +36,7 @@ from __future__ import annotations
 import bisect
 import json
 import time
+import warnings
 from collections import deque
 from pathlib import Path
 
@@ -296,7 +297,8 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     rennen_pos = pd.Series(np.arange(n)).groupby(rid).apply(lambda s: s.to_numpy()).to_dict()
     # Quote vergleichbar über Feldgrößen: Quotenrang relativ (0 = Favorit … 1 = Außenseiter) und Marktchance
     # (1/Quote, im Rennen auf Summe 1 gebracht)
-    inv = pd.Series(np.where(werte["odds_final"] > 1, 1.0 / werte["odds_final"], np.nan))
+    oq = werte["odds_final"]
+    inv = pd.Series(np.divide(1.0, oq, out=np.full(len(oq), np.nan), where=oq > 1))
     p_markt = (inv / inv.groupby(rid).transform("sum")).to_numpy(dtype=float)
     o_rang = inv.groupby(rid).rank(ascending=False, method="average")
     o_n = inv.notna().groupby(rid).transform("sum")
@@ -1413,7 +1415,9 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
         return {}
     hz = heute_zeilen.copy()
     hz.index = [f"heute_{i}" for i in range(len(hz))]
-    alle = pd.concat([hist, hz], axis=0, sort=False)
+    with warnings.catch_warnings():                # heutige Zeilen ohne Ergebnis: leere Spalten sind gewollt
+        warnings.simplefilter("ignore", FutureWarning)
+        alle = pd.concat([hist, hz], axis=0, sort=False)
     heute = pd.Series(alle.index.isin(hz.index), index=alle.index)
     X = merkmale(alle, ziel_maske=heute, heute=heute, log=log)
     X = feld_relativ(X, alle.loc[X.index, "race_id"], alle.loc[X.index, "date"])
