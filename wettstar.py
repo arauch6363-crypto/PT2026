@@ -1,5 +1,6 @@
 """
-Wettstar – Toto und Festkurse (Sieg, Platz) der französischen Flachrennen eines Tages.
+Wettstar – Toto und Festkurse (Sieg, Platz) der französischen Flachrennen eines Tages, auch Veranstaltungen nur mit
+Toto (ohne FK-Kennzeichen).
 
 Liest wettstar-pferdewetten.de mit Playwright über die festen CSS-Klassen aus:
   Übersicht:      .ttml__country[data-country=FRA] .ttml__meeting
@@ -34,9 +35,19 @@ BASE_URL = "https://wettstar-pferdewetten.de"
 LAND_CODE = "FRA"
 RENNARTEN = ("Flachrennen",)       # () = alle
 WORKER = 4
+# Ausländische Bahnen, die Wettstar unter „Frankreich“ listet (französische Toto-Pools) – nur der Rückfall, wenn
+# festkurse() ohne die Bahnen der PMU-Karte läuft (sonst zählen nur Veranstaltungen, die zu einer Bahn passen)
+AUSLAND_BAHNEN = (
+    "Ascot", "Newmarket", "Doncaster", "York", "Epsom", "Goodwood", "Sandown", "Kempton", "Lingfield", "Chelmsford",
+    "Wolverhampton", "Newcastle", "Haydock", "Cheltenham", "Aintree", "Leopardstown", "Curragh", "Dundalk",
+    "Fairyhouse", "Punchestown", "Belmont Park", "Aqueduct", "Saratoga", "Keeneland", "Churchill Downs",
+    "Gulfstream Park", "Santa Anita Park", "Del Mar", "Laurel Park", "Delaware Park", "Woodbine", "Far Hills",
+    "San Isidro", "Palermo", "La Plata", "Gavea", "Cidade Jardim", "Maronas", "Hipodromo Chile", "Meydan", "Sha Tin",
+    "Happy Valley", "Tokyo", "Kyoto", "Randwick", "Flemington", "Mons", "Wolvega", "Vincennes Int.", "Ankara", "Izmir",
+    "Istanbul")
 NAME_MIN = 0.80                    # Name gilt als gleich ab dieser Ähnlichkeit (nach Normalisierung)
 NAME_MIN_NR = 0.60                 # bei gleicher Startnummer reicht weniger (Abkürzungen, Tippfehler)
-BAHN_MIN = 0.60                    # Bahnname: Mindestähnlichkeit
+BAHN_MIN = 0.80                    # Bahnname: Mindestähnlichkeit (Marseille-Borely ≠ Marseille-Vivaux)
 
 # ---------- JavaScript: Daten direkt über die CSS-Klassen holen ----------
 JS_MEETINGS = r"""
@@ -125,15 +136,35 @@ def _load(page, url, selector):
     page.wait_for_timeout(1500)        # Kurse nachladen lassen
 
 
-def _collect(overview, land, rennarten, nur_fk, nur_offen, log):
+def veranstaltungen_waehlen(meetings: list[dict], bahnen=None, nur_fk: bool = False,
+                            ausland=AUSLAND_BAHNEN) -> list[dict]:
+    """Galopp-Veranstaltungen (mit oder ohne Festkurse, nur_fk=True: nur mit FK-Kennzeichen). Mit `bahnen` (Bahnen
+    der PMU-Karte: französische Flachrennen des Tages) nur die, deren Name zu einer davon passt – ausländische Bahnen
+    unter „Frankreich“ fallen so von selbst weg; ohne `bahnen` alle außer der Liste `ausland`."""
+    aus = {norm(b) for b in ausland or ()}
+    out = []
+    for m in meetings:
+        if m.get("art") != "Galopp" or (nur_fk and not m.get("fk")):
+            continue
+        if bahnen:
+            if max((aehnlich(m.get("name"), b) for b in bahnen), default=0) < BAHN_MIN:
+                continue
+        elif norm(m.get("name")) in aus:
+            continue
+        out.append(m)
+    return out
+
+
+def _collect(overview, land, rennarten, nur_fk, nur_offen, bahnen, log):
     from playwright.sync_api import sync_playwright
     races = {}
     with sync_playwright() as p:
         browser, page = _new_page(p)
         _load(page, overview, ".ttml__meeting")
         meetings = page.evaluate(JS_MEETINGS, land)
-        log(f"Wettstar: {len(meetings)} Veranstaltungen in {land}")
-        chosen = [m for m in meetings if m["art"] == "Galopp" and (m["fk"] or not nur_fk)]
+        chosen = veranstaltungen_waehlen(meetings, bahnen, nur_fk)
+        log(f"Wettstar: {len(meetings)} Veranstaltungen in {land}, davon geladen: "
+            + (", ".join(f"{m['name']} ({'FK' if m.get('fk') else 'nur Toto'})" for m in chosen) or "keine"))
         for m in chosen:
             _load(page, f"{overview}&meeting={m['id']}", f".ttml__meeting.meeting-id--{m['id']} .meetinginfo")
             for r in page.evaluate(JS_RACES, m["id"]):
@@ -170,9 +201,11 @@ def _scrape(items, total, done, lock, log):
     return out
 
 
-def festkurse(datum, *, land: str = LAND_CODE, rennarten=RENNARTEN, nur_fk: bool = True, nur_offen: bool = False,
-              worker: int = WORKER, log=print) -> pd.DataFrame:
-    """Toto und Festkurse aller Galopp-Rennen (Vorgabe: Flachrennen mit FK) eines Tages als Tabelle (SPALTEN).
+def festkurse(datum, *, land: str = LAND_CODE, rennarten=RENNARTEN, nur_fk: bool = False, nur_offen: bool = False,
+              bahnen=None, worker: int = WORKER, log=print) -> pd.DataFrame:
+    """Toto und Festkurse der französischen Flachrennen eines Tages als Tabelle (SPALTEN) – auch Veranstaltungen nur
+    mit Toto (FK-Spalten dann leer; nur_fk=True: nur mit FK-Kennzeichen). bahnen: Bahnnamen der PMU-Karte – dann nur
+    passende Veranstaltungen (sonst alle Galopp-Veranstaltungen außer AUSLAND_BAHNEN).
     Läuft auch in Colab/Jupyter (Playwright-Sync-API in eigenen Threads, nicht im Notebook-Event-Loop)."""
     try:
         import playwright  # noqa: F401
@@ -182,7 +215,8 @@ def festkurse(datum, *, land: str = LAND_CODE, rennarten=RENNARTEN, nur_fk: bool
     datum = pd.Timestamp(datum).strftime("%Y-%m-%d")
     overview = f"{BASE_URL}/races/{datum}?country={land}"
     with ThreadPoolExecutor(1) as ex:
-        races = ex.submit(_collect, overview, land, tuple(rennarten or ()), nur_fk, nur_offen, log).result()
+        races = ex.submit(_collect, overview, land, tuple(rennarten or ()), nur_fk, nur_offen,
+                          list(bahnen or ()), log).result()
     if not races:
         log("Wettstar: keine passenden Rennen gefunden.")
         return pd.DataFrame(columns=SPALTEN)
@@ -197,7 +231,7 @@ def festkurse(datum, *, land: str = LAND_CODE, rennarten=RENNARTEN, nur_fk: bool
     df["_rn"] = pd.to_numeric(df["Rennen"], errors="coerce")
     df = df.sort_values(["Veranstaltung", "_rn", "Nr"]).drop(columns="_rn").reset_index(drop=True)
     log(f"Wettstar: {df['Veranstaltung'].nunique()} Veranstaltungen, {df['Rennen_ID'].nunique()} Rennen, "
-        f"{len(df)} Pferde, {int(df['FK_Sieg'].notna().sum())} mit Festkurs")
+        f"{len(df)} Pferde – {int(df['Toto'].notna().sum())} mit Toto, {int(df['FK_Sieg'].notna().sum())} mit Festkurs")
     return df
 
 
@@ -266,8 +300,9 @@ def anhaengen(daten: dict, df: pd.DataFrame | None = None, tag=None, log=print) 
     """Festkurse an die Starter der Kartendaten hängen (x["fk"]); df: fertige Tabelle (festkurse) oder None =
     jetzt holen. Rückgabe: Zahl zugeordneter Starter. Fehler oder fehlendes Playwright: Karte ohne Festkurse."""
     try:
-        if df is None:
-            df = festkurse(tag or daten.get("date"), log=log)
+        if df is None:                                   # nur Veranstaltungen, die zu den Bahnen der Karte passen
+            bahnen = sorted({r.get("course") for r in (daten.get("races") or {}).values() if r.get("course")})
+            df = festkurse(tag or daten.get("date"), bahnen=bahnen, log=log)
         je = zuordnen(daten, df)
     except Exception as e:
         log(f"Wettstar: Festkurse nicht geholt ({e}) – Karte ohne Festkurse.")
