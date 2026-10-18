@@ -340,6 +340,7 @@ def main() -> int:
     power_modell_pruefen()
     abstammung_pruefen()
     festkurse_pruefen()
+    festkurse_aktualisieren_pruefen()
 
     pt.read_pages = requests_session_orig
     print("\n" + ("Alle Prüfungen bestanden." if not fehler else f"{len(fehler)} Prüfung(en) fehlgeschlagen:"))
@@ -995,6 +996,39 @@ def festkurse_pruefen() -> None:
            and jt.get("toto") == 3.9 and jt.get("sieg") is None,
            "Festkurse: nur Galopp-Veranstaltungen, die zu den Bahnen der Karte passen (Trab, Ausland und "
            "Marseille-Vivaux ≠ Marseille-Borely fallen weg), auch ohne FK-Kennzeichen; reine Toto-Rennen werden zugeordnet")
+
+
+def festkurse_aktualisieren_pruefen() -> None:
+    """Schneller zweiter Lauf: gespeicherte Kartendaten laden, Festkurse einfügen, neue Nichtstarter übernehmen
+    (Siegchancen neu auf 100 %), HTML und Claude-JSONs neu schreiben – ohne Historie neu zu rechnen."""
+    import io, contextlib, json as _json, tempfile
+    import racecard as rc
+    hist, heute_r, heute_s, tag = _RC_FALL
+    with contextlib.redirect_stdout(io.StringIO()):
+        d = rc.baue_daten(hist, heute_r, heute_s, tag)
+    rid, r = next(iter(d["races"].items()))
+    for i, x in enumerate(r["runners"]):
+        x["power"] = {"p": 100, "sieg": [0.6, 0.4][i % 2], "treiber": []}
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "racecards" / f"racecard_{tag:%Y%m%d}.html"
+        out.parent.mkdir(parents=True)
+        rc.daten_pfad(out).write_text(_json.dumps(d, default=str), encoding="utf-8")
+        df = pd.DataFrame([dict(Veranstaltung=r["course"].title(), Rennen=str(r["race_no"]), Start=r["time"] or "",
+                                Nr=x["no"], Pferd=x["horse"].title(), Toto=3.5 + i, FK_Sieg=None if i else 2.5,
+                                FK_Platz=None, NS=False) for i, x in enumerate(r["runners"])])
+        with contextlib.redirect_stdout(io.StringIO()) as aus:
+            rc.festkurse_aktualisieren(Path(tmp), tag, out, festkurse=df, nichtstarter=False)
+        neu = _json.loads(rc.daten_pfad(out).read_text(encoding="utf-8"))
+        st = neu["races"][rid]["runners"]
+        ok_dateien = out.exists() and out.with_name(out.stem + "_claude.json").exists()
+    nr_df = pd.DataFrame([{"race_id": rid, "saddle_no": st[1]["no"], "status": "NON_PARTANT", "incident": None}])
+    neu_nr = rc.nichtstarter_nachtragen(neu, nr_df)
+    pruefe(ok_dateien and st[0]["fk"]["sieg"] == 2.5 and st[1]["fk"]["toto"] == 4.5 and st[1]["fk"]["sieg"] is None
+           and neu.get("festkurse_stand") and "Kartendaten geladen" in aus.getvalue()
+           and len(neu_nr) == 1 and neu["races"][rid]["runners"][1]["nr"]
+           and neu["races"][rid]["runners"][0]["power"]["sieg"] == 1.0,
+           "Festkurse nachträglich: gespeicherte Kartendaten + Wettstar-Kurse -> HTML und Claude-JSONs neu (ohne "
+           "Neuberechnung); neue Nichtstarter markiert, Siegchancen der übrigen wieder auf 100 %")
 
 
 def tipp_auswertung_pruefen() -> None:
