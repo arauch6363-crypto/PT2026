@@ -562,6 +562,7 @@ def _power_synth(tage=40, rennen=3, feld=8, pferde=90, seed=3) -> pd.DataFrame:
                               blinkers=None if fehlt else ("OEILLERES_CLASSIQUE" if (i + d) % 9 == 0 else "SANS_OEILLERES")))
     h = pd.DataFrame(z)
     h["odds_rank"] = h.groupby("race_id")["odds_final"].rank(method="min")
+    h["odds_morning"] = (h["odds_final"] * np.exp(np.random.default_rng(5).normal(0, 0.2, len(h)))).clip(lower=1.1)
     return h
 
 
@@ -675,6 +676,14 @@ def power_modell_pruefen() -> None:
            and mi["power"]["rote_starter"]["anteil_starter"] > 0 and "Warnsignal" in mi["value"]["einordnung"]
            and mi["value"]["pruefung"]["sieg_z"] is not None,
            "Modell-Info für die Claude-JSON: Verlässlichkeit Power (inkl. Anteil roter Starter an den Siegern) und Value")
+    # Morgenquote als Marktmerkmal (nur Value-Modell): von Hand, im Modell gespeichert, auf der Karte aus den heutigen Zeilen
+    mm = pm.morgen_merkmale(pd.DataFrame({"race_id": ["A", "A", "A", "B"], "odds_morning": [2.0, 4.0, None, 3.0]}))
+    pruefe(abs(mm["m_pm"].iloc[0] - 2 / 3) < 1e-9 and mm["m_rk"].tolist()[:2] == [0.0, 1.0]
+           and abs(mm["m_marge"].iloc[0] - 0.75) < 1e-9 and mm.iloc[2].isna().all() and np.isnan(mm["m_rk"].iloc[3])
+           and abs(mm["m_log"].iloc[3] - np.log(3)) < 1e-9
+           and mw["wert"]["meta"].get("morgenquote") is True and "m_pm" in mw["wert"]["meta"]["spalten"]
+           and not any(c.startswith("m_") for c in mw["meta"]["spalten"]),
+           "Value-Modell: Morgenquote als Merkmal (Marktchance je Rennen, log-Quote, Quotenrang, Marge); Power-Modell ohne")
     # Kombi-Ziel (Sieg + Platz, Poisson): findet denselben Trainer-Effekt, Faktor ≈ A/E Kombi
     with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
         ek = pm.trainieren_wert(hist=hw, X=Xw, out=Path(tmp) / pm.MODELL_ORDNER, runden=300, ziel_art="kombi",
