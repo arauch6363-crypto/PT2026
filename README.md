@@ -385,7 +385,7 @@ Je Starter:
   Perzentil, Lage und Werte je Kategorie; Klick: alle 200-m-Gruppen bzw. Böden im Überblick. In den Formzeilen
   „Abst“ = Passung dieses Laufs ohne Alter (ab ±15). In der Claude-JSON je Starter `abst` und `abst_pass`, je
   Formzeile `abst_pass`.
-* **CGD** (Kennzahlen des Pferdes auf der zweiten Stufe und je Formzeile, `racecard.cgd_berechnen`): Bilanz des Pferdes aus den Läufen **vor**
+* **CGD** (Hinweis-Zeile des Pferdes und je Formzeile, `racecard.cgd_berechnen`): Bilanz des Pferdes aus den Läufen **vor**
   dem jeweiligen Lauf auf Kurs (C, mit Belag), Bodengruppe (G) und Distanzgruppe (D): groß = gewonnen, klein =
   platziert, · = ohne Platz, ◦ = erstmals. Ersetzt die Abzeichen C/D/CD. Claude-JSON: `cgd` je Starter und Formzeile.
 * **Indizes €/L+ und Val+**: 100 × Wert ÷ Ø der Population (alle Trainer, Jockeys, Besitzer, Züchter im selben
