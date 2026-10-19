@@ -1320,6 +1320,188 @@ def abst_pferd(profil: dict, linie, dist_m, going, alter, monat) -> dict | None:
     return out
 
 
+def _spalte(df: pd.DataFrame, c: str) -> pd.Series:
+    return df[c] if c in df else pd.Series([None] * len(df), index=df.index, dtype=object)
+
+
+ABST_PASS_ROLLE = {"sire": 2.0, "dam_sire": 1.0}   # Gewicht von Vater und Muttervater in der Gesamt-Passung
+ABST_PASS_STUFEN = (15, 40)                         # Pfeile: ab ±15 ▲/▼, ab ±40 ▲▲/▼▼
+ABST_PASS_LAUF = ("dist", "boden", "belag")         # frühere Läufe: ohne Reife (ändert sich kaum von Lauf zu Lauf)
+
+
+def _abst_linien(profil: dict) -> pd.DataFrame:
+    """Je Linie und Skala: Perzentil der Neigung, Läufe und ob die Linie zur Vergleichs-Population zählt."""
+    if "_tab" not in profil:
+        z = {}
+        for k_, p in profil.items():
+            if str(k_).startswith("_") or not isinstance(p, dict):
+                continue
+            z[k_] = {f"{d}_{w}": (p.get(d) or {}).get(w) for d in ABST_SKALEN for w in ("perzentil", "runs", "sicher")}
+        profil["_tab"] = pd.DataFrame.from_dict(z, orient="index")
+    return profil["_tab"]
+
+
+def abst_passung_werte(profile: dict, zeilen: pd.DataFrame, skalen=tuple(ABST_SKALEN)) -> pd.DataFrame:
+    """Abstammungs-Passung je Zeile (Lauf oder heutiger Start) aus den Profilen {"sire": …, "dam_sire": …}
+    (abstammung_profil). Je Skala P = (Perzentil der Linie − 50) × (Lage des Rennens − 50) / 25, −100 … +100:
+    > 0 = die Linie neigt in die Richtung, in der das Rennen liegt; nahe 0 = Linie ausgeglichen oder Rennen in der
+    Mitte. Nur Linien, die zur Vergleichs-Population zählen. Je Linie Ø der Skalen, gewichtet nach Läufen
+    (n / (n + ABST_POP_MIN)); gesamt: Vater und Muttervater im Verhältnis ABST_PASS_ROLLE.
+    zeilen: sire_key, dam_sire_key, distance_m, going_pmu, age. Spalten: pass, pass_{rolle}, pass_{skala},
+    p_{rolle}_{skala}."""
+    n = len(zeilen)
+    out = pd.DataFrame(index=zeilen.index)
+    dist = pd.to_numeric(_spalte(zeilen, "distance_m"), errors="coerce").to_numpy(float)
+    g_txt = [str(g).upper() if g is not None and not (isinstance(g, float) and np.isnan(g)) else "" for g in
+             (zeilen["going_pmu"] if "going_pmu" in zeilen else [None] * n)]
+    alter = pd.to_numeric(_spalte(zeilen, "age"), errors="coerce").to_numpy(float)
+    belag = np.array([abst_belag_kat(g) for g in g_txt], dtype=object)
+    boden = np.array([abst_boden_kat(g) for g in g_txt], dtype=object)
+
+    def pz(sortiert, w):
+        w = np.asarray(w, float)
+        if not len(sortiert):
+            return np.full(len(w), np.nan)
+        v = np.round(100 * (np.searchsorted(sortiert, w, "left") + np.searchsorted(sortiert, w, "right")) / 2 / len(sortiert))
+        return np.where(np.isfinite(w), v, np.nan)
+    ges_z, ges_n = np.zeros(n), np.zeros(n)
+    dim_z = {d: np.zeros(n) for d in skalen}
+    dim_n = {d: np.zeros(n) for d in skalen}
+    for rolle, gew in ABST_PASS_ROLLE.items():
+        prof = (profile or {}).get(rolle) or {}
+        L = prof.get("_lage") or {}
+        lage = {"dist": pz(L.get("dist", np.array([])), dist),
+                "boden": pz(L.get("boden", np.array([])), [ABST_BODEN_STUFE.get(g, np.nan) if b is not None else np.nan
+                                                           for g, b in zip(g_txt, boden)]),
+                "reife": pz(L.get("reife", np.array([])), np.where(alter >= 2, np.minimum(alter, 4), np.nan)),
+                "belag": np.array([0.0 if b == "Gras" else 100.0 if b == "PSF" else np.nan for b in belag])}
+        tab = _abst_linien(prof) if prof else pd.DataFrame()
+        keys = _spalte(zeilen, rolle + "_key")
+        t = tab.reindex(keys.to_numpy()) if len(tab) else pd.DataFrame(index=range(n))
+        z_, w_ = np.zeros(n), np.zeros(n)
+        for d in skalen:
+            if f"{d}_perzentil" in t:
+                p_ = pd.to_numeric(t[f"{d}_perzentil"], errors="coerce").to_numpy(float)
+                r_ = pd.to_numeric(t[f"{d}_runs"], errors="coerce").fillna(0).to_numpy(float)
+                ok = t[f"{d}_sicher"].eq(True).to_numpy() & np.isfinite(p_) & np.isfinite(lage[d])
+            else:
+                p_, r_, ok = np.full(n, np.nan), np.zeros(n), np.zeros(n, bool)
+            P = np.where(ok, (p_ - 50) * (lage[d] - 50) / 25, np.nan)
+            w = np.where(ok, r_ / (r_ + ABST_POP_MIN), 0.0)
+            out[f"p_{rolle}_{d}"] = P
+            z_ += np.nan_to_num(P) * w
+            w_ += w
+            dim_z[d] += gew * np.nan_to_num(P) * w
+            dim_n[d] += gew * w
+        with np.errstate(invalid="ignore", divide="ignore"):
+            out[f"pass_{rolle}"] = np.where(w_ > 0, z_ / w_, np.nan)
+        ges_z += gew * z_
+        ges_n += gew * w_
+    with np.errstate(invalid="ignore", divide="ignore"):
+        out["pass"] = np.where(ges_n > 0, ges_z / ges_n, np.nan)
+        for d in skalen:
+            out[f"pass_{d}"] = np.where(dim_n[d] > 0, dim_z[d] / dim_n[d], np.nan)
+    return out
+
+
+def abst_passung_dict(z: pd.Series, mit_linien: bool = True) -> dict | None:
+    """Eine Zeile aus abst_passung_werte als JSON für Karte und Claude (gerundet, ohne Lücken)."""
+    r = lambda v: None if v is None or not np.isfinite(v) else int(round(v))
+    if r(z.get("pass")) is None:
+        return None
+    out = {"gesamt": r(z["pass"]), **{d: r(z.get(f"pass_{d}")) for d in ABST_SKALEN if r(z.get(f"pass_{d}")) is not None}}
+    if mit_linien:
+        for rolle in ABST_PASS_ROLLE:
+            if r(z.get(f"pass_{rolle}")) is not None:
+                out[rolle] = {"wert": r(z[f"pass_{rolle}"]),
+                              **{d: r(z.get(f"p_{rolle}_{d}")) for d in ABST_SKALEN if r(z.get(f"p_{rolle}_{d}")) is not None}}
+    return out
+
+
+# CGD: Bilanz des Pferdes vor einem Lauf auf Kurs (mit Belag), Bodengruppe und Distanzgruppe
+CGD_BUCHSTABEN = ("C", "G", "D")
+
+
+def _cgd_schluessel(course, going, dgrp) -> tuple:
+    g = None if going is None or (isinstance(going, float) and np.isnan(going)) else str(going)
+    c = None if course is None or (isinstance(course, float) and np.isnan(course)) else str(course)
+    d = None if dgrp is None or (isinstance(dgrp, float) and np.isnan(dgrp)) else str(dgrp)
+    kurs = f"{c}|{'PSF' if g is not None and 'PSF' in g.upper() else 'Gras'}" if c is not None and g is not None else None
+    return kurs, g, d
+
+
+def cgd_kennung(stand: list[dict], schluessel: tuple) -> tuple[str, int, int, int]:
+    """Kennung aus dem Stand (je Dimension {Schlüssel: 2 gewonnen / 1 platziert / 0 gelaufen}):
+    Großbuchstabe = gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals, – = unbekannt.
+    Rückgabe (Kennung, Anzahl gewonnen, Anzahl platziert (inkl. gewonnen), Anzahl erstmals)."""
+    txt, s_, p_, n_ = "", 0, 0, 0
+    for b, st, k in zip(CGD_BUCHSTABEN, stand, schluessel):
+        if k is None:
+            txt += "–"
+            continue
+        v = st.get(k)
+        if v is None:
+            txt, n_ = txt + "◦", n_ + 1
+        else:
+            txt += b if v == 2 else b.lower() if v == 1 else "·"
+            s_, p_ = s_ + (v == 2), p_ + (v >= 1)
+    return txt, s_, p_, n_
+
+
+def cgd_stand(laeufe: pd.DataFrame) -> list[dict]:
+    """Stand aus früheren Läufen (mit Ergebnis): je Dimension das beste Ergebnis je Kurs/Boden/Distanzgruppe."""
+    stand = [{}, {}, {}]
+    for _, z in laeufe.iterrows():
+        _cgd_merken(stand, _cgd_schluessel(z.get("course_key"), z.get("going_pmu"), z.get("dist_group")),
+                    z.get("won"), z.get("placed"))
+    return stand
+
+
+def _cgd_merken(stand, schluessel, won, placed):
+    w, p = _num(won), _num(placed)
+    if w is None and p is None:                        # ohne Ergebnis (heute): zählt nicht
+        return
+    v = 2 if w == 1 else 1 if p == 1 else 0
+    for st, k in zip(stand, schluessel):
+        if k is not None and st.get(k, -1) < v:
+            st[k] = v
+
+
+def cgd_berechnen(h: pd.DataFrame) -> pd.DataFrame:
+    """CGD je Lauf, immer aus den Läufen des Pferdes VOR diesem Renntag (kein Blick in die Zukunft; Läufe ohne
+    Ergebnis zählen nicht). Spalten: cgd, cgd_sieg, cgd_platz, cgd_neu – Index wie h."""
+    n = len(h)
+    code = np.full(n, None, dtype=object)
+    zahl = np.full((n, 3), np.nan)
+    if n:
+        hid = h["horse_id"].astype(str).to_numpy()
+        tag = pd.to_datetime(h["date"]).to_numpy()
+        sl = [_cgd_schluessel(c, g, d) for c, g, d in zip(_spalte(h, "course_key"), _spalte(h, "going_pmu"),
+                                                           _spalte(h, "dist_group"))]
+        won, placed = _spalte(h, "won").to_numpy(), _spalte(h, "placed").to_numpy()
+        order = np.lexsort((tag, hid))
+        i = 0
+        while i < n:
+            j = i
+            while j < n and hid[order[j]] == hid[order[i]]:
+                j += 1
+            stand = [{}, {}, {}]
+            k = i
+            while k < j:
+                m = k
+                while m < j and tag[order[m]] == tag[order[k]]:
+                    m += 1
+                for r in order[k:m]:
+                    c_, s_, p_, n_ = cgd_kennung(stand, sl[r])
+                    code[r], zahl[r] = c_, (s_, p_, n_)
+                for r in order[k:m]:
+                    _cgd_merken(stand, sl[r], won[r], placed[r])
+                k = m
+            i = j
+    return pd.DataFrame({"cgd": code, "cgd_sieg": zahl[:, 0], "cgd_platz": zahl[:, 1], "cgd_neu": zahl[:, 2]},
+                        index=h.index)
+
+
 def kpi_laeufe(vorher: pd.DataFrame, heute, gewicht_heute=None, klasse=None) -> list[list]:
     """ARR/TR der Läufe in den letzten KPI_TAGE Tagen ohne ausgerittene, auf das heutige Gewicht bereinigt
     (für das Vergleichs-Overlay der Race Card), neueste zuerst:
@@ -2002,6 +2184,10 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             print(f"Power-Modell: Vorhersage fehlgeschlagen ({e}) – Karte zeigt den bisherigen Power-Wert")
     ids = set(ru["horse_id"])
     hh = h[h["horse_id"].isin(ids)].sort_values("date", ascending=False)
+    if len(hh):                                            # CGD vor jedem Lauf und Abstammungs-Passung der Läufe
+        hh = hh.join(cgd_berechnen(hh))
+        ap_ = abst_passung_werte(abst_prof, hh, ABST_PASS_LAUF)
+        hh["abst_pass_lauf"] = [abst_passung_dict(z, mit_linien=False) for _, z in ap_.iterrows()]
     per_pferd = {k: g for k, g in hh.groupby("horse_id", sort=False)}
 
     # Gegner-Verfolgung: Felder der letzten Läufe und die späteren Starts dieser Gegner
@@ -2082,6 +2268,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 f = _formzeile(z, p.get("weight_kg"))
                 f["same"] = gleich_heute(z, course, dist, gb)     # K/D/B: Kurs+Belag, Distanz ±100 m, Bodengruppe
                 f["extra"] = extra                                 # zusätzlich gezeigt: letzter Lauf auf K/D/B
+                f["cgd"] = _txt(z.get("cgd"))                      # C/G/D: Bilanz vor diesem Lauf (Kurs, Boden, Distanz)
+                f["abst_pass"] = z.get("abst_pass_lauf") if isinstance(z.get("abst_pass_lauf"), dict) else None
                 if extra and z["race_id"] not in h_rennen:         # ältere Läufe: Feld und Gegner nachladen
                     _feld_nachladen(z["race_id"], h, h_rennen, h_pferde)
                 f["rivals"] = _gegner(z, h_rennen, h_pferde, heute) if n < GEGNER_LAEUFE or extra else None
@@ -2247,6 +2435,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "abst": {rolle: abst_pferd(abst_prof[rolle], {"sire": sk, "dam_sire": dk}[rolle], dist,
                                            gb, p.get("age"), heute.month)
                          for rolle in ("sire", "dam_sire")},
+                "abst_pass": abst_passung_dict(abst_passung_werte(abst_prof, pd.DataFrame(
+                    [{"sire_key": sk, "dam_sire_key": dk, "distance_m": dist, "going_pmu": gb, "age": p.get("age")}])).iloc[0]),
+                "cgd": cgd_kennung(cgd_stand(vorher), _cgd_schluessel(course, gb, dg))[0],
                 "pref_ref": {                                      # Vorlieben-Overlay: Verweis in DATA.pref_alle
                     "trainer": {"jockey": pref_ref("trainer_jockey", tk, jk), "course": pref_ref("trainer_course", tk, course),
                                 "racetype": pref_ref("trainer_type", tk, rt),

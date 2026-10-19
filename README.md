@@ -190,6 +190,11 @@ die 5 davor, Ø Pos in gleicher oder höherer Klasse (Preisgeld); die wichtigste
 damalige Quote früherer Rennen ist zum Renntag bekannt – die heutige Quote bleibt draußen. Wechsel zum letzten Lauf
 (Gewicht, Distanz, Klasse = Ø Rating des Feldes, Preisgeld des Rennens, Jockey mit Score-Differenz, Trainer,
 Scheuklappen erstmals/gewechselt) und die Klasse des heutigen Rennens (Preisgeld, Ø Rating des Feldes).
+CGD (Merkmale-Version 9): Anzahl Siege / Plätze / erstmals auf Kurs, Bodengruppe und Distanzgruppe für heute und je
+letztem Lauf (jeweils aus den Läufen davor), erstmals auf Kurs / Boden / Distanz / Belag. Abstammungs-Passung ohne
+Blick in die Zukunft: je Monat ein Stand der Abstammungsprofile aus allen Läufen vor dem Monatsersten; damit die
+Passung heute (gesamt, je Linie, je Skala, relativ zum Feld), je letztem Lauf (ohne Alter) und der Wechsel heute −
+letzter Lauf. Kostet beim Bau der Merkmale einmalig etwa 10–20 min, auf der Karte etwa 25 s.
 Außerdem: Stallform und Jockeyform über 30 Tage (`trainer_30_score`, `trainer_form` = 30 Tage − 365 Tage), Trainer in
 Lagen (mit Debütanten, nach Pause ≥ 60 Tage, im heutigen Renntyp, auf dem Kurs, mit dem heutigen Jockey), Mutter
 (Leistung der Geschwister ohne das Pferd selbst, wie Vater), Rating seit dem letzten Lauf und Abstand zur letzten
@@ -373,11 +378,16 @@ Je Starter:
   Ø aus A/E+, Pos+ und €/L+ (Pos+ und €/L+ gegen den Schnitt aller Läufe in Kategorie × Alters-/Jahreszeit-Band);
   Distanz, Boden und Belag um das Alters-Profil der Linie korrigiert (Erwartung × Stärke der Linie im Band 2j / 3j
   bis Juni / 3j ab Juli / 4j+), sonst sähe eine frühreife Linie wie ein Sprinter aus. Neigung = gewichtete Steigung
-  der (geschrumpften) Werte von links nach rechts → Perzentil. Gelbes Dreieck = Lage des heutigen Rennens, stufenlos als
-  Perzentil aller Läufe (Distanz in Metern, Boden in vier Stufen, Reife nach Alter × Monat, Belag Gras/PSF); ✓/✗ =
-  Linie mit klarer Neigung (unter P30 / über P70) nahe (bis 25 Perzentile) bzw. weit weg (ab 60), ausgeglichene
-  Linien neutral. Klick: alle 200-m-Gruppen bzw. Böden im Überblick. In der
-  Claude-JSON je Starter `abst`.
+  der (geschrumpften) Werte von links nach rechts → Perzentil. Lage des Rennens stufenlos als Perzentil aller Läufe
+  (Distanz in Metern, Boden in vier Stufen, Alter, Belag Gras/PSF). Angezeigt wird die **Passung** je Skala
+  P = (Perzentil − 50) × (Lage − 50) / 25 (−100 … +100, `racecard.abst_passung_werte`) als Pfeil (▲ ab 15, ▲▲ ab 40),
+  je Linie der nach Läufen gewichtete Schnitt und oben „Passung heute“ (Vater : Muttervater = 2 : 1). Tooltip:
+  Perzentil, Lage und Werte je Kategorie; Klick: alle 200-m-Gruppen bzw. Böden im Überblick. In den Formzeilen
+  „Abst“ = Passung dieses Laufs ohne Alter (ab ±15). In der Claude-JSON je Starter `abst` und `abst_pass`, je
+  Formzeile `abst_pass`.
+* **CGD** (Kopf des Pferdes und je Formzeile, `racecard.cgd_berechnen`): Bilanz des Pferdes aus den Läufen **vor**
+  dem jeweiligen Lauf auf Kurs (C, mit Belag), Bodengruppe (G) und Distanzgruppe (D): groß = gewonnen, klein =
+  platziert, · = ohne Platz, ◦ = erstmals. Ersetzt die Abzeichen C/D/CD. Claude-JSON: `cgd` je Starter und Formzeile.
 * **Indizes €/L+ und Val+**: 100 × Wert ÷ Ø der Population (alle Trainer, Jockeys, Besitzer, Züchter im selben
   Zeitfenster bzw. alle Väter, Muttervater, Crosses; nur ab 5 Läufen bzw. 3 dreijährigen Nachkommen).
   100 = Durchschnitt, über 100 überdurchschnittlich; Chips wie A/E: grün ab 110, rot bis 90, blass bei wenig Daten.
