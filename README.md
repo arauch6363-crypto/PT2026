@@ -202,8 +202,11 @@ Quote noch nicht enthält.
 
 Zweites Modell (Value): `pm.trainieren_wert(BASE)` bzw. `pm.trainieren_wert(BASE, ziel_art="kombi")` (Ziel Sieg + Platz gegen Sieg- + Platzchance des Marktes, Poisson – ein Sieg zählt doppelt) (Minuten, Merkmale aus dem Zwischenspeicher). Ziel platziert ja/nein,
 Ausgangswert die Platzchance des Marktes (`exp_place`, Harville aus der Endquote) – LightGBM lernt nur die Abweichung.
-Die Quote steckt also nur im Lern-Ziel, nie in den Merkmalen; der Value-Faktor (≈ erwartete A/E Platz gegen den Markt)
-braucht keine heutige Quote. Bericht: Log-Loss der Platzierung Markt gegen Markt + Value, A/E Platz und Sieg je Fünftel
+Die Endquote steckt nur im Lern-Ziel, nie in den Merkmalen. Seit 10/2026 sieht das Value-Modell zusätzlich die
+Morgenquote (PMU-Referenzquote, `odds_morning`; Vorgabe `morgenquote=True`): Marktchance je Rennen normiert, log-Quote,
+Quotenrang im Feld und Marge (`pm.morgen_merkmale`). So lernt es, wo der Markt am Morgen danebenliegt – gemessen am
+Ergebnis gegen die Endquote. Historisch zu ~98 % vorhanden, nur 4 % gleich der Endquote (Rangkorrelation 0,89). Das
+Power-Modell bleibt ohne jede heutige Quote. Ohne Morgenquote auf der Karte fehlen diese Merkmale (Hinweis im Log). Bericht: Log-Loss der Platzierung Markt gegen Markt + Value, A/E Platz und Sieg je Fünftel
 des Faktors auf den Testtagen, bedingtes Logit (Sieg) mit Markt + Value. Gespeichert als `power_wert.txt/.json`; die Karte
 zeigt einen goldenen Rahmen um die faire Quote bei den obersten 10 % des Value-Faktors (Grenze aus der Validierung; `gold_test`: Anteil und Rendite dieser Auswahl auf den Testtagen).
 Dazu im Bericht: Rendite einer Siegwette 1 € zur echten Endquote (mit Marge) für alle, die obersten 20/10/5/2 % des

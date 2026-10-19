@@ -851,7 +851,8 @@ die Prognose nicht anspricht, ist beim Favoriten so wertvoll wie ein
 
 `value` je Starter in der Marktdatei: `faktor` (geeichter Value-Faktor ≈
 wie oft das Pferd im Verhältnis zur Erwartung des Marktes ins Geld kommt,
-1 = wie der Markt), `warnung` (unterstes Fünftel), `oberste_10` (oberste
+1 = wie der Markt; das Value-Modell sieht die Morgenquote und lernt, wo sie
+danebenliegt – deshalb steht es nur in der Marktdatei), `warnung` (unterstes Fünftel), `oberste_10` (oberste
 10 % des Faktors), `gold` (oberste 10 % **und** Prognose-Cote bis 10),
 `fair` (faire Quote des Power-Modells), `cote_ohne_marge` (Prognose-Cote,
 Marge herausgerechnet) und `vs_prognose` („Modell stärker"/„Modell

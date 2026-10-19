@@ -70,6 +70,8 @@ RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_l
            "form5_pos", "form5_best", "form5_lb", "form5_arr", "runs", "age", "arr_best365", "trainer_30_score",
            "dam_score", "form5_ue", "formz_pos", "formz_arr", "formz_ue", "form_steig_pos", "form_steig_arr",
            "form_pos_hoeher"]
+# Value-Modell: Merkmale aus der Morgenquote (PMU-Referenzquote, am Morgen bekannt) – nie im Power-Modell
+MORGEN_MERKMALE = ["m_pm", "m_log", "m_rk", "m_marge"]
 # Segment-Modelle: lernen je Rennart nur die Korrektur zum gemeinsamen Modell (Ausgangswert = dessen Vorhersage)
 SEGMENT_SPALTEN = ("racetype", "age_group")
 SEG_PARAMS = dict(learning_rate=0.02, num_leaves=15, min_data_in_leaf=200, feature_fraction=0.7, bagging_fraction=0.8,
@@ -117,7 +119,7 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("kennt_jockey", "Jockey kennt Pferd"), ("trainerwechsel5", "Trainerwechsel (letzte 5)"),
            ("dam_", "Mutter (Geschwister)"), ("hcp_", "Handicap-Marke"), ("seit_pause", "Läufe seit Pause"),
            ("erst_wallach", "erstmals Wallach"), ("arr_best", "Bestform ARR"), ("blink", "Scheuklappen"),
-           ("race_prize", "Preisgeld des Rennens"), ("feld_val", "Klasse des Feldes"),
+           ("race_prize", "Preisgeld des Rennens"), ("m_", "Morgenquote"), ("feld_val", "Klasse des Feldes"),
            ("lgo_", "letzter Lauf auf heutigem Boden"), ("ldi_", "letzter Lauf auf heutiger Distanz"),
            ("won_", "Sieg-Vorlieben"), ("placed_", "Platz-Vorlieben"), ("best_", "beste Gruppe Pferd"),
            ("rating", "Rating"), ("weight", "Gewicht"), ("epr365", "€/Lauf 365"), ("days", "Tage seit Lauf"),
@@ -1196,19 +1198,35 @@ def rendite_tabelle(f, won, odds, gruppe=None, anteile=WERT_TOP) -> pd.DataFrame
     return pd.DataFrame(zeilen)
 
 
+def morgen_merkmale(zeilen: pd.DataFrame) -> pd.DataFrame:
+    """Merkmale aus der Morgenquote (odds_morning) je Starter: Marktchance (1/Quote, je Rennen auf Summe 1), log-Quote,
+    Quotenrang im Feld (0 = Favorit … 1 = Außenseiter) und Marge des Rennens (Σ 1/Quote). Nur fürs Value-Modell."""
+    q = pd.to_numeric(_spalte(zeilen, "odds_morning"), errors="coerce").astype(float)
+    q = q.where((q > 1) & (q < 1000))
+    rid = zeilen["race_id"].astype(str)
+    inv = 1 / q
+    summe = inv.groupby(rid).transform("sum").where(inv.notna())
+    rang = inv.groupby(rid).rank(ascending=False, method="average")
+    n = inv.notna().groupby(rid).transform("sum")
+    return pd.DataFrame({"m_pm": inv / summe, "m_log": np.log(q), "m_rk": ((rang - 1) / (n - 1)).where(n > 1),
+                         "m_marge": summe}, index=zeilen.index)
+
+
 def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
                     X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
                     ab: str | None = None, neu: bool = False, ziel_art: str = "platz", aufwaermen: int | None = None,
-                    segmente: str | None = None, log=print) -> dict:
+                    segmente: str | None = None, morgenquote: bool = True, log=print) -> dict:
     """Value-Modell: lernt, wann ein Pferd öfter platziert ist, als seine Endquote erwarten lässt.
     ziel_art="platz": Ziel platziert 0/1 gegen die Platzchance des Marktes (binär, Faktor ≈ A/E Platz).
     ziel_art="kombi": Ziel Sieg + Platz (Sieger = 2, Platzierter = 1, sonst 0) gegen Siegchance + Platzchance des
     Marktes (Poisson, Faktor ≈ A/E Kombi) – ein Sieg zählt doppelt, das Signal bleibt dank der Plätze stabil.
     Ziel: platziert (0/1); Ausgangswert je Starter: die Platzchance des Marktes (exp_place, Harville aus der Endquote) –
-    LightGBM lernt nur die Abweichung davon. Die Quote ist also nur im Lern-Ziel, nie Merkmal: die Vorhersage
-    (Value-Faktor ≈ A/E Platz) braucht keine heutige Quote. Merkmale wie Power (Zwischenspeicher), gleiche Aufteilung
+    LightGBM lernt nur die Abweichung davon. Die Endquote ist nur im Lern-Ziel, nie Merkmal; als Marktmerkmal dient
+    höchstens die Morgenquote (morgenquote=True, am Morgen bekannt). Merkmale wie Power (Zwischenspeicher), gleiche Aufteilung
     (Aufwärmen, 60/20/20): Abbruch, Eichung und Gold-Grenze auf der Validierung; Bericht (A/E je Fünftel, Rendite,
-    bedingtes Logit Sieg mit Markt + Value) nur auf den Testtagen."""
+    bedingtes Logit Sieg mit Markt + Value) nur auf den Testtagen.
+    morgenquote=True: zusätzlich Merkmale aus der Morgenquote (MORGEN_MERKMALE) – das Modell lernt so, wo der Markt am
+    Morgen danebenliegt; Ziel bleibt der Vergleich mit der Endquote. Die Karte braucht dann die Morgenquote."""
     import lightgbm as lgb
     import hypothesen_backtest as hb
     if segmente is not None and segmente not in SEGMENT_SPALTEN:
@@ -1226,6 +1244,8 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     if ziel_art == "kombi":
         ok &= ps.notna() & wn.notna()
     X = feld_relativ(X[ok], hist.loc[X.index[ok], "race_id"], hist.loc[X.index[ok], "date"])
+    if morgenquote:
+        X = pd.concat([X, morgen_merkmale(hist.loc[X.index])], axis=1)
     ep, pl, wn, ps = ep[ok], pl[ok], wn[ok], ps[ok]
     tage = pd.to_datetime(hist.loc[X.index, "date"])
     auf = aufteilung(tage, hist["date"].min(), ab, aufwaermen)
@@ -1400,7 +1420,7 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
         log(f"Value-Segment-Modelle gespeichert ({segmente}): {', '.join(seg_meta['modelle'])}")
     meta = {"spalten": list(Xk.columns), "stufen": stufen, "bericht": bericht, "kalib_k": k_, "gold_ab": gold_ab,
             "warn_ab": warn_ab, "segmente": seg_meta,
-            "ziel": ziel_art,
+            "ziel": ziel_art, "morgenquote": bool(morgenquote),
             "wichtig": {k: round(float(v / imp.sum()), 4) for k, v in imp.head(30).items()},
             "trainiert": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"), "starter": int(len(X))}
     (ordner / WERT_META).write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -1483,7 +1503,13 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
     df["wert"], df["gold"], df["warn"] = np.nan, False, False
     if modell.get("wert"):                      # Value-Faktor ≈ erwartete A/E Platz gegen den Markt (exp der Abweichung)
         wm = modell["wert"]["meta"]
-        Xw, _ = _kategorien(X.reindex(columns=wm["spalten"]), wm["stufen"])
+        Xw_ = X
+        if wm.get("morgenquote"):                  # Value-Modell mit Morgenquote: Merkmale aus den heutigen Zeilen
+            mq = morgen_merkmale(alle.loc[X.index])
+            Xw_ = pd.concat([X, mq], axis=1)
+            if mq["m_pm"].isna().all():
+                log("  Value-Modell: keine Morgenquote – Value-Faktor ohne Marktmerkmale (weniger verlässlich)")
+        Xw, _ = _kategorien(Xw_.reindex(columns=wm["spalten"]), wm["stufen"])
         fw = (modell["wert"]["booster"].predict(Xw[wm["spalten"]], raw_score=True)
               + _seg_korrektur(modell["wert"], X, Xw[wm["spalten"]]))
         df["wert"] = np.exp(wm.get("kalib_k", 1.0) * fw)                 # geeicht: was auf der Validierung eintrat
