@@ -632,6 +632,44 @@ def power_modell_pruefen() -> None:
         X2 = pm.merkmale(h2, log=print)
     pruefe(X.equals(X2) or X.compare(X2).empty,
            "Power-Modell: ein anderes Ergebnis am letzten Tag ändert kein Merkmal (auch nicht an diesem Tag)")
+    # CGD von Hand: Sieg auf Kurs A (Slow, 1600), Platz auf A (Fast, 2000), heute Kurs B (Slow, 1600) ohne Ergebnis
+    import racecard as rc_
+    hc = pd.DataFrame({"horse_id": ["X"] * 4 + ["Y"], "date": pd.to_datetime(["2025-01-01", "2025-02-01", "2025-02-01",
+                                                                             "2025-03-01", "2025-01-01"]),
+                       "course_key": ["A", "A", "C", "B", "A"], "going_pmu": ["SLOW", "FAST", "PSF", "SLOW", "SLOW"],
+                       "dist_group": ["1401-1600", "1801-2000", "1401-1600", "1401-1600", None],
+                       "won": [1, 0, 0, np.nan, 0], "placed": [1, 1, 0, np.nan, 0]})
+    cg = rc_.cgd_berechnen(hc)
+    st_ = rc_.cgd_stand(hc.iloc[:3])
+    pruefe(cg["cgd"].tolist() == ["◦◦◦", "C◦◦", "◦◦D", "◦GD", "◦◦–"] and cg["cgd_sieg"].tolist()[:4] == [0, 1, 1, 2]
+           and cg["cgd_platz"].tolist()[3] == 2 and cg["cgd_neu"].tolist()[3] == 1
+           and rc_.cgd_kennung(st_, rc_._cgd_schluessel("A", "FAST", "1801-2000"))[0] == "Cgd",
+           "CGD: Bilanz vor jedem Lauf (groß gewonnen, klein platziert, · ohne Platz, ◦ erstmals, – unbekannt); "
+           "Läufe am selben Tag und ohne Ergebnis zählen nicht")
+    # Abstammungs-Passung: Tabelle stimmt mit dem Profil (abst_pferd) überein; Monatsstände ohne Blick in die Zukunft
+    pr_ = {r_: rc_.abstammung_profil(h.assign(date=pd.to_datetime(h["date"])), r_ + "_key") for r_ in ("sire", "dam_sire")}
+    z_ = h.iloc[-1]
+    ap_ = rc_.abst_pferd(pr_["sire"], z_["sire_key"], z_["distance_m"], z_["going_pmu"], z_["age"], 4)
+    wv_ = rc_.abst_passung_werte(pr_, h.iloc[[-1]])
+    soll_ = {d: (v["perzentil"] - 50) * (v["lage"] - 50) / 25 for d, v in ap_.items()
+             if isinstance(v, dict) and v.get("lage") is not None and v.get("sicher")}
+    alt_min = pm.ABST_STAND_MIN
+    pm.ABST_STAND_MIN = 100
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            Xa, Xa2 = pm.merkmale(h, log=print), pm.merkmale(h2, log=print)
+    finally:
+        pm.ABST_STAND_MIN = alt_min
+    sp_ = [c for c in Xa if "abst_pass" in c]
+    i_ = Xa["f1_abst_pass"].dropna().index[-1]
+    pruefe(soll_ and all(abs(wv_[f"p_sire_{d}"].iloc[0] - v) < 1e-9 for d, v in soll_.items())
+           and Xa["abst_pass"].notna().any() and Xa["abst_pass"].dropna().between(-100, 100).all()
+           and Xa.loc[pd.to_datetime(h["date"]) < "2025-04-01", "abst_pass"].isna().all()
+           and Xa[sp_].equals(Xa2[sp_])
+           and np.isfinite(Xa.at[i_, "abst_pass_wechsel"]) == np.isfinite(Xa.at[i_, "f1_abst_pass"])
+           and Xa["f1_cgd_neu"].notna().any() and Xa["erst_kurs"].isin([0.0, 1.0]).any(),
+           f"Abstammungs-Passung je Skala wie im Profil; im Modell aus Monatsständen (Läufe vor dem Monatsersten, "
+           f"{len(sp_)} Spalten), ein anderes Ergebnis im selben Monat ändert nichts; CGD je letztem Lauf")
     with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
         erg = pm.trainieren(hist=h, X=X, out=Path(tmp) / pm.MODELL_ORDNER, runden=60, log=print)
         mod = pm.laden(Path(tmp))
@@ -1261,6 +1299,10 @@ def racecard_pruefen() -> None:
     pruefe({"verlauf", "verlauf_wert", "verlauf_pferd", "verlauf_plus"} <= set(x["form_lines"][0])
            and x["form_lines"][0]["verlauf_plus"] is False,
            "Formzeile mit Rennverlauf (zu kleines Feld: kein Urteil, kein „gegen V.“)")
+    pruefe(isinstance(x.get("cgd"), str) and len(x["cgd"]) == 3 and all(len(f["cgd"]) == 3 for f in x["form_lines"])
+           and "abst_pass" in x and all("abst_pass" in f for f in x["form_lines"]),
+           f"Karte: CGD heute ({x['cgd']}) und je Formzeile ({', '.join(f['cgd'] for f in x['form_lines'])}), "
+           f"Abstammungs-Passung heute und je Lauf")
     pruefe(not {"odds", "odds_morning"} & set(x) and x["form_lines"][0]["odds"] is not None,
            "Karte ohne aktuelle Kurse (Morgen-/Totokurs); historische Endquote in den Formzeilen bleibt")
     d90 = {k: v for k, v in x["ae"]["trainer"]["d90"].items() if k not in ("pos_idx", "prev")}

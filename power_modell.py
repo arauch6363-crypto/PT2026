@@ -63,13 +63,13 @@ QUOTE_BEREICH = (1.0, GOLD_COTE_MAX)  # Vorwärts-Test: Gold mit Prognose-Cote i
 PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schreibt ihre Value-Faktoren hierher
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
-MERKMAL_VERSION = 8                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+MERKMAL_VERSION = 9                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
            "form5_pos", "form5_best", "form5_lb", "form5_arr", "runs", "age", "arr_best365", "trainer_30_score",
            "dam_score", "form5_ue", "formz_pos", "formz_arr", "formz_ue", "form_steig_pos", "form_steig_arr",
-           "form_pos_hoeher"]
+           "form_pos_hoeher", "abst_pass"]
 # Value-Modell: Merkmale aus der Morgenquote (PMU-Referenzquote, am Morgen bekannt) – nie im Power-Modell
 MORGEN_MERKMALE = ["m_pm", "m_log", "m_rk", "m_marge"]
 # Segment-Modelle: lernen je Rennart nur die Korrektur zum gemeinsamen Modell (Ausgangswert = dessen Vorhersage)
@@ -90,6 +90,7 @@ FORM_TREND_N = 6            # Formtrend: Steigung über so viele letzte Läufe (
 FORM_ZEIT_N = 10            # zeitgewichtete Form: höchstens so viele letzte Läufe …
 FORM_HWZ = 90               # … mit Gewicht 0,5 ^ (Tage / FORM_HWZ)
 FORM_TOP = 0.75             # „Spitzenlauf“: Pos ab hier
+ABST_STAND_MIN = 2000       # Abstammungs-Passung: Monatsstand erst ab so vielen Läufen davor
 FORM_KLASSE_TOL = 0.2       # Form in gleicher/höherer Klasse: Preisgeld (log) höchstens so viel unter heute
 VERB_TAGE = 365             # Verbindungen: Fenster
 KURZ_TAGE = 30              # Stallform / Jockeyform: kurzes Fenster
@@ -119,7 +120,8 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("kennt_jockey", "Jockey kennt Pferd"), ("trainerwechsel5", "Trainerwechsel (letzte 5)"),
            ("dam_", "Mutter (Geschwister)"), ("hcp_", "Handicap-Marke"), ("seit_pause", "Läufe seit Pause"),
            ("erst_wallach", "erstmals Wallach"), ("arr_best", "Bestform ARR"), ("blink", "Scheuklappen"),
-           ("race_prize", "Preisgeld des Rennens"), ("m_", "Morgenquote"), ("feld_val", "Klasse des Feldes"),
+           ("race_prize", "Preisgeld des Rennens"), ("m_", "Morgenquote"), ("abst_", "Abstammungs-Passung"),
+           ("cgd_", "Bilanz Kurs/Boden/Distanz (CGD)"), ("erst_", "erstmals Kurs/Boden/Distanz/Belag"), ("feld_val", "Klasse des Feldes"),
            ("lgo_", "letzter Lauf auf heutigem Boden"), ("ldi_", "letzter Lauf auf heutiger Distanz"),
            ("won_", "Sieg-Vorlieben"), ("placed_", "Platz-Vorlieben"), ("best_", "beste Gruppe Pferd"),
            ("rating", "Rating"), ("weight", "Gewicht"), ("epr365", "€/Lauf 365"), ("days", "Tage seit Lauf"),
@@ -224,8 +226,41 @@ def _steigung(y: np.ndarray) -> float:
     return float((xc * (y - y.mean())).sum() / (xc * xc).sum())
 
 
+def _abst_zeitpunkt(h: pd.DataFrame, hm: np.ndarray, zm: np.ndarray, f_pos: np.ndarray, F: dict, log=print) -> None:
+    """Abstammungs-Passung ohne Blick in die Zukunft: je Monat der Zielzeilen ein Stand der Abstammungsprofile
+    (racecard.abstammung_profil) aus allen Läufen VOR dem Monatsersten. Damit für heute (alle vier Skalen) und für die
+    letzten FORM_N Läufe (ohne Reife, racecard.ABST_PASS_LAUF); Wechsel = heute ohne Reife − letzter Lauf."""
+    t0 = time.time()
+    monat = h["date"].dt.to_period("M").to_numpy()
+    ziel_pos = np.flatnonzero(zm)
+    datum = h["date"].to_numpy()
+    staende = 0
+    for m in sorted(set(monat[ziel_pos])):
+        drin = (datum < np.datetime64(m.start_time)) & ~hm
+        if drin.sum() < ABST_STAND_MIN:
+            continue
+        stand = h[drin]
+        prof = {r_: rc.abstammung_profil(stand, r_ + "_key") for r_ in rc.ABST_PASS_ROLLE}
+        staende += 1
+        ii = ziel_pos[monat[ziel_pos] == m]
+        w = rc.abst_passung_werte(prof, h.iloc[ii])
+        F["abst_pass"][ii] = w["pass"].to_numpy()
+        for r_ in rc.ABST_PASS_ROLLE:
+            F[f"abst_pass_{r_}"][ii] = w[f"pass_{r_}"].to_numpy()
+        for d in rc.ABST_SKALEN:
+            F[f"abst_pass_{d}"][ii] = w[f"pass_{d}"].to_numpy()
+        heute_lauf = rc.abst_passung_werte(prof, h.iloc[ii], rc.ABST_PASS_LAUF)["pass"].to_numpy()
+        for k in range(1, FORM_N + 1):
+            jj = f_pos[ii, k - 1]
+            ok = jj >= 0
+            if ok.any():
+                F[f"f{k}_abst_pass"][ii[ok]] = rc.abst_passung_werte(prof, h.iloc[jj[ok]], rc.ABST_PASS_LAUF)["pass"].to_numpy()
+        F["abst_pass_wechsel"][ii] = heute_lauf - F["f1_abst_pass"][ii]
+    log(f"  Abstammungs-Passung: {staende} Monatsstände, {time.time() - t0:.0f} s")
+
+
 def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Series | None = None,
-             duelle: bool = True, log=print) -> pd.DataFrame:
+             duelle: bool = True, abst: bool = True, log=print) -> pd.DataFrame:
     """Merkmale je Starter aus Läufen vor dem Renntag. h: vorbereitete Historie (racecard.vorbereiten), optional mit
     heutigen Zeilen ohne Ergebnis (heute=True – sie fließen nie in die Historie anderer ein). ziel_maske: nur für diese
     Zeilen ausgeben (Vorgabe: alle). Rückgabe mit dem Index von h."""
@@ -275,6 +310,11 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     blink = np.array([{"ohne": 0.0, "klassisch": 1.0, "australisch": 2.0}.get(rc.scheuklappen_gruppe(b), np.nan)
                       for b in _text(h, "blinkers")], dtype=float)
     jk, tk = _text(h, "jockey_key"), _text(h, "trainer_key")
+    cgd = rc.cgd_berechnen(h)                                # Bilanz vor jedem Lauf auf Kurs / Boden / Distanz
+    cgd_code = cgd["cgd"].to_numpy()
+    cgd_z = cgd[["cgd_sieg", "cgd_platz", "cgd_neu"]].to_numpy(dtype=float)
+    belag = np.array([rc.abst_belag_kat(g) for g in going], dtype=object)
+    f_pos = np.full((n, FORM_N), -1, dtype=int)            # Zeile des k-ten letzten Laufs
     letzter_jk = np.full(n, None, dtype=object)                                    # Jockey des letzten Laufs (je Zeile)
     F: dict[str, np.ndarray] = {}
 
@@ -303,14 +343,16 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
               "form_steig_ue", "form_best3_diff", "form_pos_hoeher", "chg_weight", "chg_dist", "chg_class",
               "chg_prize", "chg_jockey", "chg_trainer", "blink_first", "blink_change", "kennt_jockey", "trainerwechsel5",
               "chg_rating", "hcp_sieg_diff", "hcp_platz_diff", "seit_pause", "arr_best365", "arr_best_dist",
-              "arr_best_abst", "erst_wallach"]:
+              "arr_best_abst", "erst_wallach", "cgd_sieg", "cgd_platz", "cgd_neu", "erst_kurs", "erst_boden",
+              "erst_dist", "erst_belag", "abst_pass", "abst_pass_sire", "abst_pass_dam_sire", "abst_pass_dist",
+              "abst_pass_boden", "abst_pass_belag", "abst_pass_reife", "abst_pass_wechsel"]:
         feld(c)
     for c in ["runs", "runs365", "lgo_pos", "lgo_arr", "ldi_pos", "ldi_arr", "days", "rtr", "arr", "tr", "dl600", "db200", "early", "epr365",
               "won_course", "won_dist", "won_going", "placed_course", "placed_dist", "placed_going", "best_dist", "best_going"]:
         feld(c)
     for k in range(1, FORM_N + 1):
         for c in ["val", "epr", "lb", "pos", "same_going", "same_dist", "arr", "tr", "fi", "g800", "weg", "odds", "orank",
-                  "pm", "verlauf", "tage", "gegner", "duell"]:
+                  "pm", "verlauf", "tage", "gegner", "duell", "cgd_sieg", "cgd_platz", "cgd_neu", "abst_pass"]:
             feld(f"f{k}_{c}")
     # nächster Start jedes Laufs (für den Gegner-Score): Datum und Urteil gegen den Quotenrang
     ord_h = np.lexsort((tag, hid))
@@ -382,6 +424,14 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 continue
             vor = [j for j in reversed(laeufe[:pos_i]) if tag[j] < tag[i] and not hm[j]]   # neueste zuerst
             F["runs"][i] = len(vor)
+            # CGD heute (Stand vor dem Renntag) und erstmals auf Kurs / Boden / Distanz / Belag
+            F["cgd_sieg"][i], F["cgd_platz"][i], F["cgd_neu"][i] = cgd_z[i]
+            if cgd_code[i] is not None:
+                for name, zeichen in zip(("erst_kurs", "erst_boden", "erst_dist"), cgd_code[i]):
+                    if zeichen != "–":
+                        F[name][i] = float(zeichen == "◦")
+            if belag[i] is not None:
+                F["erst_belag"][i] = float(all(belag[j] != belag[i] for j in vor))
             if jk[i] is not None:                              # Jockey hat das Pferd schon geritten
                 F["kennt_jockey"][i] = float(any(jk[j] == jk[i] for j in vor))
             if not vor:
@@ -519,6 +569,8 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 F[f"f{k}_orank"][i], F[f"f{k}_pm"][i] = o_rel[j], p_markt[j]
                 F[f"f{k}_verlauf"][i] = vlf[j]
                 F[f"f{k}_tage"][i] = tag[i] - tag[j]
+                F[f"f{k}_cgd_sieg"][i], F[f"f{k}_cgd_platz"][i], F[f"f{k}_cgd_neu"][i] = cgd_z[j]
+                f_pos[i, k - 1] = j
                 f_typ[k][i] = typ3[j]
                 feld_j = rennen_pos.get(rid[j], np.array([], dtype=int))
                 andere = feld_j[hid[feld_j] != hid[j]]
@@ -531,6 +583,8 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                     if len(hg) and not np.isnan(rp0[j]):           # heutige Gegner in diesem Rennen: Anteil geschlagen
                         F[f"f{k}_duell"][i] = float(np.mean(rp0[hg] < rp0[j]))
     log(f"  Pferde-Merkmale: {time.time() - t0:.0f} s")
+    if abst:
+        _abst_zeitpunkt(h, hm, zm, f_pos, F, log)
 
     # ---- Tempo-Szenario je Rennen aus dem Laufstil der Starter --------------------------------------------------
     fr = pd.Series(F["early"])

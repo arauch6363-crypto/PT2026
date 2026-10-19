@@ -440,6 +440,17 @@ folgen bis zu drei ältere Läufe mit diesem Merkmal (`extra`, etwa
 `["K"]`). Sie sind nicht Teil der jüngsten Form, zählen für B6 und nicht
 für B0, und ihr Alter ist in der Sicherheit zu berücksichtigen.
 
+Je Formzeile außerdem **`cgd`**: die Bilanz des Pferdes **vor diesem
+Lauf** auf dem Kurs (C, mit Belag), in der Bodengruppe (G) und in der
+Distanzgruppe (D) — Großbuchstabe = dort schon gewonnen, klein =
+platziert, `·` = gelaufen ohne Platz, `◦` = erstmals. Dazu `abst_pass`:
+die Abstammungs-Passung dieses Laufs ohne Alter (`gesamt` und je Skala,
+−100 … +100, siehe B8). Ein schwacher Lauf unter erstmaligen (`◦`) oder
+für die Abstammung ungünstigen Bedingungen (`abst_pass.gesamt` ≤ −15)
+wiegt weniger; ein schwacher Lauf auf bewährtem Terrain (Großbuchstaben)
+und mit passender Abstammung wiegt mehr. Für heute steht dasselbe in
+`cgd` und `abst_pass` des Starters.
+
 Nicht alle Zeilen werden gleich gelesen. Zuerst aussortieren:
 - **Klar geschlagen oder kein Lauf.** `unreliable: true` (mehr als zehn
   Längen Rückstand) = vermutlich ausgeritten, abhaken. Läufe mit `incident`
@@ -690,6 +701,16 @@ einem Außenseiter ist eine bewusste Buchung. Die Besitzerstatistik
     dem Pferd, dem der Stall mehr zutraut.
 
 ### B8 — Abstammung auf die heutige Bedingung
+
+**Zusammenfassung zuerst: `abst_pass`** des Starters. Je Skala `dist`,
+`boden`, `belag`, `reife` und je Linie (`sire`, `dam_sire`, mit `wert`)
+die Passung P = (Perzentil der Linie − 50) × (Lage des Rennens − 50) / 25,
+von −100 bis +100: positiv = die Linie neigt dorthin, wo das heutige
+Rennen liegt, nahe 0 = keine Aussage (Linie ausgeglichen oder Rennen in
+der Mitte). `gesamt` = Vater und Muttervater 2 : 1, je Skala gewichtet
+nach Läufen; nur Linien mit genug Läufen zählen. Ab ±15 ist das eine
+Tendenz, ab ±40 deutlich. Am meisten Gewicht hat das bei wenig eigener
+Form und bei Wechseln, die `cgd` mit `◦` (erstmals) zeigt.
 
 Vater und Muttervater **getrennt** beurteilen, jeweils auf die heutige
 Distanz und den heutigen Boden. **Erste Quelle ist das Profil `abst.sire`
