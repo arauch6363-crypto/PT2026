@@ -344,12 +344,14 @@ def lesen(pfad) -> pd.DataFrame:
     return df.reindex(columns=SPALTEN)
 
 
-def anhaengen(daten: dict, df=None, tag=None, log=print, bahnen=None) -> int:
+def anhaengen(daten: dict, df=None, tag=None, log=print, rennen=None) -> int:
     """Festkurse an die Starter der Kartendaten hängen (x["fk"]); df: fertige Tabelle (festkurse), Pfad zu einer
-    CSV aus dem Wettstar-Notebook oder None = jetzt holen. bahnen: nur Rennen dieser Bahnen (Vorgabe: alle der
-    Karte) – nur sie werden geholt und zugeordnet. Rückgabe: Zahl zugeordneter Starter. Fehler oder fehlendes
-    Playwright: Karte ohne Festkurse."""
-    nur = set(bahnen) if bahnen is not None else None
+    CSV aus dem Wettstar-Notebook oder None = jetzt holen. rennen: nur diese race_ids (Vorgabe: alle der Karte) –
+    geholt werden nur ihre Bahnen, zugeordnet nur ihre Starter; die übrigen bleiben, wie sie sind. Rückgabe: Zahl
+    zugeordneter Starter. Fehler oder fehlendes Playwright: Karte ohne Festkurse."""
+    nur_r = set(rennen) if rennen is not None else None
+    nur = ({r.get("course") for k, r in (daten.get("races") or {}).items() if k in nur_r}
+           if nur_r is not None else None)
     try:
         if isinstance(df, (str, Path)):
             log(f"Festkurse aus {df}")
@@ -367,7 +369,7 @@ def anhaengen(daten: dict, df=None, tag=None, log=print, bahnen=None) -> int:
     ohne = []
     n_je = 0
     for rid, r in (daten.get("races") or {}).items():
-        if nur is not None and r.get("course") not in nur:
+        if nur_r is not None and rid not in nur_r:
             continue
         for x in r.get("runners") or []:
             if x.get("nr"):
@@ -384,10 +386,16 @@ def anhaengen(daten: dict, df=None, tag=None, log=print, bahnen=None) -> int:
     return n_je
 
 
-def bahnen_mit_festkurs(daten: dict) -> set:
-    """Bahnen der Karte, bei denen schon mindestens ein Starter einen Festkurs Sieg hat (nur Toto zählt nicht)."""
-    return {r.get("course") for r in (daten.get("races") or {}).values()
+def rennen_mit_festkurs(daten: dict) -> set:
+    """Rennen (race_id), in denen schon mindestens ein Starter einen Festkurs Sieg hat (nur Toto zählt nicht)."""
+    return {k for k, r in (daten.get("races") or {}).items()
             if any((x.get("fk") or {}).get("sieg") is not None for x in r.get("runners") or [] if not x.get("nr"))}
+
+
+def bahnen_mit_festkurs(daten: dict) -> set:
+    """Bahnen der Karte, bei denen schon mindestens ein Rennen Festkurse Sieg hat."""
+    fertig = rennen_mit_festkurs(daten)
+    return {r.get("course") for k, r in (daten.get("races") or {}).items() if k in fertig}
 
 
 def stand_merken(daten: dict, zeit: str) -> None:
