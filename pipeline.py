@@ -36,7 +36,7 @@ import france_galop as fg
 import parse_tracking as pt
 import pmu
 
-TABELLEN = ["pmu_races", "pmu_runners", "tracking_status", "tracking_races", "tracking_runners",
+TABELLEN = ["pmu_races", "pmu_runners", "pmu_laeufe_extern", "tracking_status", "tracking_races", "tracking_runners",
             "tracking_sections", "tracking_obstacles", "tracking_leader", "fehler"]
 
 
@@ -250,6 +250,11 @@ def tag_verarbeiten(tag: date, base: Path, pdf_dir: Path, *, nur_flach: bool = T
     n_runners = _write_behalten(base, "pmu_runners", ymd, pmu.add_lengths(pd.DataFrame(runners)).to_dict("records"),
                                 ["race_id", "saddle_no"])
 
+    # 2b) frühere Läufe der Starter (auch PMH-Provinzrennen und Ausland, die nicht im Programm stehen)
+    ext = pmu.externe_laeufe(tag, s, [(r["race_id"], r["reunion"], r["race_no"]) for r in races], pause=pause)
+    _write(base, "pmu_laeufe_extern", ymd, ext)
+    _extern_erledigt(base, ymd)
+
     # 3) je Rennen bei France Galop nach dem Tracking-PDF sehen
     store = fg.CodeStore(base)
     status = fg.tracking_fuer_tag(tag, meets, s, store, pdf_dir, pause=pause,
@@ -267,6 +272,46 @@ def tag_verarbeiten(tag: date, base: Path, pdf_dir: Path, *, nur_flach: bool = T
             "rennen": len(status), "mit_tracking": sum(z["tracking"] for z in status),
             "offen": offen, "offen_bahnen": [list(x) for x in offen_bahnen], "bahnen": sorted({m["hippodrome"] for m in meets}),
             "pmu_races": n_races, "pmu_runners": n_runners, **n}
+
+
+def _extern_stand(base: Path) -> Path:
+    return Path(base) / "parquet" / "pmu_laeufe_extern" / "_erledigt.json"
+
+
+def _extern_erledigt(base: Path, ymd: str) -> None:
+    f = _extern_stand(base)
+    f.parent.mkdir(parents=True, exist_ok=True)
+    tage = set(json.loads(f.read_text())) if f.exists() else set()
+    tage.add(ymd)
+    f.write_text(json.dumps(sorted(tage)))
+
+
+def extern_nachholen(base: Path, *, max_tage: int | None = None, pause: float = 0.3, log=print) -> pd.DataFrame:
+    """Für schon gesammelte Tage die früheren Läufe der Starter nachholen (performances-detaillees, eine Anfrage je
+    Rennen) – neueste Tage zuerst, bereits erledigte überspringen; abbrechen und später weitermachen geht jederzeit.
+    max_tage: höchstens so viele Tage in diesem Lauf."""
+    base = Path(base)
+    f = _extern_stand(base)
+    fertig = set(json.loads(f.read_text())) if f.exists() else set()
+    tage = sorted((x.stem for x in (base / "parquet" / "pmu_races").glob("*.parquet") if x.stem not in fertig),
+                  reverse=True)
+    if max_tage:
+        tage = tage[:max_tage]
+    log(f"Externe Läufe nachholen: {len(tage)} Tage offen" + (f" (dieser Lauf: {len(tage)})" if max_tage else ""))
+    s = requests.Session()
+    bericht = []
+    for i, ymd in enumerate(tage, 1):
+        r = _tages_tabelle(base, "pmu_races", ymd)
+        if r.empty:
+            _extern_erledigt(base, ymd)
+            continue
+        tag = datetime.strptime(ymd, "%Y%m%d").date()
+        ext = pmu.externe_laeufe(tag, s, list(zip(r["race_id"], r["reunion"], r["race_no"])), pause=pause)
+        n = _write(base, "pmu_laeufe_extern", ymd, ext)
+        _extern_erledigt(base, ymd)
+        bericht.append({"tag": ymd, "rennen": len(r), "laeufe": n})
+        log(f"  {ymd}: {len(r)} Rennen, {n} frühere Läufe ({i}/{len(tage)})")
+    return pd.DataFrame(bericht)
 
 
 # --------------------------------------------------------------------------

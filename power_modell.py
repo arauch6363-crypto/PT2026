@@ -63,7 +63,8 @@ QUOTE_BEREICH = (1.0, GOLD_COTE_MAX)  # Vorwärts-Test: Gold mit Prognose-Cote i
 PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schreibt ihre Value-Faktoren hierher
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
-MERKMAL_VERSION = 10                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+SCHLUESSEL_DATEI = "merkmale_schluessel.parquet"   # je Zeile des Zwischenspeichers: race_id, horse_id
+MERKMAL_VERSION = 11                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
@@ -276,8 +277,9 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     h["date"] = pd.to_datetime(h["date"])
     heute = (heute.reindex(h.index).fillna(False).astype(bool) if heute is not None
              else pd.Series(False, index=h.index))
+    extern = _spalte(h, "extern", False).eq(True)            # externe Läufe (PMH/Ausland): nur Vorgeschichte
     ziel_maske = (ziel_maske.reindex(h.index).fillna(False).astype(bool) if ziel_maske is not None
-                  else pd.Series(True, index=h.index))
+                  else ~extern)
     h = h.sort_values(["date", "race_id", "saddle_no"], kind="stable")
     idx = h.index.to_numpy()
     zm, hm = ziel_maske.loc[idx].to_numpy(), heute.loc[idx].to_numpy()
@@ -980,9 +982,23 @@ def _merkmale_holen(base, hist, out, X, neu, log):
     if X is None and zwischen is not None and zwischen.exists() and not neu:
         v = json.loads(version.read_text()).get("version") if version.exists() else None
         X = pd.read_parquet(zwischen)
+        sf = zwischen.with_name(SCHLUESSEL_DATEI)
         if v != MERKMAL_VERSION:
             log(f"Zwischengespeicherte Merkmale sind von einer älteren Version ({v}) – baue neu.")
             X = None
+        elif sf.exists():
+            # Zeilen über (race_id, horse_id) zuordnen: neue externe Läufe verschieben die Zeilennummern der Historie
+            alt = pd.read_parquet(sf)
+            jetzt = pd.Series(hist.index, index=pd.MultiIndex.from_arrays([hist["race_id"].astype(str),
+                                                                          hist["horse_id"].astype(str)]))
+            jetzt = jetzt[~jetzt.index.duplicated()]
+            neu_idx = jetzt.reindex(pd.MultiIndex.from_arrays([alt["race_id"].astype(str), alt["horse_id"].astype(str)]))
+            if neu_idx.isna().any():
+                log("Zwischengespeicherte Merkmale passen nicht zur Historie – baue neu.")
+                X = None
+            else:
+                X.index = neu_idx.to_numpy().astype(int)
+                log(f"Merkmale aus {zwischen} ({len(X):,} Starter; neu bauen mit neu=True)")
         elif not X.index.isin(hist.index).all():
             log("Zwischengespeicherte Merkmale passen nicht zur Historie – baue neu.")
             X = None
@@ -994,6 +1010,8 @@ def _merkmale_holen(base, hist, out, X, neu, log):
         if zwischen is not None:
             zwischen.parent.mkdir(parents=True, exist_ok=True)
             X.to_parquet(zwischen)
+            hist.loc[X.index, ["race_id", "horse_id"]].astype(str).reset_index(drop=True).to_parquet(
+                zwischen.with_name(SCHLUESSEL_DATEI))
             version.write_text(json.dumps({"version": MERKMAL_VERSION}))
     return hist, X, ordner
 

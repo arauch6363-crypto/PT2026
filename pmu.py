@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 import time
 import unicodedata
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -291,6 +291,58 @@ def starter(tag: date, session: requests.Session, meets: list[dict], *,
             for p in (data or {}).get("participants", []):
                 runners.append(runner_row(row["race_id"], p))
     return races, runners
+
+
+# --------------------------------------------------------------------------
+# Frühere Läufe der Starter (performances-detaillees): auch Rennen, die nicht im PMU-Programm stehen (PMH-Provinz-
+# rennen wie Aurillac, Jarnac, La Roche-Posay; Ausland; Hindernis) – je Starter die letzten fünf
+# --------------------------------------------------------------------------
+PERF_URLS = [u.replace("/participants", "/performances-detaillees/pretty") for u in PARTICIPANTS_URLS]
+
+
+def _lokales_datum(ms, offset) -> str | None:
+    if not isinstance(ms, (int, float)):
+        return None
+    return datetime.fromtimestamp((ms + (offset or 0)) / 1000, timezone.utc).strftime("%Y-%m-%d")
+
+
+def perf_zeilen(quelle_race_id: str, data: dict | None) -> list[dict]:
+    """Zeilen aus einer performances-detaillees-Antwort: je Starter (Quelle: race_id + Startnummer) und früherem
+    Lauf Datum, Bahn, Disziplin, Preisgeld, Distanz, Starterzahl, Boden und das eigene Ergebnis."""
+    out = []
+    for p in (data or {}).get("participants", []) or []:
+        for c in p.get("coursesCourues", []) or []:
+            ich = next((x for x in c.get("participants", []) or [] if x.get("itsHim")), None)
+            if ich is None:
+                continue
+            pl = ich.get("place") or {}
+            ok = str(pl.get("statusArrivee") or "").upper() == "PLACE"
+            sieger = next((x.get("nomCheval") for x in c.get("participants", []) or []
+                           if (x.get("place") or {}).get("place") == 1), None)
+            out.append({
+                "quelle_race_id": quelle_race_id, "quelle_no": p.get("numPmu"), "horse": p.get("nomCheval"),
+                "date": _lokales_datum(c.get("date"), c.get("timezoneOffset")),
+                "hippodrome": c.get("hippodrome"), "race_name": c.get("nomPrix"),
+                "discipline": c.get("discipline"), "prize_eur": c.get("allocation"),
+                "distance_m": c.get("distance"), "n_runners": c.get("nbParticipants"),
+                "going": c.get("etatTerrain"),
+                "finish_pos": pl.get("place") if ok else None, "status_arrivee": pl.get("statusArrivee"),
+                "jockey": ich.get("nomJockey"), "weight_kg": ich.get("poidsJockey"), "draw": ich.get("corde"),
+                "blinkers": ich.get("oeillere"),
+                "lengths_label": _g(ich, "distanceAvecPrecedent", "rawValue"), "sieger": sieger,
+            })
+    return out
+
+
+def externe_laeufe(tag: date, session: requests.Session, rennen, *, pause: float = 0.3) -> list[dict]:
+    """Frühere Läufe aller Starter der Rennen eines Tages; rennen: [(race_id, Reunion, Rennnummer)]."""
+    d = tag.strftime("%d%m%Y")
+    out = []
+    for rid, reunion, nr in rennen:
+        data = _json(session, PERF_URLS, runden=1, d=d, r=int(reunion), c=int(nr))
+        time.sleep(pause)
+        out += perf_zeilen(str(rid), data)
+    return out
 
 
 # --------------------------------------------------------------------------

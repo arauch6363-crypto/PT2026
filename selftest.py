@@ -719,6 +719,21 @@ def power_modell_pruefen() -> None:
            and mi["power"]["rote_starter"]["anteil_starter"] > 0 and "Warnsignal" in mi["value"]["einordnung"]
            and mi["value"]["pruefung"]["sieg_z"] is not None,
            "Modell-Info für die Claude-JSON: Verlässlichkeit Power (inkl. Anteil roter Starter an den Siegern) und Value")
+    # externe Läufe: nur Vorgeschichte (keine Zielzeile); Zwischenspeicher bleibt über (race_id, horse_id) zugeordnet
+    he = h.copy()
+    he["extern"] = False
+    zus = he.iloc[[5]].copy()
+    zus["race_id"], zus["extern"], zus["date"] = "20250302XTEST", True, pd.Timestamp("2025-03-02")
+    he2 = pd.concat([zus, he], ignore_index=True)                       # Zeilennummern verschieben sich
+    with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+        _, X1, _ = pm._merkmale_holen(None, he, Path(tmp), None, False, print)
+        _, X2, _ = pm._merkmale_holen(None, he2, Path(tmp), None, False, print)
+    i5 = he.index[10]
+    pruefe(len(X1) == len(he) and len(X2) == len(he) and "20250302XTEST" not in set(he2.loc[X2.index, "race_id"])
+           and (he2.loc[X2.index, "race_id"].to_numpy() == he.loc[X1.index, "race_id"].to_numpy()).all()
+           and X2.loc[i5 + 1].equals(X1.loc[i5]),
+           "Externe Läufe: keine Zielzeilen; Merkmal-Zwischenspeicher nach eingefügten Zeilen über Rennen + Pferd "
+           "richtig zugeordnet")
     # Morgenquote als Marktmerkmal (nur Value-Modell): von Hand, im Modell gespeichert, auf der Karte aus den heutigen Zeilen
     mm = pm.morgen_merkmale(pd.DataFrame({"race_id": ["A", "A", "A", "B"], "odds_morning": [2.0, 4.0, None, 3.0]}))
     pruefe(abs(mm["m_pm"].iloc[0] - 2 / 3) < 1e-9 and mm["m_rk"].tolist()[:2] == [0.0, 1.0]
@@ -1323,6 +1338,48 @@ def racecard_pruefen() -> None:
                                         {"race_id": rid(10, 1), "saddle_no": 2, "dist_vs_winner_m": 13.31,
                                          "speed_last600_kmh": 63.0, "last600_s": 34.5}]), sections, leader)
     im_rennen = hist["race_id"] == rid(10, 1)
+    # abgesagtes Rennen (vergangener Tag, kein Starter mit Platz) fällt weg; Nichtankommer im gelaufenen Rennen bleibt
+    races_a = pd.concat([races, pd.DataFrame([{"race_id": rid(50, 1), "hippodrome": "LA TESTE", "distance_m": 1600,
+                                               "going": "Bon", "going_value": "3,0", "prize_eur": 9000,
+                                               "categorie": "HANDICAP"}])], ignore_index=True)
+    runners_a = pd.concat([runners, pd.DataFrame([lauf(rid(50, 1), 1, "X", "TR", None, None),
+                                                  lauf(rid(50, 1), 2, "Y", "TR", None, None),
+                                                  lauf(rid(100, 1), 4, "W", "AND", None, 30.0, incident="ARRETE")])],
+                          ignore_index=True)
+    ha = rc.vorbereiten(races_a, runners_a)
+    pruefe(rid(50, 1) not in set(ha["race_id"]) and ((ha["race_id"] == rid(100, 1)) & (ha["horse"] == "W")).sum() == 1,
+           "Historie: abgesagte Rennen (vergangener Tag, niemand platziert) fallen weg – kein Phantom-Lauf mit Pos 0; "
+           "Nichtankommer in gelaufenen Rennen bleiben")
+    # externe Läufe (performances-detaillees): PMH-Lauf kommt dazu; schon bekannter Lauf und Hürdenlauf nicht
+    import pmu as pmu_
+    perf = {"participants": [{"numPmu": 1, "nomCheval": "X", "coursesCourues": [
+        {"date": int(pd.Timestamp("2026-08-01").timestamp() * 1000) - 7200000, "timezoneOffset": 7200000,
+         "hippodrome": "AURILLAC", "nomPrix": "PRIX TEST", "discipline": "PLAT", "allocation": 7500, "distance": 2400,
+         "nbParticipants": 6, "etatTerrain": "Bon souple",
+         "participants": [{"itsHim": True, "nomCheval": "X", "place": {"place": 1, "statusArrivee": "PLACE"},
+                           "nomJockey": "A. B", "poidsJockey": 57.0, "corde": 2}]},
+        {"date": int(pd.Timestamp(tag - timedelta(days=100)).timestamp() * 1000) - 7200000, "timezoneOffset": 7200000,
+         "hippodrome": "VICHY", "nomPrix": "SCHON DA", "discipline": "PLAT", "allocation": 15000, "distance": 2000,
+         "nbParticipants": 3, "participants": [{"itsHim": True, "place": {"place": 2, "statusArrivee": "PLACE"}}]},
+        {"date": int(pd.Timestamp("2026-07-01").timestamp() * 1000) - 7200000, "timezoneOffset": 7200000,
+         "hippodrome": "AUTEUIL", "nomPrix": "HAIES", "discipline": "HAIES", "allocation": 20000, "distance": 3500,
+         "nbParticipants": 9, "participants": [{"itsHim": True, "place": {"place": 3, "statusArrivee": "PLACE"}}]}]}]}
+    ext_ = pd.DataFrame(pmu_.perf_zeilen(rid(10, 1), perf) * 2)            # doppelt: aus zwei Quellen
+    hext = rc.vorbereiten(races, runners, extern=ext_)
+    ex_ = hext[hext["extern"].eq(True)]
+    pruefe(len(ex_) == 1 and ex_["date"].iloc[0] == pd.Timestamp("2026-08-01") and ex_["horse_id"].iloc[0] == "X|VATER"
+           and ex_["won"].iloc[0] == 1 and ex_["rel_place"].iloc[0] == 1.0 and ex_["n_runners"].iloc[0] == 6
+           and abs(ex_["prize_won"].iloc[0] - 3750) < 1e-9 and pd.isna(ex_["jockey_key"].iloc[0])
+           and pd.isna(ex_["odds_final"].iloc[0]) and ex_["going_pmu"].iloc[0] is not None
+           and (hext["extern"].eq(False)).sum() == len(hist),
+           "Externe Läufe: PMH-Lauf (Aurillac) aus den Detail-Leistungen als Zeile extern=True; schon bekannter Lauf, "
+           "Hürdenlauf und Doppel aus zwei Quellen fallen weg; ohne Quote und ohne Verbindungen")
+    ml, mj = rc.musique_laeufe("5p1h1h0hAh(25)0p8p")
+    pruefe(ml[:5] == [(5, "p"), (1, "h"), (1, "h"), (10, "h"), (None, "h")] and mj == 5 and len(ml) == 7
+           and rc.fehlende_laeufe("1p2p8p8p8p0p0p3p7p7p", 6) == 4 and rc.fehlende_laeufe("(25)3p", 0) == 0
+           and rc.fehlende_laeufe(None, 3) == 0,
+           "Musique: Läufe mit Platz (0 = 10.+, Buchstabe = nicht im Ziel) und Disziplin, Läufe im laufenden Jahr; "
+           "fehlende Läufe = Musique dieses Jahres − Historie dieses Jahres")
     hx = hist[im_rennen & (hist["horse"] == "X")].iloc[0]
     pruefe(abs(hx["speed_last600_kmh"] - 600 / 34.4 * 3.6 * 1.01) < 0.02 and hx["path_factor"] == 1.01,
            "L600 aus den Abschnitten neu gebildet (geparster Wert 55 ersetzt) und mit Wegfaktor skaliert")
@@ -1343,6 +1400,11 @@ def racecard_pruefen() -> None:
     d = rc.baue_daten(hist, heute_r, heute_s, tag)
     global _RC_FALL
     _RC_FALL = (hist, heute_r, heute_s, tag)                  # für den Power-Modell-Test
+    dx = rc.baue_daten(hext, heute_r, heute_s, tag)
+    fx_ = [f for r_ in dx["races"].values() for x_ in r_["runners"] if x_["horse"] == "X" for f in x_["form_lines"]]
+    pruefe(any(f["extern"] and f["course"] == "AURILLAC" and f["pos"] == 1 and f["ran"] == 6 for f in fx_)
+           and not any(f["extern"] for f in fx_ if f["course"] != "AURILLAC"),
+           "Karte: externer Lauf als Formzeile (extern, Aurillac 1/6) zwischen den PMU-Läufen")
     x, y = d["races"][f"{tag:%Y%m%d}R1C1"]["runners"]
     pruefe({"verlauf", "verlauf_wert", "verlauf_pferd", "verlauf_plus"} <= set(x["form_lines"][0])
            and x["form_lines"][0]["verlauf_plus"] is False,
