@@ -316,7 +316,8 @@ def perf_zeilen(quelle_race_id: str, data: dict | None) -> list[dict]:
             if ich is None:
                 continue
             pl = ich.get("place") or {}
-            ok = str(pl.get("statusArrivee") or "").upper() == "PLACE"
+            # PLACE = Platz 1–5 mit Nummer; NON_PLACE = im Ziel ab Platz 6 (Nummer meist leer); sonst nicht im Ziel
+            ok = str(pl.get("statusArrivee") or "").upper() in ("PLACE", "NON_PLACE")
             sieger = next((x.get("nomCheval") for x in c.get("participants", []) or []
                            if (x.get("place") or {}).get("place") == 1), None)
             out.append({
@@ -326,7 +327,8 @@ def perf_zeilen(quelle_race_id: str, data: dict | None) -> list[dict]:
                 "discipline": c.get("discipline"), "prize_eur": c.get("allocation"),
                 "distance_m": c.get("distance"), "n_runners": c.get("nbParticipants"),
                 "going": c.get("etatTerrain"),
-                "finish_pos": pl.get("place") if ok else None, "status_arrivee": pl.get("statusArrivee"),
+                "finish_pos": pl.get("place") if ok and isinstance(pl.get("place"), (int, float)) else None,
+                "status_arrivee": pl.get("statusArrivee"),
                 "jockey": ich.get("nomJockey"), "weight_kg": ich.get("poidsJockey"), "draw": ich.get("corde"),
                 "blinkers": ich.get("oeillere"),
                 "lengths_label": _g(ich, "distanceAvecPrecedent", "rawValue"), "sieger": sieger,

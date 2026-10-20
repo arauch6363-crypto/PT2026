@@ -686,6 +686,7 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     return h.sort_values(["date", "race_id", "finish_pos"]).reset_index(drop=True)
 
 
+EXTERN_PLAETZE = 5             # Detail-Leistungen nennen die Plätze 1–5; dahinter nur „im Ziel“ (NON_PLACE)
 EXTERN_DISZIPLIN = {"PLAT"}     # externe Läufe nur aus Flachrennen (Hindernis: anderer Sport, eigene Form)
 
 
@@ -729,7 +730,12 @@ def extern_zeilen(ext: pd.DataFrame, quellen: pd.DataFrame, h: pd.DataFrame) -> 
     z["won"] = (z["finish_pos"] == 1).astype(int)
     z["is_place"] = (z["finish_pos"] <= np.where(z["n_runners"] <= PLATZ_GRENZE, 2, 3)).astype(int)
     z["placed"] = z["is_place"]
-    z["rel_place"] = ((z["n_runners"] - z["finish_pos"]) / (z["n_runners"] - 1)).where(z["n_runners"] > 1).clip(0, 1)
+    # im Ziel ab Platz 6 ohne Nummer (NON_PLACE): Pos aus der Mitte der Plätze 6 … Starterzahl geschätzt, nicht 0
+    st_ = e["status_arrivee"] if "status_arrivee" in e else pd.Series("", index=e.index)
+    ab6 = z["finish_pos"].isna() & st_.astype(str).str.upper().eq("NON_PLACE").to_numpy()
+    z["pos_ab"] = np.where(ab6, EXTERN_PLAETZE + 1, np.nan)
+    pos = z["finish_pos"].where(~ab6, ((EXTERN_PLAETZE + 1 + z["n_runners"]) / 2).clip(upper=z["n_runners"]))
+    z["rel_place"] = ((z["n_runners"] - pos) / (z["n_runners"] - 1)).where(z["n_runners"] > 1).clip(0, 1)
     anteil = z["finish_pos"].map(lambda p: PREIS_ANTEILE[int(p) - 1] if pd.notna(p) and 1 <= p <= len(PREIS_ANTEILE)
                                  else 0.0)
     z["prize_won"] = (z["prize_eur"].fillna(0) * anteil).astype(float)
@@ -1133,6 +1139,7 @@ def _formzeile(z, gewicht_heute=None) -> dict:
         "cls_val": _num(z.get("cls_val"), 1), "cls_epr": _num(z.get("cls_epr"), 0),
         "cls_epr_kl": _num(z.get("cls_epr_kl"), 3), "won_eur": _num(z.get("prize_won"), 0),
         "pos": _num(z["finish_pos"], 0), "ran": _num(z["n_runners"], 0),
+        "pos_ab": _num(z.get("pos_ab"), 0),                 # extern: im Ziel ab diesem Platz, genauer unbekannt
         "margin": _num(z.get("margin"), 2), "weight": _num(z["weight_kg"], 1),
         "jockey": _txt(z.get("jockey")), "odds": _num(z["odds_final"], 1),
         "odds_rank": _num(z.get("odds_rank"), 0),

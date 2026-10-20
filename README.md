@@ -292,7 +292,8 @@ tp.extern_nachholen(BASE, max_tage=200)   # neueste Tage zuerst, eine Anfrage je
 
 `racecard.vorbereiten(..., extern=…)` hängt daraus die **Flachrennen, die nicht in der Historie stehen**, als Zeilen
 mit `extern=True` an (`extern_zeilen`: Pferd über die Quelle race_id + Startnummer, je Pferd und Tag einmal):
-Platz, Starterzahl, Pos, Preisgeld des Platzes, Kurs, Distanz, Boden – ohne Quote, Tracking und Verbindungen (A/E
+Platz (die Detail-Leistungen nennen nur die Plätze 1–5; „im Ziel ab 6.“ (`NON_PLACE`) zählt mit der Pos aus der
+Mitte der Plätze 6 … Starterzahl, Karte „6.+“), Starterzahl, Pos, Preisgeld des Platzes, Kurs, Distanz, Boden – ohne Quote, Tracking und Verbindungen (A/E
 von Trainer, Jockey und Abstammung bleiben aus vollständigen Läufen). Sie zählen für Form, Tage seit Lauf, Läufe und
 CGD; im Modell sind sie nur Vorgeschichte, keine Lern-Zeilen. Die Race Card holt die Detail-Leistungen der heutigen
 Rennen dazu und zeigt externe Läufe als Formzeilen mit „extern“. Abgesagte Rennen (vergangener Tag, niemand

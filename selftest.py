@@ -1363,15 +1363,25 @@ def racecard_pruefen() -> None:
          "nbParticipants": 3, "participants": [{"itsHim": True, "place": {"place": 2, "statusArrivee": "PLACE"}}]},
         {"date": int(pd.Timestamp("2026-07-01").timestamp() * 1000) - 7200000, "timezoneOffset": 7200000,
          "hippodrome": "AUTEUIL", "nomPrix": "HAIES", "discipline": "HAIES", "allocation": 20000, "distance": 3500,
-         "nbParticipants": 9, "participants": [{"itsHim": True, "place": {"place": 3, "statusArrivee": "PLACE"}}]}]}]}
+         "nbParticipants": 9, "participants": [{"itsHim": True, "place": {"place": 3, "statusArrivee": "PLACE"}}]},
+        {"date": int(pd.Timestamp("2026-07-20").timestamp() * 1000) - 7200000, "timezoneOffset": 7200000,
+         "hippodrome": "JARNAC", "nomPrix": "AB SECHS", "discipline": "PLAT", "allocation": 7000, "distance": 2500,
+         "nbParticipants": 12, "participants": [{"itsHim": True, "place": {"statusArrivee": "NON_PLACE"},
+                                                 "distanceAvecPrecedent": {"rawValue": "Tête"}}]}]}]}
     ext_ = pd.DataFrame(pmu_.perf_zeilen(rid(10, 1), perf) * 2)            # doppelt: aus zwei Quellen
     hext = rc.vorbereiten(races, runners, extern=ext_)
     ex_ = hext[hext["extern"].eq(True)]
+    ab6_ = ex_[ex_["hippodrome"] == "JARNAC"]
+    ex_ = ex_[ex_["hippodrome"] == "AURILLAC"]
+    pruefe(len(ab6_) == 1 and pd.isna(ab6_["finish_pos"].iloc[0]) and ab6_["pos_ab"].iloc[0] == 6
+           and abs(ab6_["rel_place"].iloc[0] - (12 - 9) / 11) < 1e-9 and ab6_["won"].iloc[0] == 0,
+           "Externe Läufe: im Ziel ab Platz 6 (NON_PLACE, ohne Nummer) – Pos aus der Mitte der Plätze 6 … Starterzahl, "
+           "nicht als Nichtankommer")
     pruefe(len(ex_) == 1 and ex_["date"].iloc[0] == pd.Timestamp("2026-08-01") and ex_["horse_id"].iloc[0] == "X|VATER"
            and ex_["won"].iloc[0] == 1 and ex_["rel_place"].iloc[0] == 1.0 and ex_["n_runners"].iloc[0] == 6
            and abs(ex_["prize_won"].iloc[0] - 3750) < 1e-9 and pd.isna(ex_["jockey_key"].iloc[0])
            and pd.isna(ex_["odds_final"].iloc[0]) and ex_["going_pmu"].iloc[0] is not None
-           and (hext["extern"].eq(False)).sum() == len(hist),
+           and (hext["extern"].eq(False)).sum() == len(hist) and hext["extern"].eq(True).sum() == 2,
            "Externe Läufe: PMH-Lauf (Aurillac) aus den Detail-Leistungen als Zeile extern=True; schon bekannter Lauf, "
            "Hürdenlauf und Doppel aus zwei Quellen fallen weg; ohne Quote und ohne Verbindungen")
     ml, mj = rc.musique_laeufe("5p1h1h0hAh(25)0p8p")
@@ -1403,8 +1413,9 @@ def racecard_pruefen() -> None:
     dx = rc.baue_daten(hext, heute_r, heute_s, tag)
     fx_ = [f for r_ in dx["races"].values() for x_ in r_["runners"] if x_["horse"] == "X" for f in x_["form_lines"]]
     pruefe(any(f["extern"] and f["course"] == "AURILLAC" and f["pos"] == 1 and f["ran"] == 6 for f in fx_)
-           and not any(f["extern"] for f in fx_ if f["course"] != "AURILLAC"),
-           "Karte: externer Lauf als Formzeile (extern, Aurillac 1/6) zwischen den PMU-Läufen")
+           and any(f["extern"] and f["course"] == "JARNAC" and f["pos"] is None and f["pos_ab"] == 6 for f in fx_)
+           and not any(f["extern"] for f in fx_ if f["course"] not in ("AURILLAC", "JARNAC")),
+           "Karte: externe Läufe als Formzeilen (Aurillac 1/6, Jarnac „6.+“/12) zwischen den PMU-Läufen")
     x, y = d["races"][f"{tag:%Y%m%d}R1C1"]["runners"]
     pruefe({"verlauf", "verlauf_wert", "verlauf_pferd", "verlauf_plus"} <= set(x["form_lines"][0])
            and x["form_lines"][0]["verlauf_plus"] is False,
