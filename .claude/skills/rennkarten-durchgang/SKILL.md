@@ -331,7 +331,14 @@ Modell gestützten Arguments senken. „wenige Testrennen" heißt: Wert unsicher
   Siegchance nahe am Modell — das Modell ordnet im Schnitt besser als eine
   freie Schätzung.
 - **`treiber` lesen.** Sie zeigen, worauf das Modell seine Zahl stützt
-  (z. B. „letzter Lauf +6", „RTR −5"). Passt ein Treiber nicht zu heute
+  (z. B. „letzter Lauf +6", „RTR −5") — **relativ zum heutigen Feld**
+  (Prozentpunkte der erwarteten Pos gegenüber dem Ø der Gegner; was alle
+  gleich haben, etwa „keine Form“ im Debütantenrennen, zählt nicht).
+  „Form letzte 5“ ist die Form, „Klasse der letzten Läufe“ deren Klasse
+  gegen heute (negativ = die Platzierungen kamen in schwächeren Rennen);
+  „Klassenwechsel“, „Gewichtswechsel“, „Distanzwechsel“, „Rating seit
+  letztem Lauf“, „Jockeywechsel“ zeigen den Wechsel zum letzten Lauf.
+  Passt ein Treiber nicht zu heute
   (etwa ein Gewichtswechsel, der das Pferd falsch einordnet), ist das ein
   Grund für eine Verschiebung.
 - **Kein Angle aus dem Modell allein.** „Modell sieht ihn vorn" ist keine

@@ -63,7 +63,7 @@ QUOTE_BEREICH = (1.0, GOLD_COTE_MAX)  # Vorwärts-Test: Gold mit Prognose-Cote i
 PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schreibt ihre Value-Faktoren hierher
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
-MERKMAL_VERSION = 9                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+MERKMAL_VERSION = 10                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
@@ -89,6 +89,8 @@ FORM_VERDICHTET = 5         # verdichtete Form (Ø, Bestwert, Streuung …) übe
 FORM_TREND_N = 6            # Formtrend: Steigung über so viele letzte Läufe (ab 3 Werten)
 FORM_ZEIT_N = 10            # zeitgewichtete Form: höchstens so viele letzte Läufe …
 FORM_HWZ = 90               # … mit Gewicht 0,5 ^ (Tage / FORM_HWZ)
+FORM_ZEIT_K = 1.0           # … und zum Ausgangswert hin geschrumpft wie mit so vielen Läufen von heute
+FORM_ZEIT_PRIOR = {"pos": 0.5, "ue": 0.0}   # Ausgangswerte (Pos: Feldmitte, über Erwartung: 0); ARR ungeschrumpft
 FORM_TOP = 0.75             # „Spitzenlauf“: Pos ab hier
 ABST_STAND_MIN = 2000       # Abstammungs-Passung: Monatsstand erst ab so vielen Läufen davor
 FORM_KLASSE_TOL = 0.2       # Form in gleicher/höherer Klasse: Preisgeld (log) höchstens so viel unter heute
@@ -114,10 +116,15 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("jockey_", "Jockey"), ("owner_", "Besitzer"), ("breeder_", "Züchter"), ("sire_", "Vater"),
            ("dam_sire_", "Muttervater"), ("arr", "ARR"), ("tr", "TR"), ("rtr", "RTR"), ("dl600", "ΔL600 A"),
            ("db200", "ΔB200 A"), ("duel", "Duell"), ("box", "Startbox"), ("early", "Laufstil"), ("pace", "Tempo-Szenario"),
-           ("form5_", "letzte 5 Läufe"), ("formz_", "Form zeitgewichtet"), ("form_steig", "Formtrend"),
+           ("form5_", "Form letzte 5"), ("formz_", "Form zeitgewichtet"), ("form_steig", "Formtrend"),
+           ("form5_klasse", "Klasse der letzten Läufe"), ("form5_preis", "Klasse der letzten Läufe"),
+           ("formz_klasse", "Klasse der letzten Läufe"), ("formz_preis", "Klasse der letzten Läufe"),
+           ("chg_prize", "Klassenwechsel"), ("chg_class", "Klassenwechsel"), ("chg_weight", "Gewichtswechsel"),
+           ("chg_dist", "Distanzwechsel"), ("chg_rating", "Rating seit letztem Lauf"), ("chg_jockey", "Jockeywechsel"),
+           ("chg_trainer", "Trainerwechsel"),
            ("form_best3", "Formtrend"), ("form_pos_hoeher", "Form in gleicher/höherer Klasse"), ("season", "Jahreszeit"), ("feld_aelter", "Erfahrung im Feld"),
            ("feld_erfahrener", "Erfahrung im Feld"), ("chg_", "Wechsel zum letzten Lauf"),
-           ("kennt_jockey", "Jockey kennt Pferd"), ("trainerwechsel5", "Trainerwechsel (letzte 5)"),
+           ("kennt_jockey", "Jockey kennt Pferd"), ("trainerwechsel5", "Trainerwechsel"),
            ("dam_", "Mutter (Geschwister)"), ("hcp_", "Handicap-Marke"), ("seit_pause", "Läufe seit Pause"),
            ("erst_wallach", "erstmals Wallach"), ("arr_best", "Bestform ARR"), ("blink", "Scheuklappen"),
            ("race_prize", "Preisgeld des Rennens"), ("m_", "Morgenquote"), ("abst_", "Abstammungs-Passung"),
@@ -339,7 +346,8 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     # ---- je Pferd: Kacheln, Form, Vorlieben ----------------------------------------------------------------------
     F["race_prize"], F["feld_val"], F["blink"] = preis, feld_val, blink
     for c in ["form5_pos", "form5_best", "form5_lb", "form5_arr", "form5_ue", "form5_std", "form5_top", "form5_klasse",
-              "form5_preis", "formz_pos", "formz_arr", "formz_ue", "form_steig_pos", "form_steig_arr", "form_steig_lb",
+              "form5_preis", "formz_pos", "formz_arr", "formz_ue", "formz_n", "formz_klasse", "formz_preis",
+              "form_steig_pos", "form_steig_arr", "form_steig_lb",
               "form_steig_ue", "form_best3_diff", "form_pos_hoeher", "chg_weight", "chg_dist", "chg_class",
               "chg_prize", "chg_jockey", "chg_trainer", "blink_first", "blink_change", "kennt_jockey", "trainerwechsel5",
               "chg_rating", "hcp_sieg_diff", "hcp_platz_diff", "seit_pause", "arr_best365", "arr_best_dist",
@@ -495,8 +503,16 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             wz = 0.5 ** ((tag[i] - tag[vz]) / FORM_HWZ)
             for name, y in (("pos", rp0[vz]), ("arr", werte["arr"][vz] - gew[i] + rc.GEWICHT_REF), ("ue", ue[vz])):
                 m_ = np.isfinite(y)
-                if m_.any():
-                    F[f"formz_{name}"][i] = float((wz[m_] * y[m_]).sum() / wz[m_].sum())
+                if m_.any():                                # wenige / alte Läufe: zum Ausgangswert hin geschrumpft
+                    k_ = FORM_ZEIT_K if name in FORM_ZEIT_PRIOR else 0.0
+                    F[f"formz_{name}"][i] = float(((wz[m_] * y[m_]).sum() + k_ * FORM_ZEIT_PRIOR.get(name, 0.0))
+                                                  / (wz[m_].sum() + k_))
+            m_ = np.isfinite(rp0[vz])
+            F["formz_n"][i] = float(wz[m_].sum())             # wie viele „heutige“ Läufe stecken in der Form
+            for name, y, h_ in (("klasse", feld_val[vz], feld_val[i]), ("preis", preis[vz], preis[i])):
+                m_ = np.isfinite(y)
+                if m_.any() and not np.isnan(h_):           # > 0: zuletzt (zeitgewichtet) in stärkeren Rennen als heute
+                    F[f"formz_{name}"][i] = float((wz[m_] * y[m_]).sum() / wz[m_].sum()) - h_
             # Formtrend: Steigung je Lauf über die letzten FORM_TREND_N (> 0: wird besser bzw. bei lb: mehr Längen zurück)
             vt_ = vor[:FORM_TREND_N]
             for name, y in (("pos", rp0[vt_]), ("arr", werte["arr"][vt_]), ("lb", lb[vt_]), ("ue", ue[vt_])):
@@ -1523,11 +1539,22 @@ def _seg_korrektur(modell: dict, X: pd.DataFrame, Xk: pd.DataFrame) -> np.ndarra
 
 
 def _gruppe(spalte: str) -> str:
-    for pre, name in GRUPPEN:
-        if spalte.startswith(pre):
-            return name
+    """Anzeigegruppe eines Merkmals: der längste passende Präfix aus GRUPPEN (z. B. arr_best… = Bestform ARR, nicht ARR)."""
+    treffer = [(len(pre), name) for pre, name in GRUPPEN if spalte.startswith(pre)]
+    if treffer:
+        return max(treffer)[1]
     return {"n_runners": "Starterzahl", "distance_m": "Distanz", "going": "Boden", "dist_group": "Distanz",
             "racetype": "Renntyp", "cond_age": "Altersklasse"}.get(spalte, spalte)
+
+
+def treiber_relativ(beitr: np.ndarray, spalten: list, rennen: np.ndarray, korr: np.ndarray | None = None) -> pd.DataFrame:
+    """Merkmalsbeiträge (SHAP, Zeilen × Spalten) je Anzeigegruppe summiert und je Rennen um den Ø der Gruppe
+    vermindert: Treiber erklären den Abstand zum heutigen Feld, nicht zum Schnitt aller Starter der Historie."""
+    namen = [_gruppe(c) for c in spalten]
+    G = pd.DataFrame({g_: beitr[:, [i for i, n_ in enumerate(namen) if n_ == g_]].sum(axis=1) for g_ in sorted(set(namen))})
+    if korr is not None and np.any(korr):
+        G["Rennart-Korrektur"] = korr
+    return G - G.groupby(np.asarray(rennen)).transform("mean")
 
 
 def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log=print) -> dict:
@@ -1570,15 +1597,13 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
         df["gold"] = fw >= wm["gold_ab"] if "gold_ab" in wm else df["wert"] >= 1.2
         # Warnsignal: unterstes Fünftel (Grenze aus der Validierung, ältere Modelle: geeichter Faktor ≤ WARN_FAKTOR)
         df["warn"] = fw <= wm["warn_ab"] if "warn_ab" in wm else df["wert"] <= WARN_FAKTOR
+    # Treiber relativ zum Feld: Beitrag je Gruppe minus Ø der Gruppe im Rennen (was alle gleich haben, z. B. „keine
+    # Form“ im Debütantenrennen, hebt sich auf – wie bei Power und Siegchance)
+    G = treiber_relativ(beitr, meta["spalten"], df["race_id"].to_numpy(), korr)
     for r_, g in df.groupby("race_id"):
         mu, sd = g["pred"].mean(), g["pred"].std(ddof=0)
         for k, z in g.iterrows():
-            gr: dict = {}
-            for spalte, b in zip(meta["spalten"], beitr[k]):
-                gr[_gruppe(spalte)] = gr.get(_gruppe(spalte), 0.0) + float(b)
-            if korr[k]:
-                gr["Rennart-Korrektur"] = float(korr[k])
-            top = sorted(gr.items(), key=lambda kv: -abs(kv[1]))[:4]
+            top = G.loc[k].reindex(G.loc[k].abs().sort_values(ascending=False).index)[:4].items()
             p = 100 + 10 * (z["pred"] - mu) / sd if sd and sd > 0 else 100.0
             out[(r_, int(z["no"]))] = {"p": int(round(p)),
                                        "pred": round(float(z["pred"]), 3) if meta.get("art", "regression") == "regression" else None,

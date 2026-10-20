@@ -679,6 +679,11 @@ def power_modell_pruefen() -> None:
         heute.loc[heute.index[0], "weight_kg"] = np.nan                   # Lücke auch heute
         v = pm.vorhersage(h, heute, mod, log=print)
     ps = [w["p"] for w in v.values()]
+    bt = np.array([[1.0, 2.0, 0.5], [3.0, 2.0, 0.5], [5.0, 1.0, 0.5]])
+    tg = pm.treiber_relativ(bt, ["formz_pos_dz", "formz_arr_dz", "trainer_score"], np.array(["A", "A", "B"]))
+    pruefe(list(tg.columns) == ["Form zeitgewichtet", "Trainer"] and tg.iloc[:2].sum().abs().max() < 1e-12
+           and tg.iloc[0].tolist() == [-1.0, 0.0] and tg.iloc[2].tolist() == [0.0, 0.0],
+           "Treiber relativ zum Feld: Gruppen summiert, je Rennen um den Ø vermindert (was alle gleich haben, zählt nicht)")
     pruefe(mod is not None and len(v) == len(heute) and abs(np.mean(ps) - 100) < 2 and all(w["treiber"] for w in v.values()),
            f"Power-Modell: gespeichert, geladen, Power je heutigem Starter (Ø {np.mean(ps):.0f}, mit Treibern)")
     sg = [w["sieg"] for w in v.values()]
@@ -860,12 +865,16 @@ def power_modell_pruefen() -> None:
     yz = pm.ziel(h)[vz.index].to_numpy(dtype=float)
     wz = 0.5 ** (tage / pm.FORM_HWZ)
     mz = np.isfinite(yz)
-    soll_z = (wz[mz] * yz[mz]).sum() / wz[mz].sum()
+    soll_z = ((wz[mz] * yz[mz]).sum() + pm.FORM_ZEIT_K * pm.FORM_ZEIT_PRIOR["pos"]) / (wz[mz].sum() + pm.FORM_ZEIT_K)
     pruefe(abs(X.at[i, "form_steig_pos"] - soll_st) < 1e-9 and abs(X.at[i, "formz_pos"] - soll_z) < 1e-9
            and pm._steigung(np.array([0.9, 0.5, 0.1])) > 0 and np.isnan(pm._steigung(np.array([0.9, np.nan, 0.1])))
            and X["form5_ue"].dropna().between(-1, 1).all() and X["form5_ue"].notna().any()
-           and "form5_trend" not in X.columns,
-           "Power-Modell: Formtrend (Steigung je Lauf, ab 3 Werten), zeitgewichtete Form (Halbwertszeit) und Pos über Erwartung")
+           and "form5_trend" not in X.columns and abs(X.at[i, "formz_n"] - wz[mz].sum()) < 1e-9
+           and pm._gruppe("arr_best365_dz") == "Bestform ARR" and pm._gruppe("trainerwechsel5") == "Trainerwechsel"
+           and pm._gruppe("form5_klasse") == "Klasse der letzten Läufe" and pm._gruppe("chg_prize") == "Klassenwechsel"
+           and pm._gruppe("form5_pos_dz") == "Form letzte 5" and pm._gruppe("dam_sire_score") == "Muttervater",
+           "Power-Modell: Formtrend (Steigung je Lauf, ab 3 Werten), zeitgewichtete Form (Halbwertszeit, zum Ausgangswert "
+           "geschrumpft, Zahl der Läufe) und Pos über Erwartung; Treiber-Gruppen nach dem längsten Präfix")
     # Scheuklappen: erstmals nur, wenn vorher nie getragen; Jockey-Wechsel mit Score-Differenz
     ok_b = True
     for i in X["blink_first"].dropna().index:

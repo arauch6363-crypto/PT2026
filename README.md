@@ -184,7 +184,9 @@ Erfahrung im Feld und Jahreszeit (aus dem Zwischenspeicher abgeleitet, kein Neub
 und Abstand zum Feld, Anteil der Gegner, die älter sind bzw. mehr Starts haben, und der Tag im Jahr (`season_doy`).
 Dazu: verdichtete Form der letzten 5 Läufe (Ø/bester Pos, Ø Längen, Ø ARR, Streuung der Pos, Anteil Spitzenläufe
 Pos ≥ 0,75, Pos über Erwartung = Pos − (1 − damaliger Quotenrang relativ), Klasse und Preisgeld dieser Läufe gegen
-heute), zeitgewichtete Form (bis 10 Läufe, Gewicht 0,5 ^ (Tage / 90): Pos, ARR, Pos über Erwartung), Formtrend als
+heute), zeitgewichtete Form (bis 10 Läufe, Gewicht 0,5 ^ (Tage / 90): Pos und Pos über Erwartung zum Ausgangswert
+geschrumpft wie mit einem Lauf von heute – ein einzelner Lauf zählt so etwa halb –, ARR ungeschrumpft; dazu `formz_n`
+= Summe der Gewichte und die zeitgewichtete Klasse/Preisgeld der Läufe gegen heute, Version 10), Formtrend als
 Steigung je Lauf über die letzten 6 (Pos, ARR, Längen, Pos über Erwartung; ab 3 Werten), Bestwert der letzten 3 gegen
 die 5 davor, Ø Pos in gleicher oder höherer Klasse (Preisgeld); die wichtigsten davon auch relativ zum Feld. Die
 damalige Quote früherer Rennen ist zum Renntag bekannt – die heutige Quote bleibt draußen. Wechsel zum letzten Lauf
@@ -237,6 +239,9 @@ Keine heutige Prognose oder Quote. Fehlende Werte bleiben leer (LightGBM verteil
 75 % der Tage, geprüft auf dem Rest (Rangkorrelation je Rennen, Sieger getroffen, Sieger unter den Top 3 – gegen
 Endquote und Rating), dann auf allen Tagen neu gelernt. `racecard.run` lädt `BASE/modelle/power_modell.txt` und zeigt
 Power = 100 + 10 × z der Vorhersage im Feld (Tooltip: stärkste Treiber); ohne Modell bleibt Power aus sechs Kennzahlen.
+Treiber = SHAP-Beiträge je Anzeigegruppe (`GRUPPEN`, längster Präfix), relativ zum heutigen Feld (`pm.treiber_relativ`:
+Beitrag minus Ø der Gruppe im Rennen), in Prozentpunkten der erwarteten Pos. Form und Klasse der letzten Läufe sowie
+die Wechsel zum letzten Lauf (Klasse, Gewicht, Distanz, Rating, Jockey, Trainer) sind eigene Gruppen.
 
 ## Regel-Backtest (Skill gegen die Datenbank)
 
