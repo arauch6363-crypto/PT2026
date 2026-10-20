@@ -447,6 +447,14 @@ folgen bis zu drei ältere Läufe mit diesem Merkmal (`extra`, etwa
 `["K"]`). Sie sind nicht Teil der jüngsten Form, zählen für B6 und nicht
 für B0, und ihr Alter ist in der Sicherheit zu berücksichtigen.
 
+Formzeilen mit **`extern: true`** sind Läufe außerhalb des PMU-Programms
+(PMH-Provinzrennen wie Aurillac oder Jarnac, Ausland; `race_name`): Platz,
+Starterzahl, Preisgeld, Distanz und Boden sind bekannt, Quote, Tracking,
+Valeur und Gegner nicht. Sie zählen voll für Form und Frische; ein Sieg in
+einem kleinen PMH-Rennen (oft 6 Starter, 7.000 €) ist aber klassenmäßig
+wenig wert (`prize`). Steht in `fehlende_laeufe` des Starters eine Zahl > 0,
+fehlen trotzdem Läufe des laufenden Jahres (Musique `form`, z. B. Hürden).
+
 Je Formzeile außerdem **`cgd`**: die Bilanz des Pferdes **vor diesem
 Lauf** auf dem Kurs (C, mit Belag), in der Bodengruppe (G) und in der
 Distanzgruppe (D) — Großbuchstabe = dort schon gewonnen, klein =

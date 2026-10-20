@@ -17,6 +17,9 @@ PMU-Programm  ──►  französische Flachrennen, die schon gelaufen sind
       │
       ├──►  Rennen + Starter je Rennen            →  pmu_races / pmu_runners
       │
+      ├──►  je Rennen: frühere Läufe der Starter  →  pmu_laeufe_extern
+      │     (performances-detaillees, auch PMH-Provinzrennen und Ausland)
+      │
       └──►  je Rennen: gibt es ein Tracking-PDF?  →  tracking_status
                        ja  →  PDF auswerten       →  tracking_races / _runners /
                                                      _sections / _leader
@@ -273,6 +276,29 @@ gefragt), die Zeit `time_s` (von PMU, sonst Siegerzeit + Längen, `time_est = Tr
 Dividenden aus `rapports-definitifs` je Wette und Kombination. Der Client, der zuletzt Kommentare geliefert hat, wird
 für die Starterliste zuerst gefragt (rund 3 statt 5 Anfragen je Rennen), Pause 0,2 s. Fortschritt in `pmu_basis_fortschritt.json`,
 Abbruch nach 3 stummen Tagen. Die tägliche Pipeline behält diese Zusatzspalten beim erneuten Schreiben eines Tages.
+
+## Externe Läufe (PMH-Provinzrennen, Ausland)
+
+Das PMU-Programm enthält nur Veranstaltungen mit PMU-Wetten. Kleine Provinzrennen (PMH, z. B. Aurillac, Jarnac,
+La Roche-Posay) und Läufe im Ausland fehlen – bei rund jedem zehnten Starter fehlte so der letzte Lauf (Tage seit Lauf,
+Form, CGD falsch). Die Detail-Leistungen je Rennen (`…/performances-detaillees/pretty`) nennen die letzten fünf Läufe
+jedes Starters mit Datum, Bahn, Disziplin, Preisgeld, Distanz, Starterzahl, Boden und eigenem Platz
+(`pmu.perf_zeilen`). Die Pipeline speichert sie je Tag in `parquet/pmu_laeufe_extern`; für schon gesammelte Tage:
+
+```python
+import pipeline as tp
+tp.extern_nachholen(BASE, max_tage=200)   # neueste Tage zuerst, eine Anfrage je Rennen; erneut aufrufen bis 0 offen
+```
+
+`racecard.vorbereiten(..., extern=…)` hängt daraus die **Flachrennen, die nicht in der Historie stehen**, als Zeilen
+mit `extern=True` an (`extern_zeilen`: Pferd über die Quelle race_id + Startnummer, je Pferd und Tag einmal):
+Platz, Starterzahl, Pos, Preisgeld des Platzes, Kurs, Distanz, Boden – ohne Quote, Tracking und Verbindungen (A/E
+von Trainer, Jockey und Abstammung bleiben aus vollständigen Läufen). Sie zählen für Form, Tage seit Lauf, Läufe und
+CGD; im Modell sind sie nur Vorgeschichte, keine Lern-Zeilen. Die Race Card holt die Detail-Leistungen der heutigen
+Rennen dazu und zeigt externe Läufe als Formzeilen mit „extern“. Abgesagte Rennen (vergangener Tag, niemand
+platziert) fallen aus der Historie. Der Merkmal-Zwischenspeicher wird über (race_id, horse_id) zugeordnet
+(`merkmale_schluessel.parquet`), damit nachgeholte externe Läufe die Zeilen nicht verschieben; neu berechnet werden
+die Merkmale mit `neu=True` bzw. bei neuer `MERKMAL_VERSION`.
 
 ## Standardzeiten je Konfiguration
 

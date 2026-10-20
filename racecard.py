@@ -44,6 +44,7 @@ import json
 import math
 import re
 import time
+import warnings
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -528,8 +529,12 @@ def klassen_wert(h: pd.DataFrame) -> pd.DataFrame:
 def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFrame | None = None,
                 trk_runners: pd.DataFrame | None = None, trk_sections: pd.DataFrame | None = None,
                 trk_leader: pd.DataFrame | None = None,
-                standards: pd.DataFrame | None = None) -> pd.DataFrame:
+                standards: pd.DataFrame | None = None, extern: pd.DataFrame | None = None,
+                extern_runners: pd.DataFrame | None = None) -> pd.DataFrame:
     """Eine Zeile je Starter und Rennen, mit Renndaten und Tracking-Kennzahlen.
+    extern: frühere Läufe aus performances-detaillees (pmu.perf_zeilen, Tabelle pmu_laeufe_extern) – Flachrennen,
+    die nicht in der Historie stehen (PMH-Provinzrennen, Ausland), kommen als Zeilen mit extern=True dazu
+    (extern_zeilen); extern_runners: weitere Starter zur Zuordnung der Quelle (z. B. die heutigen).
     Die Tempi der Schlussphase und der Finish-Index werden aus tracking_sections neu gebildet
     (speedfig.rohwerte_aus_abschnitten); die geparsten Spalten dienen nur als Ersatz."""
     if races.empty or runners.empty:
@@ -669,7 +674,75 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     # TR: Zeit-Rating nach Timeform-Art mit Upgrade aus dem Finishing Speed
     h = timeform_ratings.berechnen(h, trk_sections, trk_leader, standards)
     h = h.merge(ratings_je_lauf(races, runners), on=["race_id", "horse_id"], how="left")
+    h["extern"] = False
+    if extern is not None and len(extern):
+        quellen = runners if extern_runners is None or not len(extern_runners) else \
+            pd.concat([runners, extern_runners], ignore_index=True, sort=False)
+        ex = extern_zeilen(extern, quellen, h)
+        if len(ex):
+            with warnings.catch_warnings():                 # leere Spalten der externen Zeilen sind gewollt
+                warnings.simplefilter("ignore", FutureWarning)
+                h = pd.concat([h, ex], ignore_index=True, sort=False)
     return h.sort_values(["date", "race_id", "finish_pos"]).reset_index(drop=True)
+
+
+EXTERN_DISZIPLIN = {"PLAT"}     # externe Läufe nur aus Flachrennen (Hindernis: anderer Sport, eigene Form)
+
+
+def extern_zeilen(ext: pd.DataFrame, quellen: pd.DataFrame, h: pd.DataFrame) -> pd.DataFrame:
+    """Externe Läufe (pmu.perf_zeilen) als Historien-Zeilen: Pferd über die Quelle (race_id + Startnummer → Name|Vater
+    wie horse_id), nur Flachrennen, ohne Läufe, die schon in der Historie stehen (gleiches Pferd, gleicher Tag), je
+    Pferd und Tag einmal. Ergebnis, Starterzahl, Pos, Preisgeld (Anteil des Platzes), Kurs, Distanz, Boden; keine
+    Quote, kein Tracking, keine Verbindungen (Jockey/Trainer/Vater bleiben leer, damit A/E und Abstammung nur aus
+    vollständigen Läufen kommen). extern=True."""
+    e = ext.copy()
+    if "discipline" in e:
+        e = e[e["discipline"].astype(str).str.upper().isin(EXTERN_DISZIPLIN)]
+    q = quellen.drop_duplicates(["race_id", "saddle_no"], keep="last")[["race_id", "saddle_no", "horse", "sire"]].copy()
+    q["horse_id"] = norm_name(q["horse"]).fillna("?") + "|" + norm_name(q["sire"]).fillna("?")
+    q["saddle_no"] = pd.to_numeric(q["saddle_no"], errors="coerce")
+    e["quelle_no"] = pd.to_numeric(e["quelle_no"], errors="coerce")
+    e = e.merge(q[["race_id", "saddle_no", "horse_id"]].rename(columns={"race_id": "quelle_race_id",
+                                                                         "saddle_no": "quelle_no"}),
+                on=["quelle_race_id", "quelle_no"], how="inner")
+    e["date"] = pd.to_datetime(e["date"], errors="coerce")
+    e = e.dropna(subset=["date", "horse_id"])
+    schon = set(zip(h["horse_id"], h["date"])) if len(h) else set()
+    e = e[[(a, b) not in schon for a, b in zip(e["horse_id"], e["date"])]]
+    e = e.drop_duplicates(["horse_id", "date"], keep="first")
+    if not len(e):
+        return pd.DataFrame()
+    for c in ["prize_eur", "distance_m", "n_runners", "finish_pos", "weight_kg", "draw"]:
+        e[c] = pd.to_numeric(e[c], errors="coerce")
+    z = pd.DataFrame({"race_id": e["date"].dt.strftime("%Y%m%d") + "X" + norm_name(e["hippodrome"]).fillna("?") + "|"
+                                 + e["race_name"].astype(str).str[:40],
+                      "date": e["date"], "horse_id": e["horse_id"], "horse": e["horse"],
+                      "horse_key": e["horse_id"].str.split("|").str[0], "hippodrome": e["hippodrome"],
+                      "course_key": norm_name(e["hippodrome"]), "distance_m": e["distance_m"], "going": e["going"],
+                      "prize_eur": e["prize_eur"], "finish_pos": e["finish_pos"], "n_runners": e["n_runners"],
+                      "weight_kg": e["weight_kg"], "jockey": e["jockey"], "draw": e["draw"], "blinkers": e["blinkers"],
+                      "race_name": e["race_name"], "status": "PARTANT"}).reset_index(drop=True)
+    z["going_pmu"] = [going_klasse(g) for g in z["going"]]
+    z["going_class"] = z["going_pmu"]
+    z["dist_bucket"] = z["distance_m"].map(dist_bucket)
+    z["dist_group"] = z["distance_m"].map(rtr_arr.distance_group)
+    z["won"] = (z["finish_pos"] == 1).astype(int)
+    z["is_place"] = (z["finish_pos"] <= np.where(z["n_runners"] <= PLATZ_GRENZE, 2, 3)).astype(int)
+    z["placed"] = z["is_place"]
+    z["rel_place"] = ((z["n_runners"] - z["finish_pos"]) / (z["n_runners"] - 1)).where(z["n_runners"] > 1).clip(0, 1)
+    anteil = z["finish_pos"].map(lambda p: PREIS_ANTEILE[int(p) - 1] if pd.notna(p) and 1 <= p <= len(PREIS_ANTEILE)
+                                 else 0.0)
+    z["prize_won"] = (z["prize_eur"].fillna(0) * anteil).astype(float)
+    # Alter und Geschlecht aus den vollständigen Läufen des Pferdes (Alter auf das Jahr des Laufs umgerechnet)
+    if len(h) and "age" in h:
+        ref = h.dropna(subset=["age"]).drop_duplicates("horse_id", keep="last").set_index("horse_id")
+        a = z["horse_id"].map(ref["age"])
+        j = z["horse_id"].map(ref["date"].dt.year)
+        z["age"] = a - (j - z["date"].dt.year)
+        if "sex" in ref:
+            z["sex"] = z["horse_id"].map(ref["sex"])
+    z["favourite"], z["tracking"], z["ausgeritten"], z["extern"] = False, False, False, True
+    return z
 
 
 def ratings_je_lauf(races: pd.DataFrame, runners: pd.DataFrame, **kw) -> pd.DataFrame:
@@ -1052,6 +1125,8 @@ def _formzeile(z, gewicht_heute=None) -> dict:
     """Eine Formzeile. RTR/ARR bereinigt mit dem heutigen Gewicht (gewicht_heute), nicht mit dem damaligen."""
     return {
         "date": z["date"].strftime("%Y-%m-%d"), "race_id": z["race_id"],
+        "extern": bool(z.get("extern") == True),                       # Lauf aus performances-detaillees
+        "race_name": _txt(z.get("race_name")) if z.get("extern") == True else None,
         "course": _txt(z["hippodrome"]), "dist": _num(z["distance_m"], 0),
         "going": _txt(z["going"]), "going_value": _num(z["going_value"], 1),
         "prize": _num(z["prize_eur"], 0), "type": _txt(z["racetype"]),
@@ -2650,10 +2725,20 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     std_rennen = standardzeiten.je_rennen(base)
     print(f"Standardzeiten je Konfiguration: {len(std_rennen):,} Rennen zugeordnet"
           + ("" if len(std_rennen) else " – keine Sammlung gefunden (standardzeiten.run), TR schätzt sie selbst"))
+    ext = tp.lade("pmu_laeufe_extern", base)
+    try:                                                   # frühere Läufe der heutigen Starter (PMH, Ausland)
+        ext_heute = pd.DataFrame(pmu.externe_laeufe(tag, requests.Session(), list(zip(
+            races_heute["race_id"], races_heute["reunion"], races_heute["race_no"]))))
+    except Exception as e:
+        print(f"Frühere Läufe (performances-detaillees) nicht geholt: {e}")
+        ext_heute = pd.DataFrame()
+    ext = pd.concat([ext, ext_heute], ignore_index=True, sort=False) if len(ext_heute) else ext
     hist = vorbereiten(tp.lade("pmu_races", base), tp.lade("pmu_runners", base),
                        tp.lade("tracking_races", base), tp.lade("tracking_runners", base),
                        tp.lade("tracking_sections", base), tp.lade("tracking_leader", base),
-                       standards=std_rennen)
+                       standards=std_rennen, extern=ext, extern_runners=runners_heute)
+    if "extern" in hist:
+        print(f"Externe Läufe (PMH/Ausland, nicht im PMU-Programm) in der Historie: {int(hist['extern'].eq(True).sum()):,}")
     silks = trikots(runners_heute.get("silks_url", pd.Series(dtype=str)).dropna())
     print(f"{len(silks)} Trikots geladen.")
     if not hist.empty:
