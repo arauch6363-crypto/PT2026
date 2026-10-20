@@ -1689,7 +1689,7 @@ function formTable(rows, no, wHeute, rHeute, tageHeute = null, x = null, race = 
   if (!rows.length) return `<p class="muted">Keine früheren Läufe in der Datenbank (nur französische Flachrennen seit Beginn der Sammlung).</p>`;
   const body = rows.map((f, i) => {
     const inc = f.incident && INC[f.incident] !== undefined ? INC[f.incident] : "";
-    const pos = f.pos ? `<b>${f.pos}</b>/${f.ran}` : `<b>${inc || "–"}</b>/${f.ran}`;
+    const pos = f.pos ? `<b>${f.pos}</b>/${f.ran}` : f.pos_ab ? `<b title="Im Ziel ab Platz ${f.pos_ab} – genauer Platz nicht bekannt (externer Lauf)">${f.pos_ab}.+</b>/${f.ran}` : `<b>${inc || "–"}</b>/${f.ran}`;
     const mg = f.pos ? lengths(f.margin) : "";
     const k = `${no}|${f.race_id}`, offen = state.rivals.has(k);
     const hk = heuteKnoepfe(f, x, race);
