@@ -507,7 +507,7 @@ function init(){
   }
   $("#hd-date").textContent = dt(DATA.date);
   const h = DATA.history || {};
-  $("#hd-meta").textContent = `Stand ${DATA.generated}${DATA.festkurse_stand ? ` · Kurse ${DATA.festkurse_stand}` : ""} · Historie ab ${dt(h.from)} · ${(h.runs||0).toLocaleString("de-DE")} Läufe, davon ${(h.tracked||0).toLocaleString("de-DE")} mit Tracking`;
+  $("#hd-meta").textContent = `Stand ${DATA.generated}${kurseStand()} · Historie ab ${dt(h.from)} · ${(h.runs||0).toLocaleString("de-DE")} Läufe, davon ${(h.tracked||0).toLocaleString("de-DE")} mit Tracking`;
   const saved = store.get("rc-race");
   const first = DATA.races[saved] ? DATA.races[saved] : DATA.races[DATA.meetings[0].races[0]];
   state.meeting = first.reunion; state.race = first.race_id;
@@ -1099,6 +1099,12 @@ function cgdTag(code, heute){
   return `<span class="cgd" title="${esc(`${heute ? "Bilanz vor heute" : "Vor diesem Lauf"}: ${tx.join(" · ")}`)}">${html}</span>`;
 }
 // Abstammung in den Vorlieben: Passung heute, je Linie Wert und Pfeil je Skala
+// Stand der Festkurse: je Bahn, wenn mehrere Bahnen zu verschiedenen Zeiten geholt wurden
+function kurseStand(){
+  const B = Object.entries(DATA.festkurse_bahnen || {});
+  if (B.length > 1 && new Set(B.map(([, t]) => t)).size > 1) return ` · Kurse ${B.map(([b, t]) => `${title(b)} ${t}`).join(", ")}`;
+  return DATA.festkurse_stand ? ` · Kurse ${DATA.festkurse_stand}` : "";
+}
 function abstHTML(x){
   const A = x.abst || {}, AP = x.abst_pass || {}, PR = x.pref_ref || {};
   const zeile = (rolle, name, wer) => {

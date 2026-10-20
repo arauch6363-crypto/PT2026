@@ -2646,7 +2646,7 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     if festkurse is not False:                            # Festkurse Sieg/Platz (Wettstar) je Starter: x["fk"]
         import wettstar
         if wettstar.anhaengen(daten, None if festkurse is True else festkurse, tag=tag):
-            daten["festkurse_stand"] = datetime.now(pmu.PARIS).strftime("%H:%M")
+            wettstar.stand_merken(daten, datetime.now(pmu.PARIS).strftime("%H:%M"))
     if pmod and pmod.get("wert"):                         # Vorwärts-Test: Value-Faktoren der Karte protokollieren
         try:
             print(f"Value-Protokoll: {power_modell.protokollieren(daten, base)}")
@@ -2710,10 +2710,12 @@ def nichtstarter_nachtragen(daten: dict, runners_heute: pd.DataFrame) -> list[st
 
 
 def festkurse_aktualisieren(base: Path, tag=None, out: Path | None = None, *, festkurse=True,
-                            nichtstarter: bool = True, claude: bool = True) -> Path:
+                            nur_fehlende: bool = True, nichtstarter: bool = True, claude: bool = True) -> Path:
     """Schneller zweiter Lauf: die von run() gespeicherten Kartendaten (racecard_JJJJMMTT_daten.json) laden, nur die
-    Festkurse/Toto von Wettstar neu holen (festkurse: True, fertige Tabelle aus wettstar.festkurse, Pfad zur CSV aus
-    dem Wettstar-Notebook oder False), mit
+    Festkurse/Toto von Wettstar holen (festkurse: True, fertige Tabelle aus wettstar.festkurse, Pfad zur CSV aus
+    dem Wettstar-Notebook oder False). nur_fehlende=True (Vorgabe): Bahnen, die schon Festkurse haben, bleiben wie
+    sie sind; geholt und ergänzt werden nur die übrigen (z. B. die spätere Veranstaltung, die morgens noch keine
+    Festkurse hatte). nur_fehlende=False: alle Kurse neu holen und überschreiben. Mit
     nichtstarter=True neue Nichtstarter aus dem PMU-Programm übernehmen, Value-Protokoll (Festkurs) nachziehen und
     HTML sowie die Claude-JSONs neu schreiben – ohne Historie, Kennzahlen und Modell neu zu rechnen."""
     base = Path(base)
@@ -2731,19 +2733,35 @@ def festkurse_aktualisieren(base: Path, tag=None, out: Path | None = None, *, fe
             print(f"Nichtstarter neu: {len(neu)}" + (f" – {'; '.join(neu)}" if neu else ""))
         except Exception as e:
             print(f"Nichtstarter nicht geprüft ({e})")
+    jetzt = datetime.now(pmu.PARIS).strftime("%H:%M")
     if festkurse is not False:
         import wettstar
-        for r in (daten.get("races") or {}).values():
-            for x in r.get("runners") or []:
-                x.pop("fk", None)                          # alte Kurse weg, neu holen
-        wettstar.anhaengen(daten, None if festkurse is True else festkurse, tag=tag)
+        fertig = wettstar.bahnen_mit_festkurs(daten) if nur_fehlende else set()
+        alle = {r.get("course") for r in (daten.get("races") or {}).values() if r.get("course")}
+        offen = sorted(alle - fertig)
+        if fertig:
+            print(f"Festkurse schon da, bleiben: {', '.join(sorted(fertig))}")
+        if not offen:
+            print("Alle Bahnen haben schon Festkurse – nichts zu holen (neu holen: nur_fehlende=False).")
+        else:
+            for r in (daten.get("races") or {}).values():
+                if r.get("course") in offen:
+                    for x in r.get("runners") or []:
+                        x.pop("fk", None)                  # alte Kurse (oder nur Toto) dieser Bahnen weg, neu holen
+            if not nur_fehlende:
+                daten.pop("festkurse_bahnen", None)
+            wettstar.anhaengen(daten, None if festkurse is True else festkurse, tag=tag,
+                               bahnen=offen if fertig else None)
+            st = daten.setdefault("festkurse_bahnen", {})
+            for b in offen:                                # neu geholte Bahnen: Zeit dieses Laufs
+                st.pop(b, None)
+            wettstar.stand_merken(daten, jetzt)
     if any((x.get("power") or {}).get("wert") is not None for r in daten["races"].values() for x in r["runners"]):
         try:
             import power_modell
             print(f"Value-Protokoll: {power_modell.protokollieren(daten, base)}")
         except Exception as e:
             print(f"Value-Protokoll nicht geschrieben: {e}")
-    daten["festkurse_stand"] = datetime.now(pmu.PARIS).strftime("%H:%M")
     sp.write_text(json.dumps(daten, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     _ausgeben(daten, out, claude)
     return out
