@@ -573,7 +573,7 @@ function powerHTML(x){
   if (!P) return `<div class="kurz-pw" title="Power: zu wenige Kennzahlen (mindestens 3 von 6)"><i>Power</i><b>–</b></div>`;
   const tip = P.ml
     ? `Power ${P.p}${P.sieg != null ? ` · Siegchance ${fx(100 * P.sieg, 0)} % (faire Quote ${fx(1 / Math.max(P.sieg, 0.001), 1)})` : ''} aus dem Power-Modell (LightGBM, ${P.pred != null ? `vorhergesagtes (Starter − Platz) / (Starter − 1) ${fx(100 * P.pred, 0)} %` : 'gelernte Reihenfolge im Rennen'}; 100 = Feldschnitt, ±10 je Standardabweichung im Feld; grün ab 105, rot bis 95) – stärkste Treiber: `
-      + P.treiber.map(([n, v]) => `${n} ${v >= 0 ? "+" : "−"}${fx(Math.abs(v), 1)}`).join(" · ") + " (Prozentpunkte von (Starter − Platz) / (Starter − 1))"
+      + P.treiber.map(([n, v]) => `${n} ${v >= 0 ? "+" : "−"}${fx(Math.abs(v), 1)}`).join(" · ") + " (Prozentpunkte von (Starter − Platz) / (Starter − 1), gegenüber dem Ø des heutigen Feldes)"
     : `Power ${P.p} (100 = Feldschnitt, ±10 je Standardabweichung; grün ab 105, rot bis 95) – Median aus ${P.teile.length} Kennzahlen, je z-Wert im heutigen Feld, gedämpft nach der Zahl der Läufe: `
       + P.teile.map(([n, v]) => `${n} ${v >= 0 ? "+" : "−"}${fx(Math.abs(v), 1)}`).join(" · ");
   return `<div class="kurz-pw ${P.p >= 105 ? "up" : P.p <= 95 ? "down" : ""}" title="${esc(tip)}"><i>Power</i><b>${P.p}</b><small>#${P.rank}/${P.n}</small></div>`;
