@@ -448,9 +448,11 @@ folgen bis zu drei ältere Läufe mit diesem Merkmal (`extra`, etwa
 für B0, und ihr Alter ist in der Sicherheit zu berücksichtigen.
 
 Formzeilen mit **`extern: true`** sind Läufe außerhalb des PMU-Programms
-(PMH-Provinzrennen wie Aurillac oder Jarnac, Ausland; `race_name`): Platz,
-Starterzahl, Preisgeld, Distanz und Boden sind bekannt, Quote, Tracking,
-Valeur und Gegner nicht. Sie zählen voll für Form und Frische; ein Sieg in
+(PMH-Provinzrennen wie Aurillac oder Jarnac; `ausland: true` = Auslandsbahn;
+`race_name`, `sieger`): Plätze 1–5 mit Längen zum Sieger (`margin`), ab
+Platz 6 nur „im Ziel“ (`pos_ab` = 6, Längen höchstens als Untergrenze
+`lb_min`), Starterzahl, Preisgeld, Distanz und Boden sind bekannt, Quote,
+Tracking, Valeur und Gegner nicht. Sie zählen voll für Form und Frische; ein Sieg in
 einem kleinen PMH-Rennen (oft 6 Starter, 7.000 €) ist aber klassenmäßig
 wenig wert (`prize`). Steht in `fehlende_laeufe` des Starters eine Zahl > 0,
 fehlen trotzdem Läufe des laufenden Jahres (Musique `form`, z. B. Hürden).

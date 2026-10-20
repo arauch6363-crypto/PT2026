@@ -290,10 +290,19 @@ import pipeline as tp
 tp.extern_nachholen(BASE, max_tage=200)   # neueste Tage zuerst, eine Anfrage je Rennen; erneut aufrufen bis 0 offen
 ```
 
+Gespeichert werden je früherem Lauf auch die ersten fünf (`platzierte`: Platz, Name, Abstand zum Vordermann, Jockey,
+Gewicht), daraus `lengths_behind` (Platz 1–5) bzw. `lengths_min` (ab Platz 6), `margin_sieger` und `zeit_sieger_s`.
+Speichert `perf_zeilen` mehr, steigt `pipeline.EXTERN_VERSION`; mit älterer Fassung geholte Tage gelten dann als offen.
+Externe Läufe auf Auslandsbahnen (`racecard.AUSLAND_BAHNEN`, Teilnamen) heißen auf der Karte „Ausland“, sonst „PMH“.
+Merkmale (Version 12): `f1_extern` … `f3_extern`, `form5_extern` (Anteil externer Läufe unter den letzten fünf),
+`f1_ausland`.
+
 `racecard.vorbereiten(..., extern=…)` hängt daraus die **Flachrennen, die nicht in der Historie stehen**, als Zeilen
 mit `extern=True` an (`extern_zeilen`: Pferd über die Quelle race_id + Startnummer, je Pferd und Tag einmal):
 Platz (die Detail-Leistungen nennen nur die Plätze 1–5; „im Ziel ab 6.“ (`NON_PLACE`) zählt mit der Pos aus der
-Mitte der Plätze 6 … Starterzahl, Karte „6.+“), Starterzahl, Pos, Preisgeld des Platzes, Kurs, Distanz, Boden – ohne Quote, Tracking und Verbindungen (A/E
+Mitte der Plätze 6 … Starterzahl, Karte „6.+“), Längen zum Sieger (Plätze 1–5 aus den Abständen der Pferde
+davor, Sieger mit Vorsprung auf den Zweiten; ab Platz 6 nur Untergrenze, Karte „≥ … L“), Sieger, Siegerzeit,
+Starterzahl, Pos, Preisgeld des Platzes, Kurs, Distanz, Boden – ohne Quote, Tracking und Verbindungen (A/E
 von Trainer, Jockey und Abstammung bleiben aus vollständigen Läufen). Sie zählen für Form, Tage seit Lauf, Läufe und
 CGD; im Modell sind sie nur Vorgeschichte, keine Lern-Zeilen. Die Race Card holt die Detail-Leistungen der heutigen
 Rennen dazu und zeigt externe Läufe als Formzeilen mit „extern“. Abgesagte Rennen (vergangener Tag, niemand

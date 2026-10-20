@@ -14,6 +14,7 @@ private Auswertung nutzen und nicht im Sekundentakt abfragen.
 """
 from __future__ import annotations
 
+import json
 import re
 import time
 import unicodedata
@@ -320,6 +321,22 @@ def perf_zeilen(quelle_race_id: str, data: dict | None) -> list[dict]:
             ok = str(pl.get("statusArrivee") or "").upper() in ("PLACE", "NON_PLACE")
             sieger = next((x.get("nomCheval") for x in c.get("participants", []) or []
                            if (x.get("place") or {}).get("place") == 1), None)
+            # die ersten fünf (Platz, Name, Abstand zum Vordermann, Jockey, Gewicht) und daraus Längen zum Sieger
+            top = sorted(([(x.get("place") or {}).get("place"), x.get("nomCheval"),
+                           _g(x, "distanceAvecPrecedent", "rawValue"), x.get("nomJockey"), x.get("poidsJockey")]
+                          for x in c.get("participants", []) or []
+                          if isinstance((x.get("place") or {}).get("place"), (int, float))), key=lambda t: t[0])
+            zum_sieger, summe = {}, 0.0
+            for k_, t in enumerate(top):
+                if k_ and t[0] != top[k_ - 1][0]:          # gleicher Platz (totes Rennen): kein Abstand
+                    summe += margin_to_lengths(t[2]) or 0.0
+                zum_sieger[t[0]] = summe
+            platz = pl.get("place") if isinstance(pl.get("place"), (int, float)) else None
+            eigen = margin_to_lengths(_g(ich, "distanceAvecPrecedent", "rawValue"))
+            hinter = (zum_sieger.get(platz) if platz is not None else
+                      None if not top or str(pl.get("statusArrivee") or "").upper() != "NON_PLACE"
+                      else max(zum_sieger.values()) + (eigen or 0.0))
+            zweiter = next((margin_to_lengths(t[2]) for t in top if t[0] == 2), None)
             out.append({
                 "quelle_race_id": quelle_race_id, "quelle_no": p.get("numPmu"), "horse": p.get("nomCheval"),
                 "date": _lokales_datum(c.get("date"), c.get("timezoneOffset")),
@@ -332,6 +349,14 @@ def perf_zeilen(quelle_race_id: str, data: dict | None) -> list[dict]:
                 "jockey": ich.get("nomJockey"), "weight_kg": ich.get("poidsJockey"), "draw": ich.get("corde"),
                 "blinkers": ich.get("oeillere"),
                 "lengths_label": _g(ich, "distanceAvecPrecedent", "rawValue"), "sieger": sieger,
+                # Längen zum Sieger: Platz 1–5 aus den Abständen der Pferde davor (Sieger: 0, Vorsprung in
+                # margin_sieger); ab Platz 6 nur Untergrenze (Längen des 5. + eigener Abstand) in lengths_min
+                "lengths_behind": hinter if platz is not None else None,
+                "lengths_min": hinter if platz is None else None,
+                "margin_sieger": zweiter if platz == 1 else None,
+                "zeit_sieger_s": (c.get("tempsDuPremier") / 1000 if isinstance(c.get("tempsDuPremier"), (int, float))
+                                  else None),
+                "platzierte": json.dumps(top, ensure_ascii=False) if top else None,
             })
     return out
 
