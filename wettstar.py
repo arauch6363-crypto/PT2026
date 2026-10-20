@@ -344,16 +344,19 @@ def lesen(pfad) -> pd.DataFrame:
     return df.reindex(columns=SPALTEN)
 
 
-def anhaengen(daten: dict, df=None, tag=None, log=print) -> int:
+def anhaengen(daten: dict, df=None, tag=None, log=print, bahnen=None) -> int:
     """Festkurse an die Starter der Kartendaten hängen (x["fk"]); df: fertige Tabelle (festkurse), Pfad zu einer
-    CSV aus dem Wettstar-Notebook oder None = jetzt holen. Rückgabe: Zahl zugeordneter Starter. Fehler oder
-    fehlendes Playwright: Karte ohne Festkurse."""
+    CSV aus dem Wettstar-Notebook oder None = jetzt holen. bahnen: nur Rennen dieser Bahnen (Vorgabe: alle der
+    Karte) – nur sie werden geholt und zugeordnet. Rückgabe: Zahl zugeordneter Starter. Fehler oder fehlendes
+    Playwright: Karte ohne Festkurse."""
+    nur = set(bahnen) if bahnen is not None else None
     try:
         if isinstance(df, (str, Path)):
             log(f"Festkurse aus {df}")
             df = lesen(df)
         if df is None:                                   # nur Veranstaltungen, die zu den Bahnen der Karte passen
-            bahnen = sorted({r.get("course") for r in (daten.get("races") or {}).values() if r.get("course")})
+            bahnen = sorted({r.get("course") for r in (daten.get("races") or {}).values()
+                             if r.get("course") and (nur is None or r.get("course") in nur)})
             log(f"Bahnen der Karte: {', '.join(bahnen)}")
             df = festkurse(tag or daten.get("date"), bahnen=bahnen, log=log)
         je = zuordnen(daten, df)
@@ -362,16 +365,35 @@ def anhaengen(daten: dict, df=None, tag=None, log=print) -> int:
         return 0
     n_alle = 0
     ohne = []
+    n_je = 0
     for rid, r in (daten.get("races") or {}).items():
+        if nur is not None and r.get("course") not in nur:
+            continue
         for x in r.get("runners") or []:
             if x.get("nr"):
                 continue
             n_alle += 1
             fk = je.get((rid, x.get("no")))
+            n_je += bool(fk)
             if fk:
                 x["fk"] = fk
             elif len(df) and any(bahn_aehnlich(b, r.get("course")) >= BAHN_MIN for b in df["Veranstaltung"].dropna().unique()):
                 ohne.append(f"{r.get('course')} C{r.get('race_no')} Nr. {x.get('no')} {x.get('horse')}")
-    log(f"Festkurse zugeordnet: {len(je)} von {n_alle} Startern"
+    log(f"Festkurse zugeordnet: {n_je} von {n_alle} Startern"
         + (f" – ohne Zuordnung: {'; '.join(ohne[:8])}{' …' if len(ohne) > 8 else ''}" if ohne else ""))
-    return len(je)
+    return n_je
+
+
+def bahnen_mit_festkurs(daten: dict) -> set:
+    """Bahnen der Karte, bei denen schon mindestens ein Starter einen Festkurs Sieg hat (nur Toto zählt nicht)."""
+    return {r.get("course") for r in (daten.get("races") or {}).values()
+            if any((x.get("fk") or {}).get("sieg") is not None for x in r.get("runners") or [] if not x.get("nr"))}
+
+
+def stand_merken(daten: dict, zeit: str) -> None:
+    """Uhrzeit der Festkurse je Bahn (daten["festkurse_bahnen"]) für Bahnen, die jetzt Festkurse haben und noch keine
+    Zeit tragen bzw. neu geholt wurden; daten["festkurse_stand"] = letzte Zeit."""
+    st = daten.setdefault("festkurse_bahnen", {})
+    for b in sorted(bahnen_mit_festkurs(daten)):
+        st.setdefault(b, zeit)
+    daten["festkurse_stand"] = zeit

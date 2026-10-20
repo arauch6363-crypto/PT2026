@@ -1141,6 +1141,39 @@ def festkurse_aktualisieren_pruefen() -> None:
            and neu["races"][rid]["runners"][0]["power"]["sieg"] == 1.0,
            "Festkurse nachträglich: gespeicherte Kartendaten + Wettstar-Kurse -> HTML und Claude-JSONs neu (ohne "
            "Neuberechnung); neue Nichtstarter markiert, Siegchancen der übrigen wieder auf 100 %")
+    # Zwei Veranstaltungen: morgens nur die frühe mit Festkursen; der zweite Lauf ergänzt nur die späte
+    import copy
+    with contextlib.redirect_stdout(io.StringIO()):
+        d = rc.baue_daten(hist, heute_r, heute_s, tag)
+    rid, r = next(iter(d["races"].items()))
+    r2 = copy.deepcopy(r)
+    r2["course"], rid2 = "VICHY", rid + "X"
+    d["races"][rid2] = r2
+
+    def tab(rennen, kurs):
+        return pd.DataFrame([dict(Veranstaltung=rr["course"].title(), Rennen=str(rr["race_no"]), Start=rr["time"] or "",
+                                  Nr=x["no"], Pferd=x["horse"].title(), Toto=5.0, FK_Sieg=kurs, FK_Platz=None, NS=False)
+                             for rr in rennen for x in rr["runners"]])
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "racecards" / f"racecard_{tag:%Y%m%d}.html"
+        out.parent.mkdir(parents=True)
+        rc.daten_pfad(out).write_text(_json.dumps(d, default=str), encoding="utf-8")
+        lies = lambda: _json.loads(rc.daten_pfad(out).read_text(encoding="utf-8"))
+        with contextlib.redirect_stdout(io.StringIO()):
+            rc.festkurse_aktualisieren(Path(tmp), tag, out, festkurse=tab([r], 2.5), nichtstarter=False)
+            a = lies()
+            rc.festkurse_aktualisieren(Path(tmp), tag, out, festkurse=tab([r, r2], 9.0), nichtstarter=False)
+            b = lies()
+            rc.festkurse_aktualisieren(Path(tmp), tag, out, festkurse=tab([r, r2], 7.0), nichtstarter=False,
+                                       nur_fehlende=False)
+            c = lies()
+    fk = lambda dd, k: [(x.get("fk") or {}).get("sieg") for x in dd["races"][k]["runners"]]
+    pruefe(set(fk(a, rid)) == {2.5} and set(fk(a, rid2)) == {None}
+           and set(fk(b, rid)) == {2.5} and set(fk(b, rid2)) == {9.0}
+           and set(b["festkurse_bahnen"]) == {r["course"], "VICHY"}
+           and set(fk(c, rid)) == {7.0} and set(fk(c, rid2)) == {7.0},
+           "Festkurse nachträglich bei zwei Veranstaltungen: vorhandene Kurse der frühen bleiben, nur die späte wird "
+           "ergänzt (Stand je Bahn); nur_fehlende=False holt alle neu")
 
 
 def tipp_auswertung_pruefen() -> None:

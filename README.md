@@ -369,7 +369,10 @@ Je Starter:
   berechneten Kartendaten (`racecard_JJJJMMTT_daten.json`). `racecard.festkurse_aktualisieren(BASE)` lädt sie, holt
   nur Festkurse/Toto von Wettstar neu, übernimmt neue Nichtstarter aus dem PMU-Programm (Modell-Siegchancen der übrigen
   wieder auf 100 %), zieht das Value-Protokoll nach und schreibt HTML und Claude-JSONs neu – ein bis zwei Minuten
-  statt des vollen Laufs. Oben in der Karte steht „Kurse HH:MM“. Optionen: `festkurse=df` (fertige Tabelle),
+  statt des vollen Laufs. Bahnen, die schon Festkurse haben, bleiben dabei unverändert (`nur_fehlende=True`,
+  Vorgabe): Bei zwei Veranstaltungen an einem Tag holt ein zweiter Aufruf nur die Kurse der späteren nach, die morgens
+  noch keine hatte. `nur_fehlende=False` holt alle Kurse neu. Oben in der Karte steht „Kurse HH:MM“, bei
+  verschiedenen Zeiten je Bahn („Kurse Deauville 09:40, Vichy 13:05“). Optionen: `festkurse=df` (fertige Tabelle),
   `nichtstarter=False`, `tag="JJJJ-MM-TT"`.
 * **Abstammungsprofil** (Detailseite, ersetzt Vater/Muttervater in den Vorlieben und den „optimalen Bereich“):
   vier Skalen je Linie als Perzentil gegen alle Väter bzw. alle Muttervater mit ≥ 50 Läufen in der Dimension –
@@ -385,7 +388,7 @@ Je Starter:
   Perzentil, Lage und Werte je Kategorie; Klick: alle 200-m-Gruppen bzw. Böden im Überblick. In den Formzeilen
   „Abst“ = Passung dieses Laufs ohne Alter (ab ±15). In der Claude-JSON je Starter `abst` und `abst_pass`, je
   Formzeile `abst_pass`.
-* **CGD** (Kennzahlen des Pferdes auf der zweiten Stufe und je Formzeile, `racecard.cgd_berechnen`): Bilanz des Pferdes aus den Läufen **vor**
+* **CGD** (Hinweis-Zeile des Pferdes und je Formzeile, `racecard.cgd_berechnen`): Bilanz des Pferdes aus den Läufen **vor**
   dem jeweiligen Lauf auf Kurs (C, mit Belag), Bodengruppe (G) und Distanzgruppe (D): groß = gewonnen, klein =
   platziert, · = ohne Platz, ◦ = erstmals. Ersetzt die Abzeichen C/D/CD. Claude-JSON: `cgd` je Starter und Formzeile.
 * **Indizes €/L+ und Val+**: 100 × Wert ÷ Ø der Population (alle Trainer, Jockeys, Besitzer, Züchter im selben
