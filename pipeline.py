@@ -278,21 +278,36 @@ def _extern_stand(base: Path) -> Path:
     return Path(base) / "parquet" / "pmu_laeufe_extern" / "_erledigt.json"
 
 
+EXTERN_VERSION = 2   # hochzählen, wenn pmu.perf_zeilen mehr speichert -> erledigte Tage werden neu geholt
+                     # (2: die ersten fünf mit Abständen, Längen zum Sieger, Siegerzeit)
+
+
+def _extern_fertig(base: Path) -> set:
+    """Tage, deren externe Läufe mit der aktuellen EXTERN_VERSION geholt wurden."""
+    f = _extern_stand(base)
+    try:
+        d = json.loads(f.read_text()) if f.exists() else {}
+    except ValueError:
+        return set()
+    if not isinstance(d, dict) or d.get("version") != EXTERN_VERSION:    # alte Fassung (Liste): alles neu holen
+        return set()
+    return set(d.get("tage", []))
+
+
 def _extern_erledigt(base: Path, ymd: str) -> None:
     f = _extern_stand(base)
     f.parent.mkdir(parents=True, exist_ok=True)
-    tage = set(json.loads(f.read_text())) if f.exists() else set()
-    tage.add(ymd)
-    f.write_text(json.dumps(sorted(tage)))
+    tage = _extern_fertig(base) | {ymd}
+    f.write_text(json.dumps({"version": EXTERN_VERSION, "tage": sorted(tage)}))
 
 
 def extern_nachholen(base: Path, *, max_tage: int | None = None, pause: float = 0.3, log=print) -> pd.DataFrame:
     """Für schon gesammelte Tage die früheren Läufe der Starter nachholen (performances-detaillees, eine Anfrage je
-    Rennen) – neueste Tage zuerst, bereits erledigte überspringen; abbrechen und später weitermachen geht jederzeit.
+    Rennen) – neueste Tage zuerst, bereits erledigte überspringen (mit älterer EXTERN_VERSION geholte gelten als
+    offen); abbrechen und später weitermachen geht jederzeit.
     max_tage: höchstens so viele Tage in diesem Lauf."""
     base = Path(base)
-    f = _extern_stand(base)
-    fertig = set(json.loads(f.read_text())) if f.exists() else set()
+    fertig = _extern_fertig(base)
     tage = sorted((x.stem for x in (base / "parquet" / "pmu_races").glob("*.parquet") if x.stem not in fertig),
                   reverse=True)
     if max_tage:

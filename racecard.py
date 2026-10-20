@@ -44,6 +44,7 @@ import json
 import math
 import re
 import time
+import unicodedata
 import warnings
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -686,6 +687,44 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     return h.sort_values(["date", "race_id", "finish_pos"]).reset_index(drop=True)
 
 
+# Auslandsbahnen (Teilnamen, ohne Akzente, groß) – externe Läufe dort gelten als Ausland, alle übrigen als PMH/
+# Frankreich. Die Detail-Leistungen nennen kein Land; die Liste deckt die Bahnen ab, auf denen französische
+# Galopper üblicherweise laufen.
+AUSLAND_BAHNEN = (
+    # Deutschland
+    "DORTMUND", "KOLN", "COLOGNE", "BADEN", "IFFEZHEIM", "HOPPEGARTEN", "MUNCHEN", "MUENCHEN", "RIEM", "DUSSELDORF",
+    "DUESSELDORF", "HAMBURG", "HANNOVER", "KREFELD", "MULHEIM", "MUELHEIM", "FRANKFURT", "LEIPZIG", "MAGDEBURG",
+    "DRESDEN", "DOBERAN", "HALLE", "NEUSS", "SAARBRUCKEN", "BREMEN", "HASSLOCH",
+    # Großbritannien, Irland
+    "ASCOT", "NEWMARKET", "YORK", "GOODWOOD", "EPSOM", "DONCASTER", "SANDOWN", "KEMPTON", "LINGFIELD",
+    "WOLVERHAMPTON", "CHELMSFORD", "NEWCASTLE", "SOUTHWELL", "HAYDOCK", "CHESTER", "NEWBURY", "WINDSOR", "SALISBURY",
+    "LEICESTER", "NOTTINGHAM", "PONTEFRACT", "REDCAR", "RIPON", "THIRSK", "BEVERLEY", "CATTERICK", "BATH", "BRIGHTON",
+    "CARLISLE", "HAMILTON", "MUSSELBURGH", "AYR", "LEOPARDSTOWN", "CURRAGH", "DUNDALK", "GALWAY", "NAAS", "NAVAN",
+    "CORK", "FAIRYHOUSE", "PUNCHESTOWN", "GOWRAN", "TIPPERARY", "LIMERICK", "KILLARNEY", "LISTOWEL", "ROSCOMMON",
+    "SLIGO", "BELLEWSTOWN", "DOWN ROYAL", "LAYTOWN", "BALLINROBE", "WEXFORD",
+    # Spanien, Italien, Benelux, Schweiz, Skandinavien, Osteuropa
+    "SAN SEBASTIAN", "LASARTE", "ZARZUELA", "MADRID", "DOS HERMANAS", "SEVILLA", "MIJAS", "PINEDA",
+    "SAN SIRO", "MILANO", "ROMA", "CAPANNELLE", "PISA", "SAN ROSSORE", "NAPOLI", "AGNANO", "MERANO", "FIRENZE",
+    "TORINO", "VARESE", "SIRACUSA", "MONS", "GHLIN", "WAREGEM", "KUURNE", "OSTENDE", "DUINDIGT",
+    "ST MORITZ", "SAINT MORITZ", "FRAUENFELD", "AARAU", "DIELSDORF", "AVENCHES", "MAIENFELD", "ZURICH",
+    "JAGERSRO", "BRO PARK", "GOTEBORG", "OVREVOLL", "KLAMPENBORG", "CHUCHLE", "PRAHA", "PRAGUE", "PARDUBICE",
+    "BRATISLAVA", "SLUZEWIEC", "WARSZAWA", "WARSAW", "BUDAPEST", "KINCSEM", "EBREICHSDORF", "WIEN",
+    # Übersee
+    "MEYDAN", "DUBAI", "JEBEL ALI", "ABU DHABI", "DOHA", "AL RAYYAN", "RIYADH", "KING ABDULAZIZ", "SHA TIN",
+    "HAPPY VALLEY", "TOKYO", "KYOTO", "NAKAYAMA", "HANSHIN", "SANTA ANITA", "KEENELAND", "BELMONT", "SARATOGA",
+    "CHURCHILL", "DEL MAR", "GULFSTREAM", "WOODBINE", "FLEMINGTON", "RANDWICK", "CAULFIELD", "MOONEE VALLEY",
+    "SINGAPORE", "KRANJI", "MAROC", "CASABLANCA", "RABAT", "MARRAKECH", "KHEMISSET", "EL JADIDA", "SETTAT",
+    "TUNIS", "KSAR SAID", "VELIEFENDI", "ISTANBUL", "MARONAS", "PALERMO", "SAN ISIDRO", "GAVEA", "CIDADE JARDIM",
+)
+
+
+def ist_ausland(hippodrome) -> bool:
+    """Bahn im Ausland? (Teilnamen aus AUSLAND_BAHNEN, ohne Akzente und Bindestriche)"""
+    t = " " + re.sub(r"[^A-Z0-9]+", " ", unicodedata.normalize("NFKD", str(hippodrome or "")).encode(
+        "ascii", "ignore").decode().upper()) + " "
+    return any(f" {b} " in t for b in AUSLAND_BAHNEN)
+
+
 EXTERN_PLAETZE = 5             # Detail-Leistungen nennen die Plätze 1–5; dahinter nur „im Ziel“ (NON_PLACE)
 EXTERN_DISZIPLIN = {"PLAT"}     # externe Läufe nur aus Flachrennen (Hindernis: anderer Sport, eigene Form)
 
@@ -723,6 +762,12 @@ def extern_zeilen(ext: pd.DataFrame, quellen: pd.DataFrame, h: pd.DataFrame) -> 
                       "prize_eur": e["prize_eur"], "finish_pos": e["finish_pos"], "n_runners": e["n_runners"],
                       "weight_kg": e["weight_kg"], "jockey": e["jockey"], "draw": e["draw"], "blinkers": e["blinkers"],
                       "race_name": e["race_name"], "status": "PARTANT"}).reset_index(drop=True)
+    for c in ["lengths_behind", "lengths_min", "margin_sieger", "zeit_sieger_s"]:     # ältere Rohdaten: fehlen
+        z[c] = pd.to_numeric(e[c], errors="coerce").to_numpy() if c in e else np.nan
+    z["sieger"] = e["sieger"].to_numpy() if "sieger" in e else None
+    z["platzierte"] = e["platzierte"].to_numpy() if "platzierte" in e else None
+    z["margin"] = np.where(z["finish_pos"] == 1, z["margin_sieger"], z["lengths_behind"])
+    z["ausland"] = [ist_ausland(b) for b in z["hippodrome"]]
     z["going_pmu"] = [going_klasse(g) for g in z["going"]]
     z["going_class"] = z["going_pmu"]
     z["dist_bucket"] = z["distance_m"].map(dist_bucket)
@@ -1140,6 +1185,9 @@ def _formzeile(z, gewicht_heute=None) -> dict:
         "cls_epr_kl": _num(z.get("cls_epr_kl"), 3), "won_eur": _num(z.get("prize_won"), 0),
         "pos": _num(z["finish_pos"], 0), "ran": _num(z["n_runners"], 0),
         "pos_ab": _num(z.get("pos_ab"), 0),                 # extern: im Ziel ab diesem Platz, genauer unbekannt
+        "lb_min": _num(z.get("lengths_min"), 1),            # extern ab Platz 6: mindestens so viele Längen zurück
+        "ausland": bool(z.get("ausland") == True),
+        "sieger": _txt(z.get("sieger")) if z.get("extern") == True else None,
         "margin": _num(z.get("margin"), 2), "weight": _num(z["weight_kg"], 1),
         "jockey": _txt(z.get("jockey")), "odds": _num(z["odds_final"], 1),
         "odds_rank": _num(z.get("odds_rank"), 0),

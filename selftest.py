@@ -728,10 +728,16 @@ def power_modell_pruefen() -> None:
     with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
         _, X1, _ = pm._merkmale_holen(None, he, Path(tmp), None, False, print)
         _, X2, _ = pm._merkmale_holen(None, he2, Path(tmp), None, False, print)
+    with contextlib.redirect_stdout(io.StringIO()):
+        Xe = pm.merkmale(he2, log=print)
+    pid_ = zus["horse_id"].iloc[0]
+    nach_ = he2[(he2["horse_id"] == pid_) & (pd.to_datetime(he2["date"]) > pd.Timestamp("2025-03-02"))
+                & he2["extern"].eq(False)].sort_values("date").index[0]
     i5 = he.index[10]
     pruefe(len(X1) == len(he) and len(X2) == len(he) and "20250302XTEST" not in set(he2.loc[X2.index, "race_id"])
            and (he2.loc[X2.index, "race_id"].to_numpy() == he.loc[X1.index, "race_id"].to_numpy()).all()
-           and X2.loc[i5 + 1].equals(X1.loc[i5]),
+           and X2.loc[i5 + 1].equals(X1.loc[i5]) and Xe.at[nach_, "f1_extern"] == 1.0
+           and Xe.at[nach_, "form5_extern"] > 0 and Xe["f1_extern"].fillna(0).sum() >= 1,
            "Externe Läufe: keine Zielzeilen; Merkmal-Zwischenspeicher nach eingefügten Zeilen über Rennen + Pferd "
            "richtig zugeordnet")
     # Morgenquote als Marktmerkmal (nur Value-Modell): von Hand, im Modell gespeichert, auf der Karte aus den heutigen Zeilen
@@ -1356,8 +1362,11 @@ def racecard_pruefen() -> None:
         {"date": int(pd.Timestamp("2026-08-01").timestamp() * 1000) - 7200000, "timezoneOffset": 7200000,
          "hippodrome": "AURILLAC", "nomPrix": "PRIX TEST", "discipline": "PLAT", "allocation": 7500, "distance": 2400,
          "nbParticipants": 6, "etatTerrain": "Bon souple",
+         "tempsDuPremier": 161380,
          "participants": [{"itsHim": True, "nomCheval": "X", "place": {"place": 1, "statusArrivee": "PLACE"},
-                           "nomJockey": "A. B", "poidsJockey": 57.0, "corde": 2}]},
+                           "nomJockey": "A. B", "poidsJockey": 57.0, "corde": 2},
+                          {"nomCheval": "R", "place": {"place": 2, "statusArrivee": "PLACE"},
+                           "distanceAvecPrecedent": {"rawValue": "5 L"}}]},
         {"date": int(pd.Timestamp(tag - timedelta(days=100)).timestamp() * 1000) - 7200000, "timezoneOffset": 7200000,
          "hippodrome": "VICHY", "nomPrix": "SCHON DA", "discipline": "PLAT", "allocation": 15000, "distance": 2000,
          "nbParticipants": 3, "participants": [{"itsHim": True, "place": {"place": 2, "statusArrivee": "PLACE"}}]},
@@ -1367,12 +1376,29 @@ def racecard_pruefen() -> None:
         {"date": int(pd.Timestamp("2026-07-20").timestamp() * 1000) - 7200000, "timezoneOffset": 7200000,
          "hippodrome": "JARNAC", "nomPrix": "AB SECHS", "discipline": "PLAT", "allocation": 7000, "distance": 2500,
          "nbParticipants": 12, "participants": [{"itsHim": True, "place": {"statusArrivee": "NON_PLACE"},
-                                                 "distanceAvecPrecedent": {"rawValue": "Tête"}}]}]}]}
+                                                 "distanceAvecPrecedent": {"rawValue": "Tête"}},
+                                                {"nomCheval": "S", "place": {"place": 1, "statusArrivee": "PLACE"}},
+                                                {"nomCheval": "T", "place": {"place": 2, "statusArrivee": "PLACE"},
+                                                 "distanceAvecPrecedent": {"rawValue": "1 L 1/2"}}]},
+        {"date": int(pd.Timestamp("2026-06-01").timestamp() * 1000) - 7200000, "timezoneOffset": 7200000,
+         "hippodrome": "DORTMUND", "nomPrix": "PREIS", "discipline": "PLAT", "allocation": 9000, "distance": 2000,
+         "nbParticipants": 8, "participants": [{"itsHim": True, "place": {"place": 3, "statusArrivee": "PLACE"},
+                                                "distanceAvecPrecedent": {"rawValue": "1 L"}},
+                                               {"nomCheval": "U", "place": {"place": 1, "statusArrivee": "PLACE"}},
+                                               {"nomCheval": "V", "place": {"place": 2, "statusArrivee": "PLACE"},
+                                                "distanceAvecPrecedent": {"rawValue": "Encolure"}}]}]}]}
     ext_ = pd.DataFrame(pmu_.perf_zeilen(rid(10, 1), perf) * 2)            # doppelt: aus zwei Quellen
     hext = rc.vorbereiten(races, runners, extern=ext_)
     ex_ = hext[hext["extern"].eq(True)]
     ab6_ = ex_[ex_["hippodrome"] == "JARNAC"]
+    do_ = ex_[ex_["hippodrome"] == "DORTMUND"]
     ex_ = ex_[ex_["hippodrome"] == "AURILLAC"]
+    pruefe(len(do_) == 1 and abs(do_["lengths_behind"].iloc[0] - 1.3) < 1e-9 and do_["ausland"].iloc[0]
+           and not ex_["ausland"].iloc[0] and ex_["margin"].iloc[0] == 5.0 and ex_["lengths_behind"].iloc[0] == 0
+           and ex_["zeit_sieger_s"].iloc[0] == 161.38 and abs(ab6_["lengths_min"].iloc[0] - 1.7) < 1e-9
+           and pd.isna(ab6_["lengths_behind"].iloc[0]) and ab6_["sieger"].iloc[0] == "S",
+           "Externe Läufe: Längen zum Sieger aus den Abständen der ersten fünf (3. in Dortmund: Encolure + 1 L), Sieger "
+           "mit Vorsprung, ab Platz 6 nur Untergrenze; Dortmund = Ausland, Aurillac nicht")
     pruefe(len(ab6_) == 1 and pd.isna(ab6_["finish_pos"].iloc[0]) and ab6_["pos_ab"].iloc[0] == 6
            and abs(ab6_["rel_place"].iloc[0] - (12 - 9) / 11) < 1e-9 and ab6_["won"].iloc[0] == 0,
            "Externe Läufe: im Ziel ab Platz 6 (NON_PLACE, ohne Nummer) – Pos aus der Mitte der Plätze 6 … Starterzahl, "
@@ -1381,9 +1407,18 @@ def racecard_pruefen() -> None:
            and ex_["won"].iloc[0] == 1 and ex_["rel_place"].iloc[0] == 1.0 and ex_["n_runners"].iloc[0] == 6
            and abs(ex_["prize_won"].iloc[0] - 3750) < 1e-9 and pd.isna(ex_["jockey_key"].iloc[0])
            and pd.isna(ex_["odds_final"].iloc[0]) and ex_["going_pmu"].iloc[0] is not None
-           and (hext["extern"].eq(False)).sum() == len(hist) and hext["extern"].eq(True).sum() == 2,
+           and (hext["extern"].eq(False)).sum() == len(hist) and hext["extern"].eq(True).sum() == 3,
            "Externe Läufe: PMH-Lauf (Aurillac) aus den Detail-Leistungen als Zeile extern=True; schon bekannter Lauf, "
            "Hürdenlauf und Doppel aus zwei Quellen fallen weg; ohne Quote und ohne Verbindungen")
+    import pipeline as tp_, json as js_, tempfile as tf_
+    with tf_.TemporaryDirectory() as tmp_:
+        (Path(tmp_) / "parquet" / "pmu_laeufe_extern").mkdir(parents=True)
+        tp_._extern_stand(Path(tmp_)).write_text(js_.dumps(["20261001", "20261002"]))     # alte Fassung: Liste
+        alt_ = tp_._extern_fertig(Path(tmp_))
+        tp_._extern_erledigt(Path(tmp_), "20261003")
+        neu_ = tp_._extern_fertig(Path(tmp_))
+    pruefe(alt_ == set() and neu_ == {"20261003"},
+           "Externe Läufe nachholen: mit älterer Fassung geholte Tage gelten als offen und werden neu geholt")
     ml, mj = rc.musique_laeufe("5p1h1h0hAh(25)0p8p")
     pruefe(ml[:5] == [(5, "p"), (1, "h"), (1, "h"), (10, "h"), (None, "h")] and mj == 5 and len(ml) == 7
            and rc.fehlende_laeufe("1p2p8p8p8p0p0p3p7p7p", 6) == 4 and rc.fehlende_laeufe("(25)3p", 0) == 0
@@ -1414,7 +1449,9 @@ def racecard_pruefen() -> None:
     fx_ = [f for r_ in dx["races"].values() for x_ in r_["runners"] if x_["horse"] == "X" for f in x_["form_lines"]]
     pruefe(any(f["extern"] and f["course"] == "AURILLAC" and f["pos"] == 1 and f["ran"] == 6 for f in fx_)
            and any(f["extern"] and f["course"] == "JARNAC" and f["pos"] is None and f["pos_ab"] == 6 for f in fx_)
-           and not any(f["extern"] for f in fx_ if f["course"] not in ("AURILLAC", "JARNAC")),
+           and any(f["extern"] and f["ausland"] and f["course"] == "DORTMUND" and f["margin"] == 1.3 for f in fx_)
+           and any(f["course"] == "JARNAC" and f["lb_min"] == 1.7 and f["sieger"] == "S" for f in fx_)
+           and not any(f["extern"] for f in fx_ if f["course"] not in ("AURILLAC", "JARNAC", "DORTMUND")),
            "Karte: externe Läufe als Formzeilen (Aurillac 1/6, Jarnac „6.+“/12) zwischen den PMU-Läufen")
     x, y = d["races"][f"{tag:%Y%m%d}R1C1"]["runners"]
     pruefe({"verlauf", "verlauf_wert", "verlauf_pferd", "verlauf_plus"} <= set(x["form_lines"][0])
