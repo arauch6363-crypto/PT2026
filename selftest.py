@@ -1323,6 +1323,24 @@ def racecard_pruefen() -> None:
                                         {"race_id": rid(10, 1), "saddle_no": 2, "dist_vs_winner_m": 13.31,
                                          "speed_last600_kmh": 63.0, "last600_s": 34.5}]), sections, leader)
     im_rennen = hist["race_id"] == rid(10, 1)
+    # abgesagtes Rennen (vergangener Tag, kein Starter mit Platz) fällt weg; Nichtankommer im gelaufenen Rennen bleibt
+    races_a = pd.concat([races, pd.DataFrame([{"race_id": rid(50, 1), "hippodrome": "LA TESTE", "distance_m": 1600,
+                                               "going": "Bon", "going_value": "3,0", "prize_eur": 9000,
+                                               "categorie": "HANDICAP"}])], ignore_index=True)
+    runners_a = pd.concat([runners, pd.DataFrame([lauf(rid(50, 1), 1, "X", "TR", None, None),
+                                                  lauf(rid(50, 1), 2, "Y", "TR", None, None),
+                                                  lauf(rid(100, 1), 4, "W", "AND", None, 30.0, incident="ARRETE")])],
+                          ignore_index=True)
+    ha = rc.vorbereiten(races_a, runners_a)
+    pruefe(rid(50, 1) not in set(ha["race_id"]) and ((ha["race_id"] == rid(100, 1)) & (ha["horse"] == "W")).sum() == 1,
+           "Historie: abgesagte Rennen (vergangener Tag, niemand platziert) fallen weg – kein Phantom-Lauf mit Pos 0; "
+           "Nichtankommer in gelaufenen Rennen bleiben")
+    ml, mj = rc.musique_laeufe("5p1h1h0hAh(25)0p8p")
+    pruefe(ml[:5] == [(5, "p"), (1, "h"), (1, "h"), (10, "h"), (None, "h")] and mj == 5 and len(ml) == 7
+           and rc.fehlende_laeufe("1p2p8p8p8p0p0p3p7p7p", 6) == 4 and rc.fehlende_laeufe("(25)3p", 0) == 0
+           and rc.fehlende_laeufe(None, 3) == 0,
+           "Musique: Läufe mit Platz (0 = 10.+, Buchstabe = nicht im Ziel) und Disziplin, Läufe im laufenden Jahr; "
+           "fehlende Läufe = Musique dieses Jahres − Historie dieses Jahres")
     hx = hist[im_rennen & (hist["horse"] == "X")].iloc[0]
     pruefe(abs(hx["speed_last600_kmh"] - 600 / 34.4 * 3.6 * 1.01) < 0.02 and hx["path_factor"] == 1.01,
            "L600 aus den Abschnitten neu gebildet (geparster Wert 55 ersetzt) und mit Wegfaktor skaliert")

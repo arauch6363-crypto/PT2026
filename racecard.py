@@ -42,6 +42,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -578,6 +579,10 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
         h.loc[platz, "prize_won"] = h.loc[platz, c]
     h["prize_won"] = h["prize_won"].fillna(0.0)
     h = h.drop(columns=pz)
+    # Rennen eines vergangenen Tages ganz ohne Platzierung: abgesagt/annulliert (z. B. La Teste 25.06.2026) – sonst
+    # zählte jeder Starter als „nicht im Ziel“ (Pos 0) und hätte einen Phantom-Lauf in der Form
+    mit_ergebnis = h["finish_pos"].notna().groupby(h["race_id"]).transform("any")
+    h = h[mit_ergebnis | (h["date"] >= pd.Timestamp.now().normalize())].copy()
     h["n_runners"] = h.groupby("race_id")["saddle_no"].transform("count")
     h["won"] = (h["finish_pos"] == 1).astype(int)
     # Platz: bis PLATZ_GRENZE Starter 1.–2., ab 8 Startern 1.–3.
@@ -1416,6 +1421,32 @@ def abst_passung_dict(z: pd.Series, mit_linien: bool = True) -> dict | None:
                 out[rolle] = {"wert": r(z[f"pass_{rolle}"]),
                               **{d: r(z.get(f"p_{rolle}_{d}")) for d in ABST_SKALEN if r(z.get(f"p_{rolle}_{d}")) is not None}}
     return out
+
+
+# Musique (PMU): Läufe neueste zuerst, „(25)“ trennt die Jahre; Ziffer = Platz (0 = 10. oder schlechter), Großbuchstabe
+# = nicht im Ziel (A arrêté, T tombé, D disqualifié …), Kleinbuchstabe = Disziplin (p Flach, h Hürden, s Steeple, c Cross)
+MUSIQUE_TOKEN = re.compile(r"\((\d{2})\)|([0-9]|[A-Z])([a-z])")
+MUSIQUE_HINDERNIS = {"h", "s", "c"}
+
+
+def musique_laeufe(m) -> tuple[list[tuple[int | None, str]], int]:
+    """Läufe aus der Musique: [(Platz oder None = nicht im Ziel, Disziplin)], neueste zuerst, und wie viele davon
+    im laufenden Jahr (vor der ersten Jahresmarke) liegen."""
+    laeufe, jahr, marke = [], 0, False
+    for jm, z, disc in MUSIQUE_TOKEN.findall(str(m or "")):
+        if jm:
+            marke = True
+            continue
+        platz = (10 if z == "0" else int(z)) if z.isdigit() else None
+        laeufe.append((platz, disc))
+        jahr += not marke
+    return laeufe, jahr
+
+
+def fehlende_laeufe(m, laeufe_im_jahr: int) -> int:
+    """Läufe des laufenden Jahres laut Musique, die in der Historie fehlen (Ausland, Hindernis, Rennen ohne
+    PMU-Daten). Untergrenze: Die Musique zeigt höchstens zehn Läufe."""
+    return max(0, musique_laeufe(m)[1] - int(laeufe_im_jahr or 0))
 
 
 # CGD: Bilanz des Pferdes vor einem Lauf auf Kurs (mit Belag), Bodengruppe und Distanzgruppe
@@ -2385,6 +2416,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                 "jockey": _txt(p.get("jockey")), "trainer": _txt(p.get("trainer")), "owner": _txt(p.get("owner")), "breeder": _txt(p.get("breeder")),
                 "sire": _txt(p.get("sire")), "dam": _txt(p.get("dam")), "dam_sire": _txt(p.get("dam_sire")),
                 "form": _txt(p.get("form")),
+                "fehlende_laeufe": fehlende_laeufe(p.get("form"), int((vorher["date"].dt.year == heute.year).sum())
+                                                   if len(vorher) else 0),
                 "career": _karriere(vorher, heute),
                 "starts": starts, "wins": _num(p.get("wins"), 0),
                 "places": _num(p.get("places"), 0), "earnings": earn,
