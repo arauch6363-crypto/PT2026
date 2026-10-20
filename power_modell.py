@@ -415,8 +415,9 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 continue
             s = g.setdefault(k, [0, 0.0, 0.0, 0.0, 0.0])
             s[0] += 1
-            s[1] += np.nan_to_num(placed[j])
-            s[2] += np.nan_to_num(expp[j])
+            if np.isfinite(expp[j]):                       # A/E nur über Läufe mit Erwartung (nicht extern)
+                s[1] += np.nan_to_num(placed[j])
+                s[2] += expp[j]
             s[3] += np.nan_to_num(rp0[j])
             s[4] += np.nan_to_num(lp[j])
         sc = {k: _score(s[1], s[2], s[3], s[4], s[0], 0.5, g_lp) for k, s in g.items() if s[0] >= PFERD_MIN}
@@ -725,7 +726,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             if bs and bs[0]:
                 F["box_mean"][i], F["box_runs"][i] = bs[1] / bs[0], bs[0]
         # Tag fertig: Ergebnisse in den Stand übernehmen (heutige Zeilen nie)
-        for i in pos[~hm[pos]]:
+        for i in pos[~hm[pos] & (ext_[pos] == 0)]:          # externe Läufe zählen nicht für Verbindungen/Basis
             pl_, ex_, rp_, lp_ = (np.nan_to_num(placed[i]), np.nan_to_num(expp[i]), np.nan_to_num(rp0[i]),
                                   np.nan_to_num(lp[i]))
             if np.isnan(rp0[i]):
