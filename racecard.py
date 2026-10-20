@@ -2713,9 +2713,10 @@ def festkurse_aktualisieren(base: Path, tag=None, out: Path | None = None, *, fe
                             nur_fehlende: bool = True, nichtstarter: bool = True, claude: bool = True) -> Path:
     """Schneller zweiter Lauf: die von run() gespeicherten Kartendaten (racecard_JJJJMMTT_daten.json) laden, nur die
     Festkurse/Toto von Wettstar holen (festkurse: True, fertige Tabelle aus wettstar.festkurse, Pfad zur CSV aus
-    dem Wettstar-Notebook oder False). nur_fehlende=True (Vorgabe): Bahnen, die schon Festkurse haben, bleiben wie
-    sie sind; geholt und ergänzt werden nur die übrigen (z. B. die spätere Veranstaltung, die morgens noch keine
-    Festkurse hatte). nur_fehlende=False: alle Kurse neu holen und überschreiben. Mit
+    dem Wettstar-Notebook oder False). nur_fehlende=True (Vorgabe): Rennen, die schon Festkurse Sieg haben, bleiben
+    wie sie sind; geholt und ergänzt werden alle übrigen – auch solche, die bisher nur den Toto zeigen (z. B. die
+    spätere Veranstaltung oder spätere Rennen, die morgens noch keine Festkurse hatten). nur_fehlende=False: alle
+    Kurse neu holen und überschreiben. Mit
     nichtstarter=True neue Nichtstarter aus dem PMU-Programm übernehmen, Value-Protokoll (Festkurs) nachziehen und
     HTML sowie die Claude-JSONs neu schreiben – ohne Historie, Kennzahlen und Modell neu zu rechnen."""
     base = Path(base)
@@ -2736,25 +2737,27 @@ def festkurse_aktualisieren(base: Path, tag=None, out: Path | None = None, *, fe
     jetzt = datetime.now(pmu.PARIS).strftime("%H:%M")
     if festkurse is not False:
         import wettstar
-        fertig = wettstar.bahnen_mit_festkurs(daten) if nur_fehlende else set()
-        alle = {r.get("course") for r in (daten.get("races") or {}).values() if r.get("course")}
-        offen = sorted(alle - fertig)
+        races = daten.get("races") or {}
+        fertig = wettstar.rennen_mit_festkurs(daten) if nur_fehlende else set()
+        offen = [k for k in races if k not in fertig]
+        name = lambda k: f"{races[k].get('course')} C{races[k].get('race_no')}"
         if fertig:
-            print(f"Festkurse schon da, bleiben: {', '.join(sorted(fertig))}")
+            print(f"Festkurse schon da, bleiben: {', '.join(name(k) for k in races if k in fertig)}")
         if not offen:
-            print("Alle Bahnen haben schon Festkurse – nichts zu holen (neu holen: nur_fehlende=False).")
+            print("Alle Rennen haben schon Festkurse – nichts zu holen (neu holen: nur_fehlende=False).")
         else:
-            for r in (daten.get("races") or {}).values():
-                if r.get("course") in offen:
-                    for x in r.get("runners") or []:
-                        x.pop("fk", None)                  # alte Kurse (oder nur Toto) dieser Bahnen weg, neu holen
+            print(f"Festkurse holen für: {', '.join(name(k) for k in offen)}")
+            for k in offen:
+                for x in races[k].get("runners") or []:
+                    x.pop("fk", None)                      # alte Kurse (oder nur Toto) dieser Rennen weg, neu holen
             if not nur_fehlende:
                 daten.pop("festkurse_bahnen", None)
+            vorher = wettstar.rennen_mit_festkurs(daten)
             wettstar.anhaengen(daten, None if festkurse is True else festkurse, tag=tag,
-                               bahnen=offen if fertig else None)
+                               rennen=offen if fertig else None)
             st = daten.setdefault("festkurse_bahnen", {})
-            for b in offen:                                # neu geholte Bahnen: Zeit dieses Laufs
-                st.pop(b, None)
+            for k in wettstar.rennen_mit_festkurs(daten) - vorher:   # Bahnen mit neuen Kursen: Zeit dieses Laufs
+                st.pop(races[k].get("course"), None)
             wettstar.stand_merken(daten, jetzt)
     if any((x.get("power") or {}).get("wert") is not None for r in daten["races"].values() for x in r["runners"]):
         try:

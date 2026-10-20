@@ -1149,10 +1149,14 @@ def festkurse_aktualisieren_pruefen() -> None:
     r2 = copy.deepcopy(r)
     r2["course"], rid2 = "VICHY", rid + "X"
     d["races"][rid2] = r2
+    r3 = copy.deepcopy(r)                                     # späteres Rennen derselben Bahn: morgens nur Toto
+    r3["race_no"], rid3 = int(r["race_no"]) + 1, rid + "Y"
+    d["races"][rid3] = r3
 
-    def tab(rennen, kurs):
+    def tab(rennen, kurs, nur_toto=()):
         return pd.DataFrame([dict(Veranstaltung=rr["course"].title(), Rennen=str(rr["race_no"]), Start=rr["time"] or "",
-                                  Nr=x["no"], Pferd=x["horse"].title(), Toto=5.0, FK_Sieg=kurs, FK_Platz=None, NS=False)
+                                  Nr=x["no"], Pferd=x["horse"].title(), Toto=5.0,
+                                  FK_Sieg=None if rr is nur_toto else kurs, FK_Platz=None, NS=False)
                              for rr in rennen for x in rr["runners"]])
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "racecards" / f"racecard_{tag:%Y%m%d}.html"
@@ -1160,20 +1164,22 @@ def festkurse_aktualisieren_pruefen() -> None:
         rc.daten_pfad(out).write_text(_json.dumps(d, default=str), encoding="utf-8")
         lies = lambda: _json.loads(rc.daten_pfad(out).read_text(encoding="utf-8"))
         with contextlib.redirect_stdout(io.StringIO()):
-            rc.festkurse_aktualisieren(Path(tmp), tag, out, festkurse=tab([r], 2.5), nichtstarter=False)
+            rc.festkurse_aktualisieren(Path(tmp), tag, out, festkurse=tab([r, r3], 2.5, r3), nichtstarter=False)
             a = lies()
-            rc.festkurse_aktualisieren(Path(tmp), tag, out, festkurse=tab([r, r2], 9.0), nichtstarter=False)
+            rc.festkurse_aktualisieren(Path(tmp), tag, out, festkurse=tab([r, r2, r3], 9.0), nichtstarter=False)
             b = lies()
-            rc.festkurse_aktualisieren(Path(tmp), tag, out, festkurse=tab([r, r2], 7.0), nichtstarter=False,
+            rc.festkurse_aktualisieren(Path(tmp), tag, out, festkurse=tab([r, r2, r3], 7.0), nichtstarter=False,
                                        nur_fehlende=False)
             c = lies()
     fk = lambda dd, k: [(x.get("fk") or {}).get("sieg") for x in dd["races"][k]["runners"]]
-    pruefe(set(fk(a, rid)) == {2.5} and set(fk(a, rid2)) == {None}
-           and set(fk(b, rid)) == {2.5} and set(fk(b, rid2)) == {9.0}
+    toto = lambda dd, k: {(x.get("fk") or {}).get("toto") for x in dd["races"][k]["runners"]}
+    pruefe(set(fk(a, rid)) == {2.5} and set(fk(a, rid2)) == {None} and set(fk(a, rid3)) == {None}
+           and toto(a, rid3) == {5.0}
+           and set(fk(b, rid)) == {2.5} and set(fk(b, rid2)) == {9.0} and set(fk(b, rid3)) == {9.0}
            and set(b["festkurse_bahnen"]) == {r["course"], "VICHY"}
-           and set(fk(c, rid)) == {7.0} and set(fk(c, rid2)) == {7.0},
-           "Festkurse nachträglich bei zwei Veranstaltungen: vorhandene Kurse der frühen bleiben, nur die späte wird "
-           "ergänzt (Stand je Bahn); nur_fehlende=False holt alle neu")
+           and set(fk(c, rid)) == {7.0} and set(fk(c, rid2)) == {7.0} and set(fk(c, rid3)) == {7.0},
+           "Festkurse nachträglich: Rennen mit Festkursen bleiben, alle übrigen werden geholt – auch spätere Rennen "
+           "derselben Bahn, die bisher nur Toto zeigen, und die spätere Veranstaltung; nur_fehlende=False holt alle neu")
 
 
 def tipp_auswertung_pruefen() -> None:

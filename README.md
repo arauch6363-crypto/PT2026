@@ -369,9 +369,9 @@ Je Starter:
   berechneten Kartendaten (`racecard_JJJJMMTT_daten.json`). `racecard.festkurse_aktualisieren(BASE)` lädt sie, holt
   nur Festkurse/Toto von Wettstar neu, übernimmt neue Nichtstarter aus dem PMU-Programm (Modell-Siegchancen der übrigen
   wieder auf 100 %), zieht das Value-Protokoll nach und schreibt HTML und Claude-JSONs neu – ein bis zwei Minuten
-  statt des vollen Laufs. Bahnen, die schon Festkurse haben, bleiben dabei unverändert (`nur_fehlende=True`,
-  Vorgabe): Bei zwei Veranstaltungen an einem Tag holt ein zweiter Aufruf nur die Kurse der späteren nach, die morgens
-  noch keine hatte. `nur_fehlende=False` holt alle Kurse neu. Oben in der Karte steht „Kurse HH:MM“, bei
+  statt des vollen Laufs. Rennen, die schon Festkurse Sieg haben, bleiben dabei unverändert (`nur_fehlende=True`,
+  Vorgabe); alle übrigen werden geholt, auch wenn sie bisher nur den Toto zeigen. Bei zwei Veranstaltungen an einem
+  Tag (oder späteren Rennen ohne Festkurse am Morgen) holt ein zweiter Aufruf nur die fehlenden nach. `nur_fehlende=False` holt alle Kurse neu. Oben in der Karte steht „Kurse HH:MM“, bei
   verschiedenen Zeiten je Bahn („Kurse Deauville 09:40, Vichy 13:05“). Optionen: `festkurse=df` (fertige Tabelle),
   `nichtstarter=False`, `tag="JJJJ-MM-TT"`.
 * **Abstammungsprofil** (Detailseite, ersetzt Vater/Muttervater in den Vorlieben und den „optimalen Bereich“):
