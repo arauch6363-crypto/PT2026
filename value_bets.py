@@ -155,16 +155,31 @@ def _pferde_rennen(rennen: dict, datum: str) -> list[dict]:
     return zeilen
 
 
+def _karte_lesen(pfad: Path) -> dict:
+    """Kartendaten aus ``racecard_*_daten.json`` oder aus der HTML-Karte (``const DATA = …``)."""
+    text = pfad.read_text(encoding="utf-8")
+    if pfad.suffix.lower() != ".html":
+        return json.loads(text)
+    marke = "const DATA = "
+    i = text.find(marke)
+    if i < 0:
+        raise ValueError(f"{pfad.name}: keine Kartendaten (const DATA) gefunden")
+    daten, _ = json.JSONDecoder().raw_decode(text, i + len(marke))
+    return daten
+
+
 def load_day(json_path: str | Path, parquet_path: str | Path | None) -> pd.DataFrame:
     """Pool eines Renntags: alle Starter mit Festkurs und Wert ≥ 0, samt Ergebnis.
+
+    ``json_path`` darf auch die HTML-Karte ``racecard_YYYYMMDD.html`` sein – sie
+    enthält dieselben Daten.
 
     Ohne Ergebnis-Parquet (oder ohne Einlauf für ein Rennen) bleiben ``pos``,
     ``won`` und ``placed`` leer und ``settled`` ist False – solche Wetten werden
     nicht simuliert (der Tag gilt als offen).
     """
     json_path = Path(json_path)
-    with open(json_path, encoding="utf-8") as fh:
-        daten = json.load(fh)
+    daten = _karte_lesen(json_path)
     datum = str(daten.get("date") or _datum_aus_name(json_path) or "").replace("-", "")
     rennen = daten.get("races") or {}
     if isinstance(rennen, dict):
@@ -208,24 +223,43 @@ def _leerer_pool() -> pd.DataFrame:
         "won", "placed"])
 
 
-def load_folder(ordner: str | Path, cache: str | Path | None = None) -> pd.DataFrame:
+def _hat_einlauf(pfad: Path) -> bool:
+    """Ist das Parquet eine pmu_races-Datei (Spalten race_id und finish_order)?"""
+    try:
+        import pyarrow.parquet as pq
+        namen = set(pq.read_schema(pfad).names)
+    except Exception:
+        return False
+    return {"race_id", "finish_order"} <= namen
+
+
+def load_folder(ordner: str | Path, ergebnis_ordner: str | Path | None = None,
+                cache: str | Path | None = None) -> pd.DataFrame:
     """Alle Renntage eines Ordners laden (rekursiv), gepaart über das Datum.
 
-    JSON: ``racecard_YYYYMMDD_daten.json``; Ergebnis: ``*YYYYMMDD*.parquet``.
-    Fehlt das Ergebnis eines Tages, gibt es eine Warnung und der Tag bleibt
-    offen. Mit ``cache`` wird der Pool zusätzlich als Parquet gespeichert.
+    ``ergebnis_ordner``: wo die pmu_races-Parquets liegen (Vorgabe: ``ordner``).
+
+    Karte: ``racecard_YYYYMMDD_daten.json``, sonst ``racecard_YYYYMMDD.html``;
+    Ergebnis: ``*YYYYMMDD*.parquet`` (bei mehreren gewinnt eines in einem Ordner
+    ``pmu_races``). Fehlt das Ergebnis eines Tages, gibt es eine Warnung und der
+    Tag bleibt offen. Mit ``cache`` wird der Pool zusätzlich als Parquet gespeichert.
     """
     ordner = Path(ordner)
-    jsons = {}
+    jsons: dict[str, Path] = {}
+    for p in sorted(ordner.rglob("racecard_*.html")):
+        if re.fullmatch(r"racecard_\d{8}\.html", p.name):
+            jsons[p.name[9:17]] = p
     for p in sorted(ordner.rglob("racecard_*_daten.json")):
         d = _datum_aus_name(p)
         if d:
-            jsons[d] = p
+            jsons[d] = p          # JSON vor HTML
     parquets = {}
-    for p in sorted(ordner.rglob("*.parquet")):
+    erg_ordner = Path(ergebnis_ordner) if ergebnis_ordner is not None else ordner
+    for p in sorted(erg_ordner.rglob("*.parquet"), key=lambda q: "pmu_races" not in q.parts):
         d = _datum_aus_name(p)
-        if d and d in jsons and (cache is None or p.resolve() != Path(cache).resolve()):
-            parquets.setdefault(d, p)
+        if (d and d in jsons and d not in parquets and _hat_einlauf(p)
+                and (cache is None or p.resolve() != Path(cache).resolve())):
+            parquets[d] = p
     teile = []
     for d in sorted(jsons):
         if d not in parquets:

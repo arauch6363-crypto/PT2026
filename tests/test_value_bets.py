@@ -1,8 +1,8 @@
 """Tests für value_bets.
 
-Datentests brauchen die Dateien vom 18.–20.10.2026 (racecard_*_daten.json und
-pmu_races-Parquets) im Ordner aus der Umgebungsvariable VALUE_BETS_DATA;
-ohne sie werden sie übersprungen.
+Datentests brauchen die Karten vom 18.–20.10.2026 (racecard_*_daten.json oder
+racecard_*.html) in VALUE_BETS_DATA und die pmu_races-Parquets in
+VALUE_BETS_RESULTS (Vorgabe: derselbe Ordner); ohne sie werden sie übersprungen.
 """
 import json
 import os
@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import value_bets as vb  # noqa: E402
 
 DATEN = os.environ.get("VALUE_BETS_DATA")
+ERGEBNIS = os.environ.get("VALUE_BETS_RESULTS") or DATEN
 TAGE = ("20261018", "20261019", "20261020")
 
 
@@ -96,6 +97,23 @@ def test_filter_und_kelly(tmp_path):
     assert vb.simulate(pool, vb.FilterConfig(mode="none", top="nein")).kpi_dict["bets"] == 0
 
 
+def test_html_karte_und_ergebnisordner(tmp_path):
+    r = _rennen("20260103R1C1", [_runner(1, 0.6, fk=3.0, platz=1.4), _runner(2, 0.4, fk=2.0)])
+    daten = {"date": "2026-01-03", "races": {r["race_id"]: r}}
+    js = json.dumps(daten).replace("</", "<\\/")
+    (tmp_path / "racecard_20260103.html").write_text(
+        f"<script>const DATA = {js};\nconst X = 1;</script>", encoding="utf-8")
+    erg = tmp_path / "parquet" / "pmu_races"
+    erg.mkdir(parents=True)
+    pd.DataFrame({"race_id": ["20260103R1C1"], "finish_order": ["1 - 2"]}).to_parquet(erg / "20260103.parquet")
+    anders = tmp_path / "parquet" / "pmu_runners"
+    anders.mkdir()
+    pd.DataFrame({"x": [1]}).to_parquet(anders / "20260103.parquet")     # ohne Einlauf → ignoriert
+    pool = vb.load_folder(tmp_path)
+    assert pool["settled"].all() and pool.loc[pool["no"] == 1, "won"].all()
+    assert list(pool["date"].unique()) == ["20260103"]
+
+
 def test_bank_tagesbeginn_und_offener_tag(tmp_path):
     rn = lambda rid: _rennen(rid, [_runner(1, 0.6, fk=3.0, platz=1.4), _runner(2, 0.4, fk=2.0, platz=1.2)])
     _tag(tmp_path, "20260101", [rn("20260101R1C1"), rn("20260101R1C2")],
@@ -115,9 +133,9 @@ def test_bank_tagesbeginn_und_offener_tag(tmp_path):
 def _ordner_ok():
     if not DATEN:
         return False
-    p = Path(DATEN)
-    return all(list(p.rglob(f"racecard_{t}_daten.json")) and
-               [x for x in p.rglob(f"*{t}*.parquet")] for t in TAGE)
+    p, e = Path(DATEN), Path(ERGEBNIS)
+    return all((list(p.rglob(f"racecard_{t}_daten.json")) or list(p.rglob(f"racecard_{t}.html")))
+               and list(e.rglob(f"*{t}*.parquet")) for t in TAGE)
 
 
 daten = pytest.mark.skipif(not _ordner_ok(), reason="VALUE_BETS_DATA mit 18.–20.10.2026 fehlt")
@@ -125,7 +143,7 @@ daten = pytest.mark.skipif(not _ordner_ok(), reason="VALUE_BETS_DATA mit 18.–2
 
 @pytest.fixture(scope="module")
 def pool():
-    return vb.load_folder(DATEN)
+    return vb.load_folder(DATEN, ERGEBNIS)
 
 
 @daten

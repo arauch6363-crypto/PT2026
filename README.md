@@ -565,7 +565,8 @@ Je Starter:
 
 Simuliert die Value-Wetten über mehrere Renntage und zeigt sie in Colab mit
 ipywidgets und Plotly. Je Tag braucht es `racecard_YYYYMMDD_daten.json` und das
-Ergebnis-Parquet aus `pmu_races` (`YYYYMMDD.parquet`). Gepaart wird über das
+Ergebnis-Parquet aus `pmu_races` (`YYYYMMDD.parquet`). Fehlt die JSON, wird die HTML-Karte
+`racecard_YYYYMMDD.html` gelesen (sie enthält dieselben Daten). Gepaart wird über das
 Datum im Dateinamen. Tage ohne Ergebnis bleiben offen, mit einer Warnung.
 
 - **Pool:** alle Starter mit Festkurs Sieg und Wert ≥ 0.
@@ -589,7 +590,8 @@ output.enable_custom_widget_manager()
 import sys; sys.path.insert(0, '/content/drive/MyDrive/PT2026')
 import value_bets as vb
 
-pool = vb.load_folder('/content/drive/MyDrive/value_daten')   # JSONs + Parquets
+BASE = '/content/drive/MyDrive/PT_tracking'                 # Daten-Ordner wie im Workflow
+pool = vb.load_folder(f'{BASE}/racecards', f'{BASE}/parquet/pmu_races')
 vb.dashboard(pool)
 
 # ohne Oberfläche
@@ -598,8 +600,8 @@ res = vb.simulate(pool, vb.FilterConfig(minw=0.5, mode='max', mode_value=10),
 res.kpi_dict['bank'], res.bets_df.head()
 ```
 
-Tests: `pytest tests/test_value_bets.py`. Mit `VALUE_BETS_DATA=<Ordner mit
-18.–20.10.2026>` laufen auch die Referenzzahlen mit, zum Beispiel ¼ Kelly →
+Tests: `pytest tests/test_value_bets.py`. Mit `VALUE_BETS_DATA=<BASE>/racecards` und
+`VALUE_BETS_RESULTS=<BASE>/parquet/pmu_races` laufen auch die Referenzzahlen vom 18.–20.10.2026 mit, zum Beispiel ¼ Kelly →
 2404,00 € bei 18 Wetten.
 
 ## Skill Rennkarten-Durchgang
