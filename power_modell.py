@@ -82,6 +82,11 @@ SEG_MIN_GEWINN = 0.003      # Power: Segment-Modell nur, wenn die Rangkorrelatio
 SEG_MIN_VERLUST = 0.0003    # Value: ... wenn der Verlust auf der Validierung relativ um so viel sinkt
 RANG_STUFEN = 10            # Lern-Ziel für „rang“: Platzanteil in 11 Stufen (0 … 10)
 RANG_GAIN = [round(2 ** (s / 2) - 1, 3) for s in range(RANG_STUFEN + 1)]   # Sieg zählt am meisten, ohne alles andere zu erdrücken
+# Lern-Ziel für „vorn“: nur die Spitze zählt, hinten alles 0 (Rauschen der hinteren Plätze bleibt außen vor):
+# Platzanteil ≥ 0,7 → 1, ≥ 0,8 → 2, ≥ 0,9 → 3, Sieg → 4
+VORN_GRENZEN = (0.7, 0.8, 0.9)
+VORN_GAIN = [0.0, 1.0, 3.0, 7.0, 15.0]
+ARTEN = ("regression", "rang", "vorn")
 AUFWAERM_TAGE = 365         # erstes Jahr der Historie: nur Vorgeschichte für die Merkmale, nicht gelernt
 ANTEILE = (0.6, 0.2, 0.2)   # übrige Renntage zeitlich: lernen / validieren (Abbruch, Modellwahl, Eichung) / testen (Bericht)
 ROT_AB = 95                 # Power bis hier = rot (klar unter dem Feldschnitt)
@@ -949,11 +954,19 @@ def markt_test(pred, rennen, won, odds, a: float | None = None) -> dict:
             "power_z": float(cl.loc["z", "z"]) if "z" in cl.index else None}
 
 
+def vorn_stufe(y) -> np.ndarray:
+    """Ziel „vorn“ aus dem Platzanteil: 0 hinten, 1 ab 0,7, 2 ab 0,8, 3 ab 0,9, 4 Sieg (Platzanteil 1)."""
+    y = np.asarray(y, dtype=float)
+    s = sum((y >= g - 1e-9).astype(int) for g in VORN_GRENZEN)
+    return np.where(y >= 1 - 1e-9, len(VORN_GRENZEN) + 1, s).astype(int)
+
+
 def _lgb_daten(lgb, Xk, y, rennen, art, ref=None, init=None):
-    """LightGBM-Datensatz; für „rang“ nach Rennen gruppiert (Zeilen eines Rennens hintereinander) mit Stufen-Ziel.
-    init: Ausgangswert je Zeile (Segment-Modelle lernen nur die Korrektur dazu)."""
-    if art == "rang":
-        return lgb.Dataset(Xk, np.rint(y.to_numpy() * RANG_STUFEN).astype(int), reference=ref, init_score=init,
+    """LightGBM-Datensatz; für „rang“/„vorn“ nach Rennen gruppiert (Zeilen eines Rennens hintereinander) mit
+    Stufen-Ziel. init: Ausgangswert je Zeile (Segment-Modelle lernen nur die Korrektur dazu)."""
+    if art in ("rang", "vorn"):
+        stufe = np.rint(y.to_numpy() * RANG_STUFEN).astype(int) if art == "rang" else vorn_stufe(y.to_numpy())
+        return lgb.Dataset(Xk, stufe, reference=ref, init_score=init,
                            group=rennen.groupby(rennen, sort=False).size().to_numpy(),
                            categorical_feature=KATEGORISCH, free_raw_data=False)
     return lgb.Dataset(Xk, y, reference=ref, init_score=init, categorical_feature=KATEGORISCH, free_raw_data=False)
@@ -981,9 +994,9 @@ def segment_tabelle(df: pd.DataFrame, segment: np.ndarray, spalten: list[str]) -
 
 
 def _lgb_params(art, params):
-    if art == "rang":
-        return {**LGB_PARAMS, "objective": "lambdarank", "metric": "ndcg", "eval_at": [3], "label_gain": RANG_GAIN,
-                **(params or {})}
+    if art in ("rang", "vorn"):
+        return {**LGB_PARAMS, "objective": "lambdarank", "metric": "ndcg", "eval_at": [3],
+                "label_gain": RANG_GAIN if art == "rang" else VORN_GAIN, **(params or {})}
     return {**LGB_PARAMS, **(params or {})}
 
 
@@ -1058,7 +1071,7 @@ def aufteilung(tage: pd.Series, beginn, ab: str | None = None, aufwaermen: int |
 
 def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
                X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
-               ab: str | None = None, neu: bool = False, art: str = "beide", aufwaermen: int | None = None,
+               ab: str | None = None, neu: bool = False, art: str = "alle", aufwaermen: int | None = None,
                segmente: str | None = None, log=print) -> dict:
     """Einmal trainieren: Merkmale über die ganze Historie; das erste Jahr (AUFWAERM_TAGE) dient nur als Vorgeschichte,
     die übrigen Renntage zeitlich 60/20/20 (ANTEILE): lernen, validieren (Abbruch, Wahl Regression/Rang, Siegchance-a),
@@ -1068,8 +1081,10 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     ab:  zusätzlich erst ab diesem Datum lernen/prüfen (z. B. "2024-01-01"). Die Merkmale nutzen trotzdem die ganze
          Historie davor (Form, Verbindungen, Abstammung).
     neu: Merkmale neu bauen, auch wenn BASE/modelle/merkmale.parquet schon da ist (nötig nach neuen Renntagen).
-    art: "regression" (Platzanteil je Pferd schätzen), "rang" (LightGBM lambdarank: Reihenfolge im Rennen lernen) oder
-         "beide" – beide prüfen, das mit der besseren Rangkorrelation auf der Validierung wird gespeichert.
+    art: "regression" (Platzanteil je Pferd schätzen), "rang" (LightGBM lambdarank: Reihenfolge im ganzen Feld lernen),
+         "vorn" (lambdarank nur über die Spitze: Platzanteil ≥ 0,7/0,8/0,9 und Sieg, hinten alles gleich), "beide"
+         (regression + rang) oder "alle" – geprüft werden die genannten, gespeichert wird das mit dem kleinsten
+         Log-Loss der Siegchance auf der Validierung (Rangkorrelation nur zur Information).
     segmente: "racetype" oder "age_group" – je Segment ein Zusatzmodell, das nur die Korrektur zum gemeinsamen Modell
          lernt; behalten nur, wo es auf der Validierung die Rangkorrelation um SEG_MIN_GEWINN verbessert. Der Bericht
          zeigt je Segment gemeinsam gegen mit Segment-Modell (Validierung und Test)."""
@@ -1102,7 +1117,9 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
                              "markt": -pd.to_numeric(hist.loc[X.index[maske], "odds_final"], errors="coerce").to_numpy(),
                              "rating": X.loc[maske, "rating_adj"].to_numpy()})
     pv, pt = tafel(valid), tafel(test)
-    arten = ["regression", "rang"] if art == "beide" else [art]
+    arten = list(ARTEN) if art == "alle" else ["regression", "rang"] if art == "beide" else [art]
+    if any(a_ not in ARTEN for a_ in arten):
+        raise ValueError(f"art: eins von {ARTEN}, 'beide' oder 'alle'")
     bericht: dict = {}
     validierung: dict = {}
     modelle = {}
@@ -1115,12 +1132,20 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
         best = int(m.best_iteration or runden)
         pv[a_] = m.predict(Xk[valid], num_iteration=best)
         pt[a_] = m.predict(Xk[test], num_iteration=best)
-        validierung[f"modell ({a_})"] = {**_bewerten(pv, a_), "baeume": best}
-        bericht[f"modell ({a_})"] = {**_bewerten(pt, a_), "baeume": best}
+        mv_ = markt_test(pv[a_].to_numpy(), pv["race_id"].to_numpy(), hist.loc[X.index[valid], "won"].to_numpy(),
+                         hist.loc[X.index[valid], "odds_final"].to_numpy())
+        mt_ = markt_test(pt[a_].to_numpy(), pt["race_id"].to_numpy(), hist.loc[X.index[test], "won"].to_numpy(),
+                         hist.loc[X.index[test], "odds_final"].to_numpy(), a=mv_.get("a"))
+        kurz = lambda m_: {"logloss": m_.get("logloss_power"), "power_z": round(m_["power_z"], 1)
+                           if m_.get("power_z") is not None else None}
+        validierung[f"modell ({a_})"] = {**_bewerten(pv, a_), **kurz(mv_), "baeume": best}
+        bericht[f"modell ({a_})"] = {**_bewerten(pt, a_), **kurz(mt_), "baeume": best}
         modelle[a_] = (m, best, p)
     bericht["markt (Endquote)"] = _bewerten(pt, "markt")
     bericht["rating (bereinigt)"] = _bewerten(pt, "rating")
-    sieger = max(arten, key=lambda a_: validierung[f"modell ({a_})"]["rang_korr"] or -1)   # Wahl auf der Validierung
+    # Wahl auf der Validierung: kleinster Log-Loss der Siegchance (das, wofür Power am Ende gebraucht wird); die
+    # Rangkorrelation über das ganze Feld belohnt auch die Reihenfolge hinten und benachteiligte „vorn“
+    sieger = min(arten, key=lambda a_: validierung[f"modell ({a_})"].get("logloss") or np.inf)
     m, best, p = modelle[sieger]
     # Segment-Modelle: Korrektur zum gemeinsamen Modell je Rennart, nur wo sie auf der Validierung hilft
     spalte_p = sieger
