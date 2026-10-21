@@ -71,6 +71,7 @@ def test_abgeleitete_werte(tmp_path):
     assert pool.loc[1, "rel"] == pytest.approx(1.5)
     assert bool(pool.loc[1, "gold"]) and not bool(pool.loc[2, "gold"])  # Presse 12 > 10
     assert pool.loc[1, "paid_places"] == 2
+    assert pool.loc[1, "fair_platz"] == pytest.approx(1 / pool.loc[1, "p_platz"])
     assert pool.loc[2, "won"] and pool.loc[1, "placed"] and not pool.loc[1, "won"]
 
 
@@ -246,7 +247,7 @@ def test_html_simulation_gleich_python(tmp_path):
         if py.kpi_dict["bets"]:
             assert [b["profit"] for b in j["bets"]] == list(py.bets_df["profit"])
             assert [b["horse"] for b in j["bets"]] == list(py.bets_df["horse"])
-            for k in ("roi", "tax", "wins", "places", "exp_wins_fk", "edge_places_pq"):
+            for k in ("roi", "tax", "wins", "places", "exp_wins_fk", "edge_win", "edge_place", "exp_places_model"):
                 assert j["kpi"][k] == pytest.approx(py.kpi_dict[k]), k
     assert any(j["kpi"]["bets"] > 10 for j in js)
 
@@ -272,3 +273,20 @@ def test_dashboard_datei(tmp_path):
     assert html.startswith("<!doctype html>") and "/*__DATA__*/null" not in html
     vb.dashboard(pool.iloc[:5], p)                       # überschreibt
     assert len(p.read_text(encoding="utf-8")) < len(html)
+
+
+def test_harville_wie_racecard():
+    rc = pytest.importorskip("racecard")
+    import numpy as np
+    for p, k in (([0.5, 0.2, 0.1, 0.1, 0.05, 0.05], 2), ([0.3, 0.2, 0.1, 0.1, 0.1, 0.1, 0.05, 0.05], 3)):
+        assert np.allclose(vb.harville_platz(p, k), rc.harville_platz(p, k))
+        assert vb.harville_platz(p, k).sum() == pytest.approx(k)
+
+
+def test_edge_formel(tmp_path):
+    pool = _zufallspool(tmp_path)
+    res = vb.simulate(pool, vb.FilterConfig(mode="none"))
+    b, k = res.bets_df, res.kpi_dict
+    mp = b[b["stake_place"] > 0]
+    assert k["edge_win"] == pytest.approx((1 / b["fair"]).sum() / (1 / b["fk_sieg"]).sum())
+    assert k["edge_place"] == pytest.approx((1 / mp["fair_platz"]).sum() / (1 / mp["fk_platz"]).sum())

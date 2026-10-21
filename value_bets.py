@@ -34,6 +34,7 @@ START_BANK = 1000.0
 STEUER = 0.05           # Steuer je Wett-Bein (Anteil am Einsatz)
 GOLD_WERT = 1.2         # Ersatzregel, wenn power.gold fehlt
 GOLD_MAX_COTE = 10.0
+HARVILLE_L2, HARVILLE_L3 = 0.8, 0.65   # wie racecard.py
 START_DATUM = "20261018"   # ab hier liegen Karten mit Festkursen vor
 BASE_DRIVE = "/content/drive/MyDrive/PT_tracking"
 HINWEIS_LEER = "keine Wette bei diesem Filter"
@@ -91,6 +92,28 @@ def _datum_aus_name(pfad: Path) -> Optional[str]:
 
 # ---------------------------------------------------------------- Laden
 
+def harville_platz(p, plaetze: int, l2: float = HARVILLE_L2, l3: float = HARVILLE_L3) -> np.ndarray:
+    """Platzchance je Starter aus den Siegchancen (Harville mit Korrektur, wie racecard.harville_platz)."""
+    p = np.asarray(p, float)
+    p = p / p.sum()
+    n = len(p)
+    if plaetze >= n:
+        return np.ones(n)
+    q2 = p ** l2
+    q2 = q2 / q2.sum()
+    A = p[:, None] * q2[None, :] / np.clip(1 - q2[:, None], 1e-12, None)
+    np.fill_diagonal(A, 0.0)
+    P = p + A.sum(axis=0)
+    if plaetze >= 3:
+        q3 = p ** l3
+        q3 = q3 / q3.sum()
+        nenner = 1 - q3[:, None] - q3[None, :]
+        B = np.where(nenner > 1e-12, A / np.where(nenner > 1e-12, nenner, 1.0), 0.0)
+        np.fill_diagonal(B, 0.0)
+        P = P + q3 * (B.sum() - B.sum(axis=1) - B.sum(axis=0))
+    return np.clip(P, 0.0, 1.0)
+
+
 def _pferde_rennen(rennen: dict, datum: str) -> list[dict]:
     """Abgeleitete Werte für alle Starter eines Rennens (ohne Ergebnis)."""
     starter = []
@@ -108,9 +131,11 @@ def _pferde_rennen(rennen: dict, datum: str) -> list[dict]:
     fair = 1.0 / p
     # Wettkampf-Rang (1, 2, 2, 4 …) nach fairer Quote aufsteigend
     rang = [1 + int(np.sum(fair < f - TOP_TOL)) for f in fair]
+    plaetze = 3 if n >= 8 else 2
+    p_platz = harville_platz(p, plaetze)
 
     zeilen = []
-    for (r, pw, _), pi, fi, rg in zip(starter, p, fair, rang):
+    for (r, pw, _), pi, fi, rg, pp in zip(starter, p, fair, rang, p_platz):
         fk = r.get("fk") or {}
         fk_sieg = _zahl(fk.get("sieg"))
         fk_platz = _zahl(fk.get("platz"))
@@ -147,7 +172,9 @@ def _pferde_rennen(rennen: dict, datum: str) -> list[dict]:
             "p_fk": 1 / fk_sieg if fk_sieg is not None else None,
             "p_model": float(pi),
             "p_pq": 1 / fk_platz if fk_platz is not None else None,
-            "paid_places": 3 if n >= 8 else 2,
+            "p_platz": float(pp),
+            "fair_platz": 1 / float(pp) if pp > 0 else None,
+            "paid_places": plaetze,
         })
     # Top-Wert des Rennens – vor jedem Filter, alle Gleichstände
     werte = [z["wert"] for z in zeilen if z["wert"] is not None]
@@ -222,8 +249,8 @@ def _leerer_pool() -> pd.DataFrame:
     return pd.DataFrame(columns=[
         "date", "race_id", "race", "course", "no", "horse", "n", "p", "fair", "rank_fq",
         "rank_pct", "rel", "fk_sieg", "fk_platz", "cote_dec", "wert", "gold", "p_fk",
-        "p_model", "p_pq", "paid_places", "is_top", "festkurse_stand", "settled", "pos",
-        "won", "placed"])
+        "p_model", "p_pq", "p_platz", "fair_platz", "paid_places", "is_top", "festkurse_stand",
+        "settled", "pos", "won", "placed"])
 
 
 def _hat_einlauf(pfad: Path) -> bool:
@@ -410,6 +437,7 @@ def simulate(pool: pd.DataFrame, filters: FilterConfig = None,
                 "profit_win": g_s, "profit_place": g_p,
                 "profit": round_half_up(g_s + g_p, 2),
                 "p_fk": r["p_fk"], "p_model": r["p_model"],
+                "p_platz": r["p_platz"], "fair_platz": r["fair_platz"],
                 "p_pq": r["p_pq"] if fk_platz is not None else None,
                 "bank_start": bank_start,
             })
@@ -443,8 +471,8 @@ def kpis(bets: pd.DataFrame, days: pd.DataFrame, start_bank: float) -> dict:
         k.update({x: None for x in (
             "profit", "profit_win", "profit_place", "roi", "roi_win", "roi_place", "stake",
             "stake_win", "stake_place", "tax", "wins", "places", "strike_rate", "place_rate",
-            "exp_wins_fk", "exp_wins_model", "exp_places_pq", "edge_wins_fk",
-            "edge_wins_model", "edge_places_pq")})
+            "exp_wins_fk", "exp_wins_model", "exp_places_pq", "exp_places_model",
+            "edge_win", "edge_place")})
         k["hinweis"] = HINWEIS_LEER
         return k
     pw, pp = float(bets["profit_win"].sum()), float(bets["profit_place"].sum())
@@ -453,6 +481,7 @@ def kpis(bets: pd.DataFrame, days: pd.DataFrame, start_bank: float) -> dict:
     wins, places = int(bets["won"].sum()), int((bets["placed"] & mit_platz).sum())
     e_fk, e_mod = float(bets["p_fk"].sum()), float(bets["p_model"].sum())
     e_pq = float(bets.loc[mit_platz, "p_pq"].astype(float).sum())
+    e_pm = float(bets.loc[mit_platz, "p_platz"].astype(float).sum())
     k.update({
         "profit": round_half_up(pw + pp, 2), "profit_win": round_half_up(pw, 2),
         "profit_place": round_half_up(pp, 2),
@@ -461,9 +490,9 @@ def kpis(bets: pd.DataFrame, days: pd.DataFrame, start_bank: float) -> dict:
         "tax": round_half_up(float(bets["tax"].sum()), 2),
         "wins": wins, "places": places,
         "strike_rate": wins / len(bets), "place_rate": _quote(places, int(mit_platz.sum())),
-        "exp_wins_fk": e_fk, "exp_wins_model": e_mod, "exp_places_pq": e_pq,
-        "edge_wins_fk": _quote(wins, e_fk), "edge_wins_model": _quote(wins, e_mod),
-        "edge_places_pq": _quote(places, e_pq),
+        "exp_wins_fk": e_fk, "exp_wins_model": e_mod, "exp_places_pq": e_pq, "exp_places_model": e_pm,
+        # Edge = Σ 1/faire Quote ÷ Σ 1/Festkurs (Modell gegen Markt, vor dem Rennen)
+        "edge_win": _quote(e_mod, e_fk), "edge_place": _quote(e_pm, e_pq),
         "hinweis": "Stichprobe klein (< 30 Wetten)" if len(bets) < 30 else None,
     })
     return k
@@ -476,7 +505,7 @@ DASHBOARD_DATEI = "value_dashboard.html"
 _HTML_SPALTEN = [
     "date", "race_id", "race", "course", "no", "horse", "n", "p", "fair", "rank_fq", "rank_pct",
     "rel", "fk_sieg", "fk_platz", "cote_dec", "wert", "gold", "is_top", "p_fk", "p_model", "p_pq",
-    "settled", "pos", "won", "placed"]
+    "p_platz", "fair_platz", "settled", "pos", "won", "placed"]
 
 
 def _json_wert(v: Any) -> Any:

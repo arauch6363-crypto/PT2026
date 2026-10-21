@@ -166,14 +166,15 @@ function kpis(bets, days, start) {
   const sw = sum(bets, b => b.stake_win), spl = sum(bets, b => b.stake_place);
   const mp = bets.filter(b => b.stake_place > 0);
   const wins = bets.filter(b => b.won).length, places = mp.filter(b => b.placed).length;
-  const efk = sum(bets, b => b.p_fk), emod = sum(bets, b => b.p_model), epq = sum(mp, b => b.p_pq);
+  const efk = sum(bets, b => b.p_fk), emod = sum(bets, b => b.p_model), epq = sum(mp, b => b.p_pq),
+        epm = sum(mp, b => b.p_platz);
   Object.assign(k, {
     profit: rhu(pw + pp, 2), profit_win: rhu(pw, 2), profit_place: rhu(pp, 2),
     roi: q(pw + pp, sw + spl), roi_win: q(pw, sw), roi_place: q(pp, spl),
     stake: sw + spl, stake_win: sw, stake_place: spl, tax: rhu(sum(bets, b => b.tax), 2),
     wins, places, strike_rate: wins / bets.length, place_rate: q(places, mp.length),
-    exp_wins_fk: efk, exp_wins_model: emod, exp_places_pq: epq,
-    edge_wins_fk: q(wins, efk), edge_wins_model: q(wins, emod), edge_places_pq: q(places, epq),
+    exp_wins_fk: efk, exp_wins_model: emod, exp_places_pq: epq, exp_places_model: epm,
+    edge_win: q(emod, efk), edge_place: q(epm, epq),
     hinweis: bets.length < 30 ? 'Stichprobe klein (< 30 Wetten)' : null,
   });
   return k;
@@ -326,7 +327,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
     ['no', 'Nr'], ['horse', 'Pferd', 'l'], ['n', 'Starter'],
     ['fk_sieg', 'FK Sieg', '', r => nf(r.fk_sieg, 1)], ['fk_platz', 'FK Platz', '', r => nf(r.fk_platz, 1)],
     ['cote_dec', 'Presse', '', r => nf(r.cote_dec, 1)], ['p', 'p %', '', r => nf(100 * r.p, 1)],
-    ['fair', 'Fair', '', r => nf(r.fair, 1)], ['wert', 'Wert', '', r => nf(r.wert, 2)],
+    ['fair', 'Fair', '', r => nf(r.fair, 1)], ['fair_platz', 'Fair P', '', r => nf(r.fair_platz, 1)], ['wert', 'Wert', '', r => nf(r.wert, 2)],
     ['rank_pct', 'Rang%', '', r => nf(r.rank_pct, 2)], ['rel', 'Rel', '', r => nf(r.rel, 2)],
     ['gold', 'Gold', '', r => r.gold ? '★' : ''], ['is_top', 'Top', '', r => r.is_top ? '▲' : ''],
     ['pos', 'Platz', '', r => r.pos === null ? '–' : r.pos],
@@ -370,9 +371,8 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
       z('Einsatz', eur(k.stake), `Steuer ${eur(k.tax)}`),
       z('Sieger', k.wins ?? '–', `Trefferquote ${pct(k.strike_rate)}`),
       z('Platziert', k.places ?? '–', `Platzquote ${pct(k.place_rate)}`),
-      z('Erw. Sieger', `${nf(k.exp_wins_fk)} / ${nf(k.exp_wins_model)}`, 'Festkurs / Modell'),
-      z('Edge Sieg', `${nf(k.edge_wins_fk)} / ${nf(k.edge_wins_model)}`, 'echt ÷ erwartet (FK / Modell)'),
-      z('Erw. Plätze / Edge', `${nf(k.exp_places_pq)} / ${nf(k.edge_places_pq)}`, 'nach Platzkurs'),
+      z('Edge Sieg', nf(k.edge_win), `Σ 1/Fair ${nf(k.exp_wins_model)} ÷ Σ 1/FK ${nf(k.exp_wins_fk)}`),
+      z('Edge Platz', nf(k.edge_place), `Σ 1/Fair P ${nf(k.exp_places_model)} ÷ Σ 1/FK P ${nf(k.exp_places_pq)}`),
     ].join('');
     $('hinweis').textContent = k.hinweis || '';
   }
@@ -403,9 +403,11 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
                          {name: 'erwartet Modell', farbe: c3, werte: wm, dash: 1}],
       i => String(i), i => `nach ${i} Wetten${i ? ' (' + b[i - 1].horse + ')' : ''}\necht ${wb[i]}\nFK ${nf(wfk[i])} · Modell ${nf(wm[i])}`);
     const mp = b.filter(x => x.stake_place > 0);
-    const pb = [0, ...kum(mp, x => x.placed ? 1 : 0)], pq = [0, ...kum(mp, x => x.p_pq)];
-    linien($('c_platz'), [{name: 'echt', farbe: c1, werte: pb}, {name: 'erwartet Platzkurs', farbe: c2, werte: pq, dash: 1}],
-      i => String(i), i => `nach ${i} Platzwetten\necht ${pb[i]}\nerwartet ${nf(pq[i])}`);
+    const pb = [0, ...kum(mp, x => x.placed ? 1 : 0)], pq = [0, ...kum(mp, x => x.p_pq)],
+          pm = [0, ...kum(mp, x => x.p_platz)];
+    linien($('c_platz'), [{name: 'echt', farbe: c1, werte: pb}, {name: 'erwartet Festkurs', farbe: c2, werte: pq, dash: 1},
+                          {name: 'erwartet Modell', farbe: c3, werte: pm, dash: 1}],
+      i => String(i), i => `nach ${i} Platzwetten\necht ${pb[i]}\nFK ${nf(pq[i])} · Modell ${nf(pm[i])}`);
     tabelle(b);
   }
   for (const id of ['st', 'minw', 'gold', 'modus', 'v_max', 'v_rank', 'v_rel', 'top', 'tag'])
