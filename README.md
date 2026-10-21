@@ -177,21 +177,24 @@ Gespeichert wird das Ziel mit dem kleinsten Log-Loss der Siegchance auf der Vali
 Log-Loss, Power-z, Siegertreffer und Rangkorrelation; die Rangkorrelation über das ganze Feld ist nur Information,
 weil sie die Reihenfolge hinten belohnt. `art="beide"` prüft nur Regression und Rang.
 
-**Siegchance mit Morgenquote** (`pm.trainieren_morgen(BASE)`, gespeichert als `modelle/power_morgen.txt`):
-dieselben Merkmale plus Morgenquote (`m_pm`, `m_log`, `m_rk`, `m_marge`). Es liefert die beste faire Quote, im Test
-(2026) mit diesem Log-Loss der Siegchance:
+**Faire Siegchance: Mischung Morgenquote × Power.** `pm.trainieren(BASE)` schätzt auf den Siegern der Validierung
+zwei Exponenten (`meta["mischung"]`). Die Siegchance auf der Karte ist dann p ∝ p_Morgen^α · p_Power^β je Rennen.
+Gemessen auf denselben Testrennen (2026, alle mit Morgen- und Endquote; Modelle nur auf dem Lernzeitraum trainiert):
 
-| Siegchance aus | Log-Loss |
+| Siegchance aus | Log-Loss Test |
 |---|---|
-| Power allein | 2,053 |
-| Morgenquote allein | 2,030 |
-| Power + Morgenquote | 2,015 |
-| Endquote | 1,929 |
+| Power allein | 2,057 |
+| Morgenquote allein | 2,029 |
+| Kombi-Modell Power-Merkmale + Morgenquote (`pm.trainieren_morgen`) | 2,018 |
+| **Mischung Morgen^0,66 × Power^0,55** | **1,996** |
+| Endquote | 1,925 |
 
-- Die Karte nimmt diese Siegchance (`power.sieg`, `sieg_quelle: "morgen"`) in jedem Rennen, in dem alle Starter eine
-  Morgenquote haben, sonst die von Power allein.
-- `power.sieg_blind` bleibt die Chance ohne Markt; Power (`p`) selbst bleibt ohne Markt.
-- Mit `speichern=False` gibt es nur den Bericht. Ein neuer Merkmalsbau ist nicht nötig.
+- Die Karte nutzt die Mischung (`power.sieg`, `sieg_quelle: "mischung"`) in jedem Rennen, in dem alle Starter eine
+  Morgenquote haben, sonst Power allein. `power.sieg_blind` = Power allein; Power (`p`) bleibt ohne Markt.
+- Der Bericht von `pm.trainieren` zeigt die Exponenten und den Log-Loss im Test unter
+  `mischung (Morgenquote × Power)`.
+- Das Kombi-Modell (`pm.trainieren_morgen`, `modelle/power_morgen.txt`) wird nur noch genutzt, wenn das Power-Modell
+  keine Mischung hat (älterer Stand). Es ist schlechter als die Mischung und braucht nicht mehr trainiert zu werden.
 Zeitliche Aufteilung (`pm.aufteilung`, Power und Value gleich): das erste Jahr der Historie (`AUFWAERM_TAGE` = 365) dient
 nur als Vorgeschichte für die Merkmale und wird nicht gelernt; die übrigen Renntage zeitlich 60/20/20 (`ANTEILE`):
 lernen, validieren (Abbruch der Bäume, Modellwahl, Siegchance-a, Eichung k und Gold-Grenze des Value-Modells), testen

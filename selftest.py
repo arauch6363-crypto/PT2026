@@ -869,12 +869,19 @@ def power_modell_pruefen() -> None:
     sm_ = [v_["sieg"] for v_ in vm.values()]
     pruefe(nur_morgen and "morgen" in mod_m and em["modell (regression)"]["logloss"] is not None
            and mb.get("logloss") is not None and mb.get("logloss_endquote") is not None
-           and all(v_["sieg_quelle"] == "morgen" for v_ in vm.values()) and abs(sum(sm_) - 1) < 0.01
+           and all(v_["sieg_quelle"] == "mischung" for v_ in vm.values()) and abs(sum(sm_) - 1) < 0.01
+           and mod_m["meta"]["mischung"] and mod_m["meta"]["bericht"]["mischung (Morgenquote × Power)"]["logloss_mischung"]
            and any(abs(v_["sieg"] - v_["sieg_blind"]) > 1e-3 for v_ in vm.values())
            and all(v_["sieg_quelle"] == "power" and v_["sieg"] == v_["sieg_blind"] for v_ in vo.values()),
-           f"Siegchance mit Morgenquote: eigenes Modell ({pm.MORGEN_DATEI}, Power bleibt ohne Markt), Log-Loss "
-           f"{em['modell (regression)']['logloss']} gegen Morgenquote allein {mb.get('logloss')} und Endquote "
-           f"{mb.get('logloss_endquote')}; auf der Karte je Rennen mit Morgenquote, sonst Power allein")
+           f"Faire Siegchance: Mischung Morgenquote^{mod_m['meta']['mischung']['morgen']} × "
+           f"Power^{mod_m['meta']['mischung']['power']} (Exponenten auf der Validierung, Power bleibt ohne Markt); "
+           f"Kombi-Modell {pm.MORGEN_DATEI} als Bericht (Log-Loss {em['modell (regression)']['logloss']}, Morgenquote "
+           f"allein {mb.get('logloss')}); auf der Karte je Rennen mit Morgenquote, sonst Power allein")
+    pm_t = np.array([0.5, 0.3, 0.2, 0.6, 0.4]); pb_t = np.array([0.2, 0.5, 0.3, 0.5, 0.5]); r_t = ["a"] * 3 + ["b"] * 2
+    mc_ = pm.mischung_chance(pm_t, pb_t, r_t, 1.0, 0.0)
+    pruefe(np.allclose(mc_, pm_t) and np.allclose(pm.mischung_chance(pm_t, pb_t, r_t, 0.0, 1.0), pb_t)
+           and abs(pm.mischung_chance(pm_t, pb_t, r_t, 0.5, 0.5)[:3].sum() - 1) < 1e-9,
+           "Mischung Morgenquote × Power: Exponent 1/0 gibt die Quelle selbst, je Rennen auf 1")
     pruefe(pm.vorn_stufe([0.0, 0.5, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0]).tolist() == [0, 0, 1, 1, 2, 2, 3, 3, 4]
            and pm.vorn_stufe([4 / 5, 13 / 15]).tolist() == [2, 2],
            "Ziel „vorn“: Platzanteil ≥ 0,7 / 0,8 / 0,9 → 1 / 2 / 3, Sieg → 4, hinten 0")
