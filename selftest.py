@@ -854,13 +854,27 @@ def power_modell_pruefen() -> None:
            f"gewählt nach Log-Loss der Siegchance auf der Validierung {rv}: {erg['gewaehlt']}; Siegchance-a aus der "
            f"Validierung")
     with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
-        em = pm.trainieren_morgen(hist=h, X=X, out=Path(tmp) / pm.MODELL_ORDNER, runden=40, log=print)
-        nichts = not any((Path(tmp) / pm.MODELL_ORDNER).glob("power_modell*"))
+        o_ = Path(tmp) / pm.MODELL_ORDNER
+        em = pm.trainieren_morgen(hist=h, X=X, out=o_, runden=40, log=print)
+        nur_morgen = (o_ / pm.MORGEN_DATEI).exists() and not (o_ / pm.MODELL_DATEI).exists()
+        pm.trainieren(hist=h, X=X, out=o_, runden=40, art="regression", log=print)
+        mod_m = pm.laden(Path(tmp))
+        heute_m = h[h["race_id"] == h["race_id"].iloc[-1]].drop(columns=["finish_pos", "rel_place", "won", "placed",
+                                                                           "prize_won", "arr", "tr", "odds_final"])
+        heute_m = heute_m.assign(race_id="20260601R1C1", date=pd.Timestamp("2026-06-01"))
+        vm = pm.vorhersage(h, heute_m, mod_m, log=print)
+        ohne = heute_m.assign(race_id="20260601R1C2", odds_morning=np.nan)
+        vo = pm.vorhersage(h, ohne, mod_m, log=print)
     mb = em.get("markt (Morgenquote allein)") or {}
-    pruefe(nichts and em["gewaehlt"] == "regression" and em["modell (regression)"]["logloss"] is not None
-           and mb.get("logloss") is not None and mb.get("logloss_endquote") is not None,
-           f"Versuch Power mit Morgenquote: berichtet Log-Loss ({em['modell (regression)']['logloss']}) gegen die "
-           f"Morgenquote allein ({mb.get('logloss')}) und die Endquote ({mb.get('logloss_endquote')}), speichert nichts")
+    sm_ = [v_["sieg"] for v_ in vm.values()]
+    pruefe(nur_morgen and "morgen" in mod_m and em["modell (regression)"]["logloss"] is not None
+           and mb.get("logloss") is not None and mb.get("logloss_endquote") is not None
+           and all(v_["sieg_quelle"] == "morgen" for v_ in vm.values()) and abs(sum(sm_) - 1) < 0.01
+           and any(abs(v_["sieg"] - v_["sieg_blind"]) > 1e-3 for v_ in vm.values())
+           and all(v_["sieg_quelle"] == "power" and v_["sieg"] == v_["sieg_blind"] for v_ in vo.values()),
+           f"Siegchance mit Morgenquote: eigenes Modell ({pm.MORGEN_DATEI}, Power bleibt ohne Markt), Log-Loss "
+           f"{em['modell (regression)']['logloss']} gegen Morgenquote allein {mb.get('logloss')} und Endquote "
+           f"{mb.get('logloss_endquote')}; auf der Karte je Rennen mit Morgenquote, sonst Power allein")
     pruefe(pm.vorn_stufe([0.0, 0.5, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0]).tolist() == [0, 0, 1, 1, 2, 2, 3, 3, 4]
            and pm.vorn_stufe([4 / 5, 13 / 15]).tolist() == [2, 2],
            "Ziel „vorn“: Platzanteil ≥ 0,7 / 0,8 / 0,9 → 1 / 2 / 3, Sieg → 4, hinten 0")
