@@ -878,8 +878,10 @@ function powerQuote(x){
   const oben = P.gold != null ? P.gold : P.wert != null && P.wert >= VALUE_AB;   // oberste 10 % des Value-Faktors
   const val = oben && (cote == null || cote <= GOLD_COTE_MAX);   // über Cote 10: kein Rahmen
   const warn = !!P.warn;                                          // unterstes Fünftel: Markt überschätzt das Pferd
-  const tip = `Faire Quote ${fx(q, 2)} = Siegchance ${fx(100 * P.sieg, 1)} % ${P.sieg_quelle === "morgen"
-      ? `aus Power-Merkmalen + Morgenquote (Power allein: ${fx(100 * P.sieg_blind, 1)} %)` : "laut Power-Modell"} (ohne Buchmacher-Marge), `
+  const tip = `Faire Quote ${fx(q, 2)} = Siegchance ${fx(100 * P.sieg, 1)} % ${P.sieg_quelle === "mischung"
+      ? `aus Morgenquote und Power gemischt (Power allein: ${fx(100 * P.sieg_blind, 1)} %)`
+      : P.sieg_quelle === "morgen" ? `aus Power-Merkmalen + Morgenquote (Power allein: ${fx(100 * P.sieg_blind, 1)} %)`
+      : "laut Power-Modell"} (ohne Buchmacher-Marge), `
     + `#${P.rank} von ${P.n} im Feld. Grün: Modell sieht das Pferd klar über dem Feldschnitt (Power ${P.p} ≥ 105), rot: klar darunter (≤ 95). `
     + `Liegt die angebotene Quote deutlich über der fairen (Marge des Anbieters bedenken), schätzt das Modell das Pferd stärker ein als der Markt. – stärkste Treiber: `
     + P.treiber.map(([n, v]) => `${n} ${v >= 0 ? "+" : "−"}${fx(Math.abs(v), 1)}`).join(" · ")
