@@ -176,6 +176,10 @@ heutigen Feld ein (`pm.feld_relativ`: Rang 0–1 und Abstand zum Feldschnitt). `
 Gespeichert wird das Ziel mit dem kleinsten Log-Loss der Siegchance auf der Validierung. Je Art stehen im Bericht
 Log-Loss, Power-z, Siegertreffer und Rangkorrelation; die Rangkorrelation über das ganze Feld ist nur Information,
 weil sie die Reihenfolge hinten belohnt. `art="beide"` prüft nur Regression und Rang.
+
+Versuch **Power mit Morgenquote** (`pm.trainieren_morgen(BASE)`): dieselben Merkmale plus `m_pm`, `m_log`, `m_rk`,
+`m_marge`; nur Bericht, das Power-Modell bleibt ohne Markt und wird nie überschrieben. Zum Vergleich steht im Bericht
+die Morgenquote allein (`markt (Morgenquote allein)`: Log-Loss Morgen- gegen Endquote). Kein neuer Merkmalsbau nötig.
 Zeitliche Aufteilung (`pm.aufteilung`, Power und Value gleich): das erste Jahr der Historie (`AUFWAERM_TAGE` = 365) dient
 nur als Vorgeschichte für die Merkmale und wird nicht gelernt; die übrigen Renntage zeitlich 60/20/20 (`ANTEILE`):
 lernen, validieren (Abbruch der Bäume, Modellwahl, Siegchance-a, Eichung k und Gold-Grenze des Value-Modells), testen

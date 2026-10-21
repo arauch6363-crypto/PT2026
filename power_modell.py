@@ -961,6 +961,24 @@ def vorn_stufe(y) -> np.ndarray:
     return np.where(y >= 1 - 1e-9, len(VORN_GRENZEN) + 1, s).astype(int)
 
 
+def logloss_quoten(p_morgen, rennen, won, odds_final) -> dict:
+    """Log-Loss des Siegers aus einer Marktchance je Starter (z. B. Morgenquote, je Rennen auf 1) gegen die Endquote –
+    nur Rennen mit genau einem Sieger und allen Quoten (beide)."""
+    oe = pd.to_numeric(pd.Series(np.asarray(odds_final)), errors="coerce").astype(float)
+    inv = (1 / oe).where(oe > 1)
+    d = pd.DataFrame({"r": np.asarray(rennen).astype(str), "w": np.asarray(won, dtype=float),
+                      "pm": np.asarray(p_morgen, dtype=float), "inv": inv.to_numpy()})
+    d = d[d.groupby("r")["pm"].transform(lambda s: s.notna().all()) & d.groupby("r")["inv"].transform(
+        lambda s: s.notna().all()) & (d.groupby("r")["w"].transform("sum") == 1)]
+    if d.empty:
+        return {}
+    pe = d["inv"] / d.groupby("r")["inv"].transform("sum")
+    pm_ = d["pm"] / d.groupby("r")["pm"].transform("sum")
+    s_ = d["w"] == 1
+    return {"rennen": int(d["r"].nunique()), "logloss": round(float(-np.log(pm_[s_]).mean()), 4),
+            "logloss_endquote": round(float(-np.log(pe[s_]).mean()), 4)}
+
+
 def _lgb_daten(lgb, Xk, y, rennen, art, ref=None, init=None):
     """LightGBM-Datensatz; für „rang“/„vorn“ nach Rennen gruppiert (Zeilen eines Rennens hintereinander) mit
     Stufen-Ziel. init: Ausgangswert je Zeile (Segment-Modelle lernen nur die Korrektur dazu)."""
@@ -1072,7 +1090,7 @@ def aufteilung(tage: pd.Series, beginn, ab: str | None = None, aufwaermen: int |
 def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
                X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
                ab: str | None = None, neu: bool = False, art: str = "alle", aufwaermen: int | None = None,
-               segmente: str | None = None, log=print) -> dict:
+               segmente: str | None = None, morgenquote: bool = False, speichern: bool = True, log=print) -> dict:
     """Einmal trainieren: Merkmale über die ganze Historie; das erste Jahr (AUFWAERM_TAGE) dient nur als Vorgeschichte,
     die übrigen Renntage zeitlich 60/20/20 (ANTEILE): lernen, validieren (Abbruch, Wahl Regression/Rang, Siegchance-a),
     testen (nur Bericht, gegen den Marktfavoriten und das Rating). Danach auf allen Tagen nach dem Aufwärmen neu lernen
@@ -1087,15 +1105,21 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
          Log-Loss der Siegchance auf der Validierung (Rangkorrelation nur zur Information).
     segmente: "racetype" oder "age_group" – je Segment ein Zusatzmodell, das nur die Korrektur zum gemeinsamen Modell
          lernt; behalten nur, wo es auf der Validierung die Rangkorrelation um SEG_MIN_GEWINN verbessert. Der Bericht
-         zeigt je Segment gemeinsam gegen mit Segment-Modell (Validierung und Test)."""
+         zeigt je Segment gemeinsam gegen mit Segment-Modell (Validierung und Test).
+    morgenquote: Versuch – zusätzlich die Merkmale aus der Morgenquote (MORGEN_MERKMALE); dann wird nie gespeichert
+         (Power bleibt ohne Markt). speichern=False: nur prüfen und berichten."""
     import lightgbm as lgb
     if segmente is not None and segmente not in SEGMENT_SPALTEN:
         raise ValueError(f"segmente: eins von {SEGMENT_SPALTEN}")
+    speichern = speichern and not morgenquote
     hist, X, ordner = _merkmale_holen(base, hist, out, X, neu, log)
     y = ziel(hist).reindex(X.index)
     ok = y.notna()
     X, y = X[ok], y[ok]
     X = feld_relativ(X, hist.loc[X.index, "race_id"], hist.loc[X.index, "date"])
+    if morgenquote:
+        X = pd.concat([X, morgen_merkmale(hist.loc[X.index])], axis=1)
+        log("Versuch mit Morgenquote (" + ", ".join(MORGEN_MERKMALE) + ") – wird nicht gespeichert")
     tage = pd.to_datetime(hist.loc[X.index, "date"])
     log("Abdeckung je Jahr (% der Starter mit Wert):")
     log(abdeckung(X, tage).to_string())
@@ -1143,6 +1167,12 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
         modelle[a_] = (m, best, p)
     bericht["markt (Endquote)"] = _bewerten(pt, "markt")
     bericht["rating (bereinigt)"] = _bewerten(pt, "rating")
+    if morgenquote:      # Vergleich: die Morgenquote allein (Log-Loss des Siegers, Rennen mit allen Morgenquoten)
+        for name, maske in (("validierung", valid), ("test", test)):
+            ix = X.index[maske]
+            ziel_ = validierung if name == "validierung" else bericht
+            ziel_["markt (Morgenquote allein)"] = logloss_quoten(X.loc[ix, "m_pm"], rennen[maske], hist.loc[ix, "won"],
+                                                                 hist.loc[ix, "odds_final"])
     # Wahl auf der Validierung: kleinster Log-Loss der Siegchance (das, wofür Power am Ende gebraucht wird); die
     # Rangkorrelation über das ganze Feld belohnt auch die Reihenfolge hinten und benachteiligte „vorn“
     sieger = min(arten, key=lambda a_: validierung[f"modell ({a_})"].get("logloss") or np.inf)
@@ -1222,6 +1252,9 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
         log(pd.DataFrame(seg_bericht).T.to_string())
     imp = pd.Series(m.feature_importance("gain"), index=Xk.columns).sort_values(ascending=False)
     log(f"Wichtigste Merkmale ({sieger}, Gain): " + ", ".join(f"{k} {v / imp.sum():.1%}" for k, v in imp.head(15).items()))
+    if not speichern:
+        log("Nicht gespeichert (Versuch).")
+        return bericht
     # endgültig: alle Tage nach dem Aufwärmen, gleiche Baumzahl
     final = lgb.train(p, _lgb_daten(lgb, Xk, y, rennen, sieger), num_boost_round=best)
     ordner.mkdir(parents=True, exist_ok=True)
@@ -1248,6 +1281,13 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     (ordner / META_DATEI).write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
     log(f"Modell gespeichert ({sieger}): {ordner / MODELL_DATEI}")
     return bericht
+
+
+def trainieren_morgen(base: Path | None = None, *, art: str = "regression", **kw) -> dict:
+    """Versuch: Power-Modell zusätzlich mit der Morgenquote – nur Bericht, überschreibt das Power-Modell nie.
+    Vergleich mit dem gespeicherten Power-Modell (ohne Markt) und mit der Morgenquote allein über den Log-Loss der
+    Siegchance (Validierung/Test) und Power-z gegen die Endquote."""
+    return trainieren(base, art=art, morgenquote=True, speichern=False, **kw)
 
 
 # --------------------------------------------------------------------------

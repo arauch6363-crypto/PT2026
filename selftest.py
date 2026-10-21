@@ -853,6 +853,14 @@ def power_modell_pruefen() -> None:
            f"Power-Modell findet das eingebaute Signal als Regression, Rang- und Vorn-Modell (Rangkorrelation Test {rk}), "
            f"gewählt nach Log-Loss der Siegchance auf der Validierung {rv}: {erg['gewaehlt']}; Siegchance-a aus der "
            f"Validierung")
+    with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+        em = pm.trainieren_morgen(hist=h, X=X, out=Path(tmp) / pm.MODELL_ORDNER, runden=40, log=print)
+        nichts = not any((Path(tmp) / pm.MODELL_ORDNER).glob("power_modell*"))
+    mb = em.get("markt (Morgenquote allein)") or {}
+    pruefe(nichts and em["gewaehlt"] == "regression" and em["modell (regression)"]["logloss"] is not None
+           and mb.get("logloss") is not None and mb.get("logloss_endquote") is not None,
+           f"Versuch Power mit Morgenquote: berichtet Log-Loss ({em['modell (regression)']['logloss']}) gegen die "
+           f"Morgenquote allein ({mb.get('logloss')}) und die Endquote ({mb.get('logloss_endquote')}), speichert nichts")
     pruefe(pm.vorn_stufe([0.0, 0.5, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0]).tolist() == [0, 0, 1, 1, 2, 2, 3, 3, 4]
            and pm.vorn_stufe([4 / 5, 13 / 15]).tolist() == [2, 2],
            "Ziel „vorn“: Platzanteil ≥ 0,7 / 0,8 / 0,9 → 1 / 2 / 3, Sieg → 4, hinten 0")
