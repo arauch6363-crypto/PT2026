@@ -1,0 +1,418 @@
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Value-Wetten</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #fcfcfb; --panel: #ffffff; --line: #e4e3df; --grid: #ecebe7;
+  --text: #0b0b0b; --text2: #52514e; --muted: #8a8984;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
+  --good: #1a7f37; --bad: #cf222e; --warn: #9a6700;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #1a1a19; --panel: #222220; --line: #3a3a37; --grid: #2e2e2b;
+    --text: #f0efec; --text2: #c3c2b7; --muted: #8f8e88;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+    --good: #4ac26b; --bad: #ff7b72; --warn: #d29922;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1a1a19; --panel: #222220; --line: #3a3a37; --grid: #2e2e2b;
+  --text: #f0efec; --text2: #c3c2b7; --muted: #8f8e88;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+  --good: #4ac26b; --bad: #ff7b72; --warn: #d29922;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1280px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 20px; margin: 0 0 2px; }
+.stand { color: var(--text2); font-size: 13px; margin-bottom: 12px; }
+.filter { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.filter label { display: flex; align-items: center; gap: 6px; color: var(--text2); font-size: 13px; }
+.filter select, .filter input[type=text] { font: inherit; color: var(--text); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+.filter input[type=range] { width: 120px; }
+.filter output { min-width: 34px; color: var(--text); font-variant-numeric: tabular-nums; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 12px 0; }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.kpi .t { font-size: 11px; color: var(--text2); }
+.kpi .w { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.kpi .u { font-size: 11px; color: var(--muted); }
+.hinweis { color: var(--bad); font-weight: 600; margin: 4px 0 8px; }
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 8px; }
+.chart { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.chart h2 { font-size: 13px; margin: 0 0 4px; font-weight: 600; }
+.legend { display: flex; gap: 12px; font-size: 12px; color: var(--text2); margin-bottom: 2px; }
+.legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
+.legend i.d { background: none !important; border-top: 2px dashed; height: 0; }
+svg { display: block; width: 100%; height: auto; overflow: visible; }
+svg text { fill: var(--muted); font-size: 11px; }
+.tip { position: fixed; pointer-events: none; background: var(--panel); color: var(--text);
+  border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15); display: none; white-space: pre; z-index: 9; }
+.tabelle { margin-top: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: auto; max-height: 560px; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 3px 7px; text-align: right; white-space: nowrap; font-size: 12px; }
+th { position: sticky; top: 0; background: var(--panel); cursor: pointer; border-bottom: 1px solid var(--line); color: var(--text2); }
+th.l, td.l { text-align: left; }
+tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 4%, transparent); }
+.pos { color: var(--good); } .neg { color: var(--bad); } .wa { color: var(--warn); }
+.fuss { color: var(--muted); font-size: 12px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Value-Wetten</h1>
+<div class="stand" id="stand"></div>
+<div class="filter">
+  <label>Einsatz <select id="st">
+    <option value="kelly8">⅛ Kelly</option><option value="kelly4" selected>¼ Kelly</option>
+    <option value="kelly2">½ Kelly</option><option value="kelly1">1/1 Kelly</option>
+    <option value="level10">10 € fest</option><option value="level1p">1 % der Bank</option></select></label>
+  <label>Min. Wert <input type="range" id="minw" min="0" max="1.5" step="0.1" value="0.5"><output id="minw_o"></output></label>
+  <label><input type="checkbox" id="gold" checked> Gold ab 0,2</label>
+  <label>Modus <select id="modus">
+    <option value="max" selected>Fair &lt; X</option><option value="rank">Rang% ≥ X</option>
+    <option value="rel">Rel ≥ X</option><option value="none">ohne</option></select></label>
+  <label id="r_max">Fair &lt; <input type="range" id="v_max" min="5" max="100" step="5" value="10"><output id="v_max_o"></output></label>
+  <label id="r_rank">Rang% ≥ <input type="range" id="v_rank" min="0" max="1" step="0.05" value="0.5"><output id="v_rank_o"></output></label>
+  <label id="r_rel">Rel ≥ <input type="range" id="v_rel" min="0" max="4" step="0.1" value="1"><output id="v_rel_o"></output></label>
+  <label>Top <select id="top"><option value="beides" selected>beides</option>
+    <option value="ja">nur Top-Wert</option><option value="nein">ohne Top-Wert</option></select></label>
+  <label>Tag <select id="tag"><option value="alle">alle</option></select></label>
+  <label>Pferd <input type="text" id="suche" placeholder="Suche …" size="12"></label>
+</div>
+<div class="kpis" id="kpis"></div>
+<div class="hinweis" id="hinweis"></div>
+<div class="charts">
+  <div class="chart"><h2>Bank</h2><div id="c_bank"></div></div>
+  <div class="chart"><h2>Gewinn je Tag</h2><div id="c_tag"></div></div>
+  <div class="chart"><h2>Sieger kumuliert</h2><div id="c_sieg"></div></div>
+  <div class="chart"><h2>Platzierte kumuliert</h2><div id="c_platz"></div></div>
+</div>
+<div class="tabelle"><table id="tab"></table></div>
+<div class="fuss">Kurse = Festkurse zum Stand der Karte (festkurse_stand), keine Endkurse ·
+  unter etwa 30 Wetten kaum belastbar · Wert &gt; 3 (gelb) deutet oft auf einen Kursfehler hin ·
+  Sieg- und Platzbein mit gleichem Einsatz, je Bein 5 % Steuer · Tag einzeln = Start mit 1000 €.</div>
+</main>
+<div class="tip" id="tip"></div>
+<script>
+const DATA = /*__DATA__*/null;
+
+// SIM-START – gleiche Regeln wie value_bets.simulate (Python)
+const TOL = 1e-6, STEUER = 0.05;
+const KELLY = {kelly8: 1/8, kelly4: 1/4, kelly2: 1/2, kelly1: 1};
+
+function rhu(x, d = 0) {
+  // kaufmännisch runden wie Decimal(repr(x)).quantize(ROUND_HALF_UP)
+  if (x === null || !isFinite(x)) return x;
+  const s = x < 0 ? -1 : 1, a = Math.abs(x), str = String(a);
+  if (str.includes('e')) return s * Math.round(a * 10 ** d) / 10 ** d;
+  const [ip, fp0 = ''] = str.split('.');
+  const fp = fp0.padEnd(d + 1, '0');
+  let n = BigInt(ip + fp.slice(0, d));
+  if (fp[d] >= '5') n += 1n;
+  const r = Number(n) / 10 ** d;
+  return r === 0 ? 0 : s * r;
+}
+
+function zeilen(daten) {
+  const sp = daten.spalten;
+  return daten.zeilen.map(z => Object.fromEntries(sp.map((k, i) => [k, z[i]])));
+}
+
+function auswahl(pool, f) {
+  const gs = Math.min(0.2, f.minw), x = f.mode_value;
+  return pool.filter(r => {
+    const w = r.wert;
+    if (!(w > TOL && (w >= f.minw - TOL || (f.gold_on && r.gold && w >= gs - TOL)))) return false;
+    if (f.mode === 'max' && !(r.fair < x - TOL)) return false;
+    if (f.mode === 'rank' && !(r.rank_pct >= x - TOL)) return false;
+    if (f.mode === 'rel' && !(r.rel >= x - TOL)) return false;
+    if (f.top === 'ja' && r.is_top !== 1) return false;
+    if (f.top === 'nein' && r.is_top !== 0) return false;
+    return true;
+  });
+}
+
+function einsatz(bank, p, fk, v) {
+  let roh;
+  if (v === 'level10') roh = 10;
+  else if (v === 'level1p') roh = 0.01 * bank;
+  else roh = bank * KELLY[v] * Math.max(0, (p * fk - 1) / (fk - 1));
+  return Math.max(0, rhu(roh));
+}
+
+function bein(stake, quote, treffer) {
+  if (quote === null || stake <= 0) return [0, 0];
+  const steuer = STEUER * stake;
+  const brutto = treffer ? stake * (quote - 1) : -stake;
+  return [rhu(brutto - steuer, 2), steuer];
+}
+
+function kpis(bets, days, start) {
+  const k = {days: days.length, bets: bets.length, start_bank: start,
+             bank: days.length ? days[days.length - 1].bank : start};
+  if (!bets.length) { k.hinweis = 'keine Wette bei diesem Filter'; return k; }
+  const sum = (a, f) => a.reduce((s, b) => s + f(b), 0);
+  const q = (a, b) => b ? a / b : null;
+  const pw = sum(bets, b => b.profit_win), pp = sum(bets, b => b.profit_place);
+  const sw = sum(bets, b => b.stake_win), spl = sum(bets, b => b.stake_place);
+  const mp = bets.filter(b => b.stake_place > 0);
+  const wins = bets.filter(b => b.won).length, places = mp.filter(b => b.placed).length;
+  const efk = sum(bets, b => b.p_fk), emod = sum(bets, b => b.p_model), epq = sum(mp, b => b.p_pq);
+  Object.assign(k, {
+    profit: rhu(pw + pp, 2), profit_win: rhu(pw, 2), profit_place: rhu(pp, 2),
+    roi: q(pw + pp, sw + spl), roi_win: q(pw, sw), roi_place: q(pp, spl),
+    stake: sw + spl, stake_win: sw, stake_place: spl, tax: rhu(sum(bets, b => b.tax), 2),
+    wins, places, strike_rate: wins / bets.length, place_rate: q(places, mp.length),
+    exp_wins_fk: efk, exp_wins_model: emod, exp_places_pq: epq,
+    edge_wins_fk: q(wins, efk), edge_wins_model: q(wins, emod), edge_places_pq: q(places, epq),
+    hinweis: bets.length < 30 ? 'Stichprobe klein (< 30 Wetten)' : null,
+  });
+  return k;
+}
+
+function simulieren(pool, f, variant, start = 1000) {
+  const cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+  const sel = auswahl(pool, f).filter(r => r.settled)
+    .sort((a, b) => cmp(a.date, b.date) || cmp(a.race_id, b.race_id) || a.no - b.no);
+  const tage = [...new Set(pool.filter(r => r.settled).map(r => r.date))].sort();
+  let bank = start;
+  const bets = [], days = [];
+  for (const tag of tage) {
+    const bs = bank;
+    let gs = 0, gp = 0, n = 0;
+    for (const r of sel.filter(r => r.date === tag)) {
+      const st = einsatz(bs, r.p, r.fk_sieg, variant);
+      if (st <= 0) continue;
+      const [g_s, t_s] = bein(st, r.fk_sieg, r.won);
+      const [g_p, t_p] = bein(st, r.fk_platz, r.placed);
+      const stp = r.fk_platz !== null ? st : 0;
+      gs += g_s; gp += g_p; n += 1;
+      bets.push({...r, stake_win: st, stake_place: stp, stake: st + stp, tax: rhu(t_s + t_p, 2),
+        profit_win: g_s, profit_place: g_p, profit: rhu(g_s + g_p, 2),
+        p_pq: r.fk_platz !== null ? r.p_pq : null, bank_start: bs});
+    }
+    bank = rhu(bs + gs + gp, 2);
+    days.push({date: tag, bank_start: bs, bets: n, profit_win: rhu(gs, 2),
+               profit_place: rhu(gp, 2), profit: rhu(gs + gp, 2), bank});
+  }
+  return {bets, days, kpi: kpis(bets, days, start)};
+}
+// SIM-END
+
+if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
+</script>
+<script>
+(function () {
+  if (typeof document === 'undefined' || !DATA) return;
+  const pool = zeilen(DATA);
+  const $ = id => document.getElementById(id);
+  const fd = d => `${d.slice(6, 8)}.${d.slice(4, 6)}.${d.slice(0, 4)}`;
+  const fdk = d => `${d.slice(6, 8)}.${d.slice(4, 6)}.`;
+  const nf = (v, nk = 2) => v === null || v === undefined ? '–'
+    : v.toLocaleString('de-DE', {minimumFractionDigits: nk, maximumFractionDigits: nk});
+  const eur = v => v === null || v === undefined ? '–' : nf(v) + ' €';
+  const pct = v => v === null || v === undefined ? '–' : nf(100 * v, 1) + ' %';
+
+  const mitErg = [...new Set(pool.filter(r => r.settled).map(r => r.date))].sort();
+  const alle = [...new Set(pool.map(r => r.date))].sort();
+  const offen = alle.filter(d => !mitErg.includes(d));
+  $('stand').textContent = (mitErg.length
+      ? `Renntage ${fd(mitErg[0])} – ${fd(mitErg[mitErg.length - 1])} (${mitErg.length} mit Ergebnis)`
+      : 'noch kein Renntag mit Ergebnis')
+    + (offen.length ? ` · offen: ${offen.map(fd).join(', ')}` : '')
+    + ` · erstellt ${DATA.erstellt}`;
+  for (const d of mitErg) $('tag').add(new Option(fd(d), d));
+
+  // ---- Tooltip
+  const tip = $('tip');
+  document.addEventListener('mousemove', e => {
+    const t = e.target.closest && e.target.closest('[data-tip]');
+    if (!t) { tip.style.display = 'none'; return; }
+    tip.textContent = t.dataset.tip;
+    tip.style.display = 'block';
+    const x = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8);
+    tip.style.left = x + 'px'; tip.style.top = (e.clientY + 12) + 'px';
+  });
+
+  // ---- Diagramme (SVG)
+  const W = 560, H = 230, L = 48, R = 10, T = 8, B = 24;
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  function skala(min, max) {
+    if (min === max) { min -= 1; max += 1; }
+    const roh = (max - min) / 4, p = 10 ** Math.floor(Math.log10(roh));
+    const st = [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= roh);
+    const a = Math.floor(min / st) * st, b = Math.ceil(max / st) * st, ticks = [];
+    for (let v = a; v <= b + st / 2; v += st) ticks.push(+v.toFixed(10));
+    return {a, b, ticks};
+  }
+  function achsen(sk, y, xlabels) {
+    let s = '';
+    for (const v of sk.ticks) {
+      s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/>`
+        + `<text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${nf(v, Math.abs(sk.b - sk.a) < 10 ? 1 : 0)}</text>`;
+    }
+    for (const [x, t] of xlabels) s += `<text x="${x}" y="${H - 6}" text-anchor="middle">${esc(t)}</text>`;
+    return s;
+  }
+  function xlabelsAus(xs, lab) {
+    const n = xs.length, schritt = Math.max(1, Math.ceil(n / 8)), out = [];
+    xs.forEach((x, i) => { if (i % schritt === 0 || i === n - 1) out.push([x, lab(i)]); });
+    return out;
+  }
+  function legende(serien) {
+    if (serien.length < 2) return '';
+    return '<div class="legend">' + serien.map(s =>
+      `<span><i class="${s.dash ? 'd' : ''}" style="background:${s.farbe};border-color:${s.farbe}"></i>${esc(s.name)}</span>`).join('') + '</div>';
+  }
+  function linien(el, serien, xlab, tipp, ref) {
+    const n = serien[0].werte.length;
+    if (!n) { el.innerHTML = '<p class="fuss">keine Daten</p>'; return; }
+    let lo = Infinity, hi = -Infinity;
+    for (const s of serien) for (const v of s.werte) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    if (ref !== undefined) { lo = Math.min(lo, ref); hi = Math.max(hi, ref); }
+    const sk = skala(lo, hi);
+    const x = i => n === 1 ? (L + W - R) / 2 : L + i * (W - L - R) / (n - 1);
+    const y = v => T + (sk.b - v) * (H - T - B) / (sk.b - sk.a);
+    const xs = Array.from({length: n}, (_, i) => x(i));
+    let s = achsen(sk, y, xlabelsAus(xs, xlab));
+    if (ref !== undefined)
+      s += `<line x1="${L}" x2="${W - R}" y1="${y(ref)}" y2="${y(ref)}" stroke="var(--muted)" stroke-dasharray="4 4"/>`;
+    for (const se of serien) {
+      const pts = se.werte.map((v, i) => `${x(i)},${y(v)}`).join(' ');
+      s += `<polyline points="${pts}" fill="none" stroke="${se.farbe}" stroke-width="2" stroke-linejoin="round"${se.dash ? ' stroke-dasharray="5 4"' : ''}/>`;
+    }
+    if (n <= 60) for (const se of serien.slice(0, 1))
+      se.werte.forEach((v, i) => { s += `<circle cx="${x(i)}" cy="${y(v)}" r="4" fill="${se.farbe}" stroke="var(--panel)" stroke-width="2"/>`; });
+    // Spalten für Hover (breiter als die Markierung)
+    const bw = n === 1 ? W - L - R : (W - L - R) / (n - 1);
+    xs.forEach((xx, i) => {
+      s += `<rect x="${xx - bw / 2}" y="${T}" width="${bw}" height="${H - T - B}" fill="transparent" data-tip="${esc(tipp(i))}"/>`;
+    });
+    el.innerHTML = legende(serien) + `<svg viewBox="0 0 ${W} ${H}" role="img">${s}</svg>`;
+  }
+  function balken(el, serien, xlab, tipp) {
+    const n = serien[0].werte.length;
+    if (!n) { el.innerHTML = '<p class="fuss">keine Daten</p>'; return; }
+    let lo = 0, hi = 0;
+    for (const s of serien) for (const v of s.werte) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    const sk = skala(lo, hi);
+    const y = v => T + (sk.b - v) * (H - T - B) / (sk.b - sk.a);
+    const gw = (W - L - R) / n, k = serien.length, bw = Math.min(28, (gw - 6) / k - 2);
+    const xs = Array.from({length: n}, (_, i) => L + gw * (i + 0.5));
+    let s = achsen(sk, y, xlabelsAus(xs, xlab));
+    serien.forEach((se, j) => se.werte.forEach((v, i) => {
+      const x0 = xs[i] - (k * (bw + 2)) / 2 + j * (bw + 2) + 1, y0 = y(Math.max(v, 0)), h = Math.abs(y(v) - y(0));
+      s += `<rect x="${x0}" y="${y0}" width="${bw}" height="${Math.max(h, 0.5)}" rx="2" fill="${se.farbe}"/>`;
+    }));
+    s += `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--muted)"/>`;
+    xs.forEach((xx, i) => {
+      s += `<rect x="${xx - gw / 2}" y="${T}" width="${gw}" height="${H - T - B}" fill="transparent" data-tip="${esc(tipp(i))}"/>`;
+    });
+    el.innerHTML = legende(serien) + `<svg viewBox="0 0 ${W} ${H}" role="img">${s}</svg>`;
+  }
+
+  // ---- Tabelle
+  const SP = [
+    ['date', 'Tag', 'l', r => fdk(r.date)], ['race', 'Rennen', 'l'], ['course', 'Bahn', 'l'],
+    ['no', 'Nr'], ['horse', 'Pferd', 'l'], ['n', 'Starter'],
+    ['fk_sieg', 'FK Sieg', '', r => nf(r.fk_sieg, 1)], ['fk_platz', 'FK Platz', '', r => nf(r.fk_platz, 1)],
+    ['cote_dec', 'Presse', '', r => nf(r.cote_dec, 1)], ['p', 'p %', '', r => nf(100 * r.p, 1)],
+    ['fair', 'Fair', '', r => nf(r.fair, 1)], ['wert', 'Wert', '', r => nf(r.wert, 2)],
+    ['rank_pct', 'Rang%', '', r => nf(r.rank_pct, 2)], ['rel', 'Rel', '', r => nf(r.rel, 2)],
+    ['gold', 'Gold', '', r => r.gold ? '★' : ''], ['is_top', 'Top', '', r => r.is_top ? '▲' : ''],
+    ['pos', 'Platz', '', r => r.pos === null ? '–' : r.pos],
+    ['stake_win', 'Einsatz S', '', r => nf(r.stake_win, 0)], ['stake_place', 'Einsatz P', '', r => nf(r.stake_place, 0)],
+    ['profit_win', 'G/V Sieg', '', r => nf(r.profit_win)], ['profit_place', 'G/V Platz', '', r => nf(r.profit_place)],
+    ['profit', 'G/V', '', r => nf(r.profit)],
+  ];
+  let sortSp = null, sortAuf = true, letzte = [];
+  function tabelle(bets) {
+    letzte = bets;
+    const q = $('suche').value.trim().toLowerCase();
+    let b = q ? bets.filter(r => String(r.horse).toLowerCase().includes(q)) : bets.slice();
+    if (sortSp) b.sort((x, y) => {
+      const a = x[sortSp], c = y[sortSp];
+      if (a === c) return 0; if (a === null) return 1; if (c === null) return -1;
+      return (a < c ? -1 : 1) * (sortAuf ? 1 : -1);
+    });
+    const kopf = '<thead><tr>' + SP.map(([k, t, c]) =>
+      `<th class="${c || ''}" data-k="${k}">${t}${sortSp === k ? (sortAuf ? ' ▴' : ' ▾') : ''}</th>`).join('') + '</tr></thead>';
+    const farbe = v => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
+    const rumpf = b.map(r => '<tr>' + SP.map(([k, , c, f]) => {
+      let kl = c || '';
+      if (k.startsWith('profit')) kl += ' ' + farbe(r[k]);
+      if (k === 'wert' && r.wert > 3) kl += ' wa';
+      return `<td class="${kl}">${esc(f ? f(r) : r[k])}</td>`;
+    }).join('') + '</tr>').join('');
+    $('tab').innerHTML = kopf + '<tbody>' + (rumpf || `<tr><td class="l" colspan="${SP.length}">keine Wette bei diesem Filter</td></tr>`) + '</tbody>';
+    $('tab').querySelectorAll('th').forEach(th => th.onclick = () => {
+      const k = th.dataset.k; sortAuf = sortSp === k ? !sortAuf : true; sortSp = k; tabelle(letzte);
+    });
+  }
+
+  function karten(k) {
+    const z = (t, w, u = '') => `<div class="kpi"><div class="t">${t}</div><div class="w">${w}</div><div class="u">${u}</div></div>`;
+    const kl = v => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
+    $('kpis').innerHTML = [
+      z('Bank', `<span class="${kl(k.bank - k.start_bank)}">${eur(k.bank)}</span>`, `Start ${eur(k.start_bank)}`),
+      z('Gewinn', `<span class="${kl(k.profit)}">${eur(k.profit)}</span>`, `Sieg ${eur(k.profit_win)} · Platz ${eur(k.profit_place)}`),
+      z('ROI', pct(k.roi), `Sieg ${pct(k.roi_win)} · Platz ${pct(k.roi_place)}`),
+      z('Tage / Wetten', `${k.days} / ${k.bets}`, ''),
+      z('Einsatz', eur(k.stake), `Steuer ${eur(k.tax)}`),
+      z('Sieger', k.wins ?? '–', `Trefferquote ${pct(k.strike_rate)}`),
+      z('Platziert', k.places ?? '–', `Platzquote ${pct(k.place_rate)}`),
+      z('Erw. Sieger', `${nf(k.exp_wins_fk)} / ${nf(k.exp_wins_model)}`, 'Festkurs / Modell'),
+      z('Edge Sieg', `${nf(k.edge_wins_fk)} / ${nf(k.edge_wins_model)}`, 'echt ÷ erwartet (FK / Modell)'),
+      z('Erw. Plätze / Edge', `${nf(k.exp_places_pq)} / ${nf(k.edge_places_pq)}`, 'nach Platzkurs'),
+    ].join('');
+    $('hinweis').textContent = k.hinweis || '';
+  }
+
+  const farbe = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  function neu() {
+    const modus = $('modus').value;
+    for (const m of ['max', 'rank', 'rel']) $('r_' + m).style.display = m === modus ? '' : 'none';
+    $('minw_o').textContent = nf(+$('minw').value, 1);
+    $('v_max_o').textContent = $('v_max').value;
+    $('v_rank_o').textContent = nf(+$('v_rank').value, 2);
+    $('v_rel_o').textContent = nf(+$('v_rel').value, 1);
+    const f = {minw: +$('minw').value, gold_on: $('gold').checked, mode: modus,
+               mode_value: modus === 'none' ? 0 : +$('v_' + modus).value, top: $('top').value};
+    const p = $('tag').value === 'alle' ? pool : pool.filter(r => r.date === $('tag').value);
+    const res = simulieren(p, f, $('st').value);
+    karten(res.kpi);
+    const d = res.days, b = res.bets, c1 = farbe('--s1'), c2 = farbe('--s2'), c3 = farbe('--s3');
+    linien($('c_bank'), [{name: 'Bank', farbe: c1, werte: [1000, ...d.map(x => x.bank)]}],
+      i => i ? fdk(d[i - 1].date) : 'Start',
+      i => i ? `${fd(d[i - 1].date)}\nBank ${eur(d[i - 1].bank)}\nTag ${eur(d[i - 1].profit)} (${d[i - 1].bets} Wetten)` : `Start ${eur(1000)}`, 1000);
+    balken($('c_tag'), [{name: 'Sieg', farbe: c1, werte: d.map(x => x.profit_win)},
+                        {name: 'Platz', farbe: c2, werte: d.map(x => x.profit_place)}],
+      i => fdk(d[i].date), i => `${fd(d[i].date)}\nSieg ${eur(d[i].profit_win)}\nPlatz ${eur(d[i].profit_place)}`);
+    const kum = (a, f) => { let s = 0; return a.map(x => (s += f(x))); };
+    const wb = [0, ...kum(b, x => x.won ? 1 : 0)], wfk = [0, ...kum(b, x => x.p_fk)], wm = [0, ...kum(b, x => x.p_model)];
+    linien($('c_sieg'), [{name: 'echt', farbe: c1, werte: wb}, {name: 'erwartet Festkurs', farbe: c2, werte: wfk, dash: 1},
+                         {name: 'erwartet Modell', farbe: c3, werte: wm, dash: 1}],
+      i => String(i), i => `nach ${i} Wetten${i ? ' (' + b[i - 1].horse + ')' : ''}\necht ${wb[i]}\nFK ${nf(wfk[i])} · Modell ${nf(wm[i])}`);
+    const mp = b.filter(x => x.stake_place > 0);
+    const pb = [0, ...kum(mp, x => x.placed ? 1 : 0)], pq = [0, ...kum(mp, x => x.p_pq)];
+    linien($('c_platz'), [{name: 'echt', farbe: c1, werte: pb}, {name: 'erwartet Platzkurs', farbe: c2, werte: pq, dash: 1}],
+      i => String(i), i => `nach ${i} Platzwetten\necht ${pb[i]}\nerwartet ${nf(pq[i])}`);
+    tabelle(b);
+  }
+  for (const id of ['st', 'minw', 'gold', 'modus', 'v_max', 'v_rank', 'v_rel', 'top', 'tag'])
+    $(id).addEventListener('input', neu);
+  $('suche').addEventListener('input', () => tabelle(letzte));
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', neu);
+  neu();
+})();
+</script>
+</body>

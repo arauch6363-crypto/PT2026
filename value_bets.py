@@ -5,8 +5,9 @@ Eingaben je Renntag (gepaart über YYYYMMDD im Dateinamen):
     (``fk.sieg``/``fk.platz``) und Presse-Kurs (``prono.sel.cote_dec``),
   * ``YYYYMMDD.parquet`` aus ``pmu_races`` – Einlauf (``finish_order``).
 
-Die Simulationsfunktionen sind rein (keine UI); ``dashboard`` baut darauf die
-Oberfläche mit ipywidgets und Plotly.
+Die Simulationsfunktionen sind rein (keine UI). ``dashboard`` schreibt eine
+eigenständige HTML-Seite (wie die Racecard), in der dieselbe Simulation im
+Browser läuft; ``start()`` baut sie aus der Drive-Ablage.
 
 Hinweise:
   * Die Kurse sind Festkurse zum Stand ``festkurse_stand`` – keine Endkurse.
@@ -468,184 +469,64 @@ def kpis(bets: pd.DataFrame, days: pd.DataFrame, start_bank: float) -> dict:
     return k
 
 
-# ---------------------------------------------------------------- Dashboard
+# ---------------------------------------------------------------- Dashboard (HTML)
 
-_TABELLE = [
-    ("date", "Tag"), ("race", "Rennen"), ("course", "Bahn"), ("no", "Nr"), ("horse", "Pferd"),
-    ("n", "Starter"), ("fk_sieg", "FK Sieg"), ("fk_platz", "FK Platz"), ("cote_dec", "Presse"),
-    ("p", "p"), ("fair", "Fair"), ("wert", "Wert"), ("rank_pct", "Rang%"), ("rel", "Rel"),
-    ("gold", "Gold"), ("is_top", "Top"), ("pos", "Platz"), ("stake_win", "Einsatz S"),
-    ("stake_place", "Einsatz P"), ("profit_win", "G/V Sieg"), ("profit_place", "G/V Platz"),
-    ("profit", "G/V"),
-]
+TEMPLATE = Path(__file__).with_name("value_dashboard_template.html")
+DASHBOARD_DATEI = "value_dashboard.html"
+_HTML_SPALTEN = [
+    "date", "race_id", "race", "course", "no", "horse", "n", "p", "fair", "rank_fq", "rank_pct",
+    "rel", "fk_sieg", "fk_platz", "cote_dec", "wert", "gold", "is_top", "p_fk", "p_model", "p_pq",
+    "settled", "pos", "won", "placed"]
 
 
-def _fmt(v: Any, nk: int = 2) -> str:
-    if v is None or (isinstance(v, float) and math.isnan(v)):
-        return "–"
+def _json_wert(v: Any) -> Any:
+    if v is None or v is pd.NA:
+        return None
     if isinstance(v, (bool, np.bool_)):
-        return "✓" if v else ""
+        return bool(v)
     if isinstance(v, (int, np.integer)):
-        return str(int(v))
+        return int(v)
     if isinstance(v, (float, np.floating)):
-        return f"{v:,.{nk}f}".replace(",", " ")
+        return None if math.isnan(v) else float(v)
     return str(v)
 
 
-def _tabelle_html(bets: pd.DataFrame) -> str:
-    """Sortierbare HTML-Tabelle; Gewinne grün, Verluste rot."""
-    if bets.empty:
-        return f"<p><i>{HINWEIS_LEER}</i></p>"
-    kopf = "".join(f"<th onclick='vbSort(this)'>{t}</th>" for _, t in _TABELLE)
-    zeilen = []
-    for _, r in bets.iterrows():
-        zellen = []
-        for sp, _ in _TABELLE:
-            v = r[sp]
-            stil = ""
-            if sp.startswith("profit") and v is not None and not pd.isna(v):
-                stil = " style='color:#1a7f37'" if v > 0 else (" style='color:#cf222e'" if v < 0 else "")
-            if sp == "wert" and v is not None and v > 3:
-                stil = " style='color:#9a6700' title='Wert > 3 – Kursfehler?'"
-            roh = "" if v is None or (isinstance(v, float) and math.isnan(v)) else v
-            zellen.append(f"<td data-v='{roh}'{stil}>{_fmt(v, 3 if sp in ('p', 'rank_pct') else 2)}</td>")
-        zeilen.append("<tr>" + "".join(zellen) + "</tr>")
-    js = """<script>
-function vbSort(th){const t=th.closest('table'),b=t.tBodies[0],i=[...th.parentNode.children].indexOf(th);
-const asc=th.dataset.asc!=='1';th.dataset.asc=asc?'1':'0';
-const rows=[...b.rows];rows.sort((x,y)=>{let a=x.cells[i].dataset.v,c=y.cells[i].dataset.v;
-const na=parseFloat(a),nc=parseFloat(c);if(!isNaN(na)&&!isNaN(nc)){a=na;c=nc;}
-return (a>c?1:a<c?-1:0)*(asc?1:-1);});rows.forEach(r=>b.appendChild(r));}
-</script>"""
-    css = ("<style>.vb td,.vb th{padding:2px 6px;text-align:right;font-size:12px;white-space:nowrap}"
-           ".vb th{cursor:pointer;border-bottom:1px solid #888}.vb tr:nth-child(even){background:rgba(127,127,127,.08)}</style>")
-    return (css + js + "<div style='max-height:420px;overflow:auto'><table class='vb'><thead><tr>"
-            + kopf + "</tr></thead><tbody>" + "".join(zeilen) + "</tbody></table></div>")
+def dashboard_daten(pool: pd.DataFrame) -> dict:
+    """Pool kompakt (Spalten + Zeilen, volle Float-Genauigkeit) für die HTML-Seite."""
+    zeilen = [[_json_wert(v) for v in r] for r in pool[_HTML_SPALTEN].itertuples(index=False)] \
+        if not pool.empty else []
+    return {"spalten": _HTML_SPALTEN, "zeilen": zeilen,
+            "erstellt": pd.Timestamp.now(tz="Europe/Paris").strftime("%d.%m.%Y %H:%M")}
 
 
-def _kpi_html(k: dict) -> str:
-    def pct(v):
-        return "–" if v is None else f"{100 * v:.1f} %"
-
-    def eur(v):
-        return "–" if v is None else f"{v:,.2f} €".replace(",", " ")
-
-    def num(v, nk=2):
-        return "–" if v is None else f"{v:.{nk}f}"
-
-    karten = [
-        ("Bank", eur(k["bank"])), ("Gewinn", eur(k.get("profit"))),
-        ("Sieg / Platz", f"{eur(k.get('profit_win'))} / {eur(k.get('profit_place'))}"),
-        ("ROI", pct(k.get("roi"))), ("ROI Sieg / Platz", f"{pct(k.get('roi_win'))} / {pct(k.get('roi_place'))}"),
-        ("Tage / Wetten", f"{k['days']} / {k['bets']}"), ("Einsatz", eur(k.get("stake"))),
-        ("Steuer", eur(k.get("tax"))),
-        ("Sieger", f"{k.get('wins', '–') if k.get('wins') is not None else '–'} ({pct(k.get('strike_rate'))})"),
-        ("Platziert", f"{k.get('places') if k.get('places') is not None else '–'} ({pct(k.get('place_rate'))})"),
-        ("Erw. Sieger FK / Modell", f"{num(k.get('exp_wins_fk'))} / {num(k.get('exp_wins_model'))}"),
-        ("Edge Sieg FK / Modell", f"{num(k.get('edge_wins_fk'))} / {num(k.get('edge_wins_model'))}"),
-        ("Erw. Plätze / Edge", f"{num(k.get('exp_places_pq'))} / {num(k.get('edge_places_pq'))}"),
-    ]
-    html = "".join(
-        "<div style='border:1px solid rgba(127,127,127,.4);border-radius:6px;padding:6px 10px;min-width:130px'>"
-        f"<div style='font-size:11px;opacity:.7'>{t}</div><div style='font-size:15px;font-weight:600'>{w}</div></div>"
-        for t, w in karten)
-    hinweis = f"<p style='color:#cf222e'><b>{k['hinweis']}</b></p>" if k.get("hinweis") else ""
-    return f"<div style='display:flex;flex-wrap:wrap;gap:6px'>{html}</div>{hinweis}"
+def dashboard_html(pool: pd.DataFrame) -> str:
+    """Eigenständige HTML-Seite: Filter, Kennzahlen, Grafiken und Tabelle laufen im Browser
+    (gleiche Regeln wie ``simulate``)."""
+    js = json.dumps(dashboard_daten(pool), ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    seite = TEMPLATE.read_text(encoding="utf-8").replace("/*__DATA__*/null", js, 1)
+    return f'<!doctype html>\n<html lang="de">\n{seite}\n</html>\n'
 
 
-def _grafiken(res: SimResult, start_bank: float):
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
-
-    d, b = res.days_df, res.bets_df
-    fig = make_subplots(rows=2, cols=2, subplot_titles=(
-        "Bank", "Gewinn je Tag", "Sieger kumuliert", "Platzierte kumuliert"))
-    x0 = list(d["date"])
-    fig.add_trace(go.Scatter(x=["Start"] + x0, y=[start_bank] + list(d["bank"]),
-                             mode="lines+markers", name="Bank"), 1, 1)
-    fig.add_hline(y=start_bank, line_dash="dash", line_color="gray", row=1, col=1)
-    fig.add_trace(go.Bar(x=x0, y=d["profit_win"], name="Sieg"), 1, 2)
-    fig.add_trace(go.Bar(x=x0, y=d["profit_place"], name="Platz"), 1, 2)
-    if not b.empty:
-        i = list(range(1, len(b) + 1))
-        fig.add_trace(go.Scatter(x=i, y=b["won"].cumsum(), name="Sieger echt"), 2, 1)
-        fig.add_trace(go.Scatter(x=i, y=b["p_fk"].cumsum(), name="erwartet FK", line_dash="dot"), 2, 1)
-        fig.add_trace(go.Scatter(x=i, y=b["p_model"].cumsum(), name="erwartet Modell", line_dash="dash"), 2, 1)
-        mp = b[b["stake_place"] > 0]
-        j = list(range(1, len(mp) + 1))
-        fig.add_trace(go.Scatter(x=j, y=mp["placed"].cumsum(), name="Platz echt"), 2, 2)
-        fig.add_trace(go.Scatter(x=j, y=mp["p_pq"].astype(float).cumsum(), name="erwartet Platzkurs",
-                                 line_dash="dot"), 2, 2)
-    fig.update_layout(height=620, barmode="relative", margin=dict(l=40, r=20, t=40, b=30),
-                      legend=dict(orientation="h", y=-0.08))
-    return fig
+def dashboard(pool: pd.DataFrame, pfad: str | Path) -> Path:
+    """Dashboard als HTML-Datei schreiben (überschreibt eine vorhandene)."""
+    pfad = Path(pfad)
+    pfad.parent.mkdir(parents=True, exist_ok=True)
+    pfad.write_text(dashboard_html(pool), encoding="utf-8")
+    return pfad
 
 
-def dashboard(pool: pd.DataFrame):
-    """Interaktives Dashboard (ipywidgets + Plotly) über einen geladenen Pool."""
-    import ipywidgets as w
-    from IPython.display import HTML, display
+def start(base: str | Path = BASE_DRIVE, ab: str | None = START_DATUM) -> Path:
+    """Dashboard aus der Drive-Ablage bauen: alle Renntage ab ``ab``.
 
-    tage = sorted(pool.loc[pool["settled"].astype(bool), "date"].unique()) if not pool.empty else []
-    st = w.Dropdown(options=list(VARIANTEN), value="kelly4", description="Einsatz")
-    minw = w.FloatSlider(value=0.5, min=0, max=1.5, step=0.1, description="Min. Wert", readout_format=".1f")
-    gold = w.Checkbox(value=True, description="Gold ab 0,2")
-    modus = w.ToggleButtons(options=list(MODI), value="max", description="Modus")
-    regler = {m: w.FloatSlider(value=v, min=a, max=b, step=s, description={
-        "max": "Fair <", "rank": "Rang% ≥", "rel": "Rel ≥"}[m], readout_format=".2f")
-        for m, (a, b, s, v) in MODUS_REGLER.items()}
-    top = w.ToggleButtons(options=list(TOP_WAHL), value="beides", description="Top")
-    tag = w.Dropdown(options=["alle"] + list(tage), value="alle", description="Tag")
-    suche = w.Text(placeholder="Pferd …", description="Suche")
-    out = w.Output()
-    alle_tage = sorted(pool["date"].unique()) if not pool.empty else []
-    offen = [d for d in alle_tage if d not in tage]
-    fmt = lambda d: f"{d[6:8]}.{d[4:6]}.{d[:4]}"
-    stand = (f"Renntage {fmt(tage[0])} – {fmt(tage[-1])} ({len(tage)} mit Ergebnis)" if tage
-             else "noch kein Renntag mit Ergebnis")
-    if offen:
-        stand += " · offen: " + ", ".join(fmt(d) for d in offen)
-    kopf = w.HTML(f"<b>{stand}</b>")
-
-    def sichtbar(*_):
-        for m, r in regler.items():
-            r.layout.display = "" if m == modus.value else "none"
-
-    def neu(*_):
-        sichtbar()
-        p = pool if tag.value == "alle" else pool[pool["date"] == tag.value]
-        f = FilterConfig(minw=minw.value, gold_on=gold.value, mode=modus.value,
-                         mode_value=regler[modus.value].value if modus.value in regler else 0.0,
-                         top=top.value)
-        s = StakingConfig(variant=st.value)
-        res = simulate(p, f, s)
-        b = res.bets_df
-        if suche.value.strip() and not b.empty:
-            b = b[b["horse"].str.contains(suche.value.strip(), case=False, na=False)]
-        with out:
-            out.clear_output(wait=True)
-            display(HTML(_kpi_html(res.kpi_dict)))
-            _grafiken(res, s.start_bank).show()
-            display(HTML(_tabelle_html(b)))
-            display(HTML("<p style='font-size:11px;opacity:.7'>" + " · ".join(HINWEISE) + "</p>"))
-
-    for c in [st, minw, gold, modus, top, tag, suche, *regler.values()]:
-        c.observe(neu, names="value")
-    neu()
-    display(w.VBox([kopf, w.HBox([st, tag, suche]), w.HBox([minw, gold]),
-                    w.HBox([modus, *regler.values()]), top, out]))
-
-
-def start(base: str | Path = BASE_DRIVE, ab: str | None = START_DATUM,
-          cache: bool = False) -> pd.DataFrame:
-    """Komplettes Dashboard aus der Drive-Ablage: alle Renntage ab ``ab``.
-
-    Karten aus ``<base>/racecards``, Ergebnisse aus ``<base>/parquet/pmu_races``.
-    Neue Tage kommen bei jedem Aufruf automatisch dazu; Tage ohne Einlauf (heute)
-    bleiben offen, bis das Ergebnis da ist. Gibt den Pool zurück.
+    Karten aus ``<base>/racecards``, Ergebnisse aus ``<base>/parquet/pmu_races``;
+    geschrieben wird ``<base>/racecards/value_dashboard.html`` (immer dieselbe Datei,
+    bei neuen Daten überschrieben). Tage ohne Einlauf bleiben offen.
     """
     base = Path(base)
-    pool = load_folder(base / "racecards", base / "parquet" / "pmu_races", ab=ab,
-                       cache=base / "parquet" / "value_pool.parquet" if cache else None)
-    dashboard(pool)
-    return pool
+    pool = load_folder(base / "racecards", base / "parquet" / "pmu_races", ab=ab)
+    pfad = dashboard(pool, base / "racecards" / DASHBOARD_DATEI)
+    tage = pool.loc[pool["settled"].astype(bool), "date"].nunique() if not pool.empty else 0
+    k = simulate(pool).kpi_dict
+    print(f"Value-Dashboard: {tage} Renntage mit Ergebnis, Standard (¼ Kelly) "
+          f"{k['bets']} Wetten, Bank {k['bank']:.2f} € → {pfad}")
+    return pfad
