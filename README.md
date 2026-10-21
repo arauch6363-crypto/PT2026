@@ -567,7 +567,8 @@ Simuliert die Value-Wetten über mehrere Renntage und zeigt sie in Colab mit
 ipywidgets und Plotly. Je Tag braucht es `racecard_YYYYMMDD_daten.json` und das
 Ergebnis-Parquet aus `pmu_races` (`YYYYMMDD.parquet`). Fehlt die JSON, wird die HTML-Karte
 `racecard_YYYYMMDD.html` gelesen (sie enthält dieselben Daten). Gepaart wird über das
-Datum im Dateinamen. Tage ohne Ergebnis bleiben offen, mit einer Warnung.
+Datum im Dateinamen, ab `START_DATUM` (18.10.2026, seitdem gibt es die Festkurse). Jeder Aufruf
+nimmt neue Tage automatisch mit. Tage ohne Einlauf bleiben offen; für vergangene Tage gibt es eine Warnung.
 
 - **Pool:** alle Starter mit Festkurs Sieg und Wert ≥ 0.
 - **Filter:** Mindest-Wert, Gold ab 0,2, genau ein Modus (`max`/`rank`/`rel`/`none`) und Top-Wert ja/nein/beides.
@@ -590,9 +591,11 @@ output.enable_custom_widget_manager()
 import sys; sys.path.insert(0, '/content/drive/MyDrive/PT2026')
 import value_bets as vb
 
-BASE = '/content/drive/MyDrive/PT_tracking'                 # Daten-Ordner wie im Workflow
-pool = vb.load_folder(f'{BASE}/racecards', f'{BASE}/parquet/pmu_races')
-vb.dashboard(pool)
+pool = vb.start()   # alle Renntage ab 18.10.2026 aus PT_tracking/racecards + parquet/pmu_races
+
+# gleichwertig, mit eigenem Pfad/Zeitraum:
+# pool = vb.load_folder(f'{BASE}/racecards', f'{BASE}/parquet/pmu_races', ab='20261018')
+# vb.dashboard(pool)
 
 # ohne Oberfläche
 res = vb.simulate(pool, vb.FilterConfig(minw=0.5, mode='max', mode_value=10),

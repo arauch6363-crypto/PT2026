@@ -33,6 +33,8 @@ START_BANK = 1000.0
 STEUER = 0.05           # Steuer je Wett-Bein (Anteil am Einsatz)
 GOLD_WERT = 1.2         # Ersatzregel, wenn power.gold fehlt
 GOLD_MAX_COTE = 10.0
+START_DATUM = "20261018"   # ab hier liegen Karten mit Festkursen vor
+BASE_DRIVE = "/content/drive/MyDrive/PT_tracking"
 HINWEIS_LEER = "keine Wette bei diesem Filter"
 HINWEISE = (
     "Kurse = Festkurse zum Stand festkurse_stand, keine Endkurse.",
@@ -234,10 +236,12 @@ def _hat_einlauf(pfad: Path) -> bool:
 
 
 def load_folder(ordner: str | Path, ergebnis_ordner: str | Path | None = None,
-                cache: str | Path | None = None) -> pd.DataFrame:
+                cache: str | Path | None = None, ab: str | None = START_DATUM,
+                bis: str | None = None) -> pd.DataFrame:
     """Alle Renntage eines Ordners laden (rekursiv), gepaart über das Datum.
 
     ``ergebnis_ordner``: wo die pmu_races-Parquets liegen (Vorgabe: ``ordner``).
+    ``ab``/``bis``: Zeitraum als YYYYMMDD (Vorgabe: ab ``START_DATUM``, ``None`` = alle).
 
     Karte: ``racecard_YYYYMMDD_daten.json``, sonst ``racecard_YYYYMMDD.html``;
     Ergebnis: ``*YYYYMMDD*.parquet`` (bei mehreren gewinnt eines in einem Ordner
@@ -253,6 +257,10 @@ def load_folder(ordner: str | Path, ergebnis_ordner: str | Path | None = None,
         d = _datum_aus_name(p)
         if d:
             jsons[d] = p          # JSON vor HTML
+    jsons = {d: p for d, p in jsons.items()
+             if (ab is None or d >= str(ab).replace("-", ""))
+             and (bis is None or d <= str(bis).replace("-", ""))}
+    heute = pd.Timestamp.now().strftime("%Y%m%d")
     parquets = {}
     erg_ordner = Path(ergebnis_ordner) if ergebnis_ordner is not None else ordner
     for p in sorted(erg_ordner.rglob("*.parquet"), key=lambda q: "pmu_races" not in q.parts):
@@ -262,10 +270,10 @@ def load_folder(ordner: str | Path, ergebnis_ordner: str | Path | None = None,
             parquets[d] = p
     teile = []
     for d in sorted(jsons):
-        if d not in parquets:
+        if d not in parquets and d < heute:
             warnings.warn(f"{d}: kein Ergebnis-Parquet – Tag bleibt offen", stacklevel=2)
         tag = load_day(jsons[d], parquets.get(d))
-        if d in parquets and not tag.empty and not tag["settled"].all():
+        if d in parquets and d < heute and not tag.empty and not tag["settled"].all():
             offen = tag.loc[~tag["settled"], "race"].unique()
             warnings.warn(f"{d}: kein Einlauf für {', '.join(offen)}", stacklevel=2)
         teile.append(tag)
@@ -590,6 +598,14 @@ def dashboard(pool: pd.DataFrame):
     tag = w.Dropdown(options=["alle"] + list(tage), value="alle", description="Tag")
     suche = w.Text(placeholder="Pferd …", description="Suche")
     out = w.Output()
+    alle_tage = sorted(pool["date"].unique()) if not pool.empty else []
+    offen = [d for d in alle_tage if d not in tage]
+    fmt = lambda d: f"{d[6:8]}.{d[4:6]}.{d[:4]}"
+    stand = (f"Renntage {fmt(tage[0])} – {fmt(tage[-1])} ({len(tage)} mit Ergebnis)" if tage
+             else "noch kein Renntag mit Ergebnis")
+    if offen:
+        stand += " · offen: " + ", ".join(fmt(d) for d in offen)
+    kopf = w.HTML(f"<b>{stand}</b>")
 
     def sichtbar(*_):
         for m, r in regler.items():
@@ -616,5 +632,20 @@ def dashboard(pool: pd.DataFrame):
     for c in [st, minw, gold, modus, top, tag, suche, *regler.values()]:
         c.observe(neu, names="value")
     neu()
-    display(w.VBox([w.HBox([st, tag, suche]), w.HBox([minw, gold]),
+    display(w.VBox([kopf, w.HBox([st, tag, suche]), w.HBox([minw, gold]),
                     w.HBox([modus, *regler.values()]), top, out]))
+
+
+def start(base: str | Path = BASE_DRIVE, ab: str | None = START_DATUM,
+          cache: bool = False) -> pd.DataFrame:
+    """Komplettes Dashboard aus der Drive-Ablage: alle Renntage ab ``ab``.
+
+    Karten aus ``<base>/racecards``, Ergebnisse aus ``<base>/parquet/pmu_races``.
+    Neue Tage kommen bei jedem Aufruf automatisch dazu; Tage ohne Einlauf (heute)
+    bleiben offen, bis das Ergebnis da ist. Gibt den Pool zurück.
+    """
+    base = Path(base)
+    pool = load_folder(base / "racecards", base / "parquet" / "pmu_races", ab=ab,
+                       cache=base / "parquet" / "value_pool.parquet" if cache else None)
+    dashboard(pool)
+    return pool

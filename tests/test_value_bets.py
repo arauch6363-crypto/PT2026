@@ -109,9 +109,17 @@ def test_html_karte_und_ergebnisordner(tmp_path):
     anders = tmp_path / "parquet" / "pmu_runners"
     anders.mkdir()
     pd.DataFrame({"x": [1]}).to_parquet(anders / "20260103.parquet")     # ohne Einlauf → ignoriert
-    pool = vb.load_folder(tmp_path)
+    pool = vb.load_folder(tmp_path, ab=None)
     assert pool["settled"].all() and pool.loc[pool["no"] == 1, "won"].all()
     assert list(pool["date"].unique()) == ["20260103"]
+
+
+def test_ab_datum(tmp_path):
+    rn = lambda rid: _rennen(rid, [_runner(1, 0.6, fk=3.0, platz=1.4), _runner(2, 0.4, fk=2.0)])
+    for d in ("20261017", "20261018"):
+        _tag(tmp_path, d, [rn(f"{d}R1C1")], {f"{d}R1C1": "1 - 2"})
+    assert list(vb.load_folder(tmp_path)["date"].unique()) == ["20261018"]
+    assert len(vb.load_folder(tmp_path, ab=None)["date"].unique()) == 2
 
 
 def test_bank_tagesbeginn_und_offener_tag(tmp_path):
@@ -121,7 +129,7 @@ def test_bank_tagesbeginn_und_offener_tag(tmp_path):
     (tmp_path / "racecard_20260102_daten.json").write_text(json.dumps(
         {"date": "20260102", "races": {"20260102R1C1": rn("20260102R1C1")}}))
     with pytest.warns(UserWarning, match="20260102"):
-        pool = vb.load_folder(tmp_path)
+        pool = vb.load_folder(tmp_path, ab=None)
     res = vb.simulate(pool, vb.FilterConfig(mode="none"), vb.StakingConfig("level1p"))
     assert list(res.days_df["date"]) == ["20260101"]      # offener Tag nicht simuliert
     assert (res.bets_df["stake_win"] == 10).all()         # beide aus Bank 1000
