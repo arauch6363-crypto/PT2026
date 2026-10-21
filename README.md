@@ -561,6 +561,47 @@ Je Starter:
   geschätzt; mehr Starter = schnelleres Tempo). Beim Scrollen bleibt eine Kurzzeile des Rennens oben fixiert.
 * Racing-Post-Kürzel **C / D / CD / BF**, Tage seit dem letzten Lauf, Gewicht, Rating, Startbox.
 
+## Value-Wetten-Dashboard (`value_bets.py`)
+
+Simuliert die Value-Wetten über mehrere Renntage und zeigt sie in Colab mit
+ipywidgets und Plotly. Je Tag braucht es `racecard_YYYYMMDD_daten.json` und das
+Ergebnis-Parquet aus `pmu_races` (`YYYYMMDD.parquet`). Gepaart wird über das
+Datum im Dateinamen. Tage ohne Ergebnis bleiben offen, mit einer Warnung.
+
+- **Pool:** alle Starter mit Festkurs Sieg und Wert ≥ 0.
+- **Filter:** Mindest-Wert, Gold ab 0,2, genau ein Modus (`max`/`rank`/`rel`/`none`) und Top-Wert ja/nein/beides.
+- **Einsatz:** Kelly 1/8 bis 1/1, 10 € fest oder 1 % der Bank.
+  - Grundlage ist immer die Bank zu Tagesbeginn.
+  - Sieg- und Platzbein bekommen denselben Einsatz.
+  - Je Bein werden 5 % Steuer abgezogen.
+- **Hinweise:**
+  - Die Kurse sind Festkurse zum `festkurse_stand`, keine Endkurse.
+  - Unter etwa 30 Wetten ist das Ergebnis kaum belastbar.
+  - Ein Wert über 3 ist oft ein Kursfehler.
+
+```python
+# Colab
+!pip -q install pandas pyarrow numpy plotly ipywidgets
+from google.colab import drive, output
+drive.mount('/content/drive')
+output.enable_custom_widget_manager()
+
+import sys; sys.path.insert(0, '/content/drive/MyDrive/PT2026')
+import value_bets as vb
+
+pool = vb.load_folder('/content/drive/MyDrive/value_daten')   # JSONs + Parquets
+vb.dashboard(pool)
+
+# ohne Oberfläche
+res = vb.simulate(pool, vb.FilterConfig(minw=0.5, mode='max', mode_value=10),
+                  vb.StakingConfig('kelly4'))
+res.kpi_dict['bank'], res.bets_df.head()
+```
+
+Tests: `pytest tests/test_value_bets.py`. Mit `VALUE_BETS_DATA=<Ordner mit
+18.–20.10.2026>` laufen auch die Referenzzahlen mit, zum Beispiel ¼ Kelly →
+2404,00 € bei 18 Wetten.
+
 ## Skill Rennkarten-Durchgang
 
 `.claude/skills/rennkarten-durchgang/SKILL.md` ist der qualitative Durchgang durch eine Rennkarte. Er geht Pferd für Pferd
