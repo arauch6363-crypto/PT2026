@@ -52,6 +52,8 @@ MODELL_ORDNER = "modelle"
 MODELL_DATEI = "power_modell.txt"
 META_DATEI = "power_modell.json"
 WERT_DATEI, WERT_META = "power_wert.txt", "power_wert.json"   # zweites Modell: A/E Platz gegen den Markt
+# Siegchance für die faire Quote: Power-Merkmale + Morgenquote (pm.trainieren_morgen); Power selbst bleibt ohne Markt
+MORGEN_DATEI, MORGEN_META = "power_morgen.txt", "power_morgen.json"
 WERT_PARAMS = dict(objective="binary", learning_rate=0.02, num_leaves=15, min_data_in_leaf=300, feature_fraction=0.7,
                    bagging_fraction=0.8, bagging_freq=1, lambda_l2=10.0, verbosity=-1)   # vorsichtig: kleines Signal
 WERT_TOP = [0.20, 0.10, 0.05, 0.02]   # Rendite-Tabelle: oberste Anteile des Value-Faktors
@@ -1106,12 +1108,15 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     segmente: "racetype" oder "age_group" – je Segment ein Zusatzmodell, das nur die Korrektur zum gemeinsamen Modell
          lernt; behalten nur, wo es auf der Validierung die Rangkorrelation um SEG_MIN_GEWINN verbessert. Der Bericht
          zeigt je Segment gemeinsam gegen mit Segment-Modell (Validierung und Test).
-    morgenquote: Versuch – zusätzlich die Merkmale aus der Morgenquote (MORGEN_MERKMALE); dann wird nie gespeichert
-         (Power bleibt ohne Markt). speichern=False: nur prüfen und berichten."""
+    morgenquote: zusätzlich die Merkmale aus der Morgenquote (MORGEN_MERKMALE) – gespeichert als eigenes Modell
+         (MORGEN_DATEI, Siegchance/faire Quote auf der Karte), Power (MODELL_DATEI) bleibt ohne Markt.
+         speichern=False: nur prüfen und berichten."""
     import lightgbm as lgb
     if segmente is not None and segmente not in SEGMENT_SPALTEN:
         raise ValueError(f"segmente: eins von {SEGMENT_SPALTEN}")
-    speichern = speichern and not morgenquote
+    if morgenquote and segmente:
+        raise ValueError("segmente: nicht mit morgenquote")
+    m_datei, m_meta = (MORGEN_DATEI, MORGEN_META) if morgenquote else (MODELL_DATEI, META_DATEI)
     hist, X, ordner = _merkmale_holen(base, hist, out, X, neu, log)
     y = ziel(hist).reindex(X.index)
     ok = y.notna()
@@ -1119,7 +1124,8 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     X = feld_relativ(X, hist.loc[X.index, "race_id"], hist.loc[X.index, "date"])
     if morgenquote:
         X = pd.concat([X, morgen_merkmale(hist.loc[X.index])], axis=1)
-        log("Versuch mit Morgenquote (" + ", ".join(MORGEN_MERKMALE) + ") – wird nicht gespeichert")
+        log("Mit Morgenquote (" + ", ".join(MORGEN_MERKMALE) + ") – Siegchance für die faire Quote"
+            + ("" if speichern else ", wird nicht gespeichert"))
     tage = pd.to_datetime(hist.loc[X.index, "date"])
     log("Abdeckung je Jahr (% der Starter mit Wert):")
     log(abdeckung(X, tage).to_string())
@@ -1253,13 +1259,13 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     imp = pd.Series(m.feature_importance("gain"), index=Xk.columns).sort_values(ascending=False)
     log(f"Wichtigste Merkmale ({sieger}, Gain): " + ", ".join(f"{k} {v / imp.sum():.1%}" for k, v in imp.head(15).items()))
     if not speichern:
-        log("Nicht gespeichert (Versuch).")
+        log("Nicht gespeichert.")
         return bericht
     # endgültig: alle Tage nach dem Aufwärmen, gleiche Baumzahl
     final = lgb.train(p, _lgb_daten(lgb, Xk, y, rennen, sieger), num_boost_round=best)
     ordner.mkdir(parents=True, exist_ok=True)
-    final.save_model(str(ordner / MODELL_DATEI))
-    for alt in ordner.glob(_seg_datei(Path(MODELL_DATEI).stem, "*")):        # alte Segment-Modelle weg
+    final.save_model(str(ordner / m_datei))
+    for alt in ([] if morgenquote else ordner.glob(_seg_datei(Path(MODELL_DATEI).stem, "*"))):   # alte Segment-Modelle weg
         alt.unlink()
     seg_meta = None
     if seg_behalten:
@@ -1275,19 +1281,20 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
             seg_meta["modelle"][s_] = datei
         log(f"Segment-Modelle gespeichert ({segmente}): {', '.join(seg_meta['modelle'])}")
     meta = {"spalten": list(Xk.columns), "stufen": stufen, "art": sieger, "bericht": bericht, "segmente": seg_meta,
+            "morgenquote": bool(morgenquote),
             "sieg_a": mv.get("a", 1.0),
             "wichtig": {k: round(float(v / imp.sum()), 4) for k, v in imp.head(30).items()},
             "trainiert": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"), "starter": int(len(X))}
-    (ordner / META_DATEI).write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
-    log(f"Modell gespeichert ({sieger}): {ordner / MODELL_DATEI}")
+    (ordner / m_meta).write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
+    log(f"Modell gespeichert ({sieger}): {ordner / m_datei}")
     return bericht
 
 
-def trainieren_morgen(base: Path | None = None, *, art: str = "regression", **kw) -> dict:
-    """Versuch: Power-Modell zusätzlich mit der Morgenquote – nur Bericht, überschreibt das Power-Modell nie.
-    Vergleich mit dem gespeicherten Power-Modell (ohne Markt) und mit der Morgenquote allein über den Log-Loss der
-    Siegchance (Validierung/Test) und Power-z gegen die Endquote."""
-    return trainieren(base, art=art, morgenquote=True, speichern=False, **kw)
+def trainieren_morgen(base: Path | None = None, *, art: str = "regression", speichern: bool = True, **kw) -> dict:
+    """Siegchance für die faire Quote: Power-Merkmale + Morgenquote, gespeichert als MORGEN_DATEI (Power selbst bleibt
+    ohne Markt und wird nicht überschrieben). Bericht: Log-Loss der Siegchance (Validierung/Test) gegen Power allein,
+    die Morgenquote allein und die Endquote. speichern=False: nur Bericht."""
+    return trainieren(base, art=art, morgenquote=True, speichern=speichern, **kw)
 
 
 # --------------------------------------------------------------------------
@@ -1618,6 +1625,9 @@ def laden(base: Path | None) -> dict | None:
         return {s_: lgb.Booster(model_file=str(ordner / d_)) for s_, d_ in sm.items() if (ordner / d_).exists()}
     meta = json.loads((ordner / META_DATEI).read_text(encoding="utf-8"))
     out = {"booster": lgb.Booster(model_file=str(ordner / MODELL_DATEI)), "meta": meta, "segmente": seg(meta)}
+    if (ordner / MORGEN_DATEI).exists() and (ordner / MORGEN_META).exists():  # Siegchance mit Morgenquote
+        mm = json.loads((ordner / MORGEN_META).read_text(encoding="utf-8"))
+        out["morgen"] = {"booster": lgb.Booster(model_file=str(ordner / MORGEN_DATEI)), "meta": mm}
     if (ordner / WERT_DATEI).exists() and (ordner / WERT_META).exists():      # Value-Modell, falls trainiert
         wm = json.loads((ordner / WERT_META).read_text(encoding="utf-8"))
         out["wert"] = {"booster": lgb.Booster(model_file=str(ordner / WERT_DATEI)), "meta": wm, "segmente": seg(wm)}
@@ -1682,12 +1692,26 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
     out = {}
     df = pd.DataFrame({"race_id": hz["race_id"].astype(str).to_numpy(), "no": hz["saddle_no"].to_numpy(), "pred": pred})
     df["sieg"] = _softmax_im_rennen(meta.get("sieg_a", 1.0) * _z_im_rennen(df["pred"], df["race_id"]), df["race_id"])
+    df["sieg_blind"], df["quelle"] = df["sieg"], "power"
+    mq_ = None
+    if modell.get("morgen"):        # Siegchance mit Morgenquote – je Rennen nur, wenn alle Starter eine haben
+        mm = modell["morgen"]["meta"]
+        mq_ = morgen_merkmale(alle.loc[X.index])
+        Xm, _ = _kategorien(pd.concat([X, mq_], axis=1).reindex(columns=mm["spalten"]), mm["stufen"])
+        pm_ = pd.Series(modell["morgen"]["booster"].predict(Xm[mm["spalten"]]), index=df.index)
+        voll = pd.Series(mq_["m_pm"].to_numpy(), index=df.index).notna().groupby(df["race_id"]).transform("all")
+        if voll.any():
+            sm = _softmax_im_rennen(mm.get("sieg_a", 1.0) * _z_im_rennen(pm_[voll], df.loc[voll, "race_id"]),
+                                    df.loc[voll, "race_id"])
+            df.loc[voll, "sieg"], df.loc[voll, "quelle"] = sm, "morgen"
+        if not voll.all():
+            log(f"  Siegchance: {int((~voll).sum())} Starter ohne vollständige Morgenquote im Rennen – Power allein")
     df["wert"], df["gold"], df["warn"] = np.nan, False, False
     if modell.get("wert"):                      # Value-Faktor ≈ erwartete A/E Platz gegen den Markt (exp der Abweichung)
         wm = modell["wert"]["meta"]
         Xw_ = X
         if wm.get("morgenquote"):                  # Value-Modell mit Morgenquote: Merkmale aus den heutigen Zeilen
-            mq = morgen_merkmale(alle.loc[X.index])
+            mq = mq_ if mq_ is not None else morgen_merkmale(alle.loc[X.index])
             Xw_ = pd.concat([X, mq], axis=1)
             if mq["m_pm"].isna().all():
                 log("  Value-Modell: keine Morgenquote – Value-Faktor ohne Marktmerkmale (weniger verlässlich)")
@@ -1709,6 +1733,7 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
             out[(r_, int(z["no"]))] = {"p": int(round(p)),
                                        "pred": round(float(z["pred"]), 3) if meta.get("art", "regression") == "regression" else None,
                                        "sieg": round(float(z["sieg"]), 3),
+                                       "sieg_blind": round(float(z["sieg_blind"]), 3), "sieg_quelle": z["quelle"],
                                        "wert": round(float(z["wert"]), 2) if pd.notna(z["wert"]) else None,
                                        "gold": bool(z["gold"]), "warn": bool(z["warn"]),
                                        "treiber": [[n_, round(v_ * 100, 1)] for n_, v_ in top]}

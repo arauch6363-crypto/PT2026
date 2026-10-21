@@ -543,7 +543,7 @@ const POWER_KPI = [
 function powerFeld(race){
   const feld = race.runners.filter(x => !x.nr);
   if (feld.some(x => x.power)) {                       // Power-Modell (racecard.run mit power_modell): ersetzt die Kennzahlen-Rechnung
-    for (const x of race.runners) x._power = x.power && !x.nr ? {p: x.power.p, ml: true, treiber: x.power.treiber || [], pred: x.power.pred, sieg: x.power.sieg, wert: x.power.wert, gold: x.power.gold, warn: x.power.warn} : null;
+    for (const x of race.runners) x._power = x.power && !x.nr ? {p: x.power.p, ml: true, treiber: x.power.treiber || [], pred: x.power.pred, sieg: x.power.sieg, sieg_quelle: x.power.sieg_quelle, sieg_blind: x.power.sieg_blind, wert: x.power.wert, gold: x.power.gold, warn: x.power.warn} : null;
     const mitP = feld.filter(x => x._power).sort((a, b) => b._power.p - a._power.p);
     mitP.forEach(x => { x._power.rank = 1 + mitP.filter(y => y._power.p > x._power.p).length; x._power.n = mitP.length; });
     // Cote der PMU-Prognose ohne Marge (je Rennen auf 100 % normiert) – vergleichbar mit der fairen Quote des Modells
@@ -878,7 +878,8 @@ function powerQuote(x){
   const oben = P.gold != null ? P.gold : P.wert != null && P.wert >= VALUE_AB;   // oberste 10 % des Value-Faktors
   const val = oben && (cote == null || cote <= GOLD_COTE_MAX);   // über Cote 10: kein Rahmen
   const warn = !!P.warn;                                          // unterstes Fünftel: Markt überschätzt das Pferd
-  const tip = `Faire Quote ${fx(q, 2)} = Siegchance ${fx(100 * P.sieg, 1)} % laut Power-Modell (ohne Buchmacher-Marge), `
+  const tip = `Faire Quote ${fx(q, 2)} = Siegchance ${fx(100 * P.sieg, 1)} % ${P.sieg_quelle === "morgen"
+      ? `aus Power-Merkmalen + Morgenquote (Power allein: ${fx(100 * P.sieg_blind, 1)} %)` : "laut Power-Modell"} (ohne Buchmacher-Marge), `
     + `#${P.rank} von ${P.n} im Feld. Grün: Modell sieht das Pferd klar über dem Feldschnitt (Power ${P.p} ≥ 105), rot: klar darunter (≤ 95). `
     + `Liegt die angebotene Quote deutlich über der fairen (Marge des Anbieters bedenken), schätzt das Modell das Pferd stärker ein als der Markt. – stärkste Treiber: `
     + P.treiber.map(([n, v]) => `${n} ${v >= 0 ? "+" : "−"}${fx(Math.abs(v), 1)}`).join(" · ")

@@ -177,9 +177,21 @@ Gespeichert wird das Ziel mit dem kleinsten Log-Loss der Siegchance auf der Vali
 Log-Loss, Power-z, Siegertreffer und Rangkorrelation; die Rangkorrelation über das ganze Feld ist nur Information,
 weil sie die Reihenfolge hinten belohnt. `art="beide"` prüft nur Regression und Rang.
 
-Versuch **Power mit Morgenquote** (`pm.trainieren_morgen(BASE)`): dieselben Merkmale plus `m_pm`, `m_log`, `m_rk`,
-`m_marge`; nur Bericht, das Power-Modell bleibt ohne Markt und wird nie überschrieben. Zum Vergleich steht im Bericht
-die Morgenquote allein (`markt (Morgenquote allein)`: Log-Loss Morgen- gegen Endquote). Kein neuer Merkmalsbau nötig.
+**Siegchance mit Morgenquote** (`pm.trainieren_morgen(BASE)`, gespeichert als `modelle/power_morgen.txt`):
+dieselben Merkmale plus Morgenquote (`m_pm`, `m_log`, `m_rk`, `m_marge`). Es liefert die beste faire Quote, im Test
+(2026) mit diesem Log-Loss der Siegchance:
+
+| Siegchance aus | Log-Loss |
+|---|---|
+| Power allein | 2,053 |
+| Morgenquote allein | 2,030 |
+| Power + Morgenquote | 2,015 |
+| Endquote | 1,929 |
+
+- Die Karte nimmt diese Siegchance (`power.sieg`, `sieg_quelle: "morgen"`) in jedem Rennen, in dem alle Starter eine
+  Morgenquote haben, sonst die von Power allein.
+- `power.sieg_blind` bleibt die Chance ohne Markt; Power (`p`) selbst bleibt ohne Markt.
+- Mit `speichern=False` gibt es nur den Bericht. Ein neuer Merkmalsbau ist nicht nötig.
 Zeitliche Aufteilung (`pm.aufteilung`, Power und Value gleich): das erste Jahr der Historie (`AUFWAERM_TAGE` = 365) dient
 nur als Vorgeschichte für die Merkmale und wird nicht gelernt; die übrigen Renntage zeitlich 60/20/20 (`ANTEILE`):
 lernen, validieren (Abbruch der Bäume, Modellwahl, Siegchance-a, Eichung k und Gold-Grenze des Value-Modells), testen
