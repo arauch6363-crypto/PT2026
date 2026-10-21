@@ -724,6 +724,7 @@ def power_modell_pruefen() -> None:
     he["extern"] = False
     zus = he.iloc[[5]].copy()
     zus["race_id"], zus["extern"], zus["date"] = "20250302XTEST", True, pd.Timestamp("2025-03-02")
+    zus["hippodrome"], zus["course_key"] = "AURILLAC", "AURILLAC"              # PMH-Bahn (nicht im PMU-Programm)
     he2 = pd.concat([zus, he], ignore_index=True)                       # Zeilennummern verschieben sich
     with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
         _, X1, _ = pm._merkmale_holen(None, he, Path(tmp), None, False, print)
@@ -741,6 +742,19 @@ def power_modell_pruefen() -> None:
            and Xe.at[nach_, "form5_extern"] > 0 and Xe["f1_extern"].fillna(0).sum() >= 1,
            "Externe Läufe: keine Zielzeilen; Merkmal-Zwischenspeicher nach eingefügten Zeilen über Rennen + Pferd "
            "richtig zugeordnet")
+    zus2 = zus.copy()
+    zus2["hippodrome"] = str(he.loc[he["horse_id"] == pid_, "hippodrome"].iloc[0])        # Bahn aus dem PMU-Programm
+    zus2["course_key"] = rc_.norm_name(zus2["hippodrome"])
+    he3 = pd.concat([zus2, he], ignore_index=True)
+    with contextlib.redirect_stdout(io.StringIO()):
+        Xp = pm.merkmale(he3, log=print)
+    nach3 = he3[(he3["horse_id"] == pid_) & (pd.to_datetime(he3["date"]) > pd.Timestamp("2025-03-02"))
+                & he3["extern"].eq(False)].sort_values("date").index[0]
+    pruefe(Xp.at[nach3, "f1_extern"] == 0.0 and Xp.at[nach3, "form5_extern"] == 0.0
+           and Xp.at[nach3, "formz_pos_pmu"] == Xp.at[nach3, "formz_pos"]
+           and not rc_.extern_kennzeichen(he3).loc[0] and rc_.extern_kennzeichen(he2).loc[0],
+           "Externe Läufe auf PMU-Bahnen (z. B. vor Beginn der Historie) zählen in den Merkmalen wie "
+           "PMU-Läufe; nur PMH/Ausland/Übersee tragen das Kennzeichen extern")
     sc_ = pm._score(1.0, 1e-17, 0.5, 5.0, 1, 0.5, 5.0)
     pruefe(abs(sc_ - 100) < 1e-9 and abs(pm._score(1.0, 0.5, 0.5, 5.0, 1, 0.5, 5.0) - 400 / 3) < 1e-9,
            "Verbindungs-Score: Rundungsrest der Erwartung (1e-17) zählt nicht als A/E (kein Wert wie 1e16)")
@@ -1427,6 +1441,13 @@ def racecard_pruefen() -> None:
     pruefe([rc.extern_art(b) for b in ("HANOVRE", "VARSOVIE", "LA MARTINIQUE", "POMPADOUR", "DORTMUND", "AURILLAC")]
            == ["Ausland", "Ausland", "Übersee", "PMH", "Ausland", "PMH"],
            "Externe Läufe: Ausland auch unter französischem Namen (Hanovre, Varsovie), Übersee (Martinique), sonst PMH")
+    bahnen_ = rc.pmu_bahnen(pd.DataFrame({"hippodrome": ["DEAUVILLE-LA TOUQUES", "LA TESTE DE BUCH", "PAU",
+                                                         "PARISLONGCHAMP", "LYON-PARILLY"], "extern": False}))
+    arten_ = rc.extern_arten(pd.Series(["DEAUVILLE", "TESTE DE BUCH", "Pau", "AURILLAC", "HANOVRE", "LYON PARILLY",
+                                        "PAUILLAC", "SAINT MALO"]), bahnen_)
+    pruefe(list(arten_) == ["PMU", "PMU", "PMU", "PMH", "Ausland", "PMU", "PMH", "PMH"],
+           "Externe Läufe: Bahnen des PMU-Programms in anderer Schreibweise erkannt (Deauville-La Touques ↔ Deauville, "
+           "La Teste de Buch ↔ Teste de Buch) → „nachgetragen“; PMH, Ausland und ähnliche Namen bleiben")
     ml, mj = rc.musique_laeufe("5p1h1h0hAh(25)0p8p")
     pruefe(ml[:5] == [(5, "p"), (1, "h"), (1, "h"), (10, "h"), (None, "h")] and mj == 5 and len(ml) == 7
            and rc.fehlende_laeufe("1p2p8p8p8p0p0p3p7p7p", 6) == 4 and rc.fehlende_laeufe("(25)3p", 0) == 0

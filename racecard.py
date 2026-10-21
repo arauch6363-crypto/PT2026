@@ -740,6 +740,65 @@ def extern_art(hippodrome) -> str:
     return "Ausland" if any(f" {b} " in t for b in AUSLAND_BAHNEN) else "PMH"
 
 
+_BAHN_FUELL = {"LA", "LE", "LES", "DE", "DU", "DES", "D", "L", "SUR", "EN", "ET", "AUX", "HIPPODROME"}
+
+
+def bahn_kern(hippodrome) -> str:
+    """Bahnname ohne Akzente, Satzzeichen und Füllwörter: 'La Teste-de-Buch' → 'TESTE BUCH'."""
+    return " ".join(w for w in _bahn_text(hippodrome).split() if w not in _BAHN_FUELL)
+
+
+def pmu_bahnen(h: pd.DataFrame) -> set:
+    """Bahnkerne aller Läufe der eigenen PMU-Historie (ohne externe Zeilen)."""
+    if not len(h) or "hippodrome" not in h:
+        return set()
+    b = h["hippodrome"][~h["extern"].eq(True)] if "extern" in h else h["hippodrome"]
+    return {k for k in map(bahn_kern, b.dropna().unique()) if k}
+
+
+def ist_pmu_bahn(hippodrome, bahnen: set) -> bool:
+    """Liegt die Bahn im PMU-Programm? Gleicher Kern oder der eine als ganze Wörter im anderen enthalten
+    ('DEAUVILLE LA TOUQUES' ↔ 'DEAUVILLE'); Teilnamen erst ab 4 Zeichen."""
+    k = bahn_kern(hippodrome)
+    if not k:
+        return False
+    if k in bahnen:
+        return True
+    for b in bahnen:
+        kurz, lang = (k, b) if len(k) <= len(b) else (b, k)
+        if len(kurz) >= 4 and f" {kurz} " in f" {lang} ":
+            return True
+    return False
+
+
+def extern_arten(hippodrome: pd.Series, bahnen: set) -> pd.Series:
+    """Art je externem Lauf: 'PMU' (Bahn aus dem PMU-Programm, nur nicht in unserer Historie – z. B. vor deren
+    Beginn; Karte „nachgetragen“), sonst extern_art (PMH / Ausland / Übersee)."""
+    cache: dict = {}
+
+    def art(b):
+        if b not in cache:
+            a = extern_art(b)
+            cache[b] = "PMU" if a == "PMH" and ist_pmu_bahn(b, bahnen) else a
+        return cache[b]
+    return hippodrome.map(art)
+
+
+def extern_kennzeichen(h: pd.DataFrame) -> pd.Series:
+    """True für echte externe Läufe (PMH, Ausland, Übersee); externe Läufe auf PMU-Bahnen zählen wie PMU-Läufe."""
+    ext = h["extern"].eq(True) if "extern" in h else pd.Series(False, index=h.index)
+    if not ext.any():
+        return ext
+    if "extern_art" in h:
+        art = h["extern_art"].where(ext)
+    else:
+        art = pd.Series(None, index=h.index, dtype=object)
+    fehlt = ext & art.isna()
+    if fehlt.any():
+        art.loc[fehlt] = extern_arten(h.loc[fehlt, "hippodrome"], pmu_bahnen(h))
+    return ext & art.ne("PMU")
+
+
 def ist_ausland(hippodrome) -> bool:
     """Bahn im Ausland oder in Übersee? (Teilnamen aus AUSLAND_BAHNEN / UEBERSEE_BAHNEN, ohne Akzente)"""
     return extern_art(hippodrome) != "PMH"
@@ -800,6 +859,7 @@ def extern_zeilen(ext: pd.DataFrame, quellen: pd.DataFrame, h: pd.DataFrame) -> 
     z["platzierte"] = e["platzierte"].to_numpy() if "platzierte" in e else None
     z["margin"] = np.where(z["finish_pos"] == 1, z["margin_sieger"], z["lengths_behind"])
     z["ausland"] = [ist_ausland(b) for b in z["hippodrome"]]
+    z["extern_art"] = extern_arten(z["hippodrome"], pmu_bahnen(h)).to_numpy()
     z["going_pmu"] = [going_klasse(g) for g in z["going"]]
     z["going_class"] = z["going_pmu"]
     z["dist_bucket"] = z["distance_m"].map(dist_bucket)
@@ -1219,7 +1279,7 @@ def _formzeile(z, gewicht_heute=None) -> dict:
         "pos_ab": _num(z.get("pos_ab"), 0),                 # extern: im Ziel ab diesem Platz, genauer unbekannt
         "lb_min": _num(z.get("lengths_min"), 1),            # extern ab Platz 6: mindestens so viele Längen zurück
         "ausland": bool(z.get("ausland") == True),
-        "extern_art": extern_art(z.get("hippodrome")) if z.get("extern") == True else None,
+        "extern_art": (_txt(z.get("extern_art")) or extern_art(z.get("hippodrome"))) if z.get("extern") == True else None,
         "sieger": _txt(z.get("sieger")) if z.get("extern") == True else None,
         "margin": _num(z.get("margin"), 2), "weight": _num(z["weight_kg"], 1),
         "jockey": _txt(z.get("jockey")), "odds": _num(z["odds_final"], 1),

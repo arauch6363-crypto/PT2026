@@ -64,7 +64,7 @@ PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schr
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
 SCHLUESSEL_DATEI = "merkmale_schluessel.parquet"   # je Zeile des Zwischenspeichers: race_id, horse_id
-MERKMAL_VERSION = 14                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+MERKMAL_VERSION = 15                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
@@ -323,6 +323,9 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                       for b in _text(h, "blinkers")], dtype=float)
     jk, tk = _text(h, "jockey_key"), _text(h, "trainer_key")
     ext_ = extern.loc[idx].to_numpy(dtype=float)             # externer Lauf (PMH/Ausland) je Zeile
+    # Kennzeichen „extern“ für die Merkmale: nur PMH/Ausland/Übersee – externe Läufe auf PMU-Bahnen (v. a. vor Beginn
+    # der Historie) zählen wie PMU-Läufe, sonst hätte das Kennzeichen vor und nach Oktober 2022 eine andere Bedeutung
+    ekz_ = rc.extern_kennzeichen(h).loc[idx].to_numpy(dtype=float)
     ausl_ = np.array([rc.ist_ausland(b) if e_ else False
                       for b, e_ in zip(_text(h, "hippodrome"), ext_)], dtype=float)
     cgd = rc.cgd_berechnen(h)                                # Bilanz vor jedem Lauf auf Kurs / Boden / Distanz
@@ -498,7 +501,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 F["form5_top"][i] = float(np.mean(pos5[np.isfinite(pos5)] >= FORM_TOP))
                 if np.isfinite(pos5).sum() >= 3:
                     F["form5_std"][i] = np.nanstd(pos5)                         # Konstanz: klein = beständig
-            F["form5_extern"][i] = float(ext_[v5].mean())             # Anteil externer Läufe (PMH/Ausland)
+            F["form5_extern"][i] = float(ekz_[v5].mean())             # Anteil externer Läufe (PMH/Ausland/Übersee)
             F["f1_ausland"][i] = ausl_[vor[0]]
             if np.isfinite(lb5).any():
                 F["form5_lb"][i] = np.nanmean(lb5)
@@ -521,7 +524,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                                                   / (wz[m_].sum() + k_))
             m_ = np.isfinite(rp0[vz])
             F["formz_n"][i] = float(wz[m_].sum())             # wie viele „heutige“ Läufe stecken in der Form
-            m_ = np.isfinite(rp0[vz]) & (ext_[vz] == 0)        # dieselbe Form nur aus PMU-Läufen (ohne PMH/Ausland)
+            m_ = np.isfinite(rp0[vz]) & (ekz_[vz] == 0)        # dieselbe Form nur aus PMU-Läufen (ohne PMH/Ausland)
             if m_.any():
                 F["formz_pos_pmu"][i] = float(((wz[m_] * rp0[vz][m_]).sum() + FORM_ZEIT_K * FORM_ZEIT_PRIOR["pos"])
                                               / (wz[m_].sum() + FORM_ZEIT_K))
@@ -602,7 +605,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 F[f"f{k}_verlauf"][i] = vlf[j]
                 F[f"f{k}_tage"][i] = tag[i] - tag[j]
                 F[f"f{k}_cgd_sieg"][i], F[f"f{k}_cgd_platz"][i], F[f"f{k}_cgd_neu"][i] = cgd_z[j]
-                F[f"f{k}_extern"][i] = ext_[j]
+                F[f"f{k}_extern"][i] = ekz_[j]
                 f_pos[i, k - 1] = j
                 f_typ[k][i] = typ3[j]
                 feld_j = rennen_pos.get(rid[j], np.array([], dtype=int))

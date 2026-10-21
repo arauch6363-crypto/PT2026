@@ -299,6 +299,13 @@ Varsovie, Milan), „Übersee“ (Martinique, Réunion …; zählt im Modell wie
 und Markt überschätzt (Test: A/E 0,88 bzw. 0,84 bei ≥ 2 externen unter den letzten fünf).
 Merkmale (Version 12): `f1_extern` … `f3_extern`, `form5_extern` (Anteil externer Läufe unter den letzten fünf),
 `f1_ausland`.
+Externe Läufe auf Bahnen aus dem PMU-Programm (Chantilly, Deauville …, erkannt über die Bahnnamen der Historie, auch in
+anderer Schreibweise wie „Deauville-La Touques“ ↔ „Deauville“) sind keine Provinz- oder Auslandsläufe, sondern
+PMU-Rennen, die in unserer Historie fehlen – meist weil sie vor deren Beginn (Oktober 2022) lagen. Sie heißen
+`extern_art = "PMU"`, auf der Karte „nachgetragen“, und zählen seit Version 15 in den Merkmalen wie PMU-Läufe
+(`f*_extern`, `form5_extern` und `formz_pos_pmu` markieren nur noch PMH, Ausland und Übersee). Sonst trugen im
+Lernzeitraum viele Pferde das Kennzeichen nur wegen ihrer Läufe vor 2022 (`form5_extern > 0`: 2022 87 %, 2026 22 %).
+Für A/E, Verbindungen und Lernziele bleiben sie extern (keine Quote, kein Jockey).
 
 `racecard.vorbereiten(..., extern=…)` hängt daraus die **Flachrennen, die nicht in der Historie stehen**, als Zeilen
 mit `extern=True` an (`extern_zeilen`: Pferd über die Quelle race_id + Startnummer, je Pferd und Tag einmal):
