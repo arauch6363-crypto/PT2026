@@ -1407,7 +1407,8 @@ def racecard_pruefen() -> None:
            and ex_["won"].iloc[0] == 1 and ex_["rel_place"].iloc[0] == 1.0 and ex_["n_runners"].iloc[0] == 6
            and abs(ex_["prize_won"].iloc[0] - 3750) < 1e-9 and pd.isna(ex_["jockey_key"].iloc[0])
            and pd.isna(ex_["odds_final"].iloc[0]) and ex_["going_pmu"].iloc[0] is not None
-           and (hext["extern"].eq(False)).sum() == len(hist) and hext["extern"].eq(True).sum() == 3,
+           and (hext["extern"].eq(False)).sum() == len(hist) and hext["extern"].eq(True).sum() == 3
+           and rc.historie_beginn(hext) == hist["date"].min() and hext["date"].min() < hist["date"].min(),
            "Externe Läufe: PMH-Lauf (Aurillac) aus den Detail-Leistungen als Zeile extern=True; schon bekannter Lauf, "
            "Hürdenlauf und Doppel aus zwei Quellen fallen weg; ohne Quote und ohne Verbindungen")
     import pipeline as tp_, json as js_, tempfile as tf_

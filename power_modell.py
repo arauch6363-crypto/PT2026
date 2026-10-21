@@ -1074,13 +1074,13 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     tage = pd.to_datetime(hist.loc[X.index, "date"])
     log("Abdeckung je Jahr (% der Starter mit Wert):")
     log(abdeckung(X, tage).to_string())
-    auf = aufteilung(tage, hist["date"].min(), ab, aufwaermen)
+    auf = aufteilung(tage, rc.historie_beginn(hist), ab, aufwaermen)
     X, y, tage = X[auf["drin"]], y[auf["drin"]], tage[auf["drin"]]
     # nach Datum und Rennen sortieren: für „rang“ müssen die Zeilen eines Rennens zusammenstehen
     rennen = hist.loc[X.index, "race_id"].astype(str)
     reihe = pd.DataFrame({"t": tage, "r": rennen}).sort_values(["t", "r"], kind="stable").index
     X, y, tage, rennen = X.loc[reihe], y.loc[reihe], tage.loc[reihe], rennen.loc[reihe]
-    auf = aufteilung(tage, hist["date"].min(), ab, aufwaermen)
+    auf = aufteilung(tage, rc.historie_beginn(hist), ab, aufwaermen)
     lern, valid, test = auf["lern"], auf["valid"], auf["test"]
     Xk, stufen = _kategorien(X)
     gr = auf["grenzen"]
@@ -1344,7 +1344,7 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
         X = pd.concat([X, morgen_merkmale(hist.loc[X.index])], axis=1)
     ep, pl, wn, ps = ep[ok], pl[ok], wn[ok], ps[ok]
     tage = pd.to_datetime(hist.loc[X.index, "date"])
-    auf = aufteilung(tage, hist["date"].min(), ab, aufwaermen)
+    auf = aufteilung(tage, rc.historie_beginn(hist), ab, aufwaermen)
     drin = auf["drin"]
     X, ep, pl, wn, ps, tage = X[drin], ep[drin], pl[drin], wn[drin], ps[drin], tage[drin]
     lern, valid, test = auf["lern"][drin], auf["valid"][drin], auf["test"][drin]
