@@ -293,7 +293,10 @@ tp.extern_nachholen(BASE, max_tage=200)   # neueste Tage zuerst, eine Anfrage je
 Gespeichert werden je früherem Lauf auch die ersten fünf (`platzierte`: Platz, Name, Abstand zum Vordermann, Jockey,
 Gewicht), daraus `lengths_behind` (Platz 1–5) bzw. `lengths_min` (ab Platz 6), `margin_sieger` und `zeit_sieger_s`.
 Speichert `perf_zeilen` mehr, steigt `pipeline.EXTERN_VERSION`; mit älterer Fassung geholte Tage gelten dann als offen.
-Externe Läufe auf Auslandsbahnen (`racecard.AUSLAND_BAHNEN`, Teilnamen) heißen auf der Karte „Ausland“, sonst „PMH“.
+Externe Läufe heißen auf der Karte „Ausland“ (`racecard.AUSLAND_BAHNEN`, auch französische Namen wie Hanovre,
+Varsovie, Milan), „Übersee“ (Martinique, Réunion …; zählt im Modell wie Ausland) oder „PMH“ (`extern_art`).
+`formz_pos_pmu` (Version 14): zeitgewichtete Form nur aus PMU-Läufen – Pferde mit vielen PMH-Läufen wurden von Modell
+und Markt überschätzt (Test: A/E 0,88 bzw. 0,84 bei ≥ 2 externen unter den letzten fünf).
 Merkmale (Version 12): `f1_extern` … `f3_extern`, `form5_extern` (Anteil externer Läufe unter den letzten fünf),
 `f1_ausland`.
 
