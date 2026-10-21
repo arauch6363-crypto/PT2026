@@ -563,15 +563,18 @@ Je Starter:
 
 ## Value-Wetten-Dashboard (`value_bets.py`)
 
-Simuliert die Value-Wetten über mehrere Renntage und zeigt sie in Colab mit
-ipywidgets und Plotly. Je Tag braucht es `racecard_YYYYMMDD_daten.json` und das
-Ergebnis-Parquet aus `pmu_races` (`YYYYMMDD.parquet`). Fehlt die JSON, wird die HTML-Karte
-`racecard_YYYYMMDD.html` gelesen (sie enthält dieselben Daten). Gepaart wird über das
-Datum im Dateinamen, ab `START_DATUM` (18.10.2026, seitdem gibt es die Festkurse). Jeder Aufruf
-nimmt neue Tage automatisch mit. Tage ohne Einlauf bleiben offen; für vergangene Tage gibt es eine Warnung.
+Simuliert die Value-Wetten über alle Renntage seit dem 18.10.2026 (`START_DATUM`, ab dann gibt es
+Festkurse auf der Karte). Das Ergebnis ist **eine HTML-Datei wie die Racecard**:
+`<BASE>/racecards/value_dashboard.html`. Sie wird bei jedem Lauf überschrieben, es gibt keine Tagesversionen
+und keine Anzeige in Colab. In der Seite rechnet der Browser nach denselben Regeln wie `simulate`; ein Test
+vergleicht beide Rechnungen über Node.
 
+- **Eingaben je Tag:**
+  - `racecards/racecard_YYYYMMDD_daten.json`, ersatzweise die HTML-Karte `racecard_YYYYMMDD.html` mit denselben Daten
+  - `parquet/pmu_races/YYYYMMDD.parquet` mit dem Einlauf
+- Tage ohne Einlauf bleiben offen und werden in der Kopfzeile genannt.
 - **Pool:** alle Starter mit Festkurs Sieg und Wert ≥ 0.
-- **Filter:** Mindest-Wert, Gold ab 0,2, genau ein Modus (`max`/`rank`/`rel`/`none`) und Top-Wert ja/nein/beides.
+- **Filter:** Mindest-Wert, Gold ab 0,2, genau ein Modus (`max`/`rank`/`rel`/`none`), Top-Wert, Tag (einzeln ab 1000 €) und Pferdesuche.
 - **Einsatz:** Kelly 1/8 bis 1/1, 10 € fest oder 1 % der Bank.
   - Grundlage ist immer die Bank zu Tagesbeginn.
   - Sieg- und Platzbein bekommen denselben Einsatz.
@@ -582,30 +585,20 @@ nimmt neue Tage automatisch mit. Tage ohne Einlauf bleiben offen; für vergangen
   - Ein Wert über 3 ist oft ein Kursfehler.
 
 ```python
-# Colab
-!pip -q install pandas pyarrow numpy plotly ipywidgets
-from google.colab import drive, output
-drive.mount('/content/drive')
-output.enable_custom_widget_manager()
-
-import sys; sys.path.insert(0, '/content/drive/MyDrive/PT2026')
+# Colab – nach dem Ergebnis-Abruf (pmu_races) einfach mitlaufen lassen
+from google.colab import drive; drive.mount('/content/drive')
 import value_bets as vb
+vb.start()            # schreibt PT_tracking/racecards/value_dashboard.html
 
-pool = vb.start()   # alle Renntage ab 18.10.2026 aus PT_tracking/racecards + parquet/pmu_races
-
-# gleichwertig, mit eigenem Pfad/Zeitraum:
-# pool = vb.load_folder(f'{BASE}/racecards', f'{BASE}/parquet/pmu_races', ab='20261018')
-# vb.dashboard(pool)
-
-# ohne Oberfläche
-res = vb.simulate(pool, vb.FilterConfig(minw=0.5, mode='max', mode_value=10),
-                  vb.StakingConfig('kelly4'))
+# ohne Datei, nur Zahlen:
+pool = vb.load_folder(f'{vb.BASE_DRIVE}/racecards', f'{vb.BASE_DRIVE}/parquet/pmu_races')
+res = vb.simulate(pool, vb.FilterConfig(minw=0.5, mode='max', mode_value=10), vb.StakingConfig('kelly4'))
 res.kpi_dict['bank'], res.bets_df.head()
 ```
 
 Tests: `pytest tests/test_value_bets.py`. Mit `VALUE_BETS_DATA=<BASE>/racecards` und
-`VALUE_BETS_RESULTS=<BASE>/parquet/pmu_races` laufen auch die Referenzzahlen vom 18.–20.10.2026 mit, zum Beispiel ¼ Kelly →
-2404,00 € bei 18 Wetten.
+`VALUE_BETS_RESULTS=<BASE>/parquet/pmu_races` laufen auch die Referenzzahlen vom 18.–20.10.2026 mit, zum
+Beispiel ¼ Kelly → 2404,00 € bei 18 Wetten.
 
 ## Skill Rennkarten-Durchgang
 
