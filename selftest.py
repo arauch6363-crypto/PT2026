@@ -740,6 +740,9 @@ def power_modell_pruefen() -> None:
            and Xe.at[nach_, "form5_extern"] > 0 and Xe["f1_extern"].fillna(0).sum() >= 1,
            "Externe Läufe: keine Zielzeilen; Merkmal-Zwischenspeicher nach eingefügten Zeilen über Rennen + Pferd "
            "richtig zugeordnet")
+    sc_ = pm._score(1.0, 1e-17, 0.5, 5.0, 1, 0.5, 5.0)
+    pruefe(abs(sc_ - 100) < 1e-9 and abs(pm._score(1.0, 0.5, 0.5, 5.0, 1, 0.5, 5.0) - 400 / 3) < 1e-9,
+           "Verbindungs-Score: Rundungsrest der Erwartung (1e-17) zählt nicht als A/E (kein Wert wie 1e16)")
     # Morgenquote als Marktmerkmal (nur Value-Modell): von Hand, im Modell gespeichert, auf der Karte aus den heutigen Zeilen
     mm = pm.morgen_merkmale(pd.DataFrame({"race_id": ["A", "A", "A", "B"], "odds_morning": [2.0, 4.0, None, 3.0]}))
     pruefe(abs(mm["m_pm"].iloc[0] - 2 / 3) < 1e-9 and mm["m_rk"].tolist()[:2] == [0.0, 1.0]

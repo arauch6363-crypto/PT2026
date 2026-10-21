@@ -734,6 +734,7 @@ def historie_beginn(h: pd.DataFrame):
 
 
 EXTERN_PLAETZE = 5             # Detail-Leistungen nennen die Plätze 1–5; dahinter nur „im Ziel“ (NON_PLACE)
+EXTERN_MAX_STARTER = 40       # mehr Starter gibt es im Flachrennen nicht – darüber Datenfehler
 EXTERN_DISZIPLIN = {"PLAT"}     # externe Läufe nur aus Flachrennen (Hindernis: anderer Sport, eigene Form)
 
 
@@ -762,6 +763,9 @@ def extern_zeilen(ext: pd.DataFrame, quellen: pd.DataFrame, h: pd.DataFrame) -> 
         return pd.DataFrame()
     for c in ["prize_eur", "distance_m", "n_runners", "finish_pos", "weight_kg", "draw"]:
         e[c] = pd.to_numeric(e[c], errors="coerce")
+    # Starterzahl unplausibel (0 = unbekannt, v. a. Ausland; Ausreißer wie 2200): leer – Pos dann unbekannt, nicht 0
+    e["n_runners"] = e["n_runners"].where(e["n_runners"].between(2, EXTERN_MAX_STARTER))
+    e["n_runners"] = e["n_runners"].where(e["finish_pos"].isna() | (e["finish_pos"] <= e["n_runners"]))
     z = pd.DataFrame({"race_id": e["date"].dt.strftime("%Y%m%d") + "X" + norm_name(e["hippodrome"]).fillna("?") + "|"
                                  + e["race_name"].astype(str).str[:40],
                       "date": e["date"], "horse_id": e["horse_id"], "horse": e["horse"],

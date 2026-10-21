@@ -64,7 +64,7 @@ PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schr
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
 SCHLUESSEL_DATEI = "merkmale_schluessel.parquet"   # je Zeile des Zwischenspeichers: race_id, horse_id
-MERKMAL_VERSION = 12                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+MERKMAL_VERSION = 13                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
@@ -185,10 +185,13 @@ def _going_w(a, b) -> float:
     return rc.going_gewicht(a, b) if a is not None and b is not None else 1.0
 
 
+SCORE_EXP_MIN = 0.05        # A/E-Teil eines Scores erst ab so viel erwarteten Plätzen (≈ ein Lauf mit kleiner Chance)
+
+
 def _score(placed, exp, rp, lp, n, g_rp, g_lp) -> float:
     """Score aus A/E Platz, Platzanteil und €/Lauf (log), je 100 = Schnitt; Mittel der vorhandenen Teile."""
     teile = []
-    if exp > 0:
+    if exp > SCORE_EXP_MIN:                  # rollende Fenster: Rundungsreste nahe 0 nicht als Erwartung werten
         teile.append(100 * placed / exp)
     if n and g_rp:
         teile.append(100 * (rp / n) / g_rp)
