@@ -845,12 +845,17 @@ def power_modell_pruefen() -> None:
     m_mit = pm.markt_test(st_ + extra, rr, gew_, quote)
     pruefe(m_mit["power_koef"] > 0 and m_mit["power_z"] > 3 and m_mit["logloss_power"] < m_mit["logloss_markt"],
            f"Markt-Test erkennt Zusatzwissen (Power-Koeffizient {m_mit['power_koef']}, z {m_mit['power_z']})")
-    rk = {a_: erg[f"modell ({a_})"]["rang_korr"] for a_ in ("regression", "rang")}
-    rv = {a_: erg["validierung"][f"modell ({a_})"]["rang_korr"] for a_ in ("regression", "rang")}
-    pruefe(min(rk.values()) > 0.2 and erg["gewaehlt"] == max(rv, key=rv.get) and mod["meta"]["art"] == erg["gewaehlt"]
-           and mod["meta"]["sieg_a"] == erg["validierung"]["markt_test"]["a"] == erg["markt_test"]["a"],
-           f"Power-Modell findet das eingebaute Signal als Regression und als Rang-Modell (Rangkorrelation Test {rk}), "
-           f"gewählt auf der Validierung {rv}: {erg['gewaehlt']}; Siegchance-a aus der Validierung")
+    rk = {a_: erg[f"modell ({a_})"]["rang_korr"] for a_ in pm.ARTEN}
+    rv = {a_: erg["validierung"][f"modell ({a_})"]["logloss"] for a_ in pm.ARTEN}
+    pruefe(min(rk.values()) > 0.2 and erg["gewaehlt"] == min(rv, key=rv.get) and mod["meta"]["art"] == erg["gewaehlt"]
+           and mod["meta"]["sieg_a"] == erg["validierung"]["markt_test"]["a"] == erg["markt_test"]["a"]
+           and all(erg[f"modell ({a_})"]["power_z"] is not None for a_ in pm.ARTEN),
+           f"Power-Modell findet das eingebaute Signal als Regression, Rang- und Vorn-Modell (Rangkorrelation Test {rk}), "
+           f"gewählt nach Log-Loss der Siegchance auf der Validierung {rv}: {erg['gewaehlt']}; Siegchance-a aus der "
+           f"Validierung")
+    pruefe(pm.vorn_stufe([0.0, 0.5, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0]).tolist() == [0, 0, 1, 1, 2, 2, 3, 3, 4]
+           and pm.vorn_stufe([4 / 5, 13 / 15]).tolist() == [2, 2],
+           "Ziel „vorn“: Platzanteil ≥ 0,7 / 0,8 / 0,9 → 1 / 2 / 3, Sieg → 4, hinten 0")
     # Feld-relative Merkmale: Rang 0..1 und Abstand zum Feldschnitt je Rennen, NaN bleibt NaN
     fr = pm.feld_relativ(pd.DataFrame({"rating_adj": [50.0, 60.0, np.nan, 70.0]}), pd.Series(["a", "a", "a", "b"]))
     pruefe(fr["rating_adj_rk"].tolist()[:2] == [0.0, 1.0] and np.isnan(fr["rating_adj_rk"][2])

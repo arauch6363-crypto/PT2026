@@ -167,9 +167,15 @@ Pferdes), Trainer/Jockey/Besitzer/Züchter (Score aus A/E Platz, Pos, €/Lauf, 
 gleicher Boden/Distanz, ARR, TR, Finish-Index, ±800, Weg, Endquote, Quotenrang relativ und Marktchance (1/Quote, je
 Rennen normiert), mit/gegen den Rennverlauf, Gegner-Score, Vergleich mit heutigen Gegnern). Wichtige Werte (Rating bereinigt, Gewicht, €/Lauf, RTR,
 ARR, TR, letzter Pos/Längen/Marktchance, Trainer, Jockey, Besitzer, Duell, Vater) gehen zusätzlich relativ zum
-heutigen Feld ein (`pm.feld_relativ`: Rang 0–1 und Abstand zum Feldschnitt). `art="beide"` (Vorgabe) prüft Regression
-auf Pos und ein Rang-Modell (LightGBM lambdarank, Rennen als Gruppe) und speichert das mit der besseren
-Rangkorrelation auf der Validierung.
+heutigen Feld ein (`pm.feld_relativ`: Rang 0–1 und Abstand zum Feldschnitt). `art="alle"` (Vorgabe) prüft drei Ziele:
+- **Regression** auf Pos+.
+- **Rang** (LightGBM lambdarank, Rennen als Gruppe, Pos+ in 11 Stufen).
+- **Vorn** (lambdarank nur über die Spitze: Pos+ ≥ 0,7 → 1, ≥ 0,8 → 2, ≥ 0,9 → 3, Sieg → 4, alles dahinter 0). Das
+  Rauschen der hinteren Plätze (aufgegeben, geschont) zählt dabei nicht.
+
+Gespeichert wird das Ziel mit dem kleinsten Log-Loss der Siegchance auf der Validierung. Je Art stehen im Bericht
+Log-Loss, Power-z, Siegertreffer und Rangkorrelation; die Rangkorrelation über das ganze Feld ist nur Information,
+weil sie die Reihenfolge hinten belohnt. `art="beide"` prüft nur Regression und Rang.
 Zeitliche Aufteilung (`pm.aufteilung`, Power und Value gleich): das erste Jahr der Historie (`AUFWAERM_TAGE` = 365) dient
 nur als Vorgeschichte für die Merkmale und wird nicht gelernt; die übrigen Renntage zeitlich 60/20/20 (`ANTEILE`):
 lernen, validieren (Abbruch der Bäume, Modellwahl, Siegchance-a, Eichung k und Gold-Grenze des Value-Modells), testen
