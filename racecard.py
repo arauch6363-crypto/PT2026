@@ -715,14 +715,34 @@ AUSLAND_BAHNEN = (
     "CHURCHILL", "DEL MAR", "GULFSTREAM", "WOODBINE", "FLEMINGTON", "RANDWICK", "CAULFIELD", "MOONEE VALLEY",
     "SINGAPORE", "KRANJI", "MAROC", "CASABLANCA", "RABAT", "MARRAKECH", "KHEMISSET", "EL JADIDA", "SETTAT",
     "TUNIS", "KSAR SAID", "VELIEFENDI", "ISTANBUL", "MARONAS", "PALERMO", "SAN ISIDRO", "GAVEA", "CIDADE JARDIM",
+    # französische Namen, wie sie die PMU für Auslandsbahnen verwendet
+    "HANOVRE", "VARSOVIE", "MILAN", "MUNICH", "FRANCFORT", "HAMBOURG", "BADE", "COLOGNE", "DUSSELDORF", "BREME",
+    "SARREBRUCK", "LEIPZIG", "SAINT SEBASTIEN", "SEVILLE", "ROME", "NAPLES", "TURIN", "FLORENCE", "PISE", "MERAN",
+    "SYRACUSE", "VIENNE", "PRAGUE", "BUDAPEST", "BRATISLAVA", "STOCKHOLM", "OSLO", "COPENHAGUE", "GOTEBORG",
+    "LONDRES", "DUBLIN", "SAINT MORITZ", "ZURICH", "OSTENDE", "MONS", "WAREGEM", "RIYAD", "SINGAPOUR",
+    "HONG KONG", "ABOU DHABI", "DOUBAI",
 )
+# Übersee (eigener, schwächerer Rennbetrieb): zählt im Modell wie Ausland, Karte „Übersee“
+UEBERSEE_BAHNEN = ("MARTINIQUE", "CARRERE", "GUADELOUPE", "REUNION", "CHAMP FLEURI", "SAINT DENIS DE LA REUNION",
+                   "GUYANE", "KOUROU", "NOUVELLE CALEDONIE", "NOUMEA", "TAHITI", "POLYNESIE", "MAYOTTE")
+
+
+def _bahn_text(hippodrome) -> str:
+    return " " + re.sub(r"[^A-Z0-9]+", " ", unicodedata.normalize("NFKD", str(hippodrome or "")).encode(
+        "ascii", "ignore").decode().upper()) + " "
+
+
+def extern_art(hippodrome) -> str:
+    """Art eines externen Laufs nach der Bahn: 'Ausland', 'Übersee' (Martinique, Réunion …) oder 'PMH' (Frankreich)."""
+    t = _bahn_text(hippodrome)
+    if any(f" {b} " in t for b in UEBERSEE_BAHNEN):
+        return "Übersee"
+    return "Ausland" if any(f" {b} " in t for b in AUSLAND_BAHNEN) else "PMH"
 
 
 def ist_ausland(hippodrome) -> bool:
-    """Bahn im Ausland? (Teilnamen aus AUSLAND_BAHNEN, ohne Akzente und Bindestriche)"""
-    t = " " + re.sub(r"[^A-Z0-9]+", " ", unicodedata.normalize("NFKD", str(hippodrome or "")).encode(
-        "ascii", "ignore").decode().upper()) + " "
-    return any(f" {b} " in t for b in AUSLAND_BAHNEN)
+    """Bahn im Ausland oder in Übersee? (Teilnamen aus AUSLAND_BAHNEN / UEBERSEE_BAHNEN, ohne Akzente)"""
+    return extern_art(hippodrome) != "PMH"
 
 
 def historie_beginn(h: pd.DataFrame):
@@ -1199,6 +1219,7 @@ def _formzeile(z, gewicht_heute=None) -> dict:
         "pos_ab": _num(z.get("pos_ab"), 0),                 # extern: im Ziel ab diesem Platz, genauer unbekannt
         "lb_min": _num(z.get("lengths_min"), 1),            # extern ab Platz 6: mindestens so viele Längen zurück
         "ausland": bool(z.get("ausland") == True),
+        "extern_art": extern_art(z.get("hippodrome")) if z.get("extern") == True else None,
         "sieger": _txt(z.get("sieger")) if z.get("extern") == True else None,
         "margin": _num(z.get("margin"), 2), "weight": _num(z["weight_kg"], 1),
         "jockey": _txt(z.get("jockey")), "odds": _num(z["odds_final"], 1),

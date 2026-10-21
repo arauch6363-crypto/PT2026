@@ -64,13 +64,13 @@ PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schr
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
 SCHLUESSEL_DATEI = "merkmale_schluessel.parquet"   # je Zeile des Zwischenspeichers: race_id, horse_id
-MERKMAL_VERSION = 13                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+MERKMAL_VERSION = 14                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
            "form5_pos", "form5_best", "form5_lb", "form5_arr", "runs", "age", "arr_best365", "trainer_30_score",
            "dam_score", "form5_ue", "formz_pos", "formz_arr", "formz_ue", "form_steig_pos", "form_steig_arr",
-           "form_pos_hoeher", "abst_pass"]
+           "form_pos_hoeher", "abst_pass", "formz_pos_pmu"]
 # Value-Modell: Merkmale aus der Morgenquote (PMU-Referenzquote, am Morgen bekannt) – nie im Power-Modell
 MORGEN_MERKMALE = ["m_pm", "m_log", "m_rk", "m_marge"]
 # Segment-Modelle: lernen je Rennart nur die Korrektur zum gemeinsamen Modell (Ausgangswert = dessen Vorhersage)
@@ -362,7 +362,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
               "arr_best_abst", "erst_wallach", "cgd_sieg", "cgd_platz", "cgd_neu", "erst_kurs", "erst_boden",
               "erst_dist", "erst_belag", "abst_pass", "abst_pass_sire", "abst_pass_dam_sire", "abst_pass_dist",
               "abst_pass_boden", "abst_pass_belag", "abst_pass_reife", "abst_pass_wechsel", "form5_extern",
-              "f1_ausland"]:
+              "f1_ausland", "formz_pos_pmu"]:
         feld(c)
     for c in ["runs", "runs365", "lgo_pos", "lgo_arr", "ldi_pos", "ldi_arr", "days", "rtr", "arr", "tr", "dl600", "db200", "early", "epr365",
               "won_course", "won_dist", "won_going", "placed_course", "placed_dist", "placed_going", "best_dist", "best_going"]:
@@ -521,6 +521,10 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                                                   / (wz[m_].sum() + k_))
             m_ = np.isfinite(rp0[vz])
             F["formz_n"][i] = float(wz[m_].sum())             # wie viele „heutige“ Läufe stecken in der Form
+            m_ = np.isfinite(rp0[vz]) & (ext_[vz] == 0)        # dieselbe Form nur aus PMU-Läufen (ohne PMH/Ausland)
+            if m_.any():
+                F["formz_pos_pmu"][i] = float(((wz[m_] * rp0[vz][m_]).sum() + FORM_ZEIT_K * FORM_ZEIT_PRIOR["pos"])
+                                              / (wz[m_].sum() + FORM_ZEIT_K))
             for name, y, h_ in (("klasse", feld_val[vz], feld_val[i]), ("preis", preis[vz], preis[i])):
                 m_ = np.isfinite(y)
                 if m_.any() and not np.isnan(h_):           # > 0: zuletzt (zeitgewichtet) in stärkeren Rennen als heute

@@ -737,6 +737,7 @@ def power_modell_pruefen() -> None:
     pruefe(len(X1) == len(he) and len(X2) == len(he) and "20250302XTEST" not in set(he2.loc[X2.index, "race_id"])
            and (he2.loc[X2.index, "race_id"].to_numpy() == he.loc[X1.index, "race_id"].to_numpy()).all()
            and X2.loc[i5 + 1].equals(X1.loc[i5]) and Xe.at[nach_, "f1_extern"] == 1.0
+           and Xe["formz_pos_pmu"].notna().any() and (Xe["formz_pos_pmu"] != Xe["formz_pos"]).any()
            and Xe.at[nach_, "form5_extern"] > 0 and Xe["f1_extern"].fillna(0).sum() >= 1,
            "Externe Läufe: keine Zielzeilen; Merkmal-Zwischenspeicher nach eingefügten Zeilen über Rennen + Pferd "
            "richtig zugeordnet")
@@ -1423,6 +1424,9 @@ def racecard_pruefen() -> None:
         neu_ = tp_._extern_fertig(Path(tmp_))
     pruefe(alt_ == set() and neu_ == {"20261003"},
            "Externe Läufe nachholen: mit älterer Fassung geholte Tage gelten als offen und werden neu geholt")
+    pruefe([rc.extern_art(b) for b in ("HANOVRE", "VARSOVIE", "LA MARTINIQUE", "POMPADOUR", "DORTMUND", "AURILLAC")]
+           == ["Ausland", "Ausland", "Übersee", "PMH", "Ausland", "PMH"],
+           "Externe Läufe: Ausland auch unter französischem Namen (Hanovre, Varsovie), Übersee (Martinique), sonst PMH")
     ml, mj = rc.musique_laeufe("5p1h1h0hAh(25)0p8p")
     pruefe(ml[:5] == [(5, "p"), (1, "h"), (1, "h"), (10, "h"), (None, "h")] and mj == 5 and len(ml) == 7
            and rc.fehlende_laeufe("1p2p8p8p8p0p0p3p7p7p", 6) == 4 and rc.fehlende_laeufe("(25)3p", 0) == 0
