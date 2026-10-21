@@ -744,7 +744,7 @@ def power_modell_pruefen() -> None:
            "richtig zugeordnet")
     zus2 = zus.copy()
     zus2["hippodrome"] = str(he.loc[he["horse_id"] == pid_, "hippodrome"].iloc[0]) + "-LA TOUQUES"   # PMU-Bahn, andere Schreibweise
-    zus2["course_key"] = rc.norm_name(zus2["hippodrome"])
+    zus2["course_key"] = rc_.norm_name(zus2["hippodrome"])
     he3 = pd.concat([zus2, he], ignore_index=True)
     with contextlib.redirect_stdout(io.StringIO()):
         Xp = pm.merkmale(he3, log=print)
@@ -752,7 +752,7 @@ def power_modell_pruefen() -> None:
                 & he3["extern"].eq(False)].sort_values("date").index[0]
     pruefe(Xp.at[nach3, "f1_extern"] == 0.0 and Xp.at[nach3, "form5_extern"] == 0.0
            and Xp.at[nach3, "formz_pos_pmu"] == Xp.at[nach3, "formz_pos"]
-           and not rc.extern_kennzeichen(he3).loc[0] and rc.extern_kennzeichen(he2).loc[0],
+           and not rc_.extern_kennzeichen(he3).loc[0] and rc_.extern_kennzeichen(he2).loc[0],
            "Externe Läufe auf PMU-Bahnen (vor Beginn der Historie, andere Schreibweise) zählen in den Merkmalen wie "
            "PMU-Läufe; nur PMH/Ausland/Übersee tragen das Kennzeichen extern")
     sc_ = pm._score(1.0, 1e-17, 0.5, 5.0, 1, 0.5, 5.0)
