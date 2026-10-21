@@ -561,6 +561,52 @@ Je Starter:
   geschätzt; mehr Starter = schnelleres Tempo). Beim Scrollen bleibt eine Kurzzeile des Rennens oben fixiert.
 * Racing-Post-Kürzel **C / D / CD / BF**, Tage seit dem letzten Lauf, Gewicht, Rating, Startbox.
 
+## Value-Wetten-Dashboard (`value_bets.py`)
+
+Simuliert die Value-Wetten über mehrere Renntage und zeigt sie in Colab mit
+ipywidgets und Plotly. Je Tag braucht es `racecard_YYYYMMDD_daten.json` und das
+Ergebnis-Parquet aus `pmu_races` (`YYYYMMDD.parquet`). Fehlt die JSON, wird die HTML-Karte
+`racecard_YYYYMMDD.html` gelesen (sie enthält dieselben Daten). Gepaart wird über das
+Datum im Dateinamen, ab `START_DATUM` (18.10.2026, seitdem gibt es die Festkurse). Jeder Aufruf
+nimmt neue Tage automatisch mit. Tage ohne Einlauf bleiben offen; für vergangene Tage gibt es eine Warnung.
+
+- **Pool:** alle Starter mit Festkurs Sieg und Wert ≥ 0.
+- **Filter:** Mindest-Wert, Gold ab 0,2, genau ein Modus (`max`/`rank`/`rel`/`none`) und Top-Wert ja/nein/beides.
+- **Einsatz:** Kelly 1/8 bis 1/1, 10 € fest oder 1 % der Bank.
+  - Grundlage ist immer die Bank zu Tagesbeginn.
+  - Sieg- und Platzbein bekommen denselben Einsatz.
+  - Je Bein werden 5 % Steuer abgezogen.
+- **Hinweise:**
+  - Die Kurse sind Festkurse zum `festkurse_stand`, keine Endkurse.
+  - Unter etwa 30 Wetten ist das Ergebnis kaum belastbar.
+  - Ein Wert über 3 ist oft ein Kursfehler.
+
+```python
+# Colab
+!pip -q install pandas pyarrow numpy plotly ipywidgets
+from google.colab import drive, output
+drive.mount('/content/drive')
+output.enable_custom_widget_manager()
+
+import sys; sys.path.insert(0, '/content/drive/MyDrive/PT2026')
+import value_bets as vb
+
+pool = vb.start()   # alle Renntage ab 18.10.2026 aus PT_tracking/racecards + parquet/pmu_races
+
+# gleichwertig, mit eigenem Pfad/Zeitraum:
+# pool = vb.load_folder(f'{BASE}/racecards', f'{BASE}/parquet/pmu_races', ab='20261018')
+# vb.dashboard(pool)
+
+# ohne Oberfläche
+res = vb.simulate(pool, vb.FilterConfig(minw=0.5, mode='max', mode_value=10),
+                  vb.StakingConfig('kelly4'))
+res.kpi_dict['bank'], res.bets_df.head()
+```
+
+Tests: `pytest tests/test_value_bets.py`. Mit `VALUE_BETS_DATA=<BASE>/racecards` und
+`VALUE_BETS_RESULTS=<BASE>/parquet/pmu_races` laufen auch die Referenzzahlen vom 18.–20.10.2026 mit, zum Beispiel ¼ Kelly →
+2404,00 € bei 18 Wetten.
+
 ## Skill Rennkarten-Durchgang
 
 `.claude/skills/rennkarten-durchgang/SKILL.md` ist der qualitative Durchgang durch eine Rennkarte. Er geht Pferd für Pferd
