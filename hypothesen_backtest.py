@@ -247,7 +247,7 @@ def duell_merkmale(h: pd.DataFrame, maske: pd.Series | None = None, log_alle: in
     h = h.sort_values("date", kind="stable")
     ziel = h[maske.reindex(h.index, fill_value=False)] if maske is not None else h
     # Grundlage der indirekten Duelle einmal für die ganze Historie (vordere Hälfte, kg je Länge), je Tag geschnitten
-    basis = rc.indirekte_basis(h, h["date"].min() + pd.Timedelta(days=rc.INDIREKT_TAGE)).sort_values("date", kind="stable")
+    basis = rc.indirekte_basis(h, rc.historie_beginn(h) + pd.Timedelta(days=rc.INDIREKT_TAGE)).sort_values("date", kind="stable")
     t_h, t_b = h["date"].to_numpy(), basis["date"].to_numpy()
     spalten = ["duel_score", "duel_rank", "duel_of", "duel_weight"]
     zeilen, n = [], 0

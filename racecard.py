@@ -725,6 +725,14 @@ def ist_ausland(hippodrome) -> bool:
     return any(f" {b} " in t for b in AUSLAND_BAHNEN)
 
 
+def historie_beginn(h: pd.DataFrame):
+    """Erster Tag der eigenen (PMU-)Historie – externe Läufe reichen weiter zurück und zählen hier nicht."""
+    if not len(h):
+        return None
+    d = h["date"][~h["extern"].eq(True)] if "extern" in h else h["date"]
+    return d.min() if len(d) else h["date"].min()
+
+
 EXTERN_PLAETZE = 5             # Detail-Leistungen nennen die Plätze 1–5; dahinter nur „im Ziel“ (NON_PLACE)
 EXTERN_DISZIPLIN = {"PLAT"}     # externe Läufe nur aus Flachrennen (Hindernis: anderer Sport, eigene Form)
 
@@ -2266,7 +2274,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     verb_epr = {rolle: h_kl.groupby(rolle + "_key")["lp"].agg(["count", "mean"])
                 if rolle + "_key" in h_kl and "lp" in h_kl and len(h_kl)
                 else pd.DataFrame(columns=["count", "mean"]) for rolle in KLASSE_VERBINDUNG}
-    beginn = h["date"].min() if len(h) else heute
+    beginn = historie_beginn(h) if len(h) else heute
     val_rennen = float(kl_vert["cls_val"].mean()) if len(kl_vert["cls_val"]) else None
     pop["rennen_epr"], pop["rennen_val"] = epr_rennen, val_rennen
 
@@ -2671,7 +2679,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     for (tab, person), heute_ in pref_heute.items():           # Vorlieben-Overlay: die meisten Läufe + heutige Kategorie
         z_ = pref_alle[tab][person]
         pref_alle[tab][person] = z_[:PREF_ALLE_MAX] + [z for z in z_[PREF_ALLE_MAX:] if z[0] in heute_]
-    hist_von = h["date"].min() if len(h) else None
+    hist_von = historie_beginn(h) if len(h) else None
     return {
         "date": heute.strftime("%Y-%m-%d"),
         "generated": datetime.now(pmu.PARIS).strftime("%Y-%m-%d %H:%M"),
