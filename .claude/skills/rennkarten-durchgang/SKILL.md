@@ -449,6 +449,8 @@ für B0, und ihr Alter ist in der Sicherheit zu berücksichtigen.
 
 Formzeilen mit **`extern: true`** sind Läufe außerhalb des PMU-Programms
 (PMH-Provinzrennen wie Aurillac oder Jarnac; `ausland: true` = Auslandsbahn;
+`extern_art: "PMU"` = PMU-Rennen, das nur in der Historie fehlt, meist vor
+Oktober 2022 – Karte „nachgetragen“, klassenmäßig ein normales PMU-Rennen;
 `race_name`, `sieger`): Plätze 1–5 mit Längen zum Sieger (`margin`), ab
 Platz 6 nur „im Ziel“ (`pos_ab` = 6, Längen höchstens als Untergrenze
 `lb_min`), Starterzahl, Preisgeld, Distanz und Boden sind bekannt, Quote,
