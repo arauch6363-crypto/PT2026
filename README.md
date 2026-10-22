@@ -626,6 +626,8 @@ vergleicht beide Rechnungen über Node.
   (`sieg_blind`, ohne Morgenquote) und robustem t (HC1); zweite Variante zusätzlich mit der Presse-Quote. t ≤ −2:
   Pferde, die das Modell bei gleichem Festkurs höher einschätzt, enden kürzer im Toto (`vb.modell_toto`). Das
   Diagramm „Modell → Toto im Verlauf“ zeigt den t-Wert je Renntag kumuliert, ab 20 Picks.
+- **Wettart:** Each-Way (Vorgabe: Sieg- und Platzbein mit gleichem Einsatz) oder nur Sieg (kein Platzbein), im
+  Dashboard als Auswahl, in Python `vb.StakingConfig("kelly4", wettart="sieg")`.
 - **Platzbein:** zum Festkurs Platz aus der Karten-JSON (`fk.platz`).
 - **Hinweise:**
   - Die Kurse sind Festkurse zum `festkurse_stand`, keine Endkurse.

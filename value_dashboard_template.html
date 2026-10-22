@@ -77,6 +77,8 @@ tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 4%, transp
     <option value="kelly8">⅛ Kelly</option><option value="kelly4" selected>¼ Kelly</option>
     <option value="kelly2">½ Kelly</option><option value="kelly1">1/1 Kelly</option>
     <option value="level10">10 € fest</option><option value="level1p">1 % der Bank</option></select></label>
+  <label>Wettart <select id="wa"><option value="ew" selected>Each-Way (Sieg + Platz)</option>
+    <option value="sieg">nur Sieg</option></select></label>
   <label>Min. Wert <input type="range" id="minw" min="0" max="1.5" step="0.1" value="0.5"><output id="minw_o"></output></label>
   <label><input type="checkbox" id="gold" checked> Gold ab 0,2</label>
   <label>Modus <select id="modus">
@@ -109,7 +111,8 @@ tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 4%, transp
 <div class="tabelle"><table id="tab"></table></div>
 <div class="fuss">Kurse = Festkurse zum Stand der Karte (festkurse_stand), keine Endkurse ·
   unter etwa 30 Wetten kaum belastbar · Wert &gt; 3 (gelb) deutet oft auf einen Kursfehler hin ·
-  Sieg- und Platzbein mit gleichem Einsatz, je Bein 5 % Steuer · Tag einzeln = Start mit 1000 €.<br>
+  Each-Way: Sieg- und Platzbein mit gleichem Einsatz (nur Sieg: kein Platzbein), je Bein 5 % Steuer ·
+  Tag einzeln = Start mit 1000 €.<br>
   Kurs bis Start: Festkurs ÷ Toto-Endquote (letzte Siegquote vor dem Start). Weil Toto und Festkurs grundsätzlich
   verschieden liegen, zählt der Vergleich mit dem Schnitt aller Starter des Rennens („Kurs ±“): positiv = der Pick
   wurde bis zum Start stärker gewettet als das Feld, der Markt ist also in unsere Richtung gegangen.
@@ -314,7 +317,7 @@ function kpis(bets, days, start, pool, sel) {
   return k;
 }
 
-function simulieren(pool, f, variant, start = 1000) {
+function simulieren(pool, f, variant, start = 1000, wettart = 'ew') {
   const cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
   const sel = auswahl(pool, f).filter(r => r.settled)
     .sort((a, b) => cmp(a.date, b.date) || cmp(a.race_id, b.race_id) || a.no - b.no);
@@ -328,12 +331,13 @@ function simulieren(pool, f, variant, start = 1000) {
       const st = einsatz(bs, r.p, r.fk_sieg, variant);
       if (st <= 0) continue;
       const [g_s, t_s] = bein(st, r.fk_sieg, r.won);
-      const [g_p, t_p] = bein(st, r.fk_platz, r.placed);
-      const stp = r.fk_platz !== null ? st : 0;
+      const qPlatz = wettart === 'ew' ? r.fk_platz : null;          // nur Sieg: kein Platzbein
+      const [g_p, t_p] = bein(st, qPlatz, r.placed);
+      const stp = qPlatz !== null ? st : 0;
       gs += g_s; gp += g_p; n += 1;
       bets.push({...r, stake_win: st, stake_place: stp, stake: st + stp, tax: rhu(t_s + t_p, 2),
         profit_win: g_s, profit_place: g_p, profit: rhu(g_s + g_p, 2),
-        p_pq: r.fk_platz !== null ? r.p_pq : null, bank_start: bs});
+        p_pq: qPlatz !== null ? r.p_pq : null, bank_start: bs});
     }
     bank = rhu(bs + gs + gp, 2);
     days.push({date: tag, bank_start: bs, bets: n, profit_win: rhu(gs, 2),
@@ -586,7 +590,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
     const f = {minw: +$('minw').value, gold_on: $('gold').checked, mode: modus,
                mode_value: modus === 'none' ? 0 : +$('v_' + modus).value, top: $('top').value};
     const p = $('tag').value === 'alle' ? pool : pool.filter(r => r.date === $('tag').value);
-    const res = simulieren(p, f, $('st').value);
+    const res = simulieren(p, f, $('st').value, 1000, $('wa').value);
     karten(res.kpi);
     const d = res.days, b = res.bets, c1 = farbe('--s1'), c2 = farbe('--s2'), c3 = farbe('--s3');
     linien($('c_bank'), [{name: 'Bank', farbe: c1, werte: [1000, ...d.map(x => x.bank)]}],
@@ -622,7 +626,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
     }
     tabelle(b);
   }
-  for (const id of ['st', 'minw', 'gold', 'modus', 'v_max', 'v_rank', 'v_rel', 'top', 'tag'])
+  for (const id of ['st', 'wa', 'minw', 'gold', 'modus', 'v_max', 'v_rank', 'v_rel', 'top', 'tag'])
     $(id).addEventListener('input', neu);
   $('suche').addEventListener('input', () => tabelle(letzte));
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', neu);
