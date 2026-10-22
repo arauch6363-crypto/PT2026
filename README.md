@@ -626,6 +626,10 @@ vergleicht beide Rechnungen über Node.
   (`sieg_blind`, ohne Morgenquote) und robustem t (HC1); zweite Variante zusätzlich mit der Presse-Quote. t ≤ −2:
   Pferde, die das Modell bei gleichem Festkurs höher einschätzt, enden kürzer im Toto (`vb.modell_toto`). Das
   Diagramm „Modell → Toto im Verlauf“ zeigt den t-Wert je Renntag kumuliert, ab 20 Picks.
+- **Faire Quote:** gemischt (Morgenquote × Power, Vorgabe) oder nur Power – bestimmt faire Quote, Wert, Rang, Top-Wert,
+  Platzchance und Kelly (`vb.FilterConfig(chance="power")`; Spalten `…_pw` im Pool). Auf der Karte gibt es denselben
+  Umschalter neben „Sortieren“; die Sortierung „Faire Quote“ und der Rang „#n“ im Kästchen folgen ihm, „Power“
+  sortiert weiter nach der Stärke ohne Markt.
 - **Wettart:** Each-Way (Vorgabe: Sieg- und Platzbein mit gleichem Einsatz) oder nur Sieg (kein Platzbein), im
   Dashboard als Auswahl, in Python `vb.StakingConfig("kelly4", wettart="sieg")`.
 - **Platzbein:** zum Festkurs Platz aus der Karten-JSON (`fk.platz`).

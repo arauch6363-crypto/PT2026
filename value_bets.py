@@ -132,19 +132,18 @@ def _pferde_rennen(rennen: dict, datum: str) -> list[dict]:
     # Power allein (ohne Morgenquote) für den Test „Modell → Toto“: sieg_blind, ältere Karten nur sieg
     sb = [_zahl(pw.get("sieg_blind")) for _, pw, _ in starter]
     p_blind = (np.array(sb) / sum(sb)) if all(x is not None and x > 0 for x in sb) else p
-    fair = 1.0 / p
-    # Wettkampf-Rang (1, 2, 2, 4 …) nach fairer Quote aufsteigend
-    rang = [1 + int(np.sum(fair < f - TOP_TOL)) for f in fair]
     plaetze = 3 if n >= 8 else 2
-    p_platz = harville_platz(p, plaetze)
+    fks = []
+    for r, _, _ in starter:
+        f_ = _zahl((r.get("fk") or {}).get("sieg"))
+        fks.append(f_ if f_ is not None and f_ > 1 else None)
+    # alle von der Siegchance abhängigen Werte – gemischt (Morgenquote × Power) und mit Power allein („_pw“)
+    gem, pwr = _chance_werte(p, fks, n, plaetze), _chance_werte(p_blind, fks, n, plaetze)
 
     zeilen = []
-    for (r, pw, _), pi, fi, rg, pp, pbl in zip(starter, p, fair, rang, p_platz, p_blind):
+    for (r, pw, _), pbl, fk_sieg, g_, w_ in zip(starter, p_blind, fks, gem, pwr):
         fk = r.get("fk") or {}
-        fk_sieg = _zahl(fk.get("sieg"))
         fk_platz = _zahl(fk.get("platz"))
-        if fk_sieg is not None and fk_sieg <= 1:
-            fk_sieg = None
         if fk_platz is not None and fk_platz <= 1:
             fk_platz = None
         cote = _zahl(((r.get("prono") or {}).get("sel") or {}).get("cote_dec"))
@@ -163,31 +162,56 @@ def _pferde_rennen(rennen: dict, datum: str) -> list[dict]:
             "no": int(r["no"]),
             "horse": r.get("horse"),
             "n": n,
-            "p": float(pi),
-            "fair": float(fi),
-            "rank_fq": rg,
-            "rank_pct": (n - rg) / (n - 1) if n > 1 else 1.0,
-            "rel": float(pi * n),
+            **g_,
+            **{f"{k}_pw": v for k, v in w_.items()},
             "fk_sieg": fk_sieg,
             "fk_platz": fk_platz,
             "cote_dec": cote,
-            "wert": fk_sieg * pi - 1 if fk_sieg is not None else None,
             "gold": bool(gold),
             "p_fk": 1 / fk_sieg if fk_sieg is not None else None,
-            "p_model": float(pi),
             "p_blind": float(pbl),
             "p_pq": 1 / fk_platz if fk_platz is not None else None,
-            "p_platz": float(pp),
-            "fair_platz": 1 / float(pp) if pp > 0 else None,
             "paid_places": plaetze,
         })
-    # Top-Wert des Rennens – vor jedem Filter, alle Gleichstände
-    werte = [z["wert"] for z in zeilen if z["wert"] is not None]
-    top = max(werte) if werte else None
-    for z in zeilen:
-        z["is_top"] = int(z["wert"] is not None and top is not None
-                          and abs(z["wert"] - top) <= TOP_TOL)
     return zeilen
+
+
+CHANCE_SPALTEN = ["p", "fair", "rank_fq", "rank_pct", "rel", "wert", "p_model", "p_platz", "fair_platz", "is_top"]
+CHANCEN = ("mix", "power")   # faire Quote: gemischt (Morgenquote × Power, Vorgabe) oder Power allein
+
+
+def _chance_werte(p: np.ndarray, fks: list, n: int, plaetze: int) -> list[dict]:
+    """Je Starter die Werte aus einer Siegchance p (je Rennen auf 1): faire Quote, Wettkampf-Rang nach fairer Quote
+    (1, 2, 2, 4 …), rank_pct, rel, Wert gegen den Festkurs, Platzchance (Harville) und Top-Wert des Rennens
+    (vor jedem Filter, alle Gleichstände)."""
+    fair = 1.0 / p
+    rang = [1 + int(np.sum(fair < f - TOP_TOL)) for f in fair]
+    p_platz = harville_platz(p, plaetze)
+    out = []
+    for pi, fi, rg, pp, fk in zip(p, fair, rang, p_platz, fks):
+        out.append({"p": float(pi), "fair": float(fi), "rank_fq": rg,
+                    "rank_pct": (n - rg) / (n - 1) if n > 1 else 1.0, "rel": float(pi * n),
+                    "wert": fk * pi - 1 if fk is not None else None, "p_model": float(pi),
+                    "p_platz": float(pp), "fair_platz": 1 / float(pp) if pp > 0 else None})
+    werte = [z["wert"] for z in out if z["wert"] is not None]
+    top = max(werte) if werte else None
+    for z in out:
+        z["is_top"] = int(z["wert"] is not None and top is not None and abs(z["wert"] - top) <= TOP_TOL)
+    return out
+
+
+def chance_waehlen(pool: pd.DataFrame, chance: str = "mix") -> pd.DataFrame:
+    """Pool mit der gewählten Siegchance: "mix" = gemischt (Vorgabe), "power" = Power allein (Spalten „_pw“);
+    danach nur Starter mit Wert ≥ 0 unter dieser Chance. Ältere Pools ohne „_pw“-Spalten bleiben unverändert."""
+    if chance not in CHANCEN:
+        raise ValueError(f"chance muss einer von {CHANCEN} sein")
+    if pool.empty:
+        return pool
+    p = pool.copy()
+    if chance == "power" and all(f"{c}_pw" in p for c in CHANCE_SPALTEN) and p["p_pw"].notna().any():
+        for c in CHANCE_SPALTEN:
+            p[c] = p[f"{c}_pw"]
+    return p[pd.to_numeric(p["wert"], errors="coerce") >= -TOP_TOL]
 
 
 def _karte_lesen(pfad: Path) -> dict:
@@ -249,7 +273,7 @@ def load_day(json_path: str | Path, parquet_path: str | Path | None,
     lv = np.log(pool["fk_sieg"].astype(float) / pool["toto_end"])
     pool["fk_toto"] = np.exp(lv)
     pool["kurs_rel"] = lv - lv.groupby(pool["race_id"]).transform("mean")       # alle Starter des Rennens
-    pool = pool[pool["fk_sieg"].notna() & (pool["wert"] >= -TOP_TOL)].copy()
+    pool = pool[pool["fk_sieg"].notna() & ((pool["wert"] >= -TOP_TOL) | (pool["wert_pw"] >= -TOP_TOL))].copy()
 
     einlauf: dict[str, list[int]] = {}
     if parquet_path is not None and Path(parquet_path).exists():
@@ -277,7 +301,8 @@ def _leerer_pool() -> pd.DataFrame:
         "date", "race_id", "race", "course", "no", "horse", "n", "p", "fair", "rank_fq",
         "rank_pct", "rel", "fk_sieg", "fk_platz", "cote_dec", "wert", "gold", "p_fk",
         "p_model", "p_blind", "p_pq", "p_platz", "fair_platz", "paid_places", "is_top", "festkurse_stand",
-        "toto_end", "fk_toto", "kurs_rel", "settled", "pos", "won", "placed"])
+        "toto_end", "fk_toto", "kurs_rel", "settled", "pos", "won", "placed",
+        *[f"{c}_pw" for c in CHANCE_SPALTEN]])
 
 
 def _hat_endquote(pfad: Path) -> bool:
@@ -366,15 +391,19 @@ class FilterConfig:
 
     minw: Mindest-Wert (0–1,5); gold_on: Gold-Pferde schon ab min(0,2; minw);
     mode: genau einer von "max" (faire Quote < X), "rank" (rank_pct ≥ X),
-    "rel" (rel ≥ X) oder "none"; top: "beides", "ja" (nur Top-Wert) oder "nein".
+    "rel" (rel ≥ X) oder "none"; top: "beides", "ja" (nur Top-Wert) oder "nein";
+    chance: Siegchance für faire Quote, Wert und Kelly – "mix" (Morgenquote × Power, Vorgabe) oder "power".
     """
     minw: float = 0.5
     gold_on: bool = True
     mode: str = "max"
     mode_value: float = 10.0
     top: str = "beides"
+    chance: str = "mix"
 
     def __post_init__(self) -> None:
+        if self.chance not in CHANCEN:
+            raise ValueError(f"chance muss einer von {CHANCEN} sein")
         if self.mode not in MODI:
             raise ValueError(f"mode muss einer von {MODI} sein")
         if self.top not in TOP_WAHL:
@@ -453,6 +482,7 @@ def simulate(pool: pd.DataFrame, filters: FilterConfig = None,
     """Wetten chronologisch durchspielen; Einsätze aus der Bank zu Tagesbeginn."""
     filters = filters or FilterConfig()
     staking = staking or StakingConfig()
+    pool = chance_waehlen(pool, filters.chance)
     sel = auswahl(pool, filters)
     sel = sel[sel["settled"].astype(bool)] if not sel.empty else sel
     sel = sel.sort_values(["date", "race_id", "no"]) if not sel.empty else sel
@@ -751,7 +781,8 @@ DASHBOARD_DATEI = "value_dashboard.html"
 _HTML_SPALTEN = [
     "date", "race_id", "race", "course", "no", "horse", "n", "p", "fair", "rank_fq", "rank_pct",
     "rel", "fk_sieg", "fk_platz", "cote_dec", "wert", "gold", "is_top", "p_fk", "p_model", "p_pq",
-    "p_platz", "fair_platz", "toto_end", "fk_toto", "kurs_rel", "p_blind", "settled", "pos", "won", "placed"]
+    "p_platz", "fair_platz", "toto_end", "fk_toto", "kurs_rel", "p_blind", "settled", "pos", "won", "placed",
+    *[f"{c}_pw" for c in CHANCE_SPALTEN]]
 
 
 def _json_wert(v: Any) -> Any:

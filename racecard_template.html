@@ -500,7 +500,7 @@ const store = {get(k){try{return localStorage.getItem(k)}catch(e){return null}},
 
 let state = {meeting:null, race:null, sort:"no", mid:new Set(), open:new Set(),   // Stufe je Starter: kurz → mid (Zeile) → open (Details)
              rivals:new Set(), duels:new Set(),
-             fold:{prono:false, pace:false}, aeW:"30"};   // ausklappbare Kästen oberhalb der Starter, Vorgabe: eingeklappt
+             fold:{prono:false, pace:false}, aeW:"30", fair:"mix"};   // ausklappbare Kästen oberhalb der Starter, Vorgabe: eingeklappt
 
 function init(){
   if (!DATA || !DATA.meetings || !DATA.meetings.length){
@@ -513,6 +513,7 @@ function init(){
   const first = DATA.races[saved] ? DATA.races[saved] : DATA.races[DATA.meetings[0].races[0]];
   state.meeting = first.reunion; state.race = first.race_id;
   state.sort = store.get("rc-sort") || "no";
+  state.fair = store.get("rc-fair") === "power" ? "power" : "mix";
   state.aeW = store.get("rc-aew") || "30";                // A/E-Tabelle: gewähltes Zeitfenster (Tage)
   renderNav(); renderRace(); renderLegend();
 }
@@ -543,9 +544,13 @@ const POWER_KPI = [
 function powerFeld(race){
   const feld = race.runners.filter(x => !x.nr);
   if (feld.some(x => x.power)) {                       // Power-Modell (racecard.run mit power_modell): ersetzt die Kennzahlen-Rechnung
-    for (const x of race.runners) x._power = x.power && !x.nr ? {p: x.power.p, ml: true, treiber: x.power.treiber || [], pred: x.power.pred, sieg: x.power.sieg, sieg_quelle: x.power.sieg_quelle, sieg_blind: x.power.sieg_blind, wert: x.power.wert, gold: x.power.gold, warn: x.power.warn} : null;
+    for (const x of race.runners) x._power = x.power && !x.nr ? {p: x.power.p, ml: true, treiber: x.power.treiber || [], pred: x.power.pred, sieg_mix: x.power.sieg, sieg_pw: x.power.sieg_blind ?? x.power.sieg, sieg_quelle: x.power.sieg_quelle, sieg_blind: x.power.sieg_blind, wert: x.power.wert, gold: x.power.gold, warn: x.power.warn} : null;
+    // faire Quote nach Umschalter: gemischt (Morgenquote × Power, Vorgabe) oder Power allein
+    for (const x of feld) if (x._power) x._power.sieg = state.fair === "power" ? x._power.sieg_pw : x._power.sieg_mix;
     const mitP = feld.filter(x => x._power).sort((a, b) => b._power.p - a._power.p);
     mitP.forEach(x => { x._power.rank = 1 + mitP.filter(y => y._power.p > x._power.p).length; x._power.n = mitP.length; });
+    const mitS = mitP.filter(x => x._power.sieg != null);      // Rang nach fairer Quote (höchste Siegchance = #1)
+    mitS.forEach(x => { x._power.rank_fair = 1 + mitS.filter(y => y._power.sieg > x._power.sieg).length; });
     // Cote der PMU-Prognose ohne Marge (je Rennen auf 100 % normiert) – vergleichbar mit der fairen Quote des Modells
     const cotes = feld.map(x => [x, x.prono && x.prono.sel && x.prono.sel.cote_dec]).filter(([, c]) => c > 1);
     const marge = cotes.reduce((s, [, c]) => s + 1 / c, 0);
@@ -581,7 +586,8 @@ function powerHTML(x){
 }
 const SORTS = {
   no:    ["Startnummer", r => r.no ?? 99, 1],
-  power: ["Power / faire Quote", r => (r._power && r._power.p) ?? -999, -1],
+  fair:  ["Faire Quote (kleinste zuerst)", r => (r._power && r._power.sieg) ?? -1, -1],
+  power: ["Power (Stärke ohne Markt)", r => (r._power && r._power.p) ?? -999, -1],
   odds:  ["Prognose (cote probable)", r => (r.prono && r.prono.sel && r.prono.sel.cote_dec) ?? 999, 1],
   tr:    ["TR (Ø, heutiges Gewicht)", r => r.tr.heute ?? -999, -1],
   dl600a:["ΔL600 A (Ø)", r => r.summary.dl600_a ?? -99, -1],
@@ -644,6 +650,7 @@ function renderRace(){
     ${pronoHTML(r)}
     ${insightHTML(r)}
     <div class="tools">
+      <label for="fairm">Faire Quote <select id="fairm"><option value="mix" ${state.fair !== "power" ? "selected" : ""}>gemischt (Morgenquote × Power)</option><option value="power" ${state.fair === "power" ? "selected" : ""}>nur Power</option></select></label>
       <label for="sort">Sortieren <select id="sort">${Object.entries(SORTS).map(([k,[l]]) => `<option value="${k}" ${k===state.sort?"selected":""}>${l}</option>`).join("")}</select></label>
       <button class="btn" id="toggle-all" type="button">${state.mid.size ? "Alle zuklappen" : "Alle aufklappen"}</button>
     </div>
@@ -666,6 +673,7 @@ function renderRace(){
     window._kopfBeob.observe(kopf);
   }
   $("#sort").onchange = e => { state.sort = e.target.value; store.set("rc-sort", state.sort); renderRace(); };
+  $("#fairm").onchange = e => { state.fair = e.target.value; store.set("rc-fair", state.fair); renderRace(); };
   $("#toggle-all").onclick = () => {
     if (state.mid.size) { state.mid.clear(); state.open.clear(); } else r.runners.forEach(x => state.mid.add(x.no));   // alle auf die Zeile
     renderRace(); };
@@ -878,18 +886,19 @@ function powerQuote(x){
   const oben = P.gold != null ? P.gold : P.wert != null && P.wert >= VALUE_AB;   // oberste 10 % des Value-Faktors
   const val = oben && (cote == null || cote <= GOLD_COTE_MAX);   // über Cote 10: kein Rahmen
   const warn = !!P.warn;                                          // unterstes Fünftel: Markt überschätzt das Pferd
-  const tip = `Faire Quote ${fx(q, 2)} = Siegchance ${fx(100 * P.sieg, 1)} % ${P.sieg_quelle === "mischung"
-      ? `aus Morgenquote und Power gemischt (Power allein: ${fx(100 * P.sieg_blind, 1)} %)`
-      : P.sieg_quelle === "morgen" ? `aus Power-Merkmalen + Morgenquote (Power allein: ${fx(100 * P.sieg_blind, 1)} %)`
-      : "laut Power-Modell"} (ohne Buchmacher-Marge), `
-    + `#${P.rank} von ${P.n} im Feld. Grün: Modell sieht das Pferd klar über dem Feldschnitt (Power ${P.p} ≥ 105), rot: klar darunter (≤ 95). `
+  const gemischt = P.sieg_quelle === "mischung" || P.sieg_quelle === "morgen";
+  const tip = `Faire Quote ${fx(q, 2)} = Siegchance ${fx(100 * P.sieg, 1)} % ${state.fair === "power"
+      ? `laut Power allein${gemischt ? ` (gemischt mit Morgenquote: ${fx(100 * P.sieg_mix, 1)} %)` : ""}`
+      : gemischt ? `aus Morgenquote und Power gemischt (Power allein: ${fx(100 * P.sieg_pw, 1)} %)`
+      : "laut Power-Modell (keine vollständige Morgenquote im Rennen)"} (ohne Buchmacher-Marge), `
+    + `#${P.rank_fair} nach fairer Quote, Power ${P.p} = #${P.rank} von ${P.n} im Feld. Grün: Modell sieht das Pferd klar über dem Feldschnitt (Power ${P.p} ≥ 105), rot: klar darunter (≤ 95). `
     + `Liegt die angebotene Quote deutlich über der fairen (Marge des Anbieters bedenken), schätzt das Modell das Pferd stärker ein als der Markt. – stärkste Treiber: `
     + P.treiber.map(([n, v]) => `${n} ${v >= 0 ? "+" : "−"}${fx(Math.abs(v), 1)}`).join(" · ")
     + (P.wert != null ? ` – Value-Faktor ×${fx(P.wert, 2)}: laut Value-Modell kommt das Pferd ${P.wert >= 1 ? "öfter" : "seltener"} ins Geld (Platz bzw. Sieg + Platz), als seine Quote erwarten lässt (geeicht auf die Validierung ≈ tatsächliche A/E)` : "")
     + (warn ? ` – roter Rahmen: unterstes Fünftel des Value-Faktors – der Markt überschätzt solche Pferde klar (im Test A/E ≈ 0,7, das verlässlichste Value-Signal)` : "")
     + (val ? ` – goldener Rahmen: oberste 10 % des Value-Faktors bei Prognose-Cote bis ${GOLD_COTE_MAX}${cote == null ? " (Cote unbekannt: gestrichelt)" : ""}; im Test zur PMU-Endquote etwa ausgeglichen, am ehesten zum Festkurs` : "")
     + (oben && !val ? ` – oberste 10 % des Value-Faktors, aber Prognose-Cote ${fx(cote, 1)} über ${GOLD_COTE_MAX}: dort verlor die Auswahl im Test klar (Außenseiter überwettet) – kein Rahmen` : "");
-  return `<div class="kurz-pw ${P.p >= 105 ? "up" : P.p <= 95 ? "down" : ""}${val ? (cote == null ? " val aus" : " val") : warn ? " warn" : ""}" title="${esc(tip)}">${hinweis}<i>Fair</i><b>${q >= 100 ? "100+" : fx(q, q < 10 ? 1 : 0)}</b><small>${fx(100 * P.sieg, 0)} % · #${P.rank}</small></div>`;
+  return `<div class="kurz-pw ${P.p >= 105 ? "up" : P.p <= 95 ? "down" : ""}${val ? (cote == null ? " val aus" : " val") : warn ? " warn" : ""}" title="${esc(tip)}">${hinweis}<i>Fair</i><b>${q >= 100 ? "100+" : fx(q, q < 10 ? 1 : 0)}</b><small>${fx(100 * P.sieg, 0)} % · #${P.rank_fair}</small></div>`;
 }
 // Wettstar: Festkurs Sieg mit Value gegen das Modell (Erwartungswert je 1 € = Kurs × Modell-Siegchance), darunter der
 // aktuelle Toto-Kurs; ohne Festkurs nur der Toto-Kurs (Value dann am Toto)

@@ -77,6 +77,8 @@ tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 4%, transp
     <option value="kelly8">⅛ Kelly</option><option value="kelly4" selected>¼ Kelly</option>
     <option value="kelly2">½ Kelly</option><option value="kelly1">1/1 Kelly</option>
     <option value="level10">10 € fest</option><option value="level1p">1 % der Bank</option></select></label>
+  <label>Faire Quote <select id="chance"><option value="mix" selected>gemischt (Morgenquote × Power)</option>
+    <option value="power">nur Power</option></select></label>
   <label>Wettart <select id="wa"><option value="ew" selected>Each-Way (Sieg + Platz)</option>
     <option value="sieg">nur Sieg</option></select></label>
   <label>Min. Wert <input type="range" id="minw" min="0" max="1.5" step="0.1" value="0.5"><output id="minw_o"></output></label>
@@ -317,7 +319,19 @@ function kpis(bets, days, start, pool, sel) {
   return k;
 }
 
+const CHANCE_SPALTEN = ['p', 'fair', 'rank_fq', 'rank_pct', 'rel', 'wert', 'p_model', 'p_platz', 'fair_platz', 'is_top'];
+function chanceWaehlen(pool, chance) {   // "mix" = Morgenquote × Power (Vorgabe), "power" = Power allein („_pw“)
+  const pw = chance === 'power' && pool.some(r => r.p_pw !== null && r.p_pw !== undefined);
+  return pool.map(r => {
+    if (!pw) return r;
+    const z = {...r};
+    for (const c of CHANCE_SPALTEN) z[c] = r[c + '_pw'];
+    return z;
+  }).filter(r => r.wert !== null && r.wert !== undefined && r.wert >= -1e-9);
+}
+
 function simulieren(pool, f, variant, start = 1000, wettart = 'ew') {
+  pool = chanceWaehlen(pool, f.chance || 'mix');
   const cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
   const sel = auswahl(pool, f).filter(r => r.settled)
     .sort((a, b) => cmp(a.date, b.date) || cmp(a.race_id, b.race_id) || a.no - b.no);
@@ -587,7 +601,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
     $('v_max_o').textContent = $('v_max').value;
     $('v_rank_o').textContent = nf(+$('v_rank').value, 2);
     $('v_rel_o').textContent = nf(+$('v_rel').value, 1);
-    const f = {minw: +$('minw').value, gold_on: $('gold').checked, mode: modus,
+    const f = {chance: $('chance').value, minw: +$('minw').value, gold_on: $('gold').checked, mode: modus,
                mode_value: modus === 'none' ? 0 : +$('v_' + modus).value, top: $('top').value};
     const p = $('tag').value === 'alle' ? pool : pool.filter(r => r.date === $('tag').value);
     const res = simulieren(p, f, $('st').value, 1000, $('wa').value);
@@ -626,7 +640,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
     }
     tabelle(b);
   }
-  for (const id of ['st', 'wa', 'minw', 'gold', 'modus', 'v_max', 'v_rank', 'v_rel', 'top', 'tag'])
+  for (const id of ['st', 'chance', 'wa', 'minw', 'gold', 'modus', 'v_max', 'v_rank', 'v_rel', 'top', 'tag'])
     $(id).addEventListener('input', neu);
   $('suche').addEventListener('input', () => tabelle(letzte));
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', neu);
