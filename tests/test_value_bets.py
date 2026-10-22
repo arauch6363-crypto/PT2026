@@ -231,7 +231,7 @@ def _node_sim(pool, faelle):
     sim = t[t.index("// SIM-START"):t.index("// SIM-END")]
     daten = json.dumps(vb.dashboard_daten(pool))
     js = (sim + f"\nconst pool = zeilen({daten});\nconst faelle = {json.dumps(faelle)};\n"
-          "console.log(JSON.stringify(faelle.map(([f, v]) => simulieren(pool, f, v))));")
+          "console.log(JSON.stringify(faelle.map(([f, v, w]) => simulieren(pool, f, v, 1000, w || 'ew'))));")
     out = subprocess.run([node, "-e", js], capture_output=True, text=True, check=True).stdout
     return json.loads(out)
 
@@ -244,9 +244,11 @@ def test_html_simulation_gleich_python(tmp_path):
     for mode, x in (("none", 0), ("rank", 0.5), ("rel", 1.2), ("max", 25)):
         for top in vb.TOP_WAHL:
             faelle.append((vb.FilterConfig(minw=0.3, gold_on=top != "ja", mode=mode, mode_value=x, top=top), "kelly2"))
-    js = _node_sim(pool, [[vars(f), v] for f, v in faelle])
-    for (f, v), j in zip(faelle, js):
-        py = vb.simulate(pool, f, vb.StakingConfig(v))
+    faelle += [(vb.FilterConfig(), "kelly4", "sieg"), (vb.FilterConfig(minw=0.2, mode="none"), "level10", "sieg")]
+    faelle = [(x[0], x[1], x[2] if len(x) > 2 else "ew") for x in faelle]
+    js = _node_sim(pool, [[vars(f), v, w] for f, v, w in faelle])
+    for (f, v, w), j in zip(faelle, js):
+        py = vb.simulate(pool, f, vb.StakingConfig(v, wettart=w))
         assert j["kpi"]["bets"] == py.kpi_dict["bets"], (f, v)
         assert j["kpi"]["bank"] == py.kpi_dict["bank"], (f, v)
         assert [d["bank"] for d in j["days"]] == list(py.days_df["bank"]), (f, v)
@@ -260,8 +262,8 @@ def test_html_simulation_gleich_python(tmp_path):
                 assert j["kpi"][k] == pytest.approx(py.kpi_dict[k]), k
     assert any(j["kpi"]["bets"] > 10 for j in js)
     # Kursvorteil im Verlauf: JS gleich Python
-    for (f, v), j in zip(faelle, js):
-        py = vb.simulate(pool, f, vb.StakingConfig(v))
+    for (f, v, w), j in zip(faelle, js):
+        py = vb.simulate(pool, f, vb.StakingConfig(v, wettart=w))
         kv = vb.kurs_verlauf(py.bets_df, pool[pool["date"].isin(py.days_df["date"])])
         assert len(j["kurs"]) == len(kv)
         for spalte in ("lauf", "lauf_lo", "lauf_hi", "pool_lauf"):
@@ -271,8 +273,8 @@ def test_html_simulation_gleich_python(tmp_path):
             assert [x for x in ist if x is not None] == pytest.approx([x for x in erw if x is not None]), spalte
     assert any(len(j["kurs"]) > 5 for j in js)
     # Modell → Toto im Verlauf: JS gleich Python
-    for (f, v), j in zip(faelle, js):
-        py = vb.simulate(pool, f, vb.StakingConfig(v)).modell_toto
+    for (f, v, w), j in zip(faelle, js):
+        py = vb.simulate(pool, f, vb.StakingConfig(v, wettart=w)).modell_toto
         assert [x["date"] for x in j["mt"]] == [x["date"] for x in py]
         for a_, b_ in zip(j["mt"], py):
             for k_ in ("b2", "t", "t_presse", "n", "n_tag"):
@@ -396,3 +398,19 @@ def test_modell_toto_verlauf_und_hinweis():
     assert vl[1]["t"] == pytest.approx(vb.modell_toto(sel)["mt_t"]) and vl[1]["t_presse"] is None
     k = vb._mt_kpis(sel)
     assert k["toto_fehlt"] == 1
+
+
+def test_nur_sieg(tmp_path):
+    r = _rennen("20250910R1C1", [_runner(1, 0.5, fk=3.0, platz=1.5), _runner(2, 0.3, fk=2.0, platz=1.2),
+                                 _runner(3, 0.2, fk=6.0, platz=2.5)])
+    j, pq = _tag(tmp_path, "20250910", [r], {"20250910R1C1": "2 - 1 - 3"})
+    pool = vb.load_day(j, pq)
+    ew = vb.simulate(pool, vb.FilterConfig(mode="none"), vb.StakingConfig("level10")).bets_df.iloc[0]
+    s = vb.simulate(pool, vb.FilterConfig(mode="none"), vb.StakingConfig("level10", wettart="sieg"))
+    b = s.bets_df.iloc[0]
+    assert ew["stake_place"] == 10 and ew["profit_place"] == pytest.approx(10 * 0.5 - 0.5)
+    assert b["stake_win"] == 10 and b["stake_place"] == 0 and b["profit_place"] == 0 and b["fk_platz"] == 1.5
+    assert b["tax"] == pytest.approx(0.5) and s.kpi_dict["profit"] == pytest.approx(-10.5)
+    assert s.kpi_dict["places"] == 0 and s.kpi_dict["edge_place"] is None
+    with pytest.raises(ValueError):
+        vb.StakingConfig(wettart="platz")

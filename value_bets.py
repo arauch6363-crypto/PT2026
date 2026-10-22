@@ -47,6 +47,7 @@ HINWEISE = (
 MODI = ("max", "rank", "rel", "none")
 TOP_WAHL = ("beides", "ja", "nein")
 KELLY = {"kelly8": 1 / 8, "kelly4": 1 / 4, "kelly2": 1 / 2, "kelly1": 1.0}
+WETTARTEN = ("ew", "sieg")   # each-way (Sieg + Platz, gleicher Einsatz) oder nur Sieg
 VARIANTEN = (*KELLY, "level10", "level1p")
 # Schieberegler je Modus: (min, max, Schritt, Vorgabe)
 MODUS_REGLER = {
@@ -382,13 +383,17 @@ class FilterConfig:
 
 @dataclass
 class StakingConfig:
-    """Einsatz-Variante: kelly8/kelly4/kelly2/kelly1, level10 (10 €) oder level1p (1 %)."""
+    """Einsatz-Variante: kelly8/kelly4/kelly2/kelly1, level10 (10 €) oder level1p (1 %).
+    wettart: "ew" = each-way (Sieg- und Platzbein mit gleichem Einsatz) oder "sieg" = nur Siegwette."""
     variant: str = "kelly4"
     start_bank: float = START_BANK
+    wettart: str = "ew"
 
     def __post_init__(self) -> None:
         if self.variant not in VARIANTEN:
             raise ValueError(f"variant muss einer von {VARIANTEN} sein")
+        if self.wettart not in WETTARTEN:
+            raise ValueError(f"wettart muss einer von {WETTARTEN} sein")
 
 
 @dataclass
@@ -464,9 +469,10 @@ def simulate(pool: pd.DataFrame, filters: FilterConfig = None,
             if st <= 0:
                 continue
             fk_platz = None if pd.isna(r["fk_platz"]) else float(r["fk_platz"])
+            q_platz = fk_platz if staking.wettart == "ew" else None            # nur Sieg: kein Platzbein
             g_s, t_s = _bein(st, float(r["fk_sieg"]), bool(r["won"]))
-            g_p, t_p = _bein(st, fk_platz, bool(r["placed"]))
-            st_p = st if fk_platz is not None else 0.0
+            g_p, t_p = _bein(st, q_platz, bool(r["placed"]))
+            st_p = st if q_platz is not None else 0.0
             gw_s += g_s
             gw_p += g_p
             n_tag += 1
@@ -488,7 +494,7 @@ def simulate(pool: pd.DataFrame, filters: FilterConfig = None,
                 "toto_end": None if pd.isna(r["toto_end"]) else float(r["toto_end"]),
                 "fk_toto": None if pd.isna(r["fk_toto"]) else float(r["fk_toto"]),
                 "kurs_rel": None if pd.isna(r["kurs_rel"]) else float(r["kurs_rel"]),
-                "p_pq": r["p_pq"] if fk_platz is not None else None,
+                "p_pq": r["p_pq"] if q_platz is not None else None,
                 "bank_start": bank_start,
             })
         bank = round_half_up(bank_start + gw_s + gw_p, 2)
