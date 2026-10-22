@@ -755,6 +755,48 @@ def power_modell_pruefen() -> None:
            and not rc_.extern_kennzeichen(he3).loc[0] and rc_.extern_kennzeichen(he2).loc[0],
            "Externe Läufe auf PMU-Bahnen (z. B. vor Beginn der Historie) zählen in den Merkmalen wie "
            "PMU-Läufe; nur PMH/Ausland/Übersee tragen das Kennzeichen extern")
+    # Rennverlauf zeitlich sauber: spätere Rennen ändern die Einordnung früherer Läufe nicht
+    rg_ = np.random.default_rng(1); zz_ = []
+    st_ = rg_.normal(0, 1, 300)
+    for t_ in range(260):
+        d_ = pd.Timestamp("2024-01-01") + pd.Timedelta(days=t_)
+        for r_ in range(4):
+            ids_ = rg_.choice(300, 10, replace=False); fr_ = rg_.uniform(0, 1, 10); b_ = rg_.normal(0, 1)
+            sc_ = st_[ids_] + b_ * (0.5 - fr_) + rg_.normal(0, 1, 10)
+            ps_ = (-sc_).argsort().argsort() + 1
+            for k_, i_ in enumerate(ids_):
+                zz_.append(dict(race_id=f"{d_:%Y%m%d}R1C{r_}", date=d_, horse_id=f"P{i_}|V", course_key="ABC"[r_ % 3],
+                                distance_m=[1600, 2000, 2400][(t_ + r_) % 3], early_pct=fr_[k_], finish_pos=ps_[k_],
+                                rel_place=(10 - ps_[k_]) / 9, n_runners=10))
+    hv_ = pd.DataFrame(zz_)
+    v1_ = pm.verlauf_zeitlich(hv_)
+    hv2_ = hv_.copy()
+    spaet_ = hv2_["date"] >= pd.Timestamp("2024-07-01")
+    hv2_.loc[spaet_, "early_pct"] = 1 - hv2_.loc[spaet_, "early_pct"]          # Zukunft umdrehen
+    v2_ = pm.verlauf_zeitlich(hv2_)
+    frueh_ = (~spaet_).to_numpy()
+    vl_ = np.array([{"gegen": 1.0, "mit": -1.0, "neutral": 0.0}.get(x, np.nan) for x in v1_])
+    tg_, kr_ = pm._verlauf_korrektur((hv_["date"] - pd.Timestamp("2000-01-01")).dt.days.to_numpy(), vl_,
+                                     hv_["rel_place"].to_numpy(float), np.zeros(len(hv_), bool))
+    pruefe(list(v1_[frueh_]) == list(v2_[frueh_]) and pd.Series(v1_).notna().mean() > 0.5
+           and kr_[-1][0] > 0.05 and kr_[-1][1] < -0.05,
+           f"Rennverlauf zeitlich sauber (Norm und Grenzen nur aus früheren Tagen): Zukunft ändert frühere Läufe nicht; "
+           f"Form-Korrektur gegen den Verlauf {kr_[-1][0]:+.2f}, mit dem Verlauf {kr_[-1][1]:+.2f} Pos+")
+    alt_ = (pm.VERLAUF_MIN_VORHER, pm.VB_MIN)
+    pm.VERLAUF_MIN_VORHER, pm.VB_MIN = 20, 20                                   # kleine Testhistorie
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            Xv = pm.merkmale(h, log=print)
+    finally:
+        pm.VERLAUF_MIN_VORHER, pm.VB_MIN = alt_
+    bd_ = Xv["box_dev"]
+    mitb_ = Xv["box_runs"].notna()
+    erw_ = (Xv.loc[mitb_, "box_mean"] * Xv.loc[mitb_, "box_runs"] + pm.BOX_K * 0.5) / (Xv.loc[mitb_, "box_runs"] + pm.BOX_K) - 0.5
+    pruefe(all(Xv[c].notna().any() for c in ("verlauf5_gegen", "verlauf5_mit", "form5_pos_gegen", "form5_pos_mit"))
+           and (Xv["formz_pos_vb"] - Xv["formz_pos"]).abs().max() > 0
+           and np.allclose(bd_[mitb_], erw_) and bd_.abs().max() < 0.5 and (bd_[~mitb_].dropna() == 0).all(),
+           "Neue Merkmale: Rennverlauf der letzten fünf (Anteil gegen/mit, Ø Pos+ je Klasse), Verlauf-bereinigte Form "
+           "formz_pos_vb, geschrumpfte Box-Abweichung box_dev")
     sc_ = pm._score(1.0, 1e-17, 0.5, 5.0, 1, 0.5, 5.0)
     pruefe(abs(sc_ - 100) < 1e-9 and abs(pm._score(1.0, 0.5, 0.5, 5.0, 1, 0.5, 5.0) - 400 / 3) < 1e-9,
            "Verbindungs-Score: Rundungsrest der Erwartung (1e-17) zählt nicht als A/E (kein Wert wie 1e16)")
