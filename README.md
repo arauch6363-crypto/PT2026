@@ -611,6 +611,11 @@ vergleicht beide Rechnungen über Node.
   - Grundlage ist immer die Bank zu Tagesbeginn.
   - Sieg- und Platzbein bekommen denselben Einsatz.
   - Je Bein werden 5 % Steuer abgezogen.
+- **Kurs bis Start:** Festkurs gegen Toto-Endquote (`parquet/pmu_runners`, `odds_final` = letzte Siegquote vor dem
+  Start). Weil Festkurs und Toto grundsätzlich verschieden liegen (Toto nach Abzug), zählt der Vergleich mit dem
+  Schnitt aller Starter desselben Rennens: Kachel „Kurs bis Start“ (geometrisches Mittel, + = Picks wurden stärker
+  gewettet als das Feld) und Spalte „Kurs ±“ je Wette. Schnellstes ehrliches Signal, ob die Picks echten Wert haben.
+- **Platzbein:** zum Festkurs Platz aus der Karten-JSON (`fk.platz`).
 - **Hinweise:**
   - Die Kurse sind Festkurse zum `festkurse_stand`, keine Endkurse.
   - Unter etwa 30 Wetten ist das Ergebnis kaum belastbar.

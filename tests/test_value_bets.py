@@ -9,6 +9,7 @@ import os
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -211,6 +212,11 @@ def _zufallspool(tmp_path, tage=4, seed=7):
             if t < tage - 1 or c < 6:          # letzter Tag: ein Rennen ohne Einlauf
                 einlauf[rid] = " - ".join(map(str, reihe[:5]))
         _tag(tmp_path, d, rennen, einlauf)
+        stz = [(r_["race_id"], x["no"]) for r_ in rennen for x in r_["runners"]]
+        (tmp_path / "pmu_runners").mkdir(exist_ok=True)
+        pd.DataFrame({"race_id": [a_ for a_, _ in stz], "saddle_no": [b_ for _, b_ in stz],
+                      "odds_final": [rnd.choice([None, 1.8, 3.5, 6.0, 12.0, 25.0]) for _ in stz]}).to_parquet(
+            tmp_path / "pmu_runners" / f"{d}.parquet")
     with pytest.warns(UserWarning):
         return vb.load_folder(tmp_path, ab=None)
 
@@ -247,7 +253,8 @@ def test_html_simulation_gleich_python(tmp_path):
         if py.kpi_dict["bets"]:
             assert [b["profit"] for b in j["bets"]] == list(py.bets_df["profit"])
             assert [b["horse"] for b in j["bets"]] == list(py.bets_df["horse"])
-            for k in ("roi", "tax", "wins", "places", "exp_wins_fk", "edge_win", "edge_place", "exp_places_model"):
+            for k in ("roi", "tax", "wins", "places", "exp_wins_fk", "edge_win", "edge_place", "exp_places_model",
+                      "kurs_n", "kurs_gefallen", "clv", "clv_rel", "kurs_besser"):
                 assert j["kpi"][k] == pytest.approx(py.kpi_dict[k]), k
     assert any(j["kpi"]["bets"] > 10 for j in js)
 
@@ -290,3 +297,24 @@ def test_edge_formel(tmp_path):
     mp = b[b["stake_place"] > 0]
     assert k["edge_win"] == pytest.approx((1 / b["fair"]).sum() / (1 / b["fk_sieg"]).sum())
     assert k["edge_place"] == pytest.approx((1 / mp["fair_platz"]).sum() / (1 / mp["fk_platz"]).sum())
+
+
+def test_kursbewegung(tmp_path):
+    r = _rennen("20250910R1C1", [_runner(1, 0.5, fk=3.0, platz=1.5), _runner(2, 0.3, fk=5.0, platz=2.0),
+                                 _runner(3, 0.2, fk=6.0, platz=2.5)])
+    j, pq = _tag(tmp_path, "20250910", [r], {"20250910R1C1": "1 - 2 - 3"})
+    st = tmp_path / "pmu_runners"
+    st.mkdir()
+    pd.DataFrame({"race_id": ["20250910R1C1"] * 3, "saddle_no": [1, 2, 3],
+                  "odds_final": [2.0, 5.0, 9.0]}).to_parquet(st / "20250910.parquet")
+    pool = vb.load_folder(tmp_path, ab=None, starter_ordner=st).set_index("no")
+    lv = np.log([3.0 / 2.0, 5.0 / 5.0, 6.0 / 9.0])
+    assert pool.loc[1, "toto_end"] == 2.0 and pool.loc[1, "fk_toto"] == pytest.approx(1.5)
+    assert pool.loc[1, "kurs_rel"] == pytest.approx(lv[0] - lv.mean())
+    res = vb.simulate(pool.reset_index(), vb.FilterConfig(mode="none", minw=0.0, gold_on=False))
+    k = res.kpi_dict
+    assert k["kurs_n"] == k["bets"] and 0 <= k["kurs_gefallen"] <= 1
+    b = res.bets_df
+    assert k["clv_rel"] == pytest.approx(np.exp(b["kurs_rel"].mean()) - 1)
+    ohne = vb.load_folder(tmp_path, ab=None, starter_ordner=tmp_path / "fehlt")
+    assert ohne["toto_end"].isna().all() and vb.simulate(ohne).kpi_dict["kurs_n"] == 0

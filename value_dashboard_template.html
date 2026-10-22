@@ -99,7 +99,10 @@ tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 4%, transp
 <div class="tabelle"><table id="tab"></table></div>
 <div class="fuss">Kurse = Festkurse zum Stand der Karte (festkurse_stand), keine Endkurse ·
   unter etwa 30 Wetten kaum belastbar · Wert &gt; 3 (gelb) deutet oft auf einen Kursfehler hin ·
-  Sieg- und Platzbein mit gleichem Einsatz, je Bein 5 % Steuer · Tag einzeln = Start mit 1000 €.</div>
+  Sieg- und Platzbein mit gleichem Einsatz, je Bein 5 % Steuer · Tag einzeln = Start mit 1000 €.<br>
+  Kurs bis Start: Festkurs ÷ Toto-Endquote (letzte Siegquote vor dem Start). Weil Toto und Festkurs grundsätzlich
+  verschieden liegen, zählt der Vergleich mit dem Schnitt aller Starter des Rennens („Kurs ±“): positiv = der Pick
+  wurde bis zum Start stärker gewettet als das Feld, der Markt ist also in unsere Richtung gegangen.</div>
 </main>
 <div class="tip" id="tip"></div>
 <script>
@@ -177,6 +180,14 @@ function kpis(bets, days, start) {
     edge_win: q(emod, efk), edge_place: q(epm, epq),
     hinweis: bets.length < 30 ? 'Stichprobe klein (< 30 Wetten)' : null,
   });
+  // Kursbewegung bis zum Start: Festkurs gegen Toto-Endquote, roh und gegen den Schnitt des Rennens
+  const mk = bets.filter(b => b.fk_toto !== null && b.fk_toto !== undefined && b.kurs_rel !== null && b.kurs_rel !== undefined);
+  Object.assign(k, mk.length ? {
+    kurs_n: mk.length, kurs_gefallen: mk.filter(b => Math.log(b.fk_toto) > 0).length / mk.length,
+    clv: Math.exp(sum(mk, b => Math.log(b.fk_toto)) / mk.length) - 1,
+    clv_rel: Math.exp(sum(mk, b => b.kurs_rel) / mk.length) - 1,
+    kurs_besser: mk.filter(b => b.kurs_rel > 0).length / mk.length,
+  } : {kurs_n: 0, kurs_gefallen: null, clv: null, clv_rel: null, kurs_besser: null});
   return k;
 }
 
@@ -334,6 +345,8 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
     ['stake_win', 'Einsatz S', '', r => nf(r.stake_win, 0)], ['stake_place', 'Einsatz P', '', r => nf(r.stake_place, 0)],
     ['profit_win', 'G/V Sieg', '', r => nf(r.profit_win)], ['profit_place', 'G/V Platz', '', r => nf(r.profit_place)],
     ['profit', 'G/V', '', r => nf(r.profit)],
+    ['toto_end', 'Toto End', '', r => nf(r.toto_end, 1)], ['kurs_rel', 'Kurs ±', '',
+      r => r.kurs_rel === null || r.kurs_rel === undefined ? '–' : (r.kurs_rel > 0 ? '+' : '') + nf(100 * (Math.exp(r.kurs_rel) - 1), 0) + ' %'],
   ];
   let sortSp = null, sortAuf = true, letzte = [];
   function tabelle(bets) {
@@ -350,7 +363,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
     const farbe = v => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
     const rumpf = b.map(r => '<tr>' + SP.map(([k, , c, f]) => {
       let kl = c || '';
-      if (k.startsWith('profit')) kl += ' ' + farbe(r[k]);
+      if (k.startsWith('profit') || k === 'kurs_rel') kl += ' ' + farbe(r[k]);
       if (k === 'wert' && r.wert > 3) kl += ' wa';
       return `<td class="${kl}">${esc(f ? f(r) : r[k])}</td>`;
     }).join('') + '</tr>').join('');
@@ -373,6 +386,9 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
       z('Platziert', k.places ?? '–', `Platzquote ${pct(k.place_rate)}`),
       z('Edge Sieg', nf(k.edge_win), `Σ 1/Fair ${nf(k.exp_wins_model)} ÷ Σ 1/FK ${nf(k.exp_wins_fk)}`),
       z('Edge Platz', nf(k.edge_place), `Σ 1/Fair P ${nf(k.exp_places_model)} ÷ Σ 1/FK P ${nf(k.exp_places_pq)}`),
+      z('Kurs bis Start', k.kurs_n ? `<span class="${kl(k.clv_rel)}">${k.clv_rel > 0 ? '+' : ''}${pct(k.clv_rel)}</span>` : '–',
+        k.kurs_n ? `gegen Rennschnitt · ${pct(k.kurs_besser)} besser als das Feld · `
+          + `FK/Toto Ø ${nf(1 + k.clv)} · ${k.kurs_n} Picks` : 'keine Toto-Endquote (pmu_runners)'),
     ].join('');
     $('hinweis').textContent = k.hinweis || '';
   }
