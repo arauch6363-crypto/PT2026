@@ -1003,8 +1003,13 @@ def power_modell_pruefen() -> None:
            "Power-Modell: Scheuklappen erstmals, Jockey-Wechsel (gleicher Jockey -> Score-Differenz 0)")
     # Rennverlauf der Formzeilen: gegen = +1, mit = −1, neutral = 0, unbekannt = leer
     hv = h.assign(verlauf_pferd=np.where(h["saddle_no"] % 3 == 0, "gegen", np.where(h["saddle_no"] % 3 == 1, "mit", None)))
-    with contextlib.redirect_stdout(io.StringIO()):
-        Xv = pm.merkmale(hv, duelle=False, log=print)
+    _vz = pm.verlauf_zeitlich                                  # Einordnung vorgeben, geprüft wird die Umrechnung
+    pm.verlauf_zeitlich = lambda d: d["verlauf_pferd"].to_numpy(dtype=object)
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            Xv = pm.merkmale(hv, duelle=False, log=print)
+    finally:
+        pm.verlauf_zeitlich = _vz
     w = set(Xv["f1_verlauf"].dropna().unique())
     pruefe(w == {1.0, -1.0} and Xv["f1_verlauf"].isna().any(),
            "Power-Modell: Formzeilen mit Rennverlauf (gegen +1, mit −1, unbekannt leer)")
