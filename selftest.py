@@ -1187,6 +1187,9 @@ def festkurse_pruefen() -> None:
     pruefe([m["name"] for m in ws.veranstaltungen_waehlen(heute18, ["HYERES", "PARISLONGCHAMP", "TARBES"])] == ["Longchamp", "Tarbes"]
            and ws.bahn_aehnlich("La Teste", "LA TESTE DE BUCH") >= ws.BAHN_MIN
            and ws.bahn_aehnlich("Marseille-Vivaux", "MARSEILLE BORELY") < ws.BAHN_MIN
+           and ws.bahn_aehnlich("Les Sables", "SABLES D OLONNE") >= ws.BAHN_MIN
+           and ws.bahn_aehnlich("Les Sables", "DEAUVILLE") < ws.BAHN_MIN
+           and ws.bahn_aehnlich("Le Lion d'Angers", "LION D ANGERS") >= ws.BAHN_MIN
            and ws.aehnlich("Max", "Max Win") < ws.NAME_MIN,
            "Festkurse: Bahnname im anderen enthalten zählt (Longchamp = PARISLONGCHAMP, La Teste = LA TESTE DE BUCH; "
            "Liste vom 18.10.: Longchamp und Tarbes, nicht Zurich/Maronas/Trab); bei Pferdenamen nicht")

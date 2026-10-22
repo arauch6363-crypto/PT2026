@@ -277,13 +277,24 @@ BAHN_TEIL_MIN = 5                  # Bahnname ganz im anderen enthalten (Longcha
 BAHN_TEIL_WERT = 0.95
 
 
+_ARTIKEL = re.compile(r"^\s*(?:LES|LE|LA|L)(?:\s+|['’])", re.I)
+
+
+def _ohne_artikel(s) -> str:
+    """Führenden Artikel weglassen: „Les Sables“ → „Sables“, „L'Isle-sur-la-Sorgue“ → „Isle-sur-la-Sorgue“."""
+    t = unicodedata.normalize("NFKD", str(s or "")).encode("ascii", "ignore").decode()
+    return _ARTIKEL.sub("", t)
+
+
 def bahn_aehnlich(a, b) -> float:
     """Wie aehnlich, aber für Bahnnamen: steckt der kürzere Name ganz im längeren (Longchamp / PARISLONGCHAMP,
-    La Teste / LA TESTE DE BUCH), zählt das als Treffer (BAHN_TEIL_WERT)."""
-    na, nb = norm(a), norm(b)
-    kurz, lang = sorted((na, nb), key=len)
-    if len(kurz) >= BAHN_TEIL_MIN and kurz != lang and kurz in lang:
-        return BAHN_TEIL_WERT
+    La Teste / LA TESTE DE BUCH), zählt das als Treffer (BAHN_TEIL_WERT) – auch ohne führenden Artikel
+    (Les Sables / SABLES D OLONNE)."""
+    for x, y in ((a, b), (_ohne_artikel(a), _ohne_artikel(b))):
+        nx, ny = norm(x), norm(y)
+        kurz, lang = sorted((nx, ny), key=len)
+        if len(kurz) >= BAHN_TEIL_MIN and kurz != lang and kurz in lang:
+            return BAHN_TEIL_WERT
     return aehnlich(a, b)
 
 
