@@ -66,7 +66,7 @@ PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schr
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
 SCHLUESSEL_DATEI = "merkmale_schluessel.parquet"   # je Zeile des Zwischenspeichers: race_id, horse_id
-MERKMAL_VERSION = 16                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+MERKMAL_VERSION = 17                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
@@ -109,6 +109,7 @@ VERB_K = 10                 # Verbindungs-Score zur 100 hin geschrumpft wie mit 
 ABST_K = 20                 # dasselbe für Vater/Muttervater
 ABST_MIN = 30               # beste Gruppe von Vater/Muttervater erst ab so vielen Läufen in der Gruppe
 VB_MIN = 300               # Verlauf-Korrektur der Form erst, wenn die Klasse (gegen/mit/neutral) so viele Läufe hat
+WECHSEL_MAX_LAEUFE, WECHSEL_MAX_TAGE = 10, 730   # Trainer-/Besitzerwechsel: Läufe bzw. Tage seitdem, gedeckelt
 BOX_K = 30                 # box_dev: Box-Schnitt zur Feldmitte hin geschrumpft wie mit so vielen Läufen
 VERLAUF_MIN_VORHER = 200   # Rennverlauf (zeitlich): Klassengrenzen erst ab so vielen früheren Rennen
 PFERD_MIN = 2               # beste Gruppe des Pferdes erst ab so vielen Läufen in der Gruppe
@@ -130,6 +131,10 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("form5_", "Form letzte 5"), ("formz_", "Form zeitgewichtet"), ("form_steig", "Formtrend"),
            ("verlauf5", "Rennverlauf"), ("form5_pos_gegen", "Rennverlauf"), ("form5_pos_mit", "Rennverlauf"),
            ("formz_pos_vb", "Form zeitgewichtet (Verlauf bereinigt)"),
+           ("laeufe_seit_trainer", "Trainerwechsel"), ("tage_seit_trainer", "Trainerwechsel"),
+           ("trainer_sprung", "Trainerwechsel"), ("form_neuer_trainer", "Trainerwechsel"),
+           ("chg_owner", "Besitzerwechsel"), ("laeufe_seit_besitzer", "Besitzerwechsel"),
+           ("tage_seit_besitzer", "Besitzerwechsel"), ("besitzer_", "Besitzerwechsel"),
            ("form5_klasse", "Klasse der letzten Läufe"), ("form5_preis", "Klasse der letzten Läufe"),
            ("formz_klasse", "Klasse der letzten Läufe"), ("formz_preis", "Klasse der letzten Läufe"),
            ("chg_prize", "Klassenwechsel"), ("chg_class", "Klassenwechsel"), ("chg_weight", "Gewichtswechsel"),
@@ -415,6 +420,9 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     blink = np.array([{"ohne": 0.0, "klassisch": 1.0, "australisch": 2.0}.get(rc.scheuklappen_gruppe(b), np.nan)
                       for b in _text(h, "blinkers")], dtype=float)
     jk, tk = _text(h, "jockey_key"), _text(h, "trainer_key")
+    ok_ = _text(h, "owner_key")
+    alt_trainer = np.full(n, None, dtype=object)          # voriger Trainer bzw. Besitzer (vor dem letzten Wechsel)
+    alt_besitzer = np.full(n, None, dtype=object)
     ext_ = extern.loc[idx].to_numpy(dtype=float)             # externer Lauf (PMH/Ausland) je Zeile
     # Kennzeichen „extern“ für die Merkmale: nur PMH/Ausland/Übersee – externe Läufe auf PMU-Bahnen (v. a. vor Beginn
     # der Historie) zählen wie PMU-Läufe, sonst hätte das Kennzeichen vor und nach Oktober 2022 eine andere Bedeutung
@@ -459,7 +467,9 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
               "erst_dist", "erst_belag", "abst_pass", "abst_pass_sire", "abst_pass_dam_sire", "abst_pass_dist",
               "abst_pass_boden", "abst_pass_belag", "abst_pass_reife", "abst_pass_wechsel", "form5_extern",
               "f1_ausland", "formz_pos_pmu", "verlauf5_gegen", "verlauf5_mit", "form5_pos_gegen", "form5_pos_mit",
-              "formz_pos_vb"]:
+              "formz_pos_vb", "laeufe_seit_trainerwechsel", "tage_seit_trainerwechsel", "form_neuer_trainer",
+              "form_neuer_trainer_n", "chg_owner", "laeufe_seit_besitzerwechsel", "tage_seit_besitzerwechsel",
+              "besitzer_ohne_trainer"]:
         feld(c)
     for c in ["runs", "runs365", "lgo_pos", "lgo_arr", "ldi_pos", "ldi_arr", "days", "rtr", "arr", "tr", "dl600", "db200", "early", "epr365",
               "won_course", "won_dist", "won_going", "placed_course", "placed_dist", "placed_going", "best_dist", "best_going"]:
@@ -584,6 +594,33 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             tz = [t_ for t_ in [tk[i]] + [tk[j] for j in vor[:4]] if t_ is not None]
             if len(tz) > 1:
                 F["trainerwechsel5"][i] = float(len(set(tz)) > 1)
+            # letzter Trainer-/Besitzerwechsel: Läufe und Tage seitdem, voriger Trainer/Besitzer (für den „Sprung“)
+            for name, key, alt in (("trainer", tk, alt_trainer), ("besitzer", ok_, alt_besitzer)):
+                if key[i] is None:
+                    continue
+                k_, j_alt = 0, None
+                for j in vor:
+                    if key[j] is None:
+                        continue
+                    if key[j] != key[i]:
+                        j_alt = j
+                        break
+                    k_ += 1
+                if j_alt is None:
+                    continue
+                F[f"laeufe_seit_{name}wechsel"][i] = float(min(k_, WECHSEL_MAX_LAEUFE))
+                F[f"tage_seit_{name}wechsel"][i] = float(min(tag[i] - tag[j_alt], WECHSEL_MAX_TAGE))
+                alt[i] = key[j_alt]
+                if name == "trainer":                  # Form beim neuen Trainer (Läufe seit dem Wechsel)
+                    beim = [j for j in vor[:vor.index(j_alt)] if tk[j] == tk[i] and np.isfinite(rp0[j])]
+                    F["form_neuer_trainer_n"][i] = float(len(beim))
+                    if beim:
+                        F["form_neuer_trainer"][i] = float(np.mean(rp0[beim]))
+            # Besitzer gegenüber dem letzten Lauf gewechselt; ohne Trainerwechsel (Verkauf im Stall)
+            if ok_[i] is not None and ok_[vor[0]] is not None:
+                F["chg_owner"][i] = float(ok_[i] != ok_[vor[0]])
+                if tk[i] is not None and tk[vor[0]] is not None:
+                    F["besitzer_ohne_trainer"][i] = float(ok_[i] != ok_[vor[0]] and tk[i] == tk[vor[0]])
             F["days"][i] = tag[i] - tag[vor[0]]
             F["runs365"][i] = sum(tag[i] - tag[j] <= 365 for j in vor)
             # verdichtete Form der letzten FORM_VERDICHTET Läufe (fehlende Werte zählen nicht)
@@ -780,6 +817,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
         for c in ("score", "epr", "val3", "runs") + (("best_dist", "best_going") if l_ != "dam" else ()):
             feld(f"{l_}_{c}")
     feld("box_mean"), feld("box_runs"), feld("box_dev"), feld("chg_jockey_score")
+    feld("trainer_sprung"), feld("besitzer_sprung")
     verb = {r_: {} for r_ in rollen}                     # Schlüssel -> [deque, n, placed, exp, rp, lp]
     glob = [deque(), 0, 0.0, 0.0]                        # 365-Tage-Schnitt aller Läufe: n, rp, lp
     abst = {l_: {} for l_ in linien}                     # Schlüssel -> [n, placed, exp, rp, lp, n3, val3]
@@ -820,6 +858,10 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 F[f"{r_}_score"][i], F[f"{r_}_runs"][i] = verb_score(r_, keys[i])
             if letzter_jk[i] is not None:                 # Jockey besser/schlechter als beim letzten Lauf (Score heute)
                 F["chg_jockey_score"][i] = F["jockey_score"][i] - verb_score("jockey", letzter_jk[i])[0]
+            if alt_trainer[i] is not None:                # neuer Stall besser/schlechter als der vorige (Stand heute)
+                F["trainer_sprung"][i] = F["trainer_score"][i] - verb_score("trainer", alt_trainer[i])[0]
+            if alt_besitzer[i] is not None:
+                F["besitzer_sprung"][i] = F["owner_score"][i] - verb_score("owner", alt_besitzer[i])[0]
             ga_rp = g_all[1] / g_all[0] if g_all[0] else np.nan
             ga_lp = g_all[2] / g_all[0] if g_all[0] else np.nan
             for l_, keys in linien.items():

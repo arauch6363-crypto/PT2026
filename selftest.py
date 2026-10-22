@@ -797,6 +797,27 @@ def power_modell_pruefen() -> None:
            and np.allclose(bd_[mitb_], erw_) and bd_.abs().max() < 0.5 and (bd_[~mitb_].dropna() == 0).all(),
            "Neue Merkmale: Rennverlauf der letzten fünf (Anteil gegen/mit, Ø Pos+ je Klasse), Verlauf-bereinigte Form "
            "formz_pos_vb, geschrumpfte Box-Abweichung box_dev")
+    # Trainer-/Besitzerwechsel: Läufe und Tage seitdem, Sprung neu − alt, Form beim neuen Trainer, Verkauf im Stall
+    hw_ = h.copy()
+    vc_ = hw_["horse_id"].value_counts()
+    l1_ = hw_[hw_["horse_id"] == vc_.index[0]].sort_values("date").index
+    l2_ = hw_[hw_["horse_id"] == vc_.index[1]].sort_values("date").index
+    neu_tr_ = hw_.loc[hw_["trainer_key"] != hw_.loc[l1_[0], "trainer_key"], "trainer_key"].iloc[0]
+    hw_.loc[l1_[4:], "trainer_key"] = neu_tr_
+    hw_.loc[l1_[4:], "owner_key"] = "BESITZER_NEU"
+    hw_.loc[l2_[5:], "owner_key"] = "BESITZER_ZWEI"
+    with contextlib.redirect_stdout(io.StringIO()):
+        Xw_ = pm.merkmale(hw_, log=print)
+    pruefe(Xw_.loc[l1_[:4], "laeufe_seit_trainerwechsel"].isna().all()
+           and Xw_.at[l1_[4], "laeufe_seit_trainerwechsel"] == 0 and Xw_.at[l1_[4], "chg_trainer"] == 1
+           and Xw_.at[l1_[4], "form_neuer_trainer_n"] == 0 and np.isfinite(Xw_.at[l1_[4], "trainer_sprung"])
+           and Xw_.at[l1_[5], "laeufe_seit_trainerwechsel"] == 1 and Xw_.at[l1_[5], "form_neuer_trainer_n"] == 1
+           and Xw_.at[l1_[6], "tage_seit_trainerwechsel"] > Xw_.at[l1_[5], "tage_seit_trainerwechsel"] > 0
+           and Xw_.at[l1_[4], "besitzer_ohne_trainer"] == 0
+           and Xw_.at[l2_[5], "chg_owner"] == 1 and Xw_.at[l2_[5], "besitzer_ohne_trainer"] == 1
+           and Xw_.at[l2_[6], "laeufe_seit_besitzerwechsel"] == 1 and np.isnan(Xw_.at[l2_[6], "laeufe_seit_trainerwechsel"]),
+           "Trainer-/Besitzerwechsel: Läufe/Tage seit dem Wechsel, Trainer-Sprung (Score neu − alt), Form beim neuen "
+           "Trainer, Besitzerwechsel ohne Trainerwechsel")
     sc_ = pm._score(1.0, 1e-17, 0.5, 5.0, 1, 0.5, 5.0)
     pruefe(abs(sc_ - 100) < 1e-9 and abs(pm._score(1.0, 0.5, 0.5, 5.0, 1, 0.5, 5.0) - 400 / 3) < 1e-9,
            "Verbindungs-Score: Rundungsrest der Erwartung (1e-17) zählt nicht als A/E (kein Wert wie 1e16)")

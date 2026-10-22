@@ -207,6 +207,14 @@ Gemessen auf denselben Testrennen (2026, alle mit Morgen- und Endquote; Modelle 
 - `box_dev`: Ø Pos+ aus der Startbox auf derselben Bahnkonfiguration, zur Feldmitte hin geschrumpft
   ((Σ Pos+ + 30 × 0,5) ÷ (n + 30) − 0,5); bei wenigen Läufen ≈ 0.
 
+**Trainer- und Besitzerwechsel (Merkmale Version 17):**
+- `laeufe_seit_trainerwechsel` (0 = heute erster Start beim neuen Trainer, bis 10) und `tage_seit_trainerwechsel`
+  (seit dem letzten Lauf beim vorigen Trainer, bis 730); leer ohne Wechsel in der bekannten Historie.
+- `trainer_sprung`: Score des heutigen minus Score des vorigen Trainers, beide zum Stand vor dem Renntag.
+- `form_neuer_trainer` / `form_neuer_trainer_n`: Ø Pos+ und Zahl der Läufe beim heutigen Trainer seit dem Wechsel.
+- Besitzer genauso: `chg_owner`, `laeufe_seit_besitzerwechsel`, `tage_seit_besitzerwechsel`, `besitzer_sprung`;
+  dazu `besitzer_ohne_trainer` (Besitzer neu, Trainer gleich – oft ein Verkauf im Stall).
+
 Zeitliche Aufteilung (`pm.aufteilung`, Power und Value gleich): das erste Jahr der Historie (`AUFWAERM_TAGE` = 365) dient
 nur als Vorgeschichte für die Merkmale und wird nicht gelernt; die übrigen Renntage zeitlich 60/20/20 (`ANTEILE`):
 lernen, validieren (Abbruch der Bäume, Modellwahl, Siegchance-a, Eichung k und Gold-Grenze des Value-Modells), testen
