@@ -23,9 +23,9 @@ TAGE = ("20261018", "20261019", "20261020")
 
 # ------------------------------------------------------------ synthetisch
 
-def _runner(no, sieg, fk=None, platz=None, gold=None, wert=None, cote=None, nr=False):
+def _runner(no, sieg, fk=None, platz=None, gold=None, wert=None, cote=None, nr=False, blind=None):
     return {"no": no, "horse": f"H{no}", "nr": nr,
-            "power": None if sieg is None else {"sieg": sieg, "gold": gold, "wert": wert},
+            "power": None if sieg is None else {"sieg": sieg, "gold": gold, "wert": wert, "sieg_blind": blind},
             "fk": None if fk is None else {"sieg": fk, "platz": platz},
             "prono": {"sel": {"cote_dec": cote}}}
 
@@ -203,7 +203,8 @@ def _zufallspool(tmp_path, tage=4, seed=7):
             runners = [_runner(i + 1, round(s, 3), fk=rnd.choice([None] + [x / 2 for x in range(3, 80)]),
                                platz=rnd.choice([None, 1.1, 1.6, 2.4, 3.5, 6.0]),
                                gold=rnd.choice([True, False, None]), wert=round(rnd.uniform(0.6, 1.6), 2),
-                               cote=rnd.choice([None, 4.0, 9.0, 15.0]))
+                               cote=rnd.choice([None, 4.0, 9.0, 15.0]),
+                               blind=round(s * rnd.uniform(0.5, 1.8), 3))
                        for i, s in enumerate(sieg)]
             rid = f"{d}R1C{c}"
             rennen.append(_rennen(rid, runners))
@@ -245,6 +246,8 @@ def test_html_simulation_gleich_python(tmp_path):
         for top in vb.TOP_WAHL:
             faelle.append((vb.FilterConfig(minw=0.3, gold_on=top != "ja", mode=mode, mode_value=x, top=top), "kelly2"))
     faelle += [(vb.FilterConfig(), "kelly4", "sieg"), (vb.FilterConfig(minw=0.2, mode="none"), "level10", "sieg")]
+    faelle += [(vb.FilterConfig(chance="power"), "kelly4"), (vb.FilterConfig(chance="power", mode="none", minw=0.2), "level10"),
+               (vb.FilterConfig(chance="power", mode="rank", mode_value=0.5, top="ja"), "kelly2")]
     faelle = [(x[0], x[1], x[2] if len(x) > 2 else "ew") for x in faelle]
     js = _node_sim(pool, [[vars(f), v, w] for f, v, w in faelle])
     for (f, v, w), j in zip(faelle, js):
@@ -264,7 +267,8 @@ def test_html_simulation_gleich_python(tmp_path):
     # Kursvorteil im Verlauf: JS gleich Python
     for (f, v, w), j in zip(faelle, js):
         py = vb.simulate(pool, f, vb.StakingConfig(v, wettart=w))
-        kv = vb.kurs_verlauf(py.bets_df, pool[pool["date"].isin(py.days_df["date"])])
+        pc = vb.chance_waehlen(pool, f.chance)
+        kv = vb.kurs_verlauf(py.bets_df, pc[pc["date"].isin(py.days_df["date"])])
         assert len(j["kurs"]) == len(kv)
         for spalte in ("lauf", "lauf_lo", "lauf_hi", "pool_lauf"):
             erw = [None if pd.isna(x) else x for x in kv[spalte]]
@@ -414,3 +418,22 @@ def test_nur_sieg(tmp_path):
     assert s.kpi_dict["places"] == 0 and s.kpi_dict["edge_place"] is None
     with pytest.raises(ValueError):
         vb.StakingConfig(wettart="platz")
+
+
+def test_chance_umschalten(tmp_path):
+    # Nr 1: gemischt 0.5 (Wert 0.5), Power allein 0.2 (Wert −0.4); Nr 2 umgekehrt
+    r = _rennen("20250910R1C1", [_runner(1, 0.5, fk=3.0, platz=1.5, blind=0.2), _runner(2, 0.3, fk=3.0, platz=2.0, blind=0.6),
+                                 _runner(3, 0.2, fk=6.0, platz=2.5, blind=0.2)])
+    j, pq = _tag(tmp_path, "20250910", [r], {"20250910R1C1": "2 - 1 - 3"})
+    pool = vb.load_day(j, pq).set_index("no")
+    assert pool.loc[1, "p"] == pytest.approx(0.5) and pool.loc[1, "p_pw"] == pytest.approx(0.2)
+    assert pool.loc[2, "wert_pw"] == pytest.approx(3 * 0.6 - 1) and pool.loc[2, "is_top_pw"] == 1
+    assert pool.loc[2, "wert"] == pytest.approx(3 * 0.3 - 1)                  # gemischt < 0, trotzdem im Pool
+    pool = pool.reset_index()
+    mix = vb.simulate(pool, vb.FilterConfig(mode="none", minw=0.4))
+    pw = vb.simulate(pool, vb.FilterConfig(mode="none", minw=0.4, chance="power"))
+    assert list(mix.bets_df["no"]) == [1] and list(pw.bets_df["no"]) == [2]
+    assert pw.bets_df.iloc[0]["fair"] == pytest.approx(1 / 0.6) and pw.bets_df.iloc[0]["p"] == pytest.approx(0.6)
+    assert set(vb.chance_waehlen(pool, "power")["no"]) == {2, 3}                # Wert ≥ 0 unter Power allein
+    with pytest.raises(ValueError):
+        vb.FilterConfig(chance="markt")
