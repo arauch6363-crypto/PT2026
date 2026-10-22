@@ -47,6 +47,8 @@ h1 { font-size: 20px; margin: 0 0 2px; }
 .hinweis { color: var(--bad); font-weight: 600; margin: 4px 0 8px; }
 .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 8px; }
 .chart { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.chart.breit { grid-column: 1 / -1; }
+.chart .sub { font-size: 12px; color: var(--text2); margin: -2px 0 4px; }
 .chart h2 { font-size: 13px; margin: 0 0 4px; font-weight: 600; }
 .legend { display: flex; gap: 12px; font-size: 12px; color: var(--text2); margin-bottom: 2px; }
 .legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
@@ -95,6 +97,14 @@ tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 4%, transp
   <div class="chart"><h2>Gewinn je Tag</h2><div id="c_tag"></div></div>
   <div class="chart"><h2>Sieger kumuliert</h2><div id="c_sieg"></div></div>
   <div class="chart"><h2>Platzierte kumuliert</h2><div id="c_platz"></div></div>
+  <div class="chart breit"><h2>Kursvorteil im Verlauf</h2>
+    <div class="sub">Festkurs gegen Toto-Endquote, je Rennen gegen den Feldschnitt – laufend über die Wetten
+      (Band: ±1 Standardfehler). Über 0 = der Markt ging bis zum Start in unsere Richtung.</div>
+    <div id="c_kurs"></div></div>
+  <div class="chart breit"><h2>Modell → Toto im Verlauf</h2>
+    <div class="sub">t-Wert von b2 (Power-Chance bei festgehaltenem Festkurs), kumuliert über alle Picks bis zum
+      jeweiligen Tag. Unter −2 = das Modell erklärt die Toto-Endquote über den Festkurs hinaus.</div>
+    <div id="c_mt"></div></div>
 </div>
 <div class="tabelle"><table id="tab"></table></div>
 <div class="fuss">Kurse = Festkurse zum Stand der Karte (festkurse_stand), keine Endkurse ·
@@ -102,7 +112,8 @@ tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 4%, transp
   Sieg- und Platzbein mit gleichem Einsatz, je Bein 5 % Steuer · Tag einzeln = Start mit 1000 €.<br>
   Kurs bis Start: Festkurs ÷ Toto-Endquote (letzte Siegquote vor dem Start). Weil Toto und Festkurs grundsätzlich
   verschieden liegen, zählt der Vergleich mit dem Schnitt aller Starter des Rennens („Kurs ±“): positiv = der Pick
-  wurde bis zum Start stärker gewettet als das Feld, der Markt ist also in unsere Richtung gegangen.</div>
+  wurde bis zum Start stärker gewettet als das Feld, der Markt ist also in unsere Richtung gegangen.
+  Kurs ± enthält einen Auswahleffekt (hoher Festkurs wird bevorzugt); Modell → Toto ist die bereinigte Sicht.</div>
 </main>
 <div class="tip" id="tip"></div>
 <script>
@@ -159,10 +170,127 @@ function bein(stake, quote, treffer) {
   return [rhu(brutto - steuer, 2), steuer];
 }
 
-function kpis(bets, days, start) {
+const _cmpK = (a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
+  || (a.race_id < b.race_id ? -1 : a.race_id > b.race_id ? 1 : 0) || a.no - b.no;
+const _hatKurs = r => r.kurs_rel !== null && r.kurs_rel !== undefined && r.fk_toto !== null && r.fk_toto !== undefined;
+function kursReihe(rows) { return rows.filter(_hatKurs).sort(_cmpK); }
+function _se(x) {                     // Standardfehler des Mittelwerts (ab 2 Werten)
+  if (x.length < 2) return null;
+  const m = x.reduce((s, v) => s + v, 0) / x.length;
+  return Math.sqrt(x.reduce((s, v) => s + (v - m) ** 2, 0) / (x.length - 1)) / Math.sqrt(x.length);
+}
+
+function kursKpis(bets, pool) {
+  const pr = kursReihe((pool || []).filter(r => r.settled));
+  const k = {kurs_n: 0, kurs_gefallen: null, clv: null, clv_rel: null, kurs_besser: null, kurs_rel_se: null,
+             kurs_z: null, pool_clv_rel: pr.length ? Math.exp(pr.reduce((s, r) => s + r.kurs_rel, 0) / pr.length) - 1 : null};
+  const b = kursReihe(bets);
+  if (!b.length) return k;
+  const lv = b.map(r => Math.log(r.fk_toto)), rel = b.map(r => r.kurs_rel);
+  const m = rel.reduce((s, v) => s + v, 0) / rel.length, se = _se(rel);
+  return Object.assign(k, {kurs_n: b.length, kurs_gefallen: lv.filter(v => v > 0).length / b.length,
+    clv: Math.exp(lv.reduce((s, v) => s + v, 0) / lv.length) - 1, clv_rel: Math.exp(m) - 1,
+    kurs_besser: rel.filter(v => v > 0).length / rel.length, kurs_rel_se: se, kurs_z: se ? m / se : null});
+}
+
+function kursVerlauf(bets, pool) {    // je Wette: laufender Kursvorteil, ±1 SE und derselbe Wert für den Pool
+  const b = kursReihe(bets), pr = kursReihe((pool || []).filter(r => r.settled));
+  const out = [];
+  let summe = 0, j = 0, psum = 0;
+  b.forEach((r, i) => {
+    summe += r.kurs_rel;
+    const n = i + 1, m = summe / n, se = _se(b.slice(0, n).map(x => x.kurs_rel));
+    while (j < pr.length && _cmpK(pr[j], r) <= 0) { psum += pr[j].kurs_rel; j += 1; }
+    out.push({n, date: r.date, race: r.race, horse: r.horse, fk_sieg: r.fk_sieg, toto_end: r.toto_end,
+              kurs_rel: r.kurs_rel, lauf: Math.exp(m) - 1,
+              lauf_lo: se === null ? null : Math.exp(m - se) - 1, lauf_hi: se === null ? null : Math.exp(m + se) - 1,
+              pool_lauf: j ? Math.exp(psum / j) - 1 : null});
+  });
+  return out;
+}
+
+// „Modell → Toto“: log(toto_end) = a + b1·log(fk_sieg) + b2·log(p_power) (+ b3·log(cote_dec)), OLS mit HC1
+const MT_MIN_N = 20;
+function _inv(a) {                     // Gauß-Jordan mit Pivotsuche wie value_bets._inv
+  const k = a.length;
+  let m = a.map((z, i) => [...z.map(Number), ...Array.from({length: k}, (_, j) => i === j ? 1 : 0)]);
+  let skala = 0;
+  for (const z of a) for (const v of z) skala = Math.max(skala, Math.abs(v));
+  skala = skala || 1;
+  for (let c = 0; c < k; c++) {
+    let p = c;
+    for (let r = c + 1; r < k; r++) if (Math.abs(m[r][c]) > Math.abs(m[p][c])) p = r;
+    if (Math.abs(m[p][c]) < 1e-12 * skala) return null;
+    [m[c], m[p]] = [m[p], m[c]];
+    const d = m[c][c];
+    m[c] = m[c].map(v => v / d);
+    for (let r = 0; r < k; r++) if (r !== c && m[r][c] !== 0) {
+      const f = m[r][c];
+      m[r] = m[r].map((v, j) => v - f * m[c][j]);
+    }
+  }
+  return m.map(z => z.slice(k));
+}
+function _summe(a) { let s = 0; for (const v of a) s += v; return s; }
+function _olsHc1(y, xs) {
+  const n = y.length, k = xs.length;
+  if (n < MT_MIN_N || n <= k + 1) return null;
+  const my = _summe(y) / n, mx = xs.map(x => _summe(x) / n);
+  const yc = y.map(v => v - my), xc = xs.map((x, i) => x.map(v => v - mx[i]));
+  const xtx = xc.map(a => xc.map(b => _summe(a.map((v, t) => v * b[t]))));
+  const inv = _inv(xtx);
+  if (!inv) return null;
+  const xty = xc.map(a => _summe(a.map((v, t) => v * yc[t])));
+  const b = inv.map(z => _summe(z.map((v, j) => v * xty[j])));
+  const e = yc.map((v, t) => v - _summe(b.map((bi, i) => bi * xc[i][t])));
+  const mitte = xc.map(a => xc.map(c => _summe(a.map((v, t) => v * c[t] * e[t] * e[t]))));
+  const f = n / (n - k - 1), se = [];
+  for (let i = 0; i < k; i++) {
+    let s = 0;
+    for (let a = 0; a < k; a++) for (let c = 0; c < k; c++) s += inv[i][a] * mitte[a][c] * inv[c][i];
+    se.push(f * s > 0 ? Math.sqrt(f * s) : null);
+  }
+  return {n, b, se};
+}
+function _mtZeilen(rows) {
+  return (rows || []).map(r => ({...r, p_blind: r.p_blind ?? r.p_model}))
+    .filter(r => r.toto_end > 0 && r.fk_sieg > 0 && r.p_blind > 0);
+}
+function modellToto(rows) {
+  const d = _mtZeilen(rows);
+  const out = {mt_n: d.length, mt_b1: null, mt_b2: null, mt_se: null, mt_t: null,
+               mt_n_presse: 0, mt_b2_presse: null, mt_t_presse: null};
+  if (d.length < MT_MIN_N) return out;
+  const lg = (a, c) => a.map(r => Math.log(r[c]));
+  const r = _olsHc1(lg(d, 'toto_end'), [lg(d, 'fk_sieg'), lg(d, 'p_blind')]);
+  if (r) Object.assign(out, {mt_b1: r.b[0], mt_b2: r.b[1], mt_se: r.se[1], mt_t: r.se[1] ? r.b[1] / r.se[1] : null});
+  const dp = d.filter(x => x.cote_dec > 0);
+  out.mt_n_presse = dp.length;
+  if (dp.length >= MT_MIN_N) {
+    const r2 = _olsHc1(lg(dp, 'toto_end'), [lg(dp, 'fk_sieg'), lg(dp, 'p_blind'), lg(dp, 'cote_dec')]);
+    if (r2) Object.assign(out, {mt_b2_presse: r2.b[1], mt_t_presse: r2.se[1] ? r2.b[1] / r2.se[1] : null});
+  }
+  return out;
+}
+function modellTotoVerlauf(sel) {      // je Renntag kumuliert (wachsendes Fenster), erst ab MT_MIN_N Picks
+  const d = _mtZeilen(sel), out = [];
+  for (const tag of [...new Set(d.map(r => r.date))].sort()) {
+    const bis = d.filter(r => r.date <= tag);
+    if (bis.length < MT_MIN_N) continue;
+    const k = modellToto(bis);
+    out.push({date: tag, b2: k.mt_b2, t: k.mt_t, t_presse: k.mt_t_presse, n: k.mt_n,
+              n_tag: d.filter(r => r.date === tag).length});
+  }
+  return out;
+}
+function _mtKpis(sel) {
+  return {...modellToto(sel || []), toto_fehlt: (sel || []).filter(r => r.toto_end === null || r.toto_end === undefined).length};
+}
+
+function kpis(bets, days, start, pool, sel) {
   const k = {days: days.length, bets: bets.length, start_bank: start,
              bank: days.length ? days[days.length - 1].bank : start};
-  if (!bets.length) { k.hinweis = 'keine Wette bei diesem Filter'; return k; }
+  if (!bets.length) { k.hinweis = 'keine Wette bei diesem Filter'; return Object.assign(k, kursKpis(bets, pool), _mtKpis(sel)); }
   const sum = (a, f) => a.reduce((s, b) => s + f(b), 0);
   const q = (a, b) => b ? a / b : null;
   const pw = sum(bets, b => b.profit_win), pp = sum(bets, b => b.profit_place);
@@ -181,13 +309,8 @@ function kpis(bets, days, start) {
     hinweis: bets.length < 30 ? 'Stichprobe klein (< 30 Wetten)' : null,
   });
   // Kursbewegung bis zum Start: Festkurs gegen Toto-Endquote, roh und gegen den Schnitt des Rennens
-  const mk = bets.filter(b => b.fk_toto !== null && b.fk_toto !== undefined && b.kurs_rel !== null && b.kurs_rel !== undefined);
-  Object.assign(k, mk.length ? {
-    kurs_n: mk.length, kurs_gefallen: mk.filter(b => Math.log(b.fk_toto) > 0).length / mk.length,
-    clv: Math.exp(sum(mk, b => Math.log(b.fk_toto)) / mk.length) - 1,
-    clv_rel: Math.exp(sum(mk, b => b.kurs_rel) / mk.length) - 1,
-    kurs_besser: mk.filter(b => b.kurs_rel > 0).length / mk.length,
-  } : {kurs_n: 0, kurs_gefallen: null, clv: null, clv_rel: null, kurs_besser: null});
+  Object.assign(k, kursKpis(bets, pool), _mtKpis(sel));
+  if (k.toto_fehlt) k.hinweis = [k.hinweis, `Toto-Endquote fehlt für ${k.toto_fehlt} Picks`].filter(x => x).join(' · ');
   return k;
 }
 
@@ -216,7 +339,9 @@ function simulieren(pool, f, variant, start = 1000) {
     days.push({date: tag, bank_start: bs, bets: n, profit_win: rhu(gs, 2),
                profit_place: rhu(gp, 2), profit: rhu(gs + gp, 2), bank});
   }
-  return {bets, days, kpi: kpis(bets, days, start)};
+  const pSim = pool.filter(r => tage.includes(r.date));          // Pool der simulierten Tage
+  return {bets, days, kpi: kpis(bets, days, start, pSim, sel), kurs: kursVerlauf(bets, pSim),
+          mt: modellTotoVerlauf(sel)};
 }
 // SIM-END
 
@@ -266,13 +391,14 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
     for (let v = a; v <= b + st / 2; v += st) ticks.push(+v.toFixed(10));
     return {a, b, ticks};
   }
-  function achsen(sk, y, xlabels) {
+  function achsen(sk, y, xlabels, w = W) {
     let s = '';
     for (const v of sk.ticks) {
-      s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/>`
+      s += `<line x1="${L}" x2="${w - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/>`
         + `<text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${nf(v, Math.abs(sk.b - sk.a) < 10 ? 1 : 0)}</text>`;
     }
-    for (const [x, t] of xlabels) s += `<text x="${x}" y="${H - 6}" text-anchor="middle">${esc(t)}</text>`;
+    for (const [x, t] of xlabels)                      // am Rand bündig, damit nichts abgeschnitten wird
+      s += `<text x="${x}" y="${H - 6}" text-anchor="${x > w - R - 20 ? 'end' : x < L + 10 ? 'start' : 'middle'}">${esc(t)}</text>`;
     return s;
   }
   function xlabelsAus(xs, lab) {
@@ -288,16 +414,18 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
   function linien(el, serien, xlab, tipp, ref) {
     const n = serien[0].werte.length;
     if (!n) { el.innerHTML = '<p class="fuss">keine Daten</p>'; return; }
+    const Wl = Math.max(360, Math.min(1400, Math.round(el.clientWidth || W)));   // Zeichenbreite = echte Breite
     let lo = Infinity, hi = -Infinity;
     for (const s of serien) for (const v of s.werte) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
-    if (ref !== undefined) { lo = Math.min(lo, ref); hi = Math.max(hi, ref); }
+    const refs = ref === undefined ? [] : [].concat(ref);
+    for (const r_ of refs) { lo = Math.min(lo, r_); hi = Math.max(hi, r_); }
     const sk = skala(lo, hi);
-    const x = i => n === 1 ? (L + W - R) / 2 : L + i * (W - L - R) / (n - 1);
+    const x = i => n === 1 ? (L + Wl - R) / 2 : L + i * (Wl - L - R) / (n - 1);
     const y = v => T + (sk.b - v) * (H - T - B) / (sk.b - sk.a);
     const xs = Array.from({length: n}, (_, i) => x(i));
-    let s = achsen(sk, y, xlabelsAus(xs, xlab));
-    if (ref !== undefined)
-      s += `<line x1="${L}" x2="${W - R}" y1="${y(ref)}" y2="${y(ref)}" stroke="var(--muted)" stroke-dasharray="4 4"/>`;
+    let s = achsen(sk, y, xlabelsAus(xs, xlab), Wl);
+    for (const r_ of refs)
+      s += `<line x1="${L}" x2="${Wl - R}" y1="${y(r_)}" y2="${y(r_)}" stroke="var(--muted)" stroke-dasharray="4 4"/>`;
     for (const se of serien) {
       const pts = se.werte.map((v, i) => `${x(i)},${y(v)}`).join(' ');
       s += `<polyline points="${pts}" fill="none" stroke="${se.farbe}" stroke-width="2" stroke-linejoin="round"${se.dash ? ' stroke-dasharray="5 4"' : ''}/>`;
@@ -305,11 +433,51 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
     if (n <= 60) for (const se of serien.slice(0, 1))
       se.werte.forEach((v, i) => { s += `<circle cx="${x(i)}" cy="${y(v)}" r="4" fill="${se.farbe}" stroke="var(--panel)" stroke-width="2"/>`; });
     // Spalten für Hover (breiter als die Markierung)
-    const bw = n === 1 ? W - L - R : (W - L - R) / (n - 1);
+    const bw = n === 1 ? Wl - L - R : (Wl - L - R) / (n - 1);
     xs.forEach((xx, i) => {
       s += `<rect x="${xx - bw / 2}" y="${T}" width="${bw}" height="${H - T - B}" fill="transparent" data-tip="${esc(tipp(i))}"/>`;
     });
-    el.innerHTML = legende(serien) + `<svg viewBox="0 0 ${W} ${H}" role="img">${s}</svg>`;
+    el.innerHTML = legende(serien) + `<svg viewBox="0 0 ${Wl} ${H}" role="img">${s}</svg>`;
+  }
+  function kursChart(el, v, farben) {
+    const n = v.length;
+    if (!n) { el.innerHTML = '<p class="fuss">keine Wette mit Toto-Endquote bei diesem Filter</p>'; return; }
+    const Wk = Math.max(360, Math.min(1400, Math.round(el.clientWidth || W)));   // Zeichenbreite = echte Breite
+    const H2 = 260, pr = x => 100 * x, ein = r => pr(Math.exp(r.kurs_rel) - 1);
+    let lo = 0, hi = 0;
+    for (const r of v) for (const w of [r.lauf, r.lauf_lo, r.lauf_hi, r.pool_lauf, Math.exp(r.kurs_rel) - 1])
+      if (w !== null && isFinite(w)) { lo = Math.min(lo, pr(w)); hi = Math.max(hi, pr(w)); }
+    const sk = skala(lo, hi);
+    const x = i => n === 1 ? (L + Wk - R) / 2 : L + i * (Wk - L - R) / (n - 1);
+    const y = w => T + (sk.b - w) * (H2 - T - B) / (sk.b - sk.a);
+    let s = '';
+    for (const t_ of sk.ticks) s += `<line x1="${L}" x2="${Wk - R}" y1="${y(t_)}" y2="${y(t_)}" stroke="var(--grid)"/>`
+      + `<text x="${L - 6}" y="${y(t_) + 4}" text-anchor="end">${nf(t_, 0)} %</text>`;
+    const xs = v.map((_, i) => x(i));
+    for (const [xx, lab] of xlabelsAus(xs, i => String(v[i].n))) s += `<text x="${xx}" y="${H2 - 6}" text-anchor="middle">${lab}</text>`;
+    const band = v.map((r, i) => [i, r]).filter(([, r]) => r.lauf_lo !== null);
+    if (band.length > 1) s += `<polygon points="${band.map(([i, r]) => `${x(i)},${y(pr(r.lauf_hi))}`).join(' ')} `
+      + `${band.slice().reverse().map(([i, r]) => `${x(i)},${y(pr(r.lauf_lo))}`).join(' ')}" fill="var(--muted)" opacity="0.18"/>`;
+    s += `<line x1="${L}" x2="${Wk - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--muted)" stroke-dasharray="4 4"/>`;
+    v.forEach((r, i) => {
+      const w = ein(r);
+      s += `<circle cx="${x(i)}" cy="${y(w)}" r="3" fill="${w > 0 ? farben.pos : farben.neg}" opacity="0.55"/>`;
+    });
+    const pp = v.map((r, i) => [i, r.pool_lauf]).filter(([, w]) => w !== null);
+    if (pp.length) s += `<polyline points="${pp.map(([i, w]) => `${x(i)},${y(pr(w))}`).join(' ')}" fill="none" `
+      + `stroke="${farben.pool}" stroke-width="2" stroke-dasharray="5 4"/>`;
+    s += `<polyline points="${v.map((r, i) => `${x(i)},${y(pr(r.lauf))}`).join(' ')}" fill="none" stroke="${farben.lauf}" `
+      + `stroke-width="2" stroke-linejoin="round"/>`;
+    const bw = n === 1 ? Wk - L - R : (Wk - L - R) / (n - 1);
+    v.forEach((r, i) => {
+      const tip = `${fd(r.date)} ${r.race} · ${r.horse}\nFestkurs ${nf(r.fk_sieg, 1)} · Toto-End ${nf(r.toto_end, 1)} · `
+        + `Kurs ± ${ein(r) > 0 ? '+' : ''}${nf(ein(r), 0)} %\nlaufend nach ${r.n} Wetten: ${pr(r.lauf) > 0 ? '+' : ''}${nf(pr(r.lauf), 1)} %`
+        + (r.lauf_lo !== null ? ` (±SE ${nf(pr(r.lauf_lo), 1)} … ${nf(pr(r.lauf_hi), 1)} %)` : '')
+        + (r.pool_lauf !== null ? `\nPool (Wert ≥ 0): ${pr(r.pool_lauf) > 0 ? '+' : ''}${nf(pr(r.pool_lauf), 1)} %` : '');
+      s += `<rect x="${x(i) - bw / 2}" y="${T}" width="${bw}" height="${H2 - T - B}" fill="transparent" data-tip="${esc(tip)}"/>`;
+    });
+    el.innerHTML = legende([{name: 'Picks laufend', farbe: farben.lauf}, {name: 'Pool (Wert ≥ 0) laufend', farbe: farben.pool, dash: 1}])
+      + `<svg viewBox="0 0 ${Wk} ${H2}" role="img">${s}</svg>`;
   }
   function balken(el, serien, xlab, tipp) {
     const n = serien[0].werte.length;
@@ -374,7 +542,8 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
   }
 
   function karten(k) {
-    const z = (t, w, u = '') => `<div class="kpi"><div class="t">${t}</div><div class="w">${w}</div><div class="u">${u}</div></div>`;
+    const z = (t, w, u = '', tip = '') => `<div class="kpi"${tip ? ` title="${esc(tip)}"` : ''}><div class="t">${t}</div>`
+      + `<div class="w">${w}</div><div class="u">${u}</div></div>`;
     const kl = v => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
     $('kpis').innerHTML = [
       z('Bank', `<span class="${kl(k.bank - k.start_bank)}">${eur(k.bank)}</span>`, `Start ${eur(k.start_bank)}`),
@@ -388,12 +557,25 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
       z('Edge Platz', nf(k.edge_place), `Σ 1/Fair P ${nf(k.exp_places_model)} ÷ Σ 1/FK P ${nf(k.exp_places_pq)}`),
       z('Kurs bis Start', k.kurs_n ? `<span class="${kl(k.clv_rel)}">${k.clv_rel > 0 ? '+' : ''}${pct(k.clv_rel)}</span>` : '–',
         k.kurs_n ? `gegen Rennschnitt · ${pct(k.kurs_besser)} besser als das Feld · `
+          + `Pool (Wert ≥ 0): ${k.pool_clv_rel > 0 ? '+' : ''}${pct(k.pool_clv_rel)} · `
+          + (k.kurs_z !== null ? `z = ${nf(k.kurs_z, 1)} (SE ${nf(100 * k.kurs_rel_se, 1)} %) · ` : '')
           + `FK/Toto Ø ${nf(1 + k.clv)} · ${k.kurs_n} Picks` : 'keine Toto-Endquote (pmu_runners)'),
+      z('Modell → Toto', k.mt_t !== null && k.mt_t !== undefined
+          ? `<span class="${k.mt_t <= -2 ? 'pos' : k.mt_t >= 2 ? 'neg' : ''}">${nf(k.mt_t, 1)}</span>` : '–',
+        k.mt_t !== null && k.mt_t !== undefined
+          ? `b = ${nf(k.mt_b2, 2)} · mit Presse t = ${k.mt_t_presse !== null ? nf(k.mt_t_presse, 1) : '–'} · ${k.mt_n} Picks`
+          : `zu wenige Picks mit Toto-Endquote (${k.mt_n ?? 0} < 20)`,
+        'Negativ = Pferde, die das Modell bei gleichem Festkurs höher einschätzt, enden kürzer im Toto. '
+        + 'Bereinigt um den Auswahleffekt; ab |t| > 2 auffällig. '
+        + `log(Toto-End) = a + b1·log(Festkurs) + b2·log(Power-Chance ohne Morgenquote); t nach HC1 (robust)`
+        + (k.mt_b1 !== null && k.mt_b1 !== undefined ? `; b1 (Festkurs) = ${nf(k.mt_b1, 2)}` : '') + '.'),
     ].join('');
     $('hinweis').textContent = k.hinweis || '';
   }
 
   const farbe = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  let letzterKurs = () => {}, zeitResize = null;
+  addEventListener('resize', () => { clearTimeout(zeitResize); zeitResize = setTimeout(() => neu(), 150); });
   function neu() {
     const modus = $('modus').value;
     for (const m of ['max', 'rank', 'rel']) $('r_' + m).style.display = m === modus ? '' : 'none';
@@ -424,6 +606,20 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
     linien($('c_platz'), [{name: 'echt', farbe: c1, werte: pb}, {name: 'erwartet Festkurs', farbe: c2, werte: pq, dash: 1},
                           {name: 'erwartet Modell', farbe: c3, werte: pm, dash: 1}],
       i => String(i), i => `nach ${i} Platzwetten\necht ${pb[i]}\nFK ${nf(pq[i])} · Modell ${nf(pm[i])}`);
+    letzterKurs = () => kursChart($('c_kurs'), res.kurs, {lauf: farbe('--s1'), pool: farbe('--s2'),
+                                                          pos: farbe('--good'), neg: farbe('--bad')});
+    letzterKurs();
+    const mt = res.mt, el_mt = $('c_mt');
+    if (!mt.length) el_mt.innerHTML = '<p class="fuss">zu wenige Picks mit Toto-Endquote für die Regression (n < 20)</p>';
+    else {
+      const ser = [{name: 't (Modell)', farbe: c1, werte: mt.map(x => x.t ?? 0)}];
+      if (mt.every(x => x.t_presse !== null && x.t_presse !== undefined))
+        ser.push({name: 't mit Presse', farbe: c2, werte: mt.map(x => x.t_presse), dash: 1});
+      linien(el_mt, ser, i => fdk(mt[i].date),
+        i => `${fd(mt[i].date)}\nb2 = ${nf(mt[i].b2, 2)} · t = ${nf(mt[i].t, 1)} · mit Presse t = `
+          + `${mt[i].t_presse !== null ? nf(mt[i].t_presse, 1) : '–'}\nn kumuliert ${mt[i].n} · an diesem Tag ${mt[i].n_tag}`,
+        [-2, 0]);
+    }
     tabelle(b);
   }
   for (const id of ['st', 'minw', 'gold', 'modus', 'v_max', 'v_rank', 'v_rel', 'top', 'tag'])

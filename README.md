@@ -615,6 +615,17 @@ vergleicht beide Rechnungen über Node.
   Start). Weil Festkurs und Toto grundsätzlich verschieden liegen (Toto nach Abzug), zählt der Vergleich mit dem
   Schnitt aller Starter desselben Rennens: Kachel „Kurs bis Start“ (geometrisches Mittel, + = Picks wurden stärker
   gewettet als das Feld) und Spalte „Kurs ±“ je Wette. Schnellstes ehrliches Signal, ob die Picks echten Wert haben.
+- **Kursvorteil im Verlauf:** Das Diagramm zeigt den laufenden Kursvorteil der Picks über die Wetten, mit einem Band
+  von ±1 Standardfehler und den einzelnen Wetten als Punkte. Zum Vergleich steht gestrichelt derselbe Wert für den
+  ganzen Pool (Wert ≥ 0); die Kachel nennt dazu den Pool-Wert und z = Ø kurs_rel ÷ Standardfehler
+  (`vb.kurs_verlauf`, `vb.kurs_kpis`). So sieht man, ab wann der Vorteil sich sicher von 0 abhebt und was die
+  Auswahl über den Pool hinaus bringt.
+- **Modell → Toto (bereinigt):** „Kurs ±“ enthält einen Auswahleffekt – wir bevorzugen hohe Festkurse, also auch Fälle,
+  in denen der Buchmacher danebenlag. Die Kachel „Modell → Toto“ prüft deshalb per Regression über die Picks des
+  Filters (unabhängig vom Einsatz): log(Toto-End) = a + b1·log(Festkurs) + b2·log(Power-Chance), mit Power allein
+  (`sieg_blind`, ohne Morgenquote) und robustem t (HC1); zweite Variante zusätzlich mit der Presse-Quote. t ≤ −2:
+  Pferde, die das Modell bei gleichem Festkurs höher einschätzt, enden kürzer im Toto (`vb.modell_toto`). Das
+  Diagramm „Modell → Toto im Verlauf“ zeigt den t-Wert je Renntag kumuliert, ab 20 Picks.
 - **Platzbein:** zum Festkurs Platz aus der Karten-JSON (`fk.platz`).
 - **Hinweise:**
   - Die Kurse sind Festkurse zum `festkurse_stand`, keine Endkurse.

@@ -254,9 +254,30 @@ def test_html_simulation_gleich_python(tmp_path):
             assert [b["profit"] for b in j["bets"]] == list(py.bets_df["profit"])
             assert [b["horse"] for b in j["bets"]] == list(py.bets_df["horse"])
             for k in ("roi", "tax", "wins", "places", "exp_wins_fk", "edge_win", "edge_place", "exp_places_model",
-                      "kurs_n", "kurs_gefallen", "clv", "clv_rel", "kurs_besser"):
+                      "kurs_n", "kurs_gefallen", "clv", "clv_rel", "kurs_besser", "kurs_rel_se", "kurs_z",
+                      "pool_clv_rel", "mt_n", "mt_b1", "mt_b2", "mt_se", "mt_t", "mt_n_presse", "mt_b2_presse",
+                      "mt_t_presse", "toto_fehlt"):
                 assert j["kpi"][k] == pytest.approx(py.kpi_dict[k]), k
     assert any(j["kpi"]["bets"] > 10 for j in js)
+    # Kursvorteil im Verlauf: JS gleich Python
+    for (f, v), j in zip(faelle, js):
+        py = vb.simulate(pool, f, vb.StakingConfig(v))
+        kv = vb.kurs_verlauf(py.bets_df, pool[pool["date"].isin(py.days_df["date"])])
+        assert len(j["kurs"]) == len(kv)
+        for spalte in ("lauf", "lauf_lo", "lauf_hi", "pool_lauf"):
+            erw = [None if pd.isna(x) else x for x in kv[spalte]]
+            ist = [r[spalte] for r in j["kurs"]]
+            assert [x is None for x in ist] == [x is None for x in erw], spalte
+            assert [x for x in ist if x is not None] == pytest.approx([x for x in erw if x is not None]), spalte
+    assert any(len(j["kurs"]) > 5 for j in js)
+    # Modell → Toto im Verlauf: JS gleich Python
+    for (f, v), j in zip(faelle, js):
+        py = vb.simulate(pool, f, vb.StakingConfig(v)).modell_toto
+        assert [x["date"] for x in j["mt"]] == [x["date"] for x in py]
+        for a_, b_ in zip(j["mt"], py):
+            for k_ in ("b2", "t", "t_presse", "n", "n_tag"):
+                assert (a_[k_] is None) == (b_[k_] is None) and (a_[k_] is None or a_[k_] == pytest.approx(b_[k_])), k_
+    assert any(j["kpi"]["mt_t"] is not None for j in js) and any(len(j["mt"]) >= 2 for j in js)
 
 
 def test_rhu_js_gleich_python():
@@ -318,3 +339,60 @@ def test_kursbewegung(tmp_path):
     assert k["clv_rel"] == pytest.approx(np.exp(b["kurs_rel"].mean()) - 1)
     ohne = vb.load_folder(tmp_path, ab=None, starter_ordner=tmp_path / "fehlt")
     assert ohne["toto_end"].isna().all() and vb.simulate(ohne).kpi_dict["kurs_n"] == 0
+
+
+def test_kurs_verlauf_hand():
+    bets = pd.DataFrame({"date": ["20250101", "20250101", "20250102"], "race_id": ["A", "B", "C"], "no": [1, 1, 2],
+                         "race": ["R1C1", "R1C2", "R1C1"], "horse": ["X", "Y", "Z"], "fk_sieg": [5.0, 8.0, 4.0],
+                         "toto_end": [4.0, 9.0, 3.0], "fk_toto": [1.25, 8 / 9, 4 / 3], "kurs_rel": [0.2, -0.1, 0.3]})
+    pool = pd.DataFrame({"date": ["20250101", "20250101", "20250101", "20250102", "20250102"],
+                         "race_id": ["A", "A", "B", "C", "C"], "no": [1, 2, 1, 1, 2], "settled": True,
+                         "fk_toto": 1.0, "kurs_rel": [0.2, 0.0, -0.1, 0.1, 0.3]})
+    kv = vb.kurs_verlauf(bets, pool)
+    assert list(kv["lauf"]) == pytest.approx([np.exp(0.2) - 1, np.exp(0.05) - 1, np.exp(0.4 / 3) - 1])
+    se2 = np.std([0.2, -0.1], ddof=1) / np.sqrt(2)
+    assert np.isnan(kv["lauf_lo"][0]) and kv["lauf_hi"][1] == pytest.approx(np.exp(0.05 + se2) - 1)
+    # Pool bis einschließlich der Wette: (A,1) → 0.2; (B,1) → Ø(0.2, 0, −0.1); (C,2) → Ø aller fünf
+    assert list(kv["pool_lauf"]) == pytest.approx([np.exp(0.2) - 1, np.exp(0.1 / 3) - 1, np.exp(0.5 / 5) - 1])
+    k = vb.kurs_kpis(bets, pool)
+    rel = np.array([0.2, -0.1, 0.3])
+    assert k["pool_clv_rel"] == pytest.approx(np.exp(0.1) - 1)
+    assert k["kurs_rel_se"] == pytest.approx(np.std(rel, ddof=1) / np.sqrt(3))
+    assert k["kurs_z"] == pytest.approx(rel.mean() / k["kurs_rel_se"])
+
+
+def test_modell_toto_gegen_numpy():
+    rng = np.random.default_rng(3)
+    n = 60
+    fk = np.exp(rng.uniform(1, 3.5, n)); p = np.exp(rng.uniform(-3, -1, n)); cote = fk * np.exp(rng.normal(0, .3, n))
+    toto = np.exp(0.3 + 0.8 * np.log(fk) - 0.5 * np.log(p) + rng.normal(0, .4 * (1 + np.log(fk) / 3), n))
+    rows = pd.DataFrame({"date": "20250101", "toto_end": toto, "fk_sieg": fk, "p_model": p * 2, "p_blind": p,
+                         "cote_dec": cote})
+    k = vb.modell_toto(rows)
+    X = np.column_stack([np.ones(n), np.log(fk), np.log(p)]); y = np.log(toto)
+    xi = np.linalg.inv(X.T @ X); b = xi @ X.T @ y; e = y - X @ b
+    v = xi @ (X.T * e ** 2) @ X @ xi * n / (n - 3)
+    assert k["mt_b1"] == pytest.approx(b[1]) and k["mt_b2"] == pytest.approx(b[2])     # Power allein, nicht p_model
+    assert k["mt_t"] == pytest.approx(b[2] / np.sqrt(v[2, 2]))
+    X4 = np.column_stack([X, np.log(cote)]); xi4 = np.linalg.inv(X4.T @ X4); b4 = xi4 @ X4.T @ y; e4 = y - X4 @ b4
+    v4 = xi4 @ (X4.T * e4 ** 2) @ X4 @ xi4 * n / (n - 4)
+    assert k["mt_b2_presse"] == pytest.approx(b4[2]) and k["mt_t_presse"] == pytest.approx(b4[2] / np.sqrt(v4[2, 2]))
+    assert vb.modell_toto(rows.iloc[:19])["mt_t"] is None                       # n < 20
+    sing = rows.assign(p_blind=rows["fk_sieg"] ** 2)                             # log p = 2·log fk: singulär
+    assert vb.modell_toto(sing)["mt_t"] is None
+
+
+def test_modell_toto_verlauf_und_hinweis():
+    rng = np.random.default_rng(4)
+    tage = ["20250101"] * 15 + ["20250102"] * 10 + ["20250103"] * 12
+    n = len(tage)
+    fk = np.exp(rng.uniform(1, 3, n)); p = np.exp(rng.uniform(-3, -1, n))
+    sel = pd.DataFrame({"date": tage, "fk_sieg": fk, "p_blind": p, "p_model": p, "cote_dec": None,
+                        "toto_end": np.exp(np.log(fk) - .4 * np.log(p) + rng.normal(0, .3, n))})
+    sel.loc[3, "toto_end"] = None
+    vl = vb.modell_toto_verlauf(sel)
+    assert [x["date"] for x in vl] == ["20250102", "20250103"]               # 1. Tag: 14 < 20 Picks
+    assert vl[0]["n"] == 24 and vl[0]["n_tag"] == 10 and vl[1]["n"] == 36
+    assert vl[1]["t"] == pytest.approx(vb.modell_toto(sel)["mt_t"]) and vl[1]["t_presse"] is None
+    k = vb._mt_kpis(sel)
+    assert k["toto_fehlt"] == 1

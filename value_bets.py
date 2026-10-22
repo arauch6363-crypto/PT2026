@@ -128,6 +128,9 @@ def _pferde_rennen(rennen: dict, datum: str) -> list[dict]:
     summe = sum(s for _, _, s in starter)
     n = len(starter)
     p = np.array([s / summe for _, _, s in starter])
+    # Power allein (ohne Morgenquote) für den Test „Modell → Toto“: sieg_blind, ältere Karten nur sieg
+    sb = [_zahl(pw.get("sieg_blind")) for _, pw, _ in starter]
+    p_blind = (np.array(sb) / sum(sb)) if all(x is not None and x > 0 for x in sb) else p
     fair = 1.0 / p
     # Wettkampf-Rang (1, 2, 2, 4 …) nach fairer Quote aufsteigend
     rang = [1 + int(np.sum(fair < f - TOP_TOL)) for f in fair]
@@ -135,7 +138,7 @@ def _pferde_rennen(rennen: dict, datum: str) -> list[dict]:
     p_platz = harville_platz(p, plaetze)
 
     zeilen = []
-    for (r, pw, _), pi, fi, rg, pp in zip(starter, p, fair, rang, p_platz):
+    for (r, pw, _), pi, fi, rg, pp, pbl in zip(starter, p, fair, rang, p_platz, p_blind):
         fk = r.get("fk") or {}
         fk_sieg = _zahl(fk.get("sieg"))
         fk_platz = _zahl(fk.get("platz"))
@@ -171,6 +174,7 @@ def _pferde_rennen(rennen: dict, datum: str) -> list[dict]:
             "gold": bool(gold),
             "p_fk": 1 / fk_sieg if fk_sieg is not None else None,
             "p_model": float(pi),
+            "p_blind": float(pbl),
             "p_pq": 1 / fk_platz if fk_platz is not None else None,
             "p_platz": float(pp),
             "fair_platz": 1 / float(pp) if pp > 0 else None,
@@ -271,7 +275,7 @@ def _leerer_pool() -> pd.DataFrame:
     return pd.DataFrame(columns=[
         "date", "race_id", "race", "course", "no", "horse", "n", "p", "fair", "rank_fq",
         "rank_pct", "rel", "fk_sieg", "fk_platz", "cote_dec", "wert", "gold", "p_fk",
-        "p_model", "p_pq", "p_platz", "fair_platz", "paid_places", "is_top", "festkurse_stand",
+        "p_model", "p_blind", "p_pq", "p_platz", "fair_platz", "paid_places", "is_top", "festkurse_stand",
         "toto_end", "fk_toto", "kurs_rel", "settled", "pos", "won", "placed"])
 
 
@@ -393,6 +397,7 @@ class SimResult:
     bets_df: pd.DataFrame
     days_df: pd.DataFrame
     kpi_dict: dict = field(default_factory=dict)
+    modell_toto: list = field(default_factory=list)       # „Modell → Toto“ je Renntag (kumuliert)
 
 
 def auswahl(pool: pd.DataFrame, f: FilterConfig) -> pd.DataFrame:
@@ -494,21 +499,25 @@ def simulate(pool: pd.DataFrame, filters: FilterConfig = None,
     bets = pd.DataFrame(wetten)
     days = pd.DataFrame(tage, columns=["date", "bank_start", "bets", "profit_win",
                                        "profit_place", "profit", "bank"])
-    kpi = kpis(bets, days, staking.start_bank)
+    p_sim = pool[pool["date"].isin(days["date"])] if not pool.empty else pool        # Pool der simulierten Tage
+    kpi = kpis(bets, days, staking.start_bank, p_sim, sel)
     kpi["tage"] = {
         t: kpis(bets[bets["date"] == t] if not bets.empty else bets,
-                days[days["date"] == t], float(days.loc[days["date"] == t, "bank_start"].iloc[0]))
+                days[days["date"] == t], float(days.loc[days["date"] == t, "bank_start"].iloc[0]),
+                p_sim[p_sim["date"] == t], sel[sel["date"] == t] if not sel.empty else sel)
         for t in days["date"]
     }
-    return SimResult(bets, days, kpi)
+    return SimResult(bets, days, kpi, modell_toto_verlauf(sel))
 
 
 def _quote(a: float, b: float) -> Optional[float]:
     return a / b if b else None
 
 
-def kpis(bets: pd.DataFrame, days: pd.DataFrame, start_bank: float) -> dict:
-    """Kennzahlen; bei 0 Wetten sind die Verhältniswerte None plus Hinweis."""
+def kpis(bets: pd.DataFrame, days: pd.DataFrame, start_bank: float, pool: pd.DataFrame | None = None,
+         sel: pd.DataFrame | None = None) -> dict:
+    """Kennzahlen; bei 0 Wetten sind die Verhältniswerte None plus Hinweis. sel: abgerechnete Auswahl des Filters
+    (unabhängig vom Einsatz) für „Modell → Toto“ und den Hinweis auf fehlende Toto-Endquoten."""
     bank = float(days["bank"].iloc[-1]) if len(days) else start_bank
     k: dict[str, Any] = {"days": int(len(days)), "bets": int(len(bets)),
                          "start_bank": start_bank, "bank": bank}
@@ -517,8 +526,10 @@ def kpis(bets: pd.DataFrame, days: pd.DataFrame, start_bank: float) -> dict:
             "profit", "profit_win", "profit_place", "roi", "roi_win", "roi_place", "stake",
             "stake_win", "stake_place", "tax", "wins", "places", "strike_rate", "place_rate",
             "exp_wins_fk", "exp_wins_model", "exp_places_pq", "exp_places_model",
-            "edge_win", "edge_place", "kurs_n", "kurs_gefallen", "clv", "clv_rel", "kurs_besser")})
+            "edge_win", "edge_place")})
         k["hinweis"] = HINWEIS_LEER
+        k.update(kurs_kpis(bets, pool))
+        k.update(_mt_kpis(sel))
         return k
     pw, pp = float(bets["profit_win"].sum()), float(bets["profit_place"].sum())
     sw, sp = float(bets["stake_win"].sum()), float(bets["stake_place"].sum())
@@ -540,25 +551,191 @@ def kpis(bets: pd.DataFrame, days: pd.DataFrame, start_bank: float) -> dict:
         "edge_win": _quote(e_mod, e_fk), "edge_place": _quote(e_pm, e_pq),
         "hinweis": "Stichprobe klein (< 30 Wetten)" if len(bets) < 30 else None,
     })
-    k.update(kurs_kpis(bets))
+    k.update(kurs_kpis(bets, pool))
+    k.update(_mt_kpis(sel))
+    fehlt = k["toto_fehlt"]
+    if fehlt:
+        k["hinweis"] = " · ".join(x for x in (k["hinweis"], f"Toto-Endquote fehlt für {fehlt} Picks") if x)
     return k
 
 
-def kurs_kpis(bets: pd.DataFrame) -> dict:
+def _mt_kpis(sel: pd.DataFrame | None) -> dict:
+    """„Modell → Toto“ über die Auswahl des Filters und Zahl der Picks ohne Toto-Endquote."""
+    if sel is None or sel.empty:
+        return {**modell_toto(None), "toto_fehlt": 0}
+    fehlt = int((pd.to_numeric(sel["toto_end"], errors="coerce").isna()).sum()) if "toto_end" in sel else 0
+    return {**modell_toto(sel), "toto_fehlt": fehlt}
+
+
+_KURS_LEER = {"kurs_n": 0, "kurs_gefallen": None, "clv": None, "clv_rel": None, "kurs_besser": None,
+              "kurs_rel_se": None, "kurs_z": None}
+
+
+def _kurs_reihe(df: pd.DataFrame) -> pd.DataFrame:
+    """Zeilen mit Kursvergleich, zeitlich sortiert (Tag, Rennen, Startnummer – wie die Wetten)."""
+    if df is None or df.empty or "kurs_rel" not in df:
+        return pd.DataFrame(columns=["date", "race_id", "no", "kurs_rel"])
+    m = df["kurs_rel"].notna() & (df["fk_toto"].notna() if "fk_toto" in df else True)
+    return df[m].sort_values(["date", "race_id", "no"], kind="stable")
+
+
+def _se(x: np.ndarray) -> Optional[float]:
+    """Standardfehler des Mittelwerts (Stichproben-Streuung, ab 2 Werten)."""
+    return float(np.std(x, ddof=1) / np.sqrt(len(x))) if len(x) >= 2 else None
+
+
+def kurs_kpis(bets: pd.DataFrame, pool: pd.DataFrame | None = None) -> dict:
     """Kursbewegung der Picks bis zum Start (Festkurs gegen Toto-Endquote).
     kurs_gefallen: Anteil mit Endquote unter dem Festkurs; clv: Ø (geometrisch) Festkurs ÷ Endquote − 1;
     clv_rel: dasselbe gegen den Schnitt aller Starter des Rennens (> 0: Picks fallen stärker als das Feld);
-    kurs_besser: Anteil der Picks, die stärker fallen als der Rennschnitt."""
-    if bets.empty or "fk_toto" not in bets:
-        return {"kurs_n": 0, "kurs_gefallen": None, "clv": None, "clv_rel": None, "kurs_besser": None}
-    m = bets["fk_toto"].notna() & bets["kurs_rel"].notna()
-    if not m.any():
-        return {"kurs_n": 0, "kurs_gefallen": None, "clv": None, "clv_rel": None, "kurs_besser": None}
-    lv = np.log(bets.loc[m, "fk_toto"].astype(float))
-    rel = bets.loc[m, "kurs_rel"].astype(float)
-    return {"kurs_n": int(m.sum()), "kurs_gefallen": float((lv > 0).mean()),
-            "clv": float(np.exp(lv.mean()) - 1), "clv_rel": float(np.exp(rel.mean()) - 1),
-            "kurs_besser": float((rel > 0).mean())}
+    kurs_besser: Anteil der Picks, die stärker fallen als der Rennschnitt; kurs_rel_se: Standardfehler von
+    Ø kurs_rel; kurs_z = Ø kurs_rel ÷ kurs_rel_se; pool_clv_rel: clv_rel aller abgerechneten Starter des Pools
+    (Wert ≥ 0) derselben Tage, unabhängig vom Filter – zeigt, was die Auswahl darüber hinaus bringt."""
+    pr = _kurs_reihe(pool[pool["settled"].astype(bool)] if pool is not None and len(pool) else None)
+    k = dict(_KURS_LEER, pool_clv_rel=float(np.exp(pr["kurs_rel"].astype(float).mean()) - 1) if len(pr) else None)
+    b = _kurs_reihe(bets)
+    if b.empty:
+        return k
+    lv = np.log(b["fk_toto"].astype(float).to_numpy())
+    rel = b["kurs_rel"].astype(float).to_numpy()
+    se = _se(rel)
+    k.update({"kurs_n": int(len(rel)), "kurs_gefallen": float((lv > 0).mean()),
+              "clv": float(np.exp(lv.mean()) - 1), "clv_rel": float(np.exp(rel.mean()) - 1),
+              "kurs_besser": float((rel > 0).mean()), "kurs_rel_se": se,
+              "kurs_z": float(rel.mean() / se) if se else None})
+    return k
+
+
+def kurs_verlauf(bets: pd.DataFrame, pool: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Kursvorteil im Verlauf: je Wette mit Kursvergleich (zeitlich) der laufende Wert exp(Ø kurs_rel) − 1,
+    das Band exp(Ø ± 1 Standardfehler) − 1 und derselbe laufende Wert für den Pool (abgerechnete Starter
+    mit Wert ≥ 0 bis einschließlich dieser Wette in derselben Reihenfolge)."""
+    b = _kurs_reihe(bets)
+    spalten = ["n", "date", "race", "horse", "fk_sieg", "toto_end", "kurs_rel", "lauf", "lauf_lo", "lauf_hi",
+               "pool_lauf"]
+    if b.empty:
+        return pd.DataFrame(columns=spalten)
+    rel = b["kurs_rel"].astype(float).to_numpy()
+    n = np.arange(1, len(rel) + 1)
+    mittel = np.cumsum(rel) / n
+    se = np.array([_se(rel[:i]) if i >= 2 else np.nan for i in n], dtype=float)
+    pr = _kurs_reihe(pool[pool["settled"].astype(bool)] if pool is not None and len(pool) else None)
+    pool_lauf = np.full(len(rel), np.nan)
+    if len(pr):
+        import bisect
+        schl = list(zip(pr["date"].astype(str), pr["race_id"].astype(str), pr["no"].astype(int)))
+        cum = np.cumsum(pr["kurs_rel"].astype(float).to_numpy())
+        for i, key in enumerate(zip(b["date"].astype(str), b["race_id"].astype(str), b["no"].astype(int))):
+            j = bisect.bisect_right(schl, key)
+            if j:
+                pool_lauf[i] = np.exp(cum[j - 1] / j) - 1
+    return pd.DataFrame({"n": n, "date": b["date"].to_numpy(), "race": b["race"].to_numpy(),
+                         "horse": b["horse"].to_numpy(), "fk_sieg": b["fk_sieg"].to_numpy(),
+                         "toto_end": b["toto_end"].to_numpy(), "kurs_rel": rel, "lauf": np.exp(mittel) - 1,
+                         "lauf_lo": np.exp(mittel - se) - 1, "lauf_hi": np.exp(mittel + se) - 1,
+                         "pool_lauf": pool_lauf})
+
+
+MT_MIN_N = 20      # „Modell → Toto“ erst ab so vielen Picks
+
+
+def _inv(a: list[list[float]]) -> Optional[list[list[float]]]:
+    """Kleine Matrix invertieren (Gauß-Jordan mit Pivotsuche); None bei (fast) singulärer Matrix.
+    Gleicher Rechenweg wie im Dashboard (JS), damit beide dieselben Zahlen liefern."""
+    k = len(a)
+    m = [list(map(float, z)) + [1.0 if i == j else 0.0 for j in range(k)] for i, z in enumerate(a)]
+    skala = max((abs(v) for z in a for v in z), default=0.0) or 1.0
+    for c in range(k):
+        p = max(range(c, k), key=lambda r: abs(m[r][c]))
+        if abs(m[p][c]) < 1e-12 * skala:
+            return None
+        m[c], m[p] = m[p], m[c]
+        d = m[c][c]
+        m[c] = [v / d for v in m[c]]
+        for r in range(k):
+            if r != c and m[r][c] != 0.0:
+                f = m[r][c]
+                m[r] = [v - f * w for v, w in zip(m[r], m[c])]
+    return [z[k:] for z in m]
+
+
+def _ols_hc1(y: list[float], xs: list[list[float]]) -> Optional[dict]:
+    """OLS y = a + Σ b_j·x_j mit zentrierten Werten (Achsenabschnitt herausgerechnet) und robustem Standardfehler
+    HC1. Rückgabe: b und se je Regressor, n; None bei zu wenigen Zeilen oder singulärer Matrix."""
+    n, k = len(y), len(xs)
+    if n < MT_MIN_N or n <= k + 1:
+        return None
+    my = sum(y) / n
+    mx = [sum(x) / n for x in xs]
+    yc = [v - my for v in y]
+    xc = [[v - m for v in x] for x, m in zip(xs, mx)]
+    xtx = [[sum(a * b for a, b in zip(xc[i], xc[j])) for j in range(k)] for i in range(k)]
+    inv = _inv(xtx)
+    if inv is None:
+        return None
+    xty = [sum(a * b for a, b in zip(xc[i], yc)) for i in range(k)]
+    b = [sum(inv[i][j] * xty[j] for j in range(k)) for i in range(k)]
+    e = [yc[t] - sum(b[i] * xc[i][t] for i in range(k)) for t in range(n)]
+    mitte = [[sum(xc[i][t] * xc[j][t] * e[t] * e[t] for t in range(n)) for j in range(k)] for i in range(k)]
+    f = n / (n - k - 1)
+    v = [[f * sum(inv[i][a] * mitte[a][c] * inv[c][j] for a in range(k) for c in range(k)) for j in range(k)]
+         for i in range(k)]
+    se = [v[i][i] ** 0.5 if v[i][i] > 0 else None for i in range(k)]
+    return {"n": n, "b": b, "se": se}
+
+
+def _mt_zeilen(rows: pd.DataFrame) -> pd.DataFrame:
+    """Picks für „Modell → Toto“: Toto-Endquote, Festkurs und Power-Chance (ohne Morgenquote) vorhanden."""
+    if rows is None or rows.empty or "toto_end" not in rows:
+        return pd.DataFrame(columns=["toto_end", "fk_sieg", "p_blind", "cote_dec"])
+    pb = rows["p_blind"] if "p_blind" in rows else rows["p_model"]
+    m = (pd.to_numeric(rows["toto_end"], errors="coerce") > 0) & (pd.to_numeric(rows["fk_sieg"], errors="coerce") > 0) \
+        & (pd.to_numeric(pb, errors="coerce") > 0)
+    out = rows[m].copy()
+    out["p_blind"] = pd.to_numeric(pb[m], errors="coerce")
+    return out
+
+
+def modell_toto(rows: pd.DataFrame) -> dict:
+    """Erklärt das Modell die Toto-Endquote bei festgehaltenem Festkurs?
+    log(toto_end) = a + b1·log(fk_sieg) + b2·log(p_power) (OLS, t nach HC1); zweite Variante zusätzlich mit
+    log(cote_dec) (Presse). b2 < 0: Pferde, die Power bei gleichem Festkurs höher einschätzt, enden kürzer im Toto –
+    bereinigt um den Auswahleffekt von „Kurs ±“ (hoher Festkurs wird bevorzugt). p_power = Power allein (sieg_blind),
+    nicht die Mischung mit der Morgenquote."""
+    leer = {"mt_n": 0, "mt_b1": None, "mt_b2": None, "mt_se": None, "mt_t": None,
+            "mt_n_presse": 0, "mt_b2_presse": None, "mt_t_presse": None}
+    d = _mt_zeilen(rows)
+    if len(d) < MT_MIN_N:
+        return {**leer, "mt_n": int(len(d))}
+    lg = lambda c: [float(np.log(v)) for v in d[c].astype(float)]
+    r = _ols_hc1(lg("toto_end"), [lg("fk_sieg"), lg("p_blind")])
+    out = dict(leer, mt_n=int(len(d)))
+    if r:
+        out.update({"mt_b1": r["b"][0], "mt_b2": r["b"][1], "mt_se": r["se"][1],
+                    "mt_t": r["b"][1] / r["se"][1] if r["se"][1] else None})
+    dp = d[pd.to_numeric(d["cote_dec"], errors="coerce") > 0] if "cote_dec" in d else d.iloc[:0]
+    out["mt_n_presse"] = int(len(dp))
+    if len(dp) >= MT_MIN_N:
+        lp = lambda c: [float(np.log(v)) for v in dp[c].astype(float)]
+        r2 = _ols_hc1(lp("toto_end"), [lp("fk_sieg"), lp("p_blind"), lp("cote_dec")])
+        if r2:
+            out.update({"mt_b2_presse": r2["b"][1], "mt_t_presse": r2["b"][1] / r2["se"][1] if r2["se"][1] else None})
+    return out
+
+
+def modell_toto_verlauf(sel: pd.DataFrame) -> list[dict]:
+    """„Modell → Toto“ je Renntag, kumuliert über alle Picks bis einschließlich dieses Tages (wachsendes Fenster);
+    Tage mit weniger als MT_MIN_N Picks insgesamt fallen weg."""
+    d = _mt_zeilen(sel)
+    out = []
+    for tag in sorted(d["date"].unique()) if len(d) else []:
+        bis = d[d["date"] <= tag]
+        if len(bis) < MT_MIN_N:
+            continue
+        k = modell_toto(bis)
+        out.append({"date": tag, "b2": k["mt_b2"], "t": k["mt_t"], "t_presse": k["mt_t_presse"],
+                    "n": k["mt_n"], "n_tag": int((d["date"] == tag).sum())})
+    return out
 
 
 # ---------------------------------------------------------------- Dashboard (HTML)
@@ -568,7 +745,7 @@ DASHBOARD_DATEI = "value_dashboard.html"
 _HTML_SPALTEN = [
     "date", "race_id", "race", "course", "no", "horse", "n", "p", "fair", "rank_fq", "rank_pct",
     "rel", "fk_sieg", "fk_platz", "cote_dec", "wert", "gold", "is_top", "p_fk", "p_model", "p_pq",
-    "p_platz", "fair_platz", "toto_end", "fk_toto", "kurs_rel", "settled", "pos", "won", "placed"]
+    "p_platz", "fair_platz", "toto_end", "fk_toto", "kurs_rel", "p_blind", "settled", "pos", "won", "placed"]
 
 
 def _json_wert(v: Any) -> Any:
@@ -585,7 +762,7 @@ def _json_wert(v: Any) -> Any:
 
 def dashboard_daten(pool: pd.DataFrame) -> dict:
     """Pool kompakt (Spalten + Zeilen, volle Float-Genauigkeit) für die HTML-Seite."""
-    zeilen = [[_json_wert(v) for v in r] for r in pool[_HTML_SPALTEN].itertuples(index=False)] \
+    zeilen = [[_json_wert(v) for v in r] for r in pool.reindex(columns=_HTML_SPALTEN).itertuples(index=False)] \
         if not pool.empty else []
     return {"spalten": _HTML_SPALTEN, "zeilen": zeilen,
             "erstellt": pd.Timestamp.now(tz="Europe/Paris").strftime("%d.%m.%Y %H:%M")}
