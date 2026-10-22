@@ -198,7 +198,19 @@ def _karte_lesen(pfad: Path) -> dict:
     return daten
 
 
-def load_day(json_path: str | Path, parquet_path: str | Path | None) -> pd.DataFrame:
+def _endquoten(starter_path: str | Path | None) -> dict[tuple[str, int], float]:
+    """Toto-Endquote (letzte Siegquote vor dem Start, pmu_runners.odds_final) je (race_id, Startnummer)."""
+    if starter_path is None or not Path(starter_path).exists():
+        return {}
+    s = pd.read_parquet(starter_path, columns=["race_id", "saddle_no", "odds_final"])
+    q = pd.to_numeric(s["odds_final"], errors="coerce")
+    no = pd.to_numeric(s["saddle_no"], errors="coerce")
+    ok = q.gt(1) & no.notna()
+    return {(str(r), int(n)): float(x) for r, n, x in zip(s["race_id"][ok], no[ok], q[ok])}
+
+
+def load_day(json_path: str | Path, parquet_path: str | Path | None,
+             starter_path: str | Path | None = None) -> pd.DataFrame:
     """Pool eines Renntags: alle Starter mit Festkurs und Wert ≥ 0, samt Ergebnis.
 
     ``json_path`` darf auch die HTML-Karte ``racecard_YYYYMMDD.html`` sein – sie
@@ -207,6 +219,10 @@ def load_day(json_path: str | Path, parquet_path: str | Path | None) -> pd.DataF
     Ohne Ergebnis-Parquet (oder ohne Einlauf für ein Rennen) bleiben ``pos``,
     ``won`` und ``placed`` leer und ``settled`` ist False – solche Wetten werden
     nicht simuliert (der Tag gilt als offen).
+
+    ``starter_path``: pmu_runners-Parquet des Tages mit der Toto-Endquote. Daraus je Starter ``toto_end``,
+    ``fk_toto`` (Festkurs ÷ Endquote; > 1 = Kurs bis zum Start gefallen) und ``kurs_rel`` (ln fk_toto minus
+    Ø ln fk_toto aller Starter des Rennens – bereinigt den grundsätzlichen Abstand Festkurs ↔ Toto).
     """
     json_path = Path(json_path)
     daten = _karte_lesen(json_path)
@@ -222,6 +238,12 @@ def load_day(json_path: str | Path, parquet_path: str | Path | None) -> pd.DataF
     if pool.empty:
         return _leerer_pool()
     pool["festkurse_stand"] = daten.get("festkurse_stand")
+    endq = _endquoten(starter_path)
+    pool["toto_end"] = [endq.get((str(r), int(n))) for r, n in zip(pool["race_id"], pool["no"])]
+    pool["toto_end"] = pd.to_numeric(pool["toto_end"], errors="coerce")
+    lv = np.log(pool["fk_sieg"].astype(float) / pool["toto_end"])
+    pool["fk_toto"] = np.exp(lv)
+    pool["kurs_rel"] = lv - lv.groupby(pool["race_id"]).transform("mean")       # alle Starter des Rennens
     pool = pool[pool["fk_sieg"].notna() & (pool["wert"] >= -TOP_TOL)].copy()
 
     einlauf: dict[str, list[int]] = {}
@@ -250,7 +272,17 @@ def _leerer_pool() -> pd.DataFrame:
         "date", "race_id", "race", "course", "no", "horse", "n", "p", "fair", "rank_fq",
         "rank_pct", "rel", "fk_sieg", "fk_platz", "cote_dec", "wert", "gold", "p_fk",
         "p_model", "p_pq", "p_platz", "fair_platz", "paid_places", "is_top", "festkurse_stand",
-        "settled", "pos", "won", "placed"])
+        "toto_end", "fk_toto", "kurs_rel", "settled", "pos", "won", "placed"])
+
+
+def _hat_endquote(pfad: Path) -> bool:
+    """Ist das Parquet eine pmu_runners-Datei (Spalten race_id, saddle_no, odds_final)?"""
+    try:
+        import pyarrow.parquet as pq
+        namen = set(pq.read_schema(pfad).names)
+    except Exception:
+        return False
+    return {"race_id", "saddle_no", "odds_final"} <= namen
 
 
 def _hat_einlauf(pfad: Path) -> bool:
@@ -265,10 +297,12 @@ def _hat_einlauf(pfad: Path) -> bool:
 
 def load_folder(ordner: str | Path, ergebnis_ordner: str | Path | None = None,
                 cache: str | Path | None = None, ab: str | None = START_DATUM,
-                bis: str | None = None) -> pd.DataFrame:
+                bis: str | None = None, starter_ordner: str | Path | None = None) -> pd.DataFrame:
     """Alle Renntage eines Ordners laden (rekursiv), gepaart über das Datum.
 
     ``ergebnis_ordner``: wo die pmu_races-Parquets liegen (Vorgabe: ``ordner``).
+    ``starter_ordner``: pmu_runners-Parquets mit der Toto-Endquote (Vorgabe: Nachbarordner ``pmu_runners`` des
+    Ergebnisordners, sonst der Ergebnisordner selbst).
     ``ab``/``bis``: Zeitraum als YYYYMMDD (Vorgabe: ab ``START_DATUM``, ``None`` = alle).
 
     Karte: ``racecard_YYYYMMDD_daten.json``, sonst ``racecard_YYYYMMDD.html``;
@@ -296,11 +330,19 @@ def load_folder(ordner: str | Path, ergebnis_ordner: str | Path | None = None,
         if (d and d in jsons and d not in parquets and _hat_einlauf(p)
                 and (cache is None or p.resolve() != Path(cache).resolve())):
             parquets[d] = p
+    if starter_ordner is None:
+        nachbar = erg_ordner.parent / "pmu_runners"
+        starter_ordner = nachbar if nachbar.is_dir() else erg_ordner
+    starter = {}
+    for p in sorted(Path(starter_ordner).rglob("*.parquet"), key=lambda q: "pmu_runners" not in q.parts):
+        d = _datum_aus_name(p)
+        if d and d in jsons and d not in starter and _hat_endquote(p):
+            starter[d] = p
     teile = []
     for d in sorted(jsons):
         if d not in parquets and d < heute:
             warnings.warn(f"{d}: kein Ergebnis-Parquet – Tag bleibt offen", stacklevel=2)
-        tag = load_day(jsons[d], parquets.get(d))
+        tag = load_day(jsons[d], parquets.get(d), starter.get(d))
         if d in parquets and d < heute and not tag.empty and not tag["settled"].all():
             offen = tag.loc[~tag["settled"], "race"].unique()
             warnings.warn(f"{d}: kein Einlauf für {', '.join(offen)}", stacklevel=2)
@@ -438,6 +480,9 @@ def simulate(pool: pd.DataFrame, filters: FilterConfig = None,
                 "profit": round_half_up(g_s + g_p, 2),
                 "p_fk": r["p_fk"], "p_model": r["p_model"],
                 "p_platz": r["p_platz"], "fair_platz": r["fair_platz"],
+                "toto_end": None if pd.isna(r["toto_end"]) else float(r["toto_end"]),
+                "fk_toto": None if pd.isna(r["fk_toto"]) else float(r["fk_toto"]),
+                "kurs_rel": None if pd.isna(r["kurs_rel"]) else float(r["kurs_rel"]),
                 "p_pq": r["p_pq"] if fk_platz is not None else None,
                 "bank_start": bank_start,
             })
@@ -472,7 +517,7 @@ def kpis(bets: pd.DataFrame, days: pd.DataFrame, start_bank: float) -> dict:
             "profit", "profit_win", "profit_place", "roi", "roi_win", "roi_place", "stake",
             "stake_win", "stake_place", "tax", "wins", "places", "strike_rate", "place_rate",
             "exp_wins_fk", "exp_wins_model", "exp_places_pq", "exp_places_model",
-            "edge_win", "edge_place")})
+            "edge_win", "edge_place", "kurs_n", "kurs_gefallen", "clv", "clv_rel", "kurs_besser")})
         k["hinweis"] = HINWEIS_LEER
         return k
     pw, pp = float(bets["profit_win"].sum()), float(bets["profit_place"].sum())
@@ -495,7 +540,25 @@ def kpis(bets: pd.DataFrame, days: pd.DataFrame, start_bank: float) -> dict:
         "edge_win": _quote(e_mod, e_fk), "edge_place": _quote(e_pm, e_pq),
         "hinweis": "Stichprobe klein (< 30 Wetten)" if len(bets) < 30 else None,
     })
+    k.update(kurs_kpis(bets))
     return k
+
+
+def kurs_kpis(bets: pd.DataFrame) -> dict:
+    """Kursbewegung der Picks bis zum Start (Festkurs gegen Toto-Endquote).
+    kurs_gefallen: Anteil mit Endquote unter dem Festkurs; clv: Ø (geometrisch) Festkurs ÷ Endquote − 1;
+    clv_rel: dasselbe gegen den Schnitt aller Starter des Rennens (> 0: Picks fallen stärker als das Feld);
+    kurs_besser: Anteil der Picks, die stärker fallen als der Rennschnitt."""
+    if bets.empty or "fk_toto" not in bets:
+        return {"kurs_n": 0, "kurs_gefallen": None, "clv": None, "clv_rel": None, "kurs_besser": None}
+    m = bets["fk_toto"].notna() & bets["kurs_rel"].notna()
+    if not m.any():
+        return {"kurs_n": 0, "kurs_gefallen": None, "clv": None, "clv_rel": None, "kurs_besser": None}
+    lv = np.log(bets.loc[m, "fk_toto"].astype(float))
+    rel = bets.loc[m, "kurs_rel"].astype(float)
+    return {"kurs_n": int(m.sum()), "kurs_gefallen": float((lv > 0).mean()),
+            "clv": float(np.exp(lv.mean()) - 1), "clv_rel": float(np.exp(rel.mean()) - 1),
+            "kurs_besser": float((rel > 0).mean())}
 
 
 # ---------------------------------------------------------------- Dashboard (HTML)
@@ -505,7 +568,7 @@ DASHBOARD_DATEI = "value_dashboard.html"
 _HTML_SPALTEN = [
     "date", "race_id", "race", "course", "no", "horse", "n", "p", "fair", "rank_fq", "rank_pct",
     "rel", "fk_sieg", "fk_platz", "cote_dec", "wert", "gold", "is_top", "p_fk", "p_model", "p_pq",
-    "p_platz", "fair_platz", "settled", "pos", "won", "placed"]
+    "p_platz", "fair_platz", "toto_end", "fk_toto", "kurs_rel", "settled", "pos", "won", "placed"]
 
 
 def _json_wert(v: Any) -> Any:
@@ -552,7 +615,8 @@ def start(base: str | Path = BASE_DRIVE, ab: str | None = START_DATUM) -> Path:
     bei neuen Daten überschrieben). Tage ohne Einlauf bleiben offen.
     """
     base = Path(base)
-    pool = load_folder(base / "racecards", base / "parquet" / "pmu_races", ab=ab)
+    pool = load_folder(base / "racecards", base / "parquet" / "pmu_races", ab=ab,
+                       starter_ordner=base / "parquet" / "pmu_runners")
     pfad = dashboard(pool, base / "racecards" / DASHBOARD_DATEI)
     tage = pool.loc[pool["settled"].astype(bool), "date"].nunique() if not pool.empty else 0
     k = simulate(pool).kpi_dict
