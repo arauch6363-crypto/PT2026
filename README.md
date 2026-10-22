@@ -195,6 +195,18 @@ Gemessen auf denselben Testrennen (2026, alle mit Morgen- und Endquote; Modelle 
   `mischung (Morgenquote × Power)`.
 - Das Kombi-Modell (`pm.trainieren_morgen`, `modelle/power_morgen.txt`) wird nur noch genutzt, wenn das Power-Modell
   keine Mischung hat (älterer Stand). Es ist schlechter als die Mischung und braucht nicht mehr trainiert zu werden.
+**Rennverlauf und Startbox (Merkmale Version 16):**
+- `verlauf5_gegen` / `verlauf5_mit`: Anteil der letzten fünf Läufe gegen bzw. mit dem Rennverlauf.
+- `form5_pos_gegen` / `form5_pos_mit`: Ø Pos+ nur aus diesen Läufen.
+- `formz_pos_vb`: zeitgewichtete Form, um den Verlauf bereinigt. Gegen den Verlauf gibt es einen Zuschlag, mit dem
+  Verlauf einen Abzug, jeweils Ø Pos+ aller Läufe minus Ø Pos+ der Klasse, laufend nur aus früheren Tagen
+  (`_verlauf_korrektur`).
+- Der Rennverlauf selbst ist zeitlich sauber (`pm.verlauf_zeitlich`): Norm je Bahn/Distanz und die Grenzen
+  „vorne/hinten begünstigt“ kommen nur aus Rennen vor dem jeweiligen Renntag. Vorher kamen sie im Training aus der
+  ganzen Historie, also auch aus späteren Rennen.
+- `box_dev`: Ø Pos+ aus der Startbox auf derselben Bahnkonfiguration, zur Feldmitte hin geschrumpft
+  ((Σ Pos+ + 30 × 0,5) ÷ (n + 30) − 0,5); bei wenigen Läufen ≈ 0.
+
 Zeitliche Aufteilung (`pm.aufteilung`, Power und Value gleich): das erste Jahr der Historie (`AUFWAERM_TAGE` = 365) dient
 nur als Vorgeschichte für die Merkmale und wird nicht gelernt; die übrigen Renntage zeitlich 60/20/20 (`ANTEILE`):
 lernen, validieren (Abbruch der Bäume, Modellwahl, Siegchance-a, Eichung k und Gold-Grenze des Value-Modells), testen

@@ -66,13 +66,13 @@ PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schr
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
 SCHLUESSEL_DATEI = "merkmale_schluessel.parquet"   # je Zeile des Zwischenspeichers: race_id, horse_id
-MERKMAL_VERSION = 15                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+MERKMAL_VERSION = 16                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
            "form5_pos", "form5_best", "form5_lb", "form5_arr", "runs", "age", "arr_best365", "trainer_30_score",
            "dam_score", "form5_ue", "formz_pos", "formz_arr", "formz_ue", "form_steig_pos", "form_steig_arr",
-           "form_pos_hoeher", "abst_pass", "formz_pos_pmu"]
+           "form_pos_hoeher", "abst_pass", "formz_pos_pmu", "formz_pos_vb"]
 # Value-Modell: Merkmale aus der Morgenquote (PMU-Referenzquote, am Morgen bekannt) – nie im Power-Modell
 MORGEN_MERKMALE = ["m_pm", "m_log", "m_rk", "m_marge"]
 # Segment-Modelle: lernen je Rennart nur die Korrektur zum gemeinsamen Modell (Ausgangswert = dessen Vorhersage)
@@ -108,6 +108,9 @@ PAUSE_TAGE = 60             # ab so vielen Tagen ohne Start gilt ein Lauf als �
 VERB_K = 10                 # Verbindungs-Score zur 100 hin geschrumpft wie mit so vielen Läufen bei 100
 ABST_K = 20                 # dasselbe für Vater/Muttervater
 ABST_MIN = 30               # beste Gruppe von Vater/Muttervater erst ab so vielen Läufen in der Gruppe
+VB_MIN = 300               # Verlauf-Korrektur der Form erst, wenn die Klasse (gegen/mit/neutral) so viele Läufe hat
+BOX_K = 30                 # box_dev: Box-Schnitt zur Feldmitte hin geschrumpft wie mit so vielen Läufen
+VERLAUF_MIN_VORHER = 200   # Rennverlauf (zeitlich): Klassengrenzen erst ab so vielen früheren Rennen
 PFERD_MIN = 2               # beste Gruppe des Pferdes erst ab so vielen Läufen in der Gruppe
 KATEGORISCH = ["racetype", "going", "dist_group", "age_group", "sex", "f1_typ", "f2_typ", "f3_typ"]
 # Altersklasse (conditions_age) -> Altersgruppe des Rennens; nicht aufgeführte Werte über die Alter im Feld
@@ -125,6 +128,8 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("dam_sire_", "Muttervater"), ("arr", "ARR"), ("tr", "TR"), ("rtr", "RTR"), ("dl600", "ΔL600 A"),
            ("db200", "ΔB200 A"), ("duel", "Duell"), ("box", "Startbox"), ("early", "Laufstil"), ("pace", "Tempo-Szenario"),
            ("form5_", "Form letzte 5"), ("formz_", "Form zeitgewichtet"), ("form_steig", "Formtrend"),
+           ("verlauf5", "Rennverlauf"), ("form5_pos_gegen", "Rennverlauf"), ("form5_pos_mit", "Rennverlauf"),
+           ("formz_pos_vb", "Form zeitgewichtet (Verlauf bereinigt)"),
            ("form5_klasse", "Klasse der letzten Läufe"), ("form5_preis", "Klasse der letzten Läufe"),
            ("formz_klasse", "Klasse der letzten Läufe"), ("formz_preis", "Klasse der letzten Läufe"),
            ("chg_prize", "Klassenwechsel"), ("chg_class", "Klassenwechsel"), ("chg_weight", "Gewichtswechsel"),
@@ -209,17 +214,97 @@ def _score(placed, exp, rp, lp, n, g_rp, g_lp) -> float:
 
 def _verlauf(h: pd.DataFrame) -> np.ndarray:
     """Rennverlauf je Starter als Zahl: +1 gegen den Verlauf gelaufen, −1 mit dem Verlauf, 0 neutral, sonst NaN.
-    Nimmt verlauf_pferd aus h (Race Card), sonst rechnet racecard.rennverlauf es nach (Norm aus der ganzen Historie,
-    wie in der Karte). Fehlen die nötigen Spalten, bleibt alles NaN."""
-    if "verlauf_pferd" in h:
-        vp = h["verlauf_pferd"].to_numpy()
-    else:
-        try:
-            d = h.reset_index(drop=True)
-            vp = rc.rennverlauf(d, d)["verlauf_pferd"].to_numpy()        # Left-Merge: Reihenfolge bleibt
-        except (KeyError, ValueError):
-            vp = np.full(len(h), None, dtype=object)
+    Zeitlich sauber (verlauf_zeitlich): Norm je Bahn/Distanz und Klassengrenzen nur aus Rennen vor dem jeweiligen
+    Renntag – im Training und auf der Karte gleich. Fehlen die nötigen Spalten, bleibt alles NaN."""
+    try:
+        vp = verlauf_zeitlich(h)
+    except (KeyError, ValueError):
+        vp = np.full(len(h), None, dtype=object)
     return np.array([{"gegen": 1.0, "mit": -1.0, "neutral": 0.0}.get(v, np.nan) for v in vp], dtype=float)
+
+
+def verlauf_zeitlich(h: pd.DataFrame) -> np.ndarray:
+    """Wie racecard.rennverlauf, aber ohne Blick in die Zukunft: Je Rennen Ø frühe Position der ersten drei minus Ø des
+    Feldes; die Norm (Bahn + Distanz, sonst Bahn + Distanzgruppe, sonst alle) und die Grenzen „vorne/hinten
+    begünstigt“ (VERLAUF_ANTEIL) kommen nur aus Rennen vor dem Renntag. Rückgabe je Zeile von h: 'gegen' / 'mit' /
+    'neutral' / None (in der Reihenfolge von h)."""
+    d = h.reset_index(drop=True)
+    if "dist_bucket" not in d:
+        d = d.assign(dist_bucket=pd.to_numeric(d["distance_m"], errors="coerce").map(rc.dist_bucket))
+    datum = pd.to_datetime(d["date"])
+    t = d[d["early_pct"].notna() & d["finish_pos"].notna()]
+    g = t.groupby("race_id")
+    r = pd.DataFrame({"n": g.size(), "feld": g["early_pct"].mean(),
+                      "top3": t[t["finish_pos"] <= 3].groupby("race_id")["early_pct"].mean()})
+    r = r[r["n"] >= rc.VERLAUF_MIN_STARTER].dropna()
+    out = np.full(len(d), None, dtype=object)
+    if r.empty:
+        return out
+    r["verlauf"] = r["top3"] - r["feld"]
+    info = d.assign(_d=datum).drop_duplicates("race_id").set_index("race_id")[["course_key", "distance_m", "dist_bucket", "_d"]]
+    r = r.join(info).reset_index().sort_values("_d", kind="stable")
+
+    def vorher(keys):                    # Summe und Zahl der Rennen derselben Gruppe an früheren Tagen
+        a = r.groupby(keys + ["_d"], dropna=False)["verlauf"].agg(["sum", "count"])
+        c = a.groupby(level=list(range(len(keys))), dropna=False).cumsum() - a if keys else a.cumsum() - a
+        return r.join(c.rename(columns={"sum": "s", "count": "k"}), on=keys + ["_d"])[["s", "k"]].to_numpy(dtype=float)
+    s1, s2 = vorher(["course_key", "distance_m"]), vorher(["course_key", "dist_bucket"])
+    s0 = vorher([])
+    m0 = np.divide(s0[:, 0], s0[:, 1], out=np.full(len(r), np.nan), where=s0[:, 1] > 0)
+    norm = np.where(s1[:, 1] >= rc.VERLAUF_MIN_RENNEN, s1[:, 0] / np.maximum(s1[:, 1], 1),
+                    np.where(s2[:, 1] >= rc.VERLAUF_MIN_RENNEN, s2[:, 0] / np.maximum(s2[:, 1], 1), m0))
+    rel = r["verlauf"].to_numpy() - norm
+    # Grenzen je Tag aus allen früheren Rennen: Quantile von (verlauf − Ø verlauf)
+    v_all, d_all = r["verlauf"].to_numpy(), r["_d"].to_numpy()
+    tage = np.unique(d_all)
+    lo_t, hi_t = np.full(len(tage), np.nan), np.full(len(tage), np.nan)
+    for k, tg in enumerate(tage):
+        vor = v_all[d_all < tg]
+        if len(vor) >= VERLAUF_MIN_VORHER:
+            q = np.quantile(vor - vor.mean(), [rc.VERLAUF_ANTEIL, 1 - rc.VERLAUF_ANTEIL])
+            lo_t[k], hi_t[k] = q
+    k_ = np.searchsorted(tage, d_all)
+    lo, hi = lo_t[k_], hi_t[k_]
+    ok = np.isfinite(rel) & np.isfinite(lo)
+    kl = np.where(~ok, None, np.where(rel <= lo, "vorne", np.where(rel >= hi, "hinten", "neutral")))
+    kl_rennen = dict(zip(r["race_id"], kl))
+    k_zeile = d["race_id"].map(kl_rennen).to_numpy(dtype=object)
+    ep = pd.to_numeric(d["early_pct"], errors="coerce").to_numpy(dtype=float)
+    vorne, hinten = ep <= rc.VERLAUF_VORNE, ep >= rc.VERLAUF_HINTEN
+    for i in range(len(d)):
+        kk = k_zeile[i]
+        if kk is None or (isinstance(kk, float) and np.isnan(kk)) or np.isnan(ep[i]):
+            continue
+        if (kk == "vorne" and hinten[i]) or (kk == "hinten" and vorne[i]):
+            out[i] = "gegen"
+        elif (kk == "vorne" and vorne[i]) or (kk == "hinten" and hinten[i]):
+            out[i] = "mit"
+        else:
+            out[i] = "neutral"
+    return out
+
+
+def _verlauf_korrektur(tag: np.ndarray, vlf: np.ndarray, rp0: np.ndarray, hm: np.ndarray):
+    """Korrektur der Platzierung für die Verlaufs-bereinigte Form, laufend nur aus früheren Tagen: je Klasse
+    (gegen / mit / neutral) Ø Pos+ aller Läufe minus Ø Pos+ der Klasse (gegen den Verlauf → Zuschlag).
+    Rückgabe: sortierte Tage und je Tag (Stand inkl. dieses Tages) die Korrektur [gegen, mit, neutral]."""
+    m = np.isfinite(vlf) & np.isfinite(rp0) & ~hm
+    if not m.any():
+        return np.array([]), np.zeros((0, 3))
+    d = pd.DataFrame({"t": tag[m], "v": vlf[m], "y": rp0[m]})
+    tage = np.sort(d["t"].unique())
+    kum = {}
+    for name, wert in (("gegen", 1.0), ("mit", -1.0), ("neutral", 0.0)):
+        a = d[d["v"] == wert].groupby("t")["y"].agg(["sum", "count"]).reindex(tage, fill_value=0).cumsum()
+        kum[name] = a.to_numpy(dtype=float)
+    alle = d.groupby("t")["y"].agg(["sum", "count"]).reindex(tage, fill_value=0).cumsum().to_numpy(dtype=float)
+    mittel = np.divide(alle[:, 0], alle[:, 1], out=np.full(len(tage), np.nan), where=alle[:, 1] > 0)
+    korr = np.zeros((len(tage), 3))
+    for k, name in enumerate(("gegen", "mit", "neutral")):
+        s_, n_ = kum[name][:, 0], kum[name][:, 1]
+        mk = np.divide(s_, n_, out=np.full(len(tage), np.nan), where=n_ > 0)
+        korr[:, k] = np.where(n_ >= VB_MIN, mittel - mk, 0.0)
+    return tage, np.nan_to_num(korr)
 
 
 def ziel(h: pd.DataFrame) -> pd.Series:
@@ -324,6 +409,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     bgrp = np.array([rtr_arr.boden_gruppe(g) for g in going], dtype=object)      # Bodengruppe (FAST, SLOW, PSF …)
     vlf = _verlauf(h)                                                             # +1 gegen / −1 mit / 0 neutral
     vlf[hm] = np.nan
+    vb_tage, vb_korr = _verlauf_korrektur(tag, vlf, rp0, hm)                      # Pos-Korrektur je Klasse, laufend
     preis = np.log1p(np.clip(_zahl(h, "prize_eur"), 0, None))                      # Preisgeld des Rennens (vorab bekannt)
     feld_val = pd.Series(werte["valeur"]).groupby(rid).transform("mean").to_numpy(dtype=float)   # Ø Rating des Feldes
     blink = np.array([{"ohne": 0.0, "klassisch": 1.0, "australisch": 2.0}.get(rc.scheuklappen_gruppe(b), np.nan)
@@ -372,7 +458,8 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
               "arr_best_abst", "erst_wallach", "cgd_sieg", "cgd_platz", "cgd_neu", "erst_kurs", "erst_boden",
               "erst_dist", "erst_belag", "abst_pass", "abst_pass_sire", "abst_pass_dam_sire", "abst_pass_dist",
               "abst_pass_boden", "abst_pass_belag", "abst_pass_reife", "abst_pass_wechsel", "form5_extern",
-              "f1_ausland", "formz_pos_pmu"]:
+              "f1_ausland", "formz_pos_pmu", "verlauf5_gegen", "verlauf5_mit", "form5_pos_gegen", "form5_pos_mit",
+              "formz_pos_vb"]:
         feld(c)
     for c in ["runs", "runs365", "lgo_pos", "lgo_arr", "ldi_pos", "ldi_arr", "days", "rtr", "arr", "tr", "dl600", "db200", "early", "epr365",
               "won_course", "won_dist", "won_going", "placed_course", "placed_dist", "placed_going", "best_dist", "best_going"]:
@@ -509,6 +596,16 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 if np.isfinite(pos5).sum() >= 3:
                     F["form5_std"][i] = np.nanstd(pos5)                         # Konstanz: klein = beständig
             F["form5_extern"][i] = float(ekz_[v5].mean())             # Anteil externer Läufe (PMH/Ausland/Übersee)
+            # Rennverlauf der letzten fünf: Anteil gegen / mit dem Verlauf und Ø Pos+ in diesen Läufen
+            vl5 = vlf[v5]
+            bek = np.isfinite(vl5)
+            if bek.any():
+                F["verlauf5_gegen"][i] = float((vl5[bek] == 1).mean())
+                F["verlauf5_mit"][i] = float((vl5[bek] == -1).mean())
+                for name, wert in (("form5_pos_gegen", 1.0), ("form5_pos_mit", -1.0)):
+                    m5 = (vl5 == wert) & np.isfinite(pos5)
+                    if m5.any():
+                        F[name][i] = float(pos5[m5].mean())
             F["f1_ausland"][i] = ausl_[vor[0]]
             if np.isfinite(lb5).any():
                 F["form5_lb"][i] = np.nanmean(lb5)
@@ -535,6 +632,17 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             if m_.any():
                 F["formz_pos_pmu"][i] = float(((wz[m_] * rp0[vz][m_]).sum() + FORM_ZEIT_K * FORM_ZEIT_PRIOR["pos"])
                                               / (wz[m_].sum() + FORM_ZEIT_K))
+            # dieselbe Form, um den Rennverlauf bereinigt: gegen den Verlauf Zuschlag, mit dem Verlauf Abzug (Stand der
+            # Korrektur: Tage vor heute)
+            m_ = np.isfinite(rp0[vz])
+            if m_.any():
+                k_ = np.searchsorted(vb_tage, tag[i], side="left") - 1
+                kv = vb_korr[k_] if k_ >= 0 else np.zeros(3)
+                vv = vlf[vz]
+                zu = np.where(vv == 1, kv[0], np.where(vv == -1, kv[1], np.where(vv == 0, kv[2], 0.0)))
+                yv = rp0[vz] + zu
+                F["formz_pos_vb"][i] = float(((wz[m_] * yv[m_]).sum() + FORM_ZEIT_K * FORM_ZEIT_PRIOR["pos"])
+                                             / (wz[m_].sum() + FORM_ZEIT_K))
             for name, y, h_ in (("klasse", feld_val[vz], feld_val[i]), ("preis", preis[vz], preis[i])):
                 m_ = np.isfinite(y)
                 if m_.any() and not np.isnan(h_):           # > 0: zuletzt (zeitgewichtet) in stärkeren Rennen als heute
@@ -671,7 +779,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     for l_ in linien:
         for c in ("score", "epr", "val3", "runs") + (("best_dist", "best_going") if l_ != "dam" else ()):
             feld(f"{l_}_{c}")
-    feld("box_mean"), feld("box_runs"), feld("chg_jockey_score")
+    feld("box_mean"), feld("box_runs"), feld("box_dev"), feld("chg_jockey_score")
     verb = {r_: {} for r_ in rollen}                     # Schlüssel -> [deque, n, placed, exp, rp, lp]
     glob = [deque(), 0, 0.0, 0.0]                        # 365-Tage-Schnitt aller Läufe: n, rp, lp
     abst = {l_: {} for l_ in linien}                     # Schlüssel -> [n, placed, exp, rp, lp, n3, val3]
@@ -742,6 +850,9 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             bs = box.get((konfig[i], werte["draw"][i]))
             if bs and bs[0]:
                 F["box_mean"][i], F["box_runs"][i] = bs[1] / bs[0], bs[0]
+            if konfig[i] is not None and not np.isnan(werte["draw"][i]):  # geschrumpft: wenige Läufe ≈ 0 (Feldmitte)
+                n_b, s_b = (bs[0], bs[1]) if bs else (0, 0.0)
+                F["box_dev"][i] = (s_b + BOX_K * 0.5) / (n_b + BOX_K) - 0.5
         # Tag fertig: Ergebnisse in den Stand übernehmen (heutige Zeilen nie)
         for i in pos[~hm[pos] & (ext_[pos] == 0)]:          # externe Läufe zählen nicht für Verbindungen/Basis
             pl_, ex_, rp_, lp_ = (np.nan_to_num(placed[i]), np.nan_to_num(expp[i]), np.nan_to_num(rp0[i]),
