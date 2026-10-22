@@ -254,9 +254,21 @@ def test_html_simulation_gleich_python(tmp_path):
             assert [b["profit"] for b in j["bets"]] == list(py.bets_df["profit"])
             assert [b["horse"] for b in j["bets"]] == list(py.bets_df["horse"])
             for k in ("roi", "tax", "wins", "places", "exp_wins_fk", "edge_win", "edge_place", "exp_places_model",
-                      "kurs_n", "kurs_gefallen", "clv", "clv_rel", "kurs_besser"):
+                      "kurs_n", "kurs_gefallen", "clv", "clv_rel", "kurs_besser", "kurs_rel_se", "kurs_z",
+                      "pool_clv_rel"):
                 assert j["kpi"][k] == pytest.approx(py.kpi_dict[k]), k
     assert any(j["kpi"]["bets"] > 10 for j in js)
+    # Kursvorteil im Verlauf: JS gleich Python
+    for (f, v), j in zip(faelle, js):
+        py = vb.simulate(pool, f, vb.StakingConfig(v))
+        kv = vb.kurs_verlauf(py.bets_df, pool[pool["date"].isin(py.days_df["date"])])
+        assert len(j["kurs"]) == len(kv)
+        for spalte in ("lauf", "lauf_lo", "lauf_hi", "pool_lauf"):
+            erw = [None if pd.isna(x) else x for x in kv[spalte]]
+            ist = [r[spalte] for r in j["kurs"]]
+            assert [x is None for x in ist] == [x is None for x in erw], spalte
+            assert [x for x in ist if x is not None] == pytest.approx([x for x in erw if x is not None]), spalte
+    assert any(len(j["kurs"]) > 5 for j in js)
 
 
 def test_rhu_js_gleich_python():
@@ -318,3 +330,23 @@ def test_kursbewegung(tmp_path):
     assert k["clv_rel"] == pytest.approx(np.exp(b["kurs_rel"].mean()) - 1)
     ohne = vb.load_folder(tmp_path, ab=None, starter_ordner=tmp_path / "fehlt")
     assert ohne["toto_end"].isna().all() and vb.simulate(ohne).kpi_dict["kurs_n"] == 0
+
+
+def test_kurs_verlauf_hand():
+    bets = pd.DataFrame({"date": ["20250101", "20250101", "20250102"], "race_id": ["A", "B", "C"], "no": [1, 1, 2],
+                         "race": ["R1C1", "R1C2", "R1C1"], "horse": ["X", "Y", "Z"], "fk_sieg": [5.0, 8.0, 4.0],
+                         "toto_end": [4.0, 9.0, 3.0], "fk_toto": [1.25, 8 / 9, 4 / 3], "kurs_rel": [0.2, -0.1, 0.3]})
+    pool = pd.DataFrame({"date": ["20250101", "20250101", "20250101", "20250102", "20250102"],
+                         "race_id": ["A", "A", "B", "C", "C"], "no": [1, 2, 1, 1, 2], "settled": True,
+                         "fk_toto": 1.0, "kurs_rel": [0.2, 0.0, -0.1, 0.1, 0.3]})
+    kv = vb.kurs_verlauf(bets, pool)
+    assert list(kv["lauf"]) == pytest.approx([np.exp(0.2) - 1, np.exp(0.05) - 1, np.exp(0.4 / 3) - 1])
+    se2 = np.std([0.2, -0.1], ddof=1) / np.sqrt(2)
+    assert np.isnan(kv["lauf_lo"][0]) and kv["lauf_hi"][1] == pytest.approx(np.exp(0.05 + se2) - 1)
+    # Pool bis einschließlich der Wette: (A,1) → 0.2; (B,1) → Ø(0.2, 0, −0.1); (C,2) → Ø aller fünf
+    assert list(kv["pool_lauf"]) == pytest.approx([np.exp(0.2) - 1, np.exp(0.1 / 3) - 1, np.exp(0.5 / 5) - 1])
+    k = vb.kurs_kpis(bets, pool)
+    rel = np.array([0.2, -0.1, 0.3])
+    assert k["pool_clv_rel"] == pytest.approx(np.exp(0.1) - 1)
+    assert k["kurs_rel_se"] == pytest.approx(np.std(rel, ddof=1) / np.sqrt(3))
+    assert k["kurs_z"] == pytest.approx(rel.mean() / k["kurs_rel_se"])

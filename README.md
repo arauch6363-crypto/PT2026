@@ -615,6 +615,11 @@ vergleicht beide Rechnungen über Node.
   Start). Weil Festkurs und Toto grundsätzlich verschieden liegen (Toto nach Abzug), zählt der Vergleich mit dem
   Schnitt aller Starter desselben Rennens: Kachel „Kurs bis Start“ (geometrisches Mittel, + = Picks wurden stärker
   gewettet als das Feld) und Spalte „Kurs ±“ je Wette. Schnellstes ehrliches Signal, ob die Picks echten Wert haben.
+- **Kursvorteil im Verlauf:** Das Diagramm zeigt den laufenden Kursvorteil der Picks über die Wetten, mit einem Band
+  von ±1 Standardfehler und den einzelnen Wetten als Punkte. Zum Vergleich steht gestrichelt derselbe Wert für den
+  ganzen Pool (Wert ≥ 0); die Kachel nennt dazu den Pool-Wert und z = Ø kurs_rel ÷ Standardfehler
+  (`vb.kurs_verlauf`, `vb.kurs_kpis`). So sieht man, ab wann der Vorteil sich sicher von 0 abhebt und was die
+  Auswahl über den Pool hinaus bringt.
 - **Platzbein:** zum Festkurs Platz aus der Karten-JSON (`fk.platz`).
 - **Hinweise:**
   - Die Kurse sind Festkurse zum `festkurse_stand`, keine Endkurse.

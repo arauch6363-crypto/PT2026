@@ -494,10 +494,12 @@ def simulate(pool: pd.DataFrame, filters: FilterConfig = None,
     bets = pd.DataFrame(wetten)
     days = pd.DataFrame(tage, columns=["date", "bank_start", "bets", "profit_win",
                                        "profit_place", "profit", "bank"])
-    kpi = kpis(bets, days, staking.start_bank)
+    p_sim = pool[pool["date"].isin(days["date"])] if not pool.empty else pool        # Pool der simulierten Tage
+    kpi = kpis(bets, days, staking.start_bank, p_sim)
     kpi["tage"] = {
         t: kpis(bets[bets["date"] == t] if not bets.empty else bets,
-                days[days["date"] == t], float(days.loc[days["date"] == t, "bank_start"].iloc[0]))
+                days[days["date"] == t], float(days.loc[days["date"] == t, "bank_start"].iloc[0]),
+                p_sim[p_sim["date"] == t])
         for t in days["date"]
     }
     return SimResult(bets, days, kpi)
@@ -507,7 +509,7 @@ def _quote(a: float, b: float) -> Optional[float]:
     return a / b if b else None
 
 
-def kpis(bets: pd.DataFrame, days: pd.DataFrame, start_bank: float) -> dict:
+def kpis(bets: pd.DataFrame, days: pd.DataFrame, start_bank: float, pool: pd.DataFrame | None = None) -> dict:
     """Kennzahlen; bei 0 Wetten sind die Verhältniswerte None plus Hinweis."""
     bank = float(days["bank"].iloc[-1]) if len(days) else start_bank
     k: dict[str, Any] = {"days": int(len(days)), "bets": int(len(bets)),
@@ -517,8 +519,9 @@ def kpis(bets: pd.DataFrame, days: pd.DataFrame, start_bank: float) -> dict:
             "profit", "profit_win", "profit_place", "roi", "roi_win", "roi_place", "stake",
             "stake_win", "stake_place", "tax", "wins", "places", "strike_rate", "place_rate",
             "exp_wins_fk", "exp_wins_model", "exp_places_pq", "exp_places_model",
-            "edge_win", "edge_place", "kurs_n", "kurs_gefallen", "clv", "clv_rel", "kurs_besser")})
+            "edge_win", "edge_place")})
         k["hinweis"] = HINWEIS_LEER
+        k.update(kurs_kpis(bets, pool))
         return k
     pw, pp = float(bets["profit_win"].sum()), float(bets["profit_place"].sum())
     sw, sp = float(bets["stake_win"].sum()), float(bets["stake_place"].sum())
@@ -540,25 +543,77 @@ def kpis(bets: pd.DataFrame, days: pd.DataFrame, start_bank: float) -> dict:
         "edge_win": _quote(e_mod, e_fk), "edge_place": _quote(e_pm, e_pq),
         "hinweis": "Stichprobe klein (< 30 Wetten)" if len(bets) < 30 else None,
     })
-    k.update(kurs_kpis(bets))
+    k.update(kurs_kpis(bets, pool))
     return k
 
 
-def kurs_kpis(bets: pd.DataFrame) -> dict:
+_KURS_LEER = {"kurs_n": 0, "kurs_gefallen": None, "clv": None, "clv_rel": None, "kurs_besser": None,
+              "kurs_rel_se": None, "kurs_z": None}
+
+
+def _kurs_reihe(df: pd.DataFrame) -> pd.DataFrame:
+    """Zeilen mit Kursvergleich, zeitlich sortiert (Tag, Rennen, Startnummer – wie die Wetten)."""
+    if df is None or df.empty or "kurs_rel" not in df:
+        return pd.DataFrame(columns=["date", "race_id", "no", "kurs_rel"])
+    m = df["kurs_rel"].notna() & (df["fk_toto"].notna() if "fk_toto" in df else True)
+    return df[m].sort_values(["date", "race_id", "no"], kind="stable")
+
+
+def _se(x: np.ndarray) -> Optional[float]:
+    """Standardfehler des Mittelwerts (Stichproben-Streuung, ab 2 Werten)."""
+    return float(np.std(x, ddof=1) / np.sqrt(len(x))) if len(x) >= 2 else None
+
+
+def kurs_kpis(bets: pd.DataFrame, pool: pd.DataFrame | None = None) -> dict:
     """Kursbewegung der Picks bis zum Start (Festkurs gegen Toto-Endquote).
     kurs_gefallen: Anteil mit Endquote unter dem Festkurs; clv: Ø (geometrisch) Festkurs ÷ Endquote − 1;
     clv_rel: dasselbe gegen den Schnitt aller Starter des Rennens (> 0: Picks fallen stärker als das Feld);
-    kurs_besser: Anteil der Picks, die stärker fallen als der Rennschnitt."""
-    if bets.empty or "fk_toto" not in bets:
-        return {"kurs_n": 0, "kurs_gefallen": None, "clv": None, "clv_rel": None, "kurs_besser": None}
-    m = bets["fk_toto"].notna() & bets["kurs_rel"].notna()
-    if not m.any():
-        return {"kurs_n": 0, "kurs_gefallen": None, "clv": None, "clv_rel": None, "kurs_besser": None}
-    lv = np.log(bets.loc[m, "fk_toto"].astype(float))
-    rel = bets.loc[m, "kurs_rel"].astype(float)
-    return {"kurs_n": int(m.sum()), "kurs_gefallen": float((lv > 0).mean()),
-            "clv": float(np.exp(lv.mean()) - 1), "clv_rel": float(np.exp(rel.mean()) - 1),
-            "kurs_besser": float((rel > 0).mean())}
+    kurs_besser: Anteil der Picks, die stärker fallen als der Rennschnitt; kurs_rel_se: Standardfehler von
+    Ø kurs_rel; kurs_z = Ø kurs_rel ÷ kurs_rel_se; pool_clv_rel: clv_rel aller abgerechneten Starter des Pools
+    (Wert ≥ 0) derselben Tage, unabhängig vom Filter – zeigt, was die Auswahl darüber hinaus bringt."""
+    pr = _kurs_reihe(pool[pool["settled"].astype(bool)] if pool is not None and len(pool) else None)
+    k = dict(_KURS_LEER, pool_clv_rel=float(np.exp(pr["kurs_rel"].astype(float).mean()) - 1) if len(pr) else None)
+    b = _kurs_reihe(bets)
+    if b.empty:
+        return k
+    lv = np.log(b["fk_toto"].astype(float).to_numpy())
+    rel = b["kurs_rel"].astype(float).to_numpy()
+    se = _se(rel)
+    k.update({"kurs_n": int(len(rel)), "kurs_gefallen": float((lv > 0).mean()),
+              "clv": float(np.exp(lv.mean()) - 1), "clv_rel": float(np.exp(rel.mean()) - 1),
+              "kurs_besser": float((rel > 0).mean()), "kurs_rel_se": se,
+              "kurs_z": float(rel.mean() / se) if se else None})
+    return k
+
+
+def kurs_verlauf(bets: pd.DataFrame, pool: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Kursvorteil im Verlauf: je Wette mit Kursvergleich (zeitlich) der laufende Wert exp(Ø kurs_rel) − 1,
+    das Band exp(Ø ± 1 Standardfehler) − 1 und derselbe laufende Wert für den Pool (abgerechnete Starter
+    mit Wert ≥ 0 bis einschließlich dieser Wette in derselben Reihenfolge)."""
+    b = _kurs_reihe(bets)
+    spalten = ["n", "date", "race", "horse", "fk_sieg", "toto_end", "kurs_rel", "lauf", "lauf_lo", "lauf_hi",
+               "pool_lauf"]
+    if b.empty:
+        return pd.DataFrame(columns=spalten)
+    rel = b["kurs_rel"].astype(float).to_numpy()
+    n = np.arange(1, len(rel) + 1)
+    mittel = np.cumsum(rel) / n
+    se = np.array([_se(rel[:i]) if i >= 2 else np.nan for i in n], dtype=float)
+    pr = _kurs_reihe(pool[pool["settled"].astype(bool)] if pool is not None and len(pool) else None)
+    pool_lauf = np.full(len(rel), np.nan)
+    if len(pr):
+        import bisect
+        schl = list(zip(pr["date"].astype(str), pr["race_id"].astype(str), pr["no"].astype(int)))
+        cum = np.cumsum(pr["kurs_rel"].astype(float).to_numpy())
+        for i, key in enumerate(zip(b["date"].astype(str), b["race_id"].astype(str), b["no"].astype(int))):
+            j = bisect.bisect_right(schl, key)
+            if j:
+                pool_lauf[i] = np.exp(cum[j - 1] / j) - 1
+    return pd.DataFrame({"n": n, "date": b["date"].to_numpy(), "race": b["race"].to_numpy(),
+                         "horse": b["horse"].to_numpy(), "fk_sieg": b["fk_sieg"].to_numpy(),
+                         "toto_end": b["toto_end"].to_numpy(), "kurs_rel": rel, "lauf": np.exp(mittel) - 1,
+                         "lauf_lo": np.exp(mittel - se) - 1, "lauf_hi": np.exp(mittel + se) - 1,
+                         "pool_lauf": pool_lauf})
 
 
 # ---------------------------------------------------------------- Dashboard (HTML)
