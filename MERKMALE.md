@@ -216,6 +216,19 @@ Trend und Klasse:
 - Ziel „kombi“: Sieg + Platz gegen die Erwartung aus der Endquote (Poisson); das Modell lernt nur die Abweichung vom
   Markt.
 
+## Tracking-Wert (Teilmodell)
+
+- `trk_wert` – vorhergesagter Platzanteil aus einem eigenen LightGBM-Modell, das nur die Tracking-Merkmale (`dl600`,
+  `db200`, `early`, `tr`, `f_tr`/`f_fi`/`f_g800`/`f_weg`/`f_stride_*`, `f1_vmax_rel`, Tempo und Box × Stil des Feldes)
+  und den Rennrahmen (Starter, Distanz, Boden, Renntyp, Altersgruppe) kennt und nur auf Startern mit
+  Tracking-Vorgeschichte lernt. `trk_wert_rk` / `trk_wert_dz` – Rang und Abstand im Feld.
+- Ohne Blick in die Zukunft: je Quartal ein Teilmodell aus allen früheren Quartalen (ab 5.000 Startern mit Tracking);
+  frühere Quartale und Starter ohne Tracking bleiben leer. Für die Karte wird das Teilmodell aus allen Zeilen
+  gespeichert (`modelle/power_modell_tracking.txt`, für das Value-Modell `power_wert_tracking.txt`).
+- Idee: Das Hauptmodell muss Tracking-Signale nicht aus vielen dünn besetzten Spalten zusammensuchen, sondern bekommt
+  eine verdichtete Einschätzung; alle übrigen Merkmale (und Wechselwirkungen) bleiben. Vergleich mit
+  `pm.trainieren(…, tracking=False, speichern=False)`.
+
 ## Training: Abbruch
 
 - `pm.trainieren(…, abbruch=…)`: wonach das Lernen auf der Validierung abbricht – `"standard"` (Regression:
@@ -227,3 +240,21 @@ Trend und Klasse:
 - Siegchance Power allein = Softmax(a × z) der Power-Vorhersage je Rennen (a auf der Validierung geschätzt).
 - **Mischung (Vorgabe):** p ∝ p_Morgen^α × p_Power^β je Rennen, α und β auf den Siegern der Validierung geschätzt
   (zuletzt α ≈ 0,66, β ≈ 0,55); nur in Rennen mit vollständiger Morgenquote, sonst Power allein.
+
+## Offen für den nächsten Neubau (Version 20)
+
+Gesammelt, nicht dringend – beim nächsten ohnehin fälligen Neubau der Merkmale in einem Rutsch umsetzen:
+
+1. **`draw_rel` korrigieren:** Boxen werden nach Nichtstartern nicht neu nummeriert (Box > Starterzahl in ~3 % der
+   Zeilen, Werte bis 3,5). Stattdessen Rang der Box unter den tatsächlichen Startern (0 innen … 1 außen); dasselbe
+   für das Boxdrittel in `box_stil_dev`.
+2. **Penetrometer neu fassen:** `sire_going_pref` / `dam_sire_going_pref` (r = 0,98) messen fast nur den heutigen
+   Penetrometer. Neu: `going_value` heute als eigenes Merkmal; Vorliebe von Linie und Pferd als Ø Penetrometer der
+   Spitzenläufe minus Ø aller Läufe (geschrumpft); Passung = Vorliebe × (heute − Schnitt).
+3. **`epr365` logarithmisch** (log(1 + €/Lauf)), damit Ausreißer `epr365_dz` nicht verzerren.
+4. **`f1_tage` streichen** (identisch mit `days`).
+5. **Höchsttempo ausbauen:** `f2_vmax_rel`, `f3_vmax_rel`, zeitgewichtetes Ø und Bestwert von `vmax_rel`, `vmax_rel` auf
+   heutiger Distanzgruppe (`f1_vmax_rel` war im Value-Modell das stärkste neue Merkmal, Rang 16).
+6. **Weglass-Tests:** `pm.trainieren(…, ohne=[…], speichern=False)` – Merkmalsgruppen ohne Neubau weglassen (z. B.
+   `formz_pos_vb`/`formz_pos_pmu`, `form5_`-Dubletten, Rating-Varianten); behalten, was den Test-Log-Loss nicht
+   verschlechtert.
