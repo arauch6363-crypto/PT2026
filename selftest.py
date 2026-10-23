@@ -341,6 +341,8 @@ def main() -> int:
     abstammung_pruefen()
     festkurse_pruefen()
     festkurse_aktualisieren_pruefen()
+    print("\n15) Kommentare: Kategorien aus dem PMU-Kommentar")
+    kommentare_pruefen()
 
     pt.read_pages = requests_session_orig
     print("\n" + ("Alle Prüfungen bestanden." if not fehler else f"{len(fehler)} Prüfung(en) fehlgeschlagen:"))
@@ -770,9 +772,14 @@ def power_modell_pruefen() -> None:
            and len(vg_) >= 1 and vg_["rennen"].iloc[0] > 0 and np.isfinite(vg_["differenz"].iloc[0]),
            "Lern-Ziel „sieg“: Gradient = numerische Ableitung von −log Siegchance (Rennen ohne Sieger zählen nicht), "
            "Training/Speichern/Karte; Log-Loss je Testrennen und gepaarter Vergleich zweier Läufe (pm.vergleich)")
-    # Dreier-Mischung Morgenquote × Power × Power-sieg: übernommen nur nach Likelihood-Quotienten-Test
-    alt_lr = pm.MISCH3_LR
-    m3_ = {}
+    # Power-Mischung ohne Markt (Power × Power-sieg) bzw. Dreier-Mischung: übernommen nur nach Likelihood-Quotienten-Test
+    alt_lr, alt_tr = pm.MISCH3_LR, pm.treiber_relativ
+    m3_, cap_ = {}, {}
+
+    def tr_(*a_, **k_):
+        cap_["G"] = alt_tr(*a_, **k_)
+        return cap_["G"]
+    pm.treiber_relativ = tr_
     for lr_ in (-1e9, 1e9):                                   # erzwungen übernommen / erzwungen verworfen
         pm.MISCH3_LR = lr_
         with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
@@ -780,18 +787,28 @@ def power_modell_pruefen() -> None:
             mod3_ = pm.laden(Path(tmp))
             v3_ = pm.vorhersage(h, heute.assign(race_id="20260603R1C1", date=pd.Timestamp("2026-06-03")), mod3_,
                                 log=print)
-            m3_[lr_ > 0] = (e3_, mod3_, v3_, (Path(tmp) / pm.MODELL_ORDNER / pm.ZWEIT_DATEI).exists())
-    pm.MISCH3_LR = alt_lr
-    (e_j, mod_j, v_j, d_j), (e_n, mod_n, v_n, d_n) = m3_[False], m3_[True]
-    b3_ = e_j["mischung3 (Morgenquote × Power × Power-sieg)"]
-    pruefe(b3_["uebernommen"] and set(mod_j["meta"]["mischung"]) == {"morgen", "power", "sieg"} and d_j
-           and mod_j.get("zweit") is not None and abs(sum(x["sieg"] for x in v_j.values()) - 1) < 0.01
-           and not e_n["mischung3 (Morgenquote × Power × Power-sieg)"]["uebernommen"] and not d_n
-           and "sieg" not in mod_n["meta"]["mischung"] and "gepaart_test" in b3_ and "mischung3" in e_j["je_rennen"]
+            m3_[lr_ > 0] = (e3_, mod3_, v3_, (Path(tmp) / pm.MODELL_ORDNER / pm.ZWEIT_DATEI).exists(),
+                            cap_["G"].sum(axis=1).to_numpy())
+    pm.MISCH3_LR, pm.treiber_relativ = alt_lr, alt_tr
+    (e_j, mod_j, v_j, d_j, g_j), (e_n, mod_n, v_n, d_n, g_n) = m3_[False], m3_[True]
+    pm_j = e_j["power_mix (Power × Power-sieg, ohne Markt)"]
+    p_j = np.array([x_["p"] for x_ in v_j.values()])
+    pruefe(pm_j["uebernommen"] and set(mod_j["meta"]["power_mix"]) == {"power", "sieg"} and d_j
+           and set(mod_j["meta"]["mischung"]) == {"morgen", "power"} and "gepaart_test" in pm_j
+           and "gepaart_test_gegen_bisher" in e_j["mischung (Morgenquote × Power-Mischung)"]
+           and {"power", "power_reg", "mischung", "mischung_alt"} <= set(e_j["je_rennen"])
+           and all(x_["treiber_einheit"] == "power" for x_ in v_j.values()) and np.allclose(g_j, p_j - 100, atol=0.51)
+           and abs(sum(x_["sieg_blind"] for x_ in v_j.values()) - 1) < 0.01 and abs(p_j.mean() - 100) < 1,
+           f"Power-Mischung ohne Markt Power^{pm_j['power']} × Power-sieg^{pm_j['sieg']}: nach Likelihood-Quotienten-Test "
+           "übernommen – Power, Siegchance ohne Markt und Grundlage der fairen Quote; Treiber in Power-Punkten "
+           "(Summe = Power − 100); gepaarte Tests gegen bisher im Bericht")
+    b3_ = e_n.get("mischung3 (Morgenquote × Power × Power-sieg)") or {}
+    pruefe(not e_n["power_mix (Power × Power-sieg, ohne Markt)"]["uebernommen"] and mod_n["meta"]["power_mix"] is None
+           and b3_ and not b3_["uebernommen"] and not d_n and "sieg" not in mod_n["meta"]["mischung"]
+           and all(x_["treiber_einheit"] == "pos" for x_ in v_n.values())
            and pm.mischung_chance([.5, .5], [.4, .6], ["a", "a"], 1.0, 0.0, [.9, .1], 0.0).tolist() == [.5, .5],
-           f"Dreier-Mischung Morgenquote^{b3_['morgen']} × Power^{b3_['power']} × Power-sieg^{b3_['sieg']}: nur nach "
-           f"Likelihood-Quotienten-Test (χ² {b3_['lr_chi2']}) übernommen, dann zweites Modell gespeichert und auf der "
-           "Karte gemischt; sonst Zweier-Mischung wie bisher; gepaarter Test im Bericht")
+           "Ohne Übernahme: Power = Regression wie bisher (Treiber in Prozentpunkten), Dreier-Mischung nur geprüft, "
+           "kein zweites Modell gespeichert")
     # Value-Modell: Trainer-Effekt steckt nicht in der Quote -> oberes Fünftel A/E Platz > 1, unteres < 1
     import racecard as rc_
     hw = _power_synth(tage=80)
@@ -1667,6 +1684,49 @@ def pm_bahn_() -> float:
         return float("inf")
     return sum(bo.km(bo.koordinaten(a), bo.koordinaten(b)) for a, b in paare) + abs(
         bo.km(bo.koordinaten("CHANTILLY"), bo.koordinaten("PARISLONGCHAMP")) - 41)
+
+
+def kommentare_pruefen() -> None:
+    import numpy as np
+    import kommentare as km
+    t = pd.Series(["Mal parti, a patienté en queue de peloton, a été gêné à 300 mètres, puis a fini fort.",
+                   "Vite en tête, a imprimé un bon rythme, avant de rendre les armes à 200 mètres du but.",
+                   "Dans le sillage de l'animateur X, sans être gêné, a bien terminé, échouant de peu.",
+                   "Le nez au vent, en troisième épaisseur, a terminé à son rythme.", None])
+    k = km.kategorien(t)
+    an = lambda i: {c for c in k.columns if k.at[i, c] == 1}
+    pruefe(an(0) >= {"start_schlecht", "hinten", "behindert", "stark"} and "vorne" not in an(0)
+           and an(1) >= {"vorne", "nachgelassen"} and "behindert" not in an(2) and "vorne" not in an(2)
+           and an(2) >= {"gut_beendet", "knapp"} and an(3) >= {"ohne_deckung", "nachgelassen"}
+           and k.iloc[4].isna().all() and len(km.KATEGORIEN) == k.shape[1],
+           f"Kommentar-Kategorien ({k.shape[1]}): Start, Position, Deckung, Tempo, behindert (Verneinung „sans être "
+           "gêné“ zählt nicht), Endspurt, nachgelassen …; „im Sillage des Animateurs“ ist nicht vorne; ohne Kommentar leer")
+    # Kommentar zum letzten Lauf: nur frühere Läufe; Korrekturschicht findet ein eingebautes Signal
+    import power_modell as pm
+    hk = pd.DataFrame({"horse_id": ["A", "A", "A", "B"], "date": pd.to_datetime(["2026-09-01", "2026-09-10",
+                                                                                  "2026-09-20", "2026-09-05"]),
+                       "comment": ["A été gêné à 300 mètres.", "Vite en tête, a cédé.", None, "A fini fort."]})
+    vk = km.vorlauf_merkmale(hk, pd.DataFrame({"horse_id": ["A", "A", "A", "B", "C"],
+                                               "date": pd.to_datetime(["2026-09-10", "2026-09-15", "2026-09-25",
+                                                                       "2026-09-05", "2026-09-30"])}))
+    rng = np.random.default_rng(7)
+    n_r, f_ = 1500, 8
+    r_k = np.repeat(np.arange(n_r), f_); t_k = pd.Timestamp("2026-09-01") + pd.to_timedelta(r_k // 10, unit="D")
+    Kk = np.zeros((n_r * f_, len(km.GRUPPEN))); Kk[:, 1] = rng.random(n_r * f_) < .2      # k_pech
+    st_ = rng.normal(size=n_r * f_) + 0.8 * Kk[:, 1]                                          # Pech-Pferde stärker
+    w_k = np.zeros(n_r * f_)
+    for i_ in range(n_r):
+        g_ = st_[i_ * f_:(i_ + 1) * f_] + rng.gumbel(size=f_); w_k[i_ * f_ + np.argmax(g_)] = 1
+    p0_ = pm._softmax_im_rennen(st_ - 0.8 * Kk[:, 1], r_k)                                    # Modell ohne das Wissen
+    ks_ = pm.kommentar_schicht(p0_, Kk, r_k, w_k, t_k)
+    pruefe(vk.iloc[0].tolist()[:2] == [0.0, 1.0] and vk.iloc[1].tolist()[:2] == [1.0, 0.0] and vk.iloc[2].isna().all()
+           and vk.iloc[3].isna().all() and vk.iloc[4].isna().all()
+           and ks_["uebernommen"] and 0.4 < ks_["gewichte"]["k_pech"] < 1.2 and abs(ks_["gewichte"]["k_vorne"]) < 1e-9
+           and ks_["pruef_z"] < -2
+           and abs(pm.kommentar_anwenden([.5, .5], [[0, 1, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]], ["a", "a"],
+                                         {"k_pech": np.log(3)})[0] - .75) < 1e-9,
+           f"Kommentar zum letzten Lauf (nur frühere Läufe, am selben Tag nicht; ohne Kommentar leer); Korrekturschicht "
+           f"findet ein eingebautes Signal (Gewicht Pech {ks_['gewichte']['k_pech']}, Prüfteil z {ks_['pruef_z']})")
 
 
 def racecard_pruefen() -> None:

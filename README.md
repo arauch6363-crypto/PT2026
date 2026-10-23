@@ -242,9 +242,13 @@ Zählung neu, 0 = keine solche Pause in der bekannten Historie, leer bei Debüta
 - **Lern-Ziel „sieg“:** `pm.trainieren(BASE, art="sieg")` lernt die Siegchance direkt (Softmax je Rennen auf den
   Sieger). **Gepaarter Vergleich:** `pm.vergleich(bericht_a, bericht_b, ("A", "B"))` vergleicht zwei Läufe je
   Testrennen (Differenz, Standardfehler, z).
-- **Dreier-Mischung:** `pm.trainieren` lernt zusätzlich ein Power-Modell „sieg“ und prüft die faire Siegchance
-  Morgenquote × Power × Power-sieg; übernommen nur nach Likelihood-Quotienten-Test auf der Validierung
-  (`modelle/power_sieg.txt`). Abschalten mit `zweitmodell=False`.
+- **Power-Mischung:** `pm.trainieren` lernt zusätzlich ein Power-Modell „sieg“. Bestätigt der Likelihood-Quotienten-
+  Test auf der Validierung die Mischung Power × Power-sieg, ist sie Power auf der Karte, Siegchance ohne Markt und
+  Grundlage der fairen Quote (`modelle/power_sieg.txt`, Treiber in Power-Punkten). Abschalten mit
+  `zweitmodell=False`.
+- **Kommentare:** `kommentare.py` ordnet den PMU-Kommentar nach dem Rennen 16 Kategorien zu; die Kategorien zum
+  letzten Lauf korrigieren die faire Siegchance (Korrekturschicht), sobald der gepaarte Test sie belegt
+  (Bericht: `kommentar_schicht (…)`).
 - **Abbruch wählbar:** `pm.trainieren(BASE, art="regression", abbruch="sieg")` bricht nach dem Log-Loss der Siegchance
   ab, `abbruch="ndcg"` nach NDCG@3 der Spitze. Vorgabe ist `"standard"` (quadratischer Fehler).
 

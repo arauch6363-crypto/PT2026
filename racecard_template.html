@@ -544,7 +544,7 @@ const POWER_KPI = [
 function powerFeld(race){
   const feld = race.runners.filter(x => !x.nr);
   if (feld.some(x => x.power)) {                       // Power-Modell (racecard.run mit power_modell): ersetzt die Kennzahlen-Rechnung
-    for (const x of race.runners) x._power = x.power && !x.nr ? {p: x.power.p, ml: true, treiber: x.power.treiber || [], pred: x.power.pred, sieg_mix: x.power.sieg, sieg_pw: x.power.sieg_blind ?? x.power.sieg, sieg_quelle: x.power.sieg_quelle, sieg_blind: x.power.sieg_blind, wert: x.power.wert, gold: x.power.gold, warn: x.power.warn} : null;
+    for (const x of race.runners) x._power = x.power && !x.nr ? {p: x.power.p, ml: true, treiber: x.power.treiber || [], treiber_einheit: x.power.treiber_einheit, pred: x.power.pred, sieg_mix: x.power.sieg, sieg_pw: x.power.sieg_blind ?? x.power.sieg, sieg_quelle: x.power.sieg_quelle, sieg_blind: x.power.sieg_blind, wert: x.power.wert, gold: x.power.gold, warn: x.power.warn} : null;
     // faire Quote nach Umschalter: gemischt (Morgenquote × Power, Vorgabe) oder Power allein
     for (const x of feld) if (x._power) x._power.sieg = state.fair === "power" ? x._power.sieg_pw : x._power.sieg_mix;
     const mitP = feld.filter(x => x._power).sort((a, b) => b._power.p - a._power.p);
@@ -578,8 +578,8 @@ function powerHTML(x){
   const P = x._power;
   if (!P) return `<div class="kurz-pw" title="Power: zu wenige Kennzahlen (mindestens 3 von 6)"><i>Power</i><b>–</b></div>`;
   const tip = P.ml
-    ? `Power ${P.p}${P.sieg != null ? ` · Siegchance ${fx(100 * P.sieg, 0)} % (faire Quote ${fx(1 / Math.max(P.sieg, 0.001), 1)})` : ''} aus dem Power-Modell (LightGBM, ${P.pred != null ? `vorhergesagtes (Starter − Platz) / (Starter − 1) ${fx(100 * P.pred, 0)} %` : 'gelernte Reihenfolge im Rennen'}; 100 = Feldschnitt, ±10 je Standardabweichung im Feld; grün ab 105, rot bis 95) – stärkste Treiber: `
-      + P.treiber.map(([n, v]) => `${n} ${v >= 0 ? "+" : "−"}${fx(Math.abs(v), 1)}`).join(" · ") + " (Prozentpunkte von (Starter − Platz) / (Starter − 1), gegenüber dem Ø des heutigen Feldes)"
+    ? `Power ${P.p}${P.sieg != null ? ` · Siegchance ${fx(100 * P.sieg, 0)} % (faire Quote ${fx(1 / Math.max(P.sieg, 0.001), 1)})` : ''} aus dem Power-Modell (LightGBM${P.treiber_einheit === "power" ? ", Mischung aus Platzanteil- und Sieg-Modell" : P.pred != null ? `, vorhergesagtes (Starter − Platz) / (Starter − 1) ${fx(100 * P.pred, 0)} %` : ', gelernte Reihenfolge im Rennen'}; 100 = Feldschnitt, ±10 je Standardabweichung im Feld; grün ab 105, rot bis 95) – stärkste Treiber: `
+      + P.treiber.map(([n, v]) => `${n} ${v >= 0 ? "+" : "−"}${fx(Math.abs(v), 1)}`).join(" · ") + (P.treiber_einheit === "power" ? " (Power-Punkte gegenüber dem Ø des heutigen Feldes)" : " (Prozentpunkte von (Starter − Platz) / (Starter − 1), gegenüber dem Ø des heutigen Feldes)")
     : `Power ${P.p} (100 = Feldschnitt, ±10 je Standardabweichung; grün ab 105, rot bis 95) – Median aus ${P.teile.length} Kennzahlen, je z-Wert im heutigen Feld, gedämpft nach der Zahl der Läufe: `
       + P.teile.map(([n, v]) => `${n} ${v >= 0 ? "+" : "−"}${fx(Math.abs(v), 1)}`).join(" · ");
   return `<div class="kurz-pw ${P.p >= 105 ? "up" : P.p <= 95 ? "down" : ""}" title="${esc(tip)}"><i>Power</i><b>${P.p}</b><small>#${P.rank}/${P.n}</small></div>`;

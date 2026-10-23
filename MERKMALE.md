@@ -237,6 +237,19 @@ Trend und Klasse:
   quadratischer Fehler), `"sieg"` (Log-Loss der Siegchance, dasselbe Maß wie die Modellwahl) oder `"ndcg"` (NDCG@3,
   nur die Spitze zählt). Mit `speichern=False` vergleichen, das Bessere speichern.
 
+## Kommentare (PMU, seit Ende August 2026)
+
+- `kommentare.py`: fester Katalog von 16 Kategorien aus französischen Suchmustern (schlecht gestartet, vorne, hinten,
+  ohne Deckung, langsames/schnelles Rennen, behindert, stark/ordentlich beendet, nachgelassen, unruhig, geschont,
+  Problem, überlegen, knapp, Hinweis zum Merken); Verneinungen („sans être gêné“) zählen nicht. Kontrolle mit
+  `km.uebersicht(df)` und `km.beispiele(df, "behindert")`.
+- **Korrekturschicht auf die faire Siegchance** (noch nicht im Hauptmodell – zu wenige Monate): je Starter die Gruppen
+  aus dem Kommentar zu seinem **letzten** Lauf (`k_vorne`, `k_pech` = behindert/schlecht gestartet/Problem/geschont,
+  `k_ohne_deckung`, `k_gut` = stark/ordentlich beendet, `k_nachgelassen`, `k_knapp`); p ∝ p_fair × exp(Σ b × Gruppe),
+  b per bedingtem Logit mit Schrumpfung, gelernt auf den älteren 60 % der Rennen mit Kommentar-Vorlauf, gepaarter Test
+  auf den jüngeren 40 %. Übernommen bei z ≤ −1,645 (dann aus allen neu geschätzt, auf der Karte angewandt); der
+  Bericht zeigt es unter `kommentar_schicht (…)`. Mit jedem Monat mehr Daten – ab etwa einem Jahr ins Hauptmodell.
+
 ## Training: Lern-Ziel „sieg“ und gepaarter Vergleich
 
 - `pm.trainieren(…, art="sieg")`: LightGBM mit eigenem Ziel – Siegchance = Softmax der Vorhersage je Rennen, Verlust =
@@ -251,10 +264,14 @@ Trend und Klasse:
 - Siegchance Power allein = Softmax(a × z) der Power-Vorhersage je Rennen (a auf der Validierung geschätzt).
 - **Mischung (Vorgabe):** p ∝ p_Morgen^α × p_Power^β je Rennen, α und β auf den Siegern der Validierung geschätzt
   (zuletzt α ≈ 0,66, β ≈ 0,55); nur in Rennen mit vollständiger Morgenquote, sonst Power allein.
-- **Dreier-Mischung** (`zweitmodell=True`, Vorgabe): zusätzlich ein zweites Power-Modell mit Lern-Ziel „sieg“,
-  p ∝ p_Morgen^α × p_Power^β × p_Power-sieg^γ. Übernommen nur, wenn der Likelihood-Quotienten-Test auf der Validierung
-  χ²(1) > 3,84 ergibt; dann wird `modelle/power_sieg.txt` gespeichert und auf der Karte mitgerechnet, sonst bleibt die
-  Zweier-Mischung. Der Bericht zeigt den gepaarten Test drei gegen zwei Quellen auf den Testtagen.
+- **Power-Mischung ohne Markt** (`zweitmodell=True`, Vorgabe): zusätzlich ein zweites Power-Modell mit Lern-Ziel
+  „sieg“; Stärke = β × log p_Power + γ × log p_Power-sieg (Exponenten auf den Siegern der Validierung). Übernommen nur,
+  wenn der Likelihood-Quotienten-Test gegen Power allein auf der Validierung χ²(1) > 3,84 ergibt. Dann ist sie
+  **Power** auf der Karte (100 + 10 × z der Stärke im Feld), die Siegchance ohne Markt (`sieg_blind`) und die
+  Grundlage der Mischung mit der Morgenquote (p ∝ p_Morgen^α × p_Power-Mischung^δ); die Treiber im Tooltip sind dann
+  Power-Punkte aus beiden Modellen (Summe = Power − 100). `modelle/power_sieg.txt` wird gespeichert.
+- Wird sie nicht übernommen, bleibt Power die Regression; dann wird Power-sieg nur noch als dritte Quelle neben der
+  Morgenquote geprüft (Dreier-Mischung, gleicher Test). Der Bericht zeigt gepaarte Tests gegen den bisherigen Stand.
 
 ## Offen für den nächsten Neubau (Version 20)
 
