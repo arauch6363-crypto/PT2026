@@ -341,6 +341,8 @@ def main() -> int:
     abstammung_pruefen()
     festkurse_pruefen()
     festkurse_aktualisieren_pruefen()
+    print("\n15) Kommentare: Kategorien aus dem PMU-Kommentar")
+    kommentare_pruefen()
 
     pt.read_pages = requests_session_orig
     print("\n" + ("Alle Prüfungen bestanden." if not fehler else f"{len(fehler)} Prüfung(en) fehlgeschlagen:"))
@@ -1682,6 +1684,23 @@ def pm_bahn_() -> float:
         return float("inf")
     return sum(bo.km(bo.koordinaten(a), bo.koordinaten(b)) for a, b in paare) + abs(
         bo.km(bo.koordinaten("CHANTILLY"), bo.koordinaten("PARISLONGCHAMP")) - 41)
+
+
+def kommentare_pruefen() -> None:
+    import numpy as np
+    import kommentare as km
+    t = pd.Series(["Mal parti, a patienté en queue de peloton, a été gêné à 300 mètres, puis a fini fort.",
+                   "Vite en tête, a imprimé un bon rythme, avant de rendre les armes à 200 mètres du but.",
+                   "Dans le sillage de l'animateur X, sans être gêné, a bien terminé, échouant de peu.",
+                   "Le nez au vent, en troisième épaisseur, a terminé à son rythme.", None])
+    k = km.kategorien(t)
+    an = lambda i: {c for c in k.columns if k.at[i, c] == 1}
+    pruefe(an(0) >= {"start_schlecht", "hinten", "behindert", "stark"} and "vorne" not in an(0)
+           and an(1) >= {"vorne", "nachgelassen"} and "behindert" not in an(2) and "vorne" not in an(2)
+           and an(2) >= {"gut_beendet", "knapp"} and an(3) >= {"ohne_deckung", "nachgelassen"}
+           and k.iloc[4].isna().all() and len(km.KATEGORIEN) == k.shape[1],
+           f"Kommentar-Kategorien ({k.shape[1]}): Start, Position, Deckung, Tempo, behindert (Verneinung „sans être "
+           "gêné“ zählt nicht), Endspurt, nachgelassen …; „im Sillage des Animateurs“ ist nicht vorne; ohne Kommentar leer")
 
 
 def racecard_pruefen() -> None:
