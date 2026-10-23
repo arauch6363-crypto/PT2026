@@ -709,6 +709,45 @@ def power_modell_pruefen() -> None:
            and all(b_["abbruch"] == a_ and b_["modell (regression)"]["baeume"] >= 1
                    and b_["modell (regression)"]["logloss"] > 0 for a_, b_ in ab_.items()),
            "Abbruch auf der Validierung wählbar: Log-Loss der Siegchance (wie markt_test, schnell) oder NDCG@3 der Spitze")
+    # Tracking-Wert: Teilmodell nur aus Tracking-Merkmalen, je Zeitblock aus den früheren gelernt, als Merkmal trk_wert
+    import lightgbm as lgb_
+    alt_trk = (pm.TRACKING_BLOCK, pm.TRACKING_MIN_LERN)
+    pm.TRACKING_BLOCK, pm.TRACKING_MIN_LERN = "W", 100            # kleine Historie: Wochen statt Quartale
+    y_t = pm.ziel(h).reindex(X.index)
+    Xr_t = pm.feld_relativ(X, h.loc[X.index, "race_id"], h.loc[X.index, "date"])
+    with contextlib.redirect_stdout(io.StringIO()):
+        Xt_, trk_ = pm.tracking_wert(Xr_t, y_t, h.loc[X.index, "date"], h.loc[X.index, "race_id"], log=print)
+    blk_ = pd.to_datetime(h.loc[X.index, "date"]).dt.to_period("W")
+    b_ = sorted(blk_.unique())[3]
+    sp_t, kern_t = pm.tracking_spalten(Xr_t.columns)
+    hat_t = Xr_t[kern_t].notna().any(axis=1)
+    vor_t = hat_t & y_t.notna() & (blk_ < b_)
+    Xl_t, st_t, kat_t = pm._tracking_matrix(Xr_t[vor_t], sp_t)
+    m_t = lgb_.train(pm.TRACKING_PARAMS, lgb_.Dataset(Xl_t, y_t[vor_t].to_numpy(), categorical_feature=kat_t),
+                     num_boost_round=pm.TRACKING_RUNDEN)
+    hier_t = hat_t & (blk_ == b_)
+    pruefe(np.allclose(m_t.predict(pm._tracking_matrix(Xr_t[hier_t], sp_t, st_t)[0]), Xt_.loc[hier_t, "trk_wert"])
+           and Xt_.loc[blk_ == blk_.min(), "trk_wert"].isna().all() and Xt_.loc[~hat_t, "trk_wert"].isna().all()
+           and Xt_["trk_wert"].corr(y_t) > 0.2 and Xt_["trk_wert_rk"].dropna().between(0, 1).all()
+           and "trainer_score" not in trk_["spalten"] and "dl600" in trk_["spalten"],
+           "Tracking-Wert: je Zeitblock ein Teilmodell nur aus früheren Blöcken (nachgerechnet), nur Tracking-Merkmale und "
+           "Rennrahmen; erster Block und Starter ohne Tracking leer; Rang/Abstand im Feld")
+    with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+        o_t = Path(tmp) / pm.MODELL_ORDNER
+        e_t = pm.trainieren(hist=h, X=X, out=o_t, runden=40, art="regression", log=print)
+        e_0 = pm.trainieren(hist=h, X=X, out=o_t, runden=40, art="regression", tracking=False, speichern=False,
+                            log=print)
+        mod_t = pm.laden(Path(tmp))
+        heute_t = h[h["race_id"] == h["race_id"].iloc[-1]].drop(columns=["finish_pos", "rel_place", "won", "placed",
+                                                                           "prize_won", "arr", "tr", "odds_final"])
+        v_t = pm.vorhersage(h, heute_t.assign(race_id="20260601R1C1", date=pd.Timestamp("2026-06-01")), mod_t,
+                            log=print)
+        datei_t = (o_t / "power_modell_tracking.txt").exists()
+    pm.TRACKING_BLOCK, pm.TRACKING_MIN_LERN = alt_trk
+    pruefe(e_t["tracking"] and not e_0["tracking"] and datei_t and mod_t["tracking"] is not None
+           and "trk_wert" in mod_t["meta"]["spalten"] and len(v_t) == len(heute_t),
+           "Tracking-Wert im Hauptmodell: Teilmodell gespeichert (power_modell_tracking.txt), geladen und auf der Karte "
+           "angewandt; tracking=False zum Vergleich ohne")
     # Value-Modell: Trainer-Effekt steckt nicht in der Quote -> oberes Fünftel A/E Platz > 1, unteres < 1
     import racecard as rc_
     hw = _power_synth(tage=80)

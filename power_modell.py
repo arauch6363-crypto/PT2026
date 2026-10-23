@@ -157,7 +157,7 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("stute_gegen", "Geschlecht im Feld"), ("feld_anteil_maennlich", "Geschlecht im Feld"),
            ("jockey_ritte_meeting", "Meeting"), ("trainer_starter_meeting", "Meeting"),
            ("trainer_reise", "Reise des Trainers"), ("stall_", "Stallgefährten"), ("box_stil", "Startbox × Laufstil"),
-           ("going_pref", "Boden-Vorliebe (Penetrometer)"), ("m_", "Morgenquote"), ("abst_", "Abstammungs-Passung"),
+           ("going_pref", "Boden-Vorliebe (Penetrometer)"), ("trk_wert", "Tracking-Wert"), ("m_", "Morgenquote"), ("abst_", "Abstammungs-Passung"),
            ("cgd_", "Bilanz Kurs/Boden/Distanz (CGD)"), ("erst_", "erstmals Kurs/Boden/Distanz/Belag"), ("feld_val", "Klasse des Feldes"),
            ("lgo_", "letzter Lauf auf heutigem Boden"), ("ldi_", "letzter Lauf auf heutiger Distanz"),
            ("won_", "Sieg-Vorlieben"), ("placed_", "Platz-Vorlieben"), ("best_", "beste Gruppe Pferd"),
@@ -1080,6 +1080,15 @@ def _kategorien(X: pd.DataFrame, stufen: dict | None = None) -> tuple[pd.DataFra
     return X, stufen
 
 
+def _rang_im_feld(X: pd.DataFrame, c: str, r: pd.Series) -> None:
+    """Spalten c_rk (Rang im Feld 0 … 1) und c_dz (Abstand zum Feldschnitt) in X anlegen; r: race_id je Zeile."""
+    v = pd.to_numeric(X[c], errors="coerce")
+    g = v.groupby(r)
+    rang, anz = g.rank(method="average"), g.transform("count")
+    X[f"{c}_rk"] = ((rang - 1) / (anz - 1)).where(anz > 1)
+    X[f"{c}_dz"] = v - g.transform("mean")
+
+
 def feld_relativ(X: pd.DataFrame, rennen: pd.Series, datum: pd.Series | None = None) -> pd.DataFrame:
     """Je Merkmal aus RELATIV: Rang im Feld (0 = kleinster … 1 = größter Wert, Gleichstand gemittelt) und Abstand zum
     Feldschnitt. Fehlende Werte bleiben NaN und zählen beim Rang und Schnitt nicht mit. rennen: race_id je Zeile von X.
@@ -1089,13 +1098,8 @@ def feld_relativ(X: pd.DataFrame, rennen: pd.Series, datum: pd.Series | None = N
     X = X.copy()
     r = pd.Series(rennen.to_numpy(), index=X.index).astype(str)
     for c in RELATIV:
-        if c not in X:
-            continue
-        v = pd.to_numeric(X[c], errors="coerce")
-        g = v.groupby(r)
-        rang, anz = g.rank(method="average"), g.transform("count")
-        X[f"{c}_rk"] = ((rang - 1) / (anz - 1)).where(anz > 1)
-        X[f"{c}_dz"] = v - g.transform("mean")
+        if c in X:
+            _rang_im_feld(X, c, r)
     for c, name in (("age", "feld_aelter"), ("runs", "feld_erfahrener")):
         if c not in X:
             continue
@@ -1296,6 +1300,106 @@ def logloss_quoten(p_morgen, rennen, won, odds_final) -> dict:
 
 ABBRUCH = ("standard", "sieg", "ndcg")
 
+# Tracking-Wert: eigenes Teilmodell nur aus den Tracking-Merkmalen (und dem Rahmen des Rennens), gelernt nur auf Startern
+# mit Tracking-Vorgeschichte; seine Vorhersage geht als Merkmal trk_wert ins Hauptmodell. Ohne Blick in die Zukunft: je
+# Zeitblock (TRACKING_BLOCK) ein Modell aus allen früheren Blöcken. Gespeichert wird das Modell aus allen Zeilen (Karte),
+# je Hauptmodell eine eigene Datei (<Stamm>_tracking.txt), da Power und Value auf etwas anderen Zeilen lernen.
+TRACKING_BLOCK = "Q"        # Zeitblöcke für die Vorhersage außerhalb der Lerndaten (Quartale)
+TRACKING_MIN_LERN = 5000    # Teilmodell erst ab so vielen früheren Startern mit Tracking
+TRACKING_RUNDEN = 300
+TRACKING_PARAMS = dict(objective="regression", learning_rate=0.05, num_leaves=31, min_data_in_leaf=100,
+                       feature_fraction=0.8, bagging_fraction=0.8, bagging_freq=1, lambda_l2=1.0, verbosity=-1)
+TRACKING_KONTEXT = ["n_runners", "distance_m", "dist_group", "going", "racetype", "age_group"]
+_TRACKING_MUSTER = re.compile(r"^(dl600|db200|early|early_rel|pace_front|pace_early_mean|tr|f[123]_(tr|fi|g800|weg|"
+                              r"stride_rel|stride_change)|f1_vmax_rel|box_stil_dev|box_stil_runs)(_rk|_dz)?$")
+
+
+def tracking_spalten(spalten) -> tuple[list[str], list[str]]:
+    """(Merkmale des Tracking-Teilmodells, davon die eigentlichen Tracking-Merkmale ohne Rahmen und Tempo des Feldes)."""
+    trk = [c for c in spalten if _TRACKING_MUSTER.match(c)]
+    kern = [c for c in trk if not c.startswith(("pace_", "box_stil"))]
+    return trk + [c for c in TRACKING_KONTEXT if c in spalten], kern
+
+
+def _tracking_matrix(X: pd.DataFrame, spalten: list[str], stufen: dict | None = None):
+    """Merkmale des Teilmodells mit festen Kategorien; Rückgabe: Matrix, Kategorien, kategorische Spalten."""
+    Xk, st = _kategorien(X[spalten], stufen)
+    st = {k: v for k, v in st.items() if k in spalten}
+    return Xk[spalten], st, [c for c in KATEGORISCH if c in spalten]
+
+
+def tracking_wert(X: pd.DataFrame, y: pd.Series, datum: pd.Series, rennen: pd.Series, log=print) -> tuple:
+    """Tracking-Wert je Starter (vorhergesagter Platzanteil aus den Tracking-Merkmalen) ohne Blick in die Zukunft: für
+    jeden Zeitblock ein Teilmodell aus allen früheren Blöcken (ab TRACKING_MIN_LERN Startern mit Tracking). Starter ohne
+    Tracking-Vorgeschichte und frühe Blöcke bleiben leer. Rückgabe: X mit trk_wert, trk_wert_rk, trk_wert_dz und das
+    Teilmodell aus allen Zeilen ({booster, spalten, stufen}) – None, wenn es zu wenige Starter mit Tracking gibt."""
+    import lightgbm as lgb
+    t0 = time.time()
+    X = X.copy()
+    spalten, kern = tracking_spalten(X.columns)
+    X["trk_wert"] = np.nan
+    hat = X[kern].notna().any(axis=1).to_numpy() if kern else np.zeros(len(X), bool)
+    ok = hat & pd.Series(y).reindex(X.index).notna().to_numpy()
+    tage = pd.to_datetime(pd.Series(np.asarray(datum), index=X.index))
+    block = tage.dt.to_period(TRACKING_BLOCK).to_numpy()
+    yv = pd.Series(y).reindex(X.index).to_numpy(dtype=float)
+    if ok.sum() < TRACKING_MIN_LERN:
+        log(f"  Tracking-Wert: nur {int(ok.sum())} Starter mit Tracking – kein Teilmodell")
+        return _trk_relativ(X, rennen), None
+    modelle = 0
+    for b in sorted(set(block[hat])):
+        vor = ok & (block < b)
+        if vor.sum() < TRACKING_MIN_LERN:
+            continue
+        Xl, st, kat = _tracking_matrix(X[vor], spalten)
+        m = lgb.train(TRACKING_PARAMS, lgb.Dataset(Xl, yv[vor], categorical_feature=kat), num_boost_round=TRACKING_RUNDEN)
+        hier = hat & (block == b)
+        Xp, _, _ = _tracking_matrix(X[hier], spalten, st)
+        X.loc[X.index[hier], "trk_wert"] = m.predict(Xp)
+        modelle += 1
+    Xl, st, kat = _tracking_matrix(X[ok], spalten)
+    final = lgb.train(TRACKING_PARAMS, lgb.Dataset(Xl, yv[ok], categorical_feature=kat), num_boost_round=TRACKING_RUNDEN)
+    anteil = X["trk_wert"].notna().groupby(tage.dt.year.to_numpy()).mean().mul(100).round(0)
+    log(f"  Tracking-Wert: {modelle} Teilmodelle (je {TRACKING_BLOCK}-Block aus den früheren), {len(spalten)} Merkmale, "
+        f"{int(ok.sum()):,} Starter mit Tracking, {time.time() - t0:.0f} s; mit Wert je Jahr (%): "
+        + ", ".join(f"{j} {v:.0f}" for j, v in anteil.items()))
+    return _trk_relativ(X, rennen), {"booster": final, "spalten": spalten, "stufen": st}
+
+
+def _trk_relativ(X: pd.DataFrame, rennen) -> pd.DataFrame:
+    if "trk_wert" not in X:
+        X["trk_wert"] = np.nan
+    _rang_im_feld(X, "trk_wert", pd.Series(np.asarray(rennen), index=X.index).astype(str))
+    return X
+
+
+def tracking_anwenden(X: pd.DataFrame, rennen, tm: dict) -> pd.DataFrame:
+    """Tracking-Wert mit dem gespeicherten Teilmodell (Karte): nur für Starter mit Tracking-Vorgeschichte."""
+    X = X.copy()
+    spalten = tm["spalten"]
+    Xp, _ = _kategorien(X.reindex(columns=spalten), tm["stufen"])
+    _, kern = tracking_spalten(spalten)
+    hat = X.reindex(columns=kern).notna().any(axis=1).to_numpy()
+    X["trk_wert"] = np.where(hat, tm["booster"].predict(Xp[spalten]), np.nan)
+    return _trk_relativ(X, rennen)
+
+
+def _tracking_speichern(trk: dict | None, ordner: Path, haupt: str) -> dict | None:
+    """Teilmodell neben dem Hauptmodell speichern (<Stamm>_tracking.txt); Rückgabe: Eintrag für dessen Meta-Datei."""
+    datei = f"{Path(haupt).stem}_tracking.txt"
+    if not trk:
+        (ordner / datei).unlink(missing_ok=True)
+        return None
+    trk["booster"].save_model(str(ordner / datei))
+    return {"datei": datei, "spalten": trk["spalten"], "stufen": trk["stufen"]}
+
+
+def _tracking_laden(lgb, ordner: Path, meta: dict) -> dict | None:
+    tm = meta.get("tracking")
+    if not tm or not (ordner / tm["datei"]).exists():
+        return None
+    return {"booster": lgb.Booster(model_file=str(ordner / tm["datei"])), **tm}
+
 
 def _gruppen_z(pred, G, cnt) -> np.ndarray:
     """Vorhersage als z-Wert im Rennen (G: Rennnummer 0 … k−1, cnt: Starter je Rennen) – schnell, ohne pandas."""
@@ -1469,7 +1573,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
                X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
                ab: str | None = None, neu: bool = False, art: str = "alle", aufwaermen: int | None = None,
                segmente: str | None = None, morgenquote: bool = False, speichern: bool = True,
-               abbruch: str = "standard", log=print) -> dict:
+               abbruch: str = "standard", tracking: bool = True, log=print) -> dict:
     """Einmal trainieren: Merkmale über die ganze Historie; das erste Jahr (AUFWAERM_TAGE) dient nur als Vorgeschichte,
     die übrigen Renntage zeitlich 60/20/20 (ANTEILE): lernen, validieren (Abbruch, Wahl Regression/Rang, Siegchance-a),
     testen (nur Bericht, gegen den Marktfavoriten und das Rating). Danach auf allen Tagen nach dem Aufwärmen neu lernen
@@ -1490,7 +1594,9 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
          speichern=False: nur prüfen und berichten.
     abbruch: wonach das Lernen auf der Validierung abbricht (beste Baumzahl) – "standard" (Regression: quadratischer
          Fehler, Rang/Vorn: NDCG@3 von LightGBM), "sieg" (Log-Loss der Siegchance, dasselbe Maß wie die Modellwahl)
-         oder "ndcg" (NDCG@3 mit den Gewinnen von „vorn“: nur die Spitze zählt, auch für die Regression)."""
+         oder "ndcg" (NDCG@3 mit den Gewinnen von „vorn“: nur die Spitze zählt, auch für die Regression).
+    tracking: zusätzlich der Tracking-Wert (tracking_wert: Teilmodell nur aus den Tracking-Merkmalen, je Quartal aus den
+         früheren gelernt) als Merkmal trk_wert; False = ohne (zum Vergleich)."""
     import lightgbm as lgb
     if abbruch not in ABBRUCH:
         raise ValueError(f"abbruch: eins von {ABBRUCH}")
@@ -1508,6 +1614,9 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
         X = pd.concat([X, morgen_merkmale(hist.loc[X.index])], axis=1)
         log("Mit Morgenquote (" + ", ".join(MORGEN_MERKMALE) + ") – Siegchance für die faire Quote"
             + ("" if speichern else ", wird nicht gespeichert"))
+    trk = None
+    if tracking:
+        X, trk = tracking_wert(X, y, hist.loc[X.index, "date"], hist.loc[X.index, "race_id"], log=log)
     tage = pd.to_datetime(hist.loc[X.index, "date"])
     log("Abdeckung je Jahr (% der Starter mit Wert):")
     log(abdeckung(X, tage).to_string())
@@ -1645,7 +1754,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
                       "anteil_sieger": round(float(rot[w_t].mean()), 3) if w_t.any() else None,
                       "anteil_platz": round(float(rot[p_t].mean()), 3) if p_t.any() else None}
     bericht.update({"gewaehlt": sieger, "test_ab": auf["test_ab"], "aufteilung": gr, "ab": ab, "abbruch": abbruch,
-                    "validierung": validierung})
+                    "tracking": bool(trk), "validierung": validierung})
     log("Validierung (Abbruch, Modellwahl, Siegchance-a):")
     for k, v in validierung.items():
         log(f"  {k}: {v}")
@@ -1684,7 +1793,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
             seg_meta["modelle"][s_] = datei
         log(f"Segment-Modelle gespeichert ({segmente}): {', '.join(seg_meta['modelle'])}")
     meta = {"spalten": list(Xk.columns), "stufen": stufen, "art": sieger, "bericht": bericht, "segmente": seg_meta,
-            "morgenquote": bool(morgenquote),
+            "morgenquote": bool(morgenquote), "tracking": _tracking_speichern(trk, ordner, m_datei),
             "mischung": {"morgen": mischung["morgen"], "power": mischung["power"]} if mischung else None,
             "sieg_a": mv.get("a", 1.0),
             "wichtig": {k: round(float(v / imp.sum()), 4) for k, v in imp.head(30).items()},
@@ -1797,7 +1906,7 @@ def morgen_merkmale(zeilen: pd.DataFrame) -> pd.DataFrame:
 def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
                     X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
                     ab: str | None = None, neu: bool = False, ziel_art: str = "platz", aufwaermen: int | None = None,
-                    segmente: str | None = None, morgenquote: bool = True, log=print) -> dict:
+                    segmente: str | None = None, morgenquote: bool = True, tracking: bool = True, log=print) -> dict:
     """Value-Modell: lernt, wann ein Pferd öfter platziert ist, als seine Endquote erwarten lässt.
     ziel_art="platz": Ziel platziert 0/1 gegen die Platzchance des Marktes (binär, Faktor ≈ A/E Platz).
     ziel_art="kombi": Ziel Sieg + Platz (Sieger = 2, Platzierter = 1, sonst 0) gegen Siegchance + Platzchance des
@@ -1808,7 +1917,8 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     (Aufwärmen, 60/20/20): Abbruch, Eichung und Gold-Grenze auf der Validierung; Bericht (A/E je Fünftel, Rendite,
     bedingtes Logit Sieg mit Markt + Value) nur auf den Testtagen.
     morgenquote=True: zusätzlich Merkmale aus der Morgenquote (MORGEN_MERKMALE) – das Modell lernt so, wo der Markt am
-    Morgen danebenliegt; Ziel bleibt der Vergleich mit der Endquote. Die Karte braucht dann die Morgenquote."""
+    Morgen danebenliegt; Ziel bleibt der Vergleich mit der Endquote. Die Karte braucht dann die Morgenquote.
+    tracking: Tracking-Wert als Merkmal wie bei Power (Teilmodell auf den Platzanteil, je Quartal aus den früheren)."""
     import lightgbm as lgb
     import hypothesen_backtest as hb
     if segmente is not None and segmente not in SEGMENT_SPALTEN:
@@ -1828,6 +1938,10 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     X = feld_relativ(X[ok], hist.loc[X.index[ok], "race_id"], hist.loc[X.index[ok], "date"])
     if morgenquote:
         X = pd.concat([X, morgen_merkmale(hist.loc[X.index])], axis=1)
+    trk = None
+    if tracking:
+        X, trk = tracking_wert(X, ziel(hist).reindex(X.index), hist.loc[X.index, "date"], hist.loc[X.index, "race_id"],
+                               log=log)
     ep, pl, wn, ps = ep[ok], pl[ok], wn[ok], ps[ok]
     tage = pd.to_datetime(hist.loc[X.index, "date"])
     auf = aufteilung(tage, rc.historie_beginn(hist), ab, aufwaermen)
@@ -2001,7 +2115,7 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
             seg_meta["modelle"][s_] = datei
         log(f"Value-Segment-Modelle gespeichert ({segmente}): {', '.join(seg_meta['modelle'])}")
     meta = {"spalten": list(Xk.columns), "stufen": stufen, "bericht": bericht, "kalib_k": k_, "gold_ab": gold_ab,
-            "warn_ab": warn_ab, "segmente": seg_meta,
+            "warn_ab": warn_ab, "segmente": seg_meta, "tracking": _tracking_speichern(trk, ordner, WERT_DATEI),
             "ziel": ziel_art, "morgenquote": bool(morgenquote),
             "wichtig": {k: round(float(v / imp.sum()), 4) for k, v in imp.head(30).items()},
             "trainiert": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"), "starter": int(len(X))}
@@ -2029,12 +2143,14 @@ def laden(base: Path | None) -> dict | None:
         return {s_: lgb.Booster(model_file=str(ordner / d_)) for s_, d_ in sm.items() if (ordner / d_).exists()}
     meta = json.loads((ordner / META_DATEI).read_text(encoding="utf-8"))
     out = {"booster": lgb.Booster(model_file=str(ordner / MODELL_DATEI)), "meta": meta, "segmente": seg(meta)}
+    out["tracking"] = _tracking_laden(lgb, ordner, meta)                   # Tracking-Teilmodell (Merkmal trk_wert)
     if (ordner / MORGEN_DATEI).exists() and (ordner / MORGEN_META).exists():  # Siegchance mit Morgenquote
         mm = json.loads((ordner / MORGEN_META).read_text(encoding="utf-8"))
         out["morgen"] = {"booster": lgb.Booster(model_file=str(ordner / MORGEN_DATEI)), "meta": mm}
     if (ordner / WERT_DATEI).exists() and (ordner / WERT_META).exists():      # Value-Modell, falls trainiert
         wm = json.loads((ordner / WERT_META).read_text(encoding="utf-8"))
-        out["wert"] = {"booster": lgb.Booster(model_file=str(ordner / WERT_DATEI)), "meta": wm, "segmente": seg(wm)}
+        out["wert"] = {"booster": lgb.Booster(model_file=str(ordner / WERT_DATEI)), "meta": wm, "segmente": seg(wm),
+                       "tracking": _tracking_laden(lgb, ordner, wm)}
     return out
 
 
@@ -2087,6 +2203,9 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
     heute = pd.Series(alle.index.isin(hz.index), index=alle.index)
     X = merkmale(alle, ziel_maske=heute, heute=heute, log=log)
     X = feld_relativ(X, alle.loc[X.index, "race_id"], alle.loc[X.index, "date"])
+    X0 = X                                           # ohne Tracking-Wert (das Value-Modell hat sein eigenes Teilmodell)
+    if modell.get("tracking"):                       # Tracking-Wert mit dem gespeicherten Teilmodell
+        X = tracking_anwenden(X0, alle.loc[X.index, "race_id"], modell["tracking"])
     meta = modell["meta"]
     Xk, _ = _kategorien(X.reindex(columns=[c for c in meta["spalten"]]), meta["stufen"])
     Xk = Xk[meta["spalten"]]
@@ -2124,10 +2243,11 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
     df["wert"], df["gold"], df["warn"] = np.nan, False, False
     if modell.get("wert"):                      # Value-Faktor ≈ erwartete A/E Platz gegen den Markt (exp der Abweichung)
         wm = modell["wert"]["meta"]
-        Xw_ = X
+        Xw_ = (tracking_anwenden(X0, alle.loc[X0.index, "race_id"], modell["wert"]["tracking"])
+               if modell["wert"].get("tracking") else X0)
         if wm.get("morgenquote"):                  # Value-Modell mit Morgenquote: Merkmale aus den heutigen Zeilen
             mq = mq_ if mq_ is not None else morgen_merkmale(alle.loc[X.index])
-            Xw_ = pd.concat([X, mq], axis=1)
+            Xw_ = pd.concat([Xw_, mq], axis=1)
             if mq["m_pm"].isna().all():
                 log("  Value-Modell: keine Morgenquote – Value-Faktor ohne Marktmerkmale (weniger verlässlich)")
         Xw, _ = _kategorien(Xw_.reindex(columns=wm["spalten"]), wm["stufen"])

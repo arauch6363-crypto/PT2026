@@ -216,6 +216,19 @@ Trend und Klasse:
 - Ziel „kombi“: Sieg + Platz gegen die Erwartung aus der Endquote (Poisson); das Modell lernt nur die Abweichung vom
   Markt.
 
+## Tracking-Wert (Teilmodell)
+
+- `trk_wert` – vorhergesagter Platzanteil aus einem eigenen LightGBM-Modell, das nur die Tracking-Merkmale (`dl600`,
+  `db200`, `early`, `tr`, `f_tr`/`f_fi`/`f_g800`/`f_weg`/`f_stride_*`, `f1_vmax_rel`, Tempo und Box × Stil des Feldes)
+  und den Rennrahmen (Starter, Distanz, Boden, Renntyp, Altersgruppe) kennt und nur auf Startern mit
+  Tracking-Vorgeschichte lernt. `trk_wert_rk` / `trk_wert_dz` – Rang und Abstand im Feld.
+- Ohne Blick in die Zukunft: je Quartal ein Teilmodell aus allen früheren Quartalen (ab 5.000 Startern mit Tracking);
+  frühere Quartale und Starter ohne Tracking bleiben leer. Für die Karte wird das Teilmodell aus allen Zeilen
+  gespeichert (`modelle/power_modell_tracking.txt`, für das Value-Modell `power_wert_tracking.txt`).
+- Idee: Das Hauptmodell muss Tracking-Signale nicht aus vielen dünn besetzten Spalten zusammensuchen, sondern bekommt
+  eine verdichtete Einschätzung; alle übrigen Merkmale (und Wechselwirkungen) bleiben. Vergleich mit
+  `pm.trainieren(…, tracking=False, speichern=False)`.
+
 ## Training: Abbruch
 
 - `pm.trainieren(…, abbruch=…)`: wonach das Lernen auf der Validierung abbricht – `"standard"` (Regression:
