@@ -511,7 +511,6 @@ function init(){
   const first = DATA.races[saved] ? DATA.races[saved] : DATA.races[DATA.meetings[0].races[0]];
   state.meeting = first.reunion; state.race = first.race_id;
   state.sort = store.get("rc-sort") || "no";
-  state.fair = store.get("rc-fair") === "power" ? "power" : "mix";
   state.aeW = store.get("rc-aew") || "30";                // A/E-Tabelle: gewähltes Zeitfenster (Tage)
   renderNav(); renderRace(); renderLegend();
 }
@@ -542,9 +541,7 @@ const POWER_KPI = [
 function powerFeld(race){
   const feld = race.runners.filter(x => !x.nr);
   if (feld.some(x => x.power)) {                       // Power-Modell (racecard.run mit power_modell): ersetzt die Kennzahlen-Rechnung
-    for (const x of race.runners) x._power = x.power && !x.nr ? {p: x.power.p, ml: true, treiber: x.power.treiber || [], treiber_einheit: x.power.treiber_einheit, pred: x.power.pred, sieg_mix: x.power.sieg, sieg_pw: x.power.sieg_blind ?? x.power.sieg, sieg_quelle: x.power.sieg_quelle, sieg_blind: x.power.sieg_blind, wert: x.power.wert, gold: x.power.gold, warn: x.power.warn, value_pct: x.power.value_pct} : null;
-    // faire Quote nach Umschalter: gemischt (Morgenquote × Power, Vorgabe) oder Power allein
-    for (const x of feld) if (x._power) x._power.sieg = state.fair === "power" ? x._power.sieg_pw : x._power.sieg_mix;
+    for (const x of race.runners) x._power = x.power && !x.nr ? {p: x.power.p, ml: true, treiber: x.power.treiber || [], treiber_einheit: x.power.treiber_einheit, pred: x.power.pred, sieg: x.power.sieg, sieg_blind: x.power.sieg_blind, wert: x.power.wert, gold: x.power.gold, warn: x.power.warn, value_pct: x.power.value_pct} : null;
     const mitP = feld.filter(x => x._power).sort((a, b) => b._power.p - a._power.p);
     mitP.forEach(x => { x._power.rank = 1 + mitP.filter(y => y._power.p > x._power.p).length; x._power.n = mitP.length; });
     const mitS = mitP.filter(x => x._power.sieg != null);      // Rang nach fairer Quote (höchste Siegchance = #1)
@@ -648,7 +645,6 @@ function renderRace(){
     ${pronoHTML(r)}
     ${insightHTML(r)}
     <div class="tools">
-      <label for="fairm">Faire Quote <select id="fairm"><option value="mix" ${state.fair !== "power" ? "selected" : ""}>gemischt (Morgenquote × Power)</option><option value="power" ${state.fair === "power" ? "selected" : ""}>nur Power</option></select></label>
       <label for="sort">Sortieren <select id="sort">${Object.entries(SORTS).map(([k,[l]]) => `<option value="${k}" ${k===state.sort?"selected":""}>${l}</option>`).join("")}</select></label>
       <button class="btn" id="toggle-all" type="button">${state.mid.size ? "Alle zuklappen" : "Alle aufklappen"}</button>
     </div>
@@ -671,7 +667,6 @@ function renderRace(){
     window._kopfBeob.observe(kopf);
   }
   $("#sort").onchange = e => { state.sort = e.target.value; store.set("rc-sort", state.sort); renderRace(); };
-  $("#fairm").onchange = e => { state.fair = e.target.value; store.set("rc-fair", state.fair); renderRace(); };
   $("#toggle-all").onclick = () => {
     if (state.mid.size) { state.mid.clear(); state.open.clear(); } else r.runners.forEach(x => state.mid.add(x.no));   // alle auf die Zeile
     renderRace(); };
@@ -880,17 +875,13 @@ function powerQuote(x){
     ? `<span class="fair-hw minus" title="${esc(`Cote der PMU-Prognose ${fx(cote, 1)} (ohne Marge ${fx(cf, 1)}) liegt ${fx(100 * (1 - v), 0)} % unter der fairen Quote ${fx(q, 1)} – das Modell sieht das Pferd schwächer als die Prognose`)}">▼</span>`
     : "";
   const warn = !!P.warn;                                          // unterstes Fünftel: Markt überschätzt das Pferd
-  const gemischt = P.sieg_quelle === "mischung" || P.sieg_quelle === "morgen";
-  const tip = `Faire Quote ${fx(q, 2)} = Siegchance ${fx(100 * P.sieg, 1)} % ${state.fair === "power"
-      ? `laut Power allein${gemischt ? ` (gemischt mit Morgenquote: ${fx(100 * P.sieg_mix, 1)} %)` : ""}`
-      : gemischt ? `aus Morgenquote und Power gemischt (Power allein: ${fx(100 * P.sieg_pw, 1)} %)`
-      : "laut Power-Modell (keine vollständige Morgenquote im Rennen)"} (ohne Buchmacher-Marge), `
+  const tip = `Faire Quote ${fx(q, 2)} = Siegchance ${fx(100 * P.sieg, 1)} % laut Power-Modell (Power × Power-sieg, mit Value; ohne Marktquote und ohne Buchmacher-Marge), `
     + `#${P.rank_fair} nach fairer Quote, Power ${P.p} = #${P.rank} von ${P.n} im Feld. Grün: Modell sieht das Pferd klar über dem Feldschnitt (Power ${P.p} ≥ 105), rot: klar darunter (≤ 95). `
     + `Liegt die angebotene Quote deutlich über der fairen (Marge des Anbieters bedenken), schätzt das Modell das Pferd stärker ein als der Markt. – stärkste Treiber: `
     + P.treiber.map(([n, v]) => `${n} ${v >= 0 ? "+" : "−"}${fx(Math.abs(v), 1)}`).join(" · ")
-    + (P.value_pct != null && state.fair !== "power"
+    + (P.value_pct != null
       ? ` – davon Value: ${P.value_pct >= 0 ? "+" : "−"}${fx(Math.abs(P.value_pct), 0)} % auf die Siegchance (Value-Faktor ×${fx(P.wert, 2)}: laut Value-Modell kommt das Pferd ${P.wert >= 1 ? "öfter" : "seltener"} ins Geld, als seine Quote erwarten lässt; eingerechnet mit dem auf der Validierung geschätzten Gewicht)`
-      : P.wert != null ? ` – Value-Faktor ×${fx(P.wert, 2)} (nicht in der fairen Quote${state.fair === "power" ? ": Modus Power allein" : ""})` : "")
+      : P.wert != null ? ` – Value-Faktor ×${fx(P.wert, 2)} (nicht in der fairen Quote)` : "")
     + (warn ? ` – roter Rahmen: unterstes Fünftel des Value-Faktors – der Markt überschätzt solche Pferde klar (im Test A/E ≈ 0,7)` : "");
   return `<div class="kurz-pw ${P.p >= 105 ? "up" : P.p <= 95 ? "down" : ""}${warn ? " warn" : ""}" title="${esc(tip)}">${hinweis}<i>Fair</i><b>${q >= 100 ? "100+" : fx(q, q < 10 ? 1 : 0)}</b><small>${fx(100 * P.sieg, 0)} % · #${P.rank_fair}</small></div>`;
 }

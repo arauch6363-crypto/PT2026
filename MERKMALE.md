@@ -211,8 +211,7 @@ Trend und Klasse:
 
 ## Nur im Value-Modell
 
-- Alle Merkmale oben (feld-relativ), dazu aus der **Morgenquote**: `m_pm` (Marktchance am Morgen, je Rennen auf 1),
-  `m_log` (log-Quote), `m_rk` (Quotenrang 0 Favorit … 1 Außenseiter), `m_marge` (Σ 1/Quote des Rennens).
+- Alle Merkmale oben (feld-relativ); keine Marktquote als Merkmal (die Morgenquote ist ausgebaut).
 - Ziel „kombi“: Sieg + Platz gegen die Erwartung aus der Endquote (Poisson); das Modell lernt nur die Abweichung vom
   Markt.
 
@@ -263,22 +262,22 @@ Trend und Klasse:
   −log Siegchance des Siegers (Benter); Abbruch nach dem Log-Loss der Siegchance. Lernt nur aus den Siegern (weniger
   Information als der Platzanteil, dafür genau das Maß der fairen Quote). `art="alle"` prüft es mit.
 - `pm.vergleich(bericht_a, bericht_b, ("A", "B"))`: Log-Loss je Testrennen beider Läufe gepaart (Differenz, Standardfehler,
-  z; < 0 = A besser), für Power allein und die Mischung. Die Berichte von `pm.trainieren` enthalten dafür `je_rennen`
+  z; < 0 = A besser), für die faire Siegchance (Power bzw. Power-Mischung). Die Berichte von `pm.trainieren` enthalten dafür `je_rennen`
   (nicht in der Meta-Datei gespeichert).
 
 ## Faire Quote (Karte und Value-Dashboard)
 
 - Siegchance Power allein = Softmax(a × z) der Power-Vorhersage je Rennen (a auf der Validierung geschätzt).
-- **Mischung (Vorgabe):** p ∝ p_Morgen^α × p_Power^β je Rennen, α und β auf den Siegern der Validierung geschätzt
-  (zuletzt α ≈ 0,66, β ≈ 0,55); nur in Rennen mit vollständiger Morgenquote, sonst Power allein.
-- **Power-Mischung ohne Markt** (`zweitmodell=True`, Vorgabe): zusätzlich ein zweites Power-Modell mit Lern-Ziel
-  „sieg“; Stärke = β × log p_Power + γ × log p_Power-sieg (Exponenten auf den Siegern der Validierung). Übernommen nur,
-  wenn der Likelihood-Quotienten-Test gegen Power allein auf der Validierung χ²(1) > 3,84 ergibt. Dann ist sie
-  **Power** auf der Karte (100 + 10 × z der Stärke im Feld), die Siegchance ohne Markt (`sieg_blind`) und die
-  Grundlage der Mischung mit der Morgenquote (p ∝ p_Morgen^α × p_Power-Mischung^δ); die Treiber im Tooltip sind dann
-  Power-Punkte aus beiden Modellen (Summe = Power − 100). `modelle/power_sieg.txt` wird gespeichert.
-- Wird sie nicht übernommen, bleibt Power die Regression; dann wird Power-sieg nur noch als dritte Quelle neben der
-  Morgenquote geprüft (Dreier-Mischung, gleicher Test). Der Bericht zeigt gepaarte Tests gegen den bisherigen Stand.
+- **Keine Marktquote:** Die Morgenquote ist ausgebaut – die Karte sah um 10 Uhr einen anderen Stand als den später
+  gespeicherten, Training und Karte ließen sich nicht gleich rechnen.
+- **Power-Mischung** (`zweitmodell=True`, Vorgabe): zusätzlich ein zweites Power-Modell mit Lern-Ziel „sieg“;
+  Stärke = β × log p_Power + γ × log p_Power-sieg (Exponenten auf den Siegern der Validierung). Übernommen nur, wenn der
+  Likelihood-Quotienten-Test gegen Power allein auf der Validierung χ²(1) > 3,84 ergibt. Dann ist sie **Power** auf
+  der Karte (100 + 10 × z der Stärke im Feld) und die Grundlage der fairen Quote; die Treiber im Tooltip sind dann
+  Power-Punkte aus beiden Modellen (Summe = Power − 100). `modelle/power_sieg.txt` wird gespeichert. Sonst bleibt Power
+  die Regression.
+- **Faire Quote auf der Karte** (nur noch eine): Power-Mischung × exp(κ × Value) (siehe oben) und – sobald übernommen –
+  die Kommentar-Schicht. `sieg_blind` = ohne Value.
 
 ## Offen für den nächsten Neubau (Version 20)
 

@@ -794,21 +794,19 @@ def power_modell_pruefen() -> None:
     pm_j = e_j["power_mix (Power × Power-sieg, ohne Markt)"]
     p_j = np.array([x_["p"] for x_ in v_j.values()])
     pruefe(pm_j["uebernommen"] and set(mod_j["meta"]["power_mix"]) == {"power", "sieg"} and d_j
-           and set(mod_j["meta"]["mischung"]) == {"morgen", "power"} and "gepaart_test" in pm_j
-           and "gepaart_test_gegen_bisher" in e_j["mischung (Morgenquote × Power-Mischung)"]
-           and {"power", "power_reg", "mischung", "mischung_alt"} <= set(e_j["je_rennen"])
+           and "mischung" not in mod_j["meta"] and "gepaart_test" in pm_j
+           and {"power", "power_reg"} <= set(e_j["je_rennen"])
+           and all(abs(x_["sieg"] - x_["sieg_blind"]) < 1e-9 for x_ in v_j.values())
            and all(x_["treiber_einheit"] == "power" for x_ in v_j.values()) and np.allclose(g_j, p_j - 100, atol=0.51)
            and abs(sum(x_["sieg_blind"] for x_ in v_j.values()) - 1) < 0.01 and abs(p_j.mean() - 100) < 1,
            f"Power-Mischung ohne Markt Power^{pm_j['power']} × Power-sieg^{pm_j['sieg']}: nach Likelihood-Quotienten-Test "
-           "übernommen – Power, Siegchance ohne Markt und Grundlage der fairen Quote; Treiber in Power-Punkten "
-           "(Summe = Power − 100); gepaarte Tests gegen bisher im Bericht")
-    b3_ = e_n.get("mischung3 (Morgenquote × Power × Power-sieg)") or {}
+           "übernommen – Power und faire Siegchance (ohne Marktquote); Treiber in Power-Punkten (Summe = Power − 100); "
+           "gepaarter Test gegen Power allein im Bericht")
     pruefe(not e_n["power_mix (Power × Power-sieg, ohne Markt)"]["uebernommen"] and mod_n["meta"]["power_mix"] is None
-           and b3_ and not b3_["uebernommen"] and not d_n and "sieg" not in mod_n["meta"]["mischung"]
-           and all(x_["treiber_einheit"] == "pos" for x_ in v_n.values())
-           and pm.mischung_chance([.5, .5], [.4, .6], ["a", "a"], 1.0, 0.0, [.9, .1], 0.0).tolist() == [.5, .5],
-           "Ohne Übernahme: Power = Regression wie bisher (Treiber in Prozentpunkten), Dreier-Mischung nur geprüft, "
-           "kein zweites Modell gespeichert")
+           and not d_n and all(x_["treiber_einheit"] == "pos" for x_ in v_n.values())
+           and not any(k_.startswith("mischung") for k_ in e_n),
+           "Ohne Übernahme: Power = Regression (Treiber in Prozentpunkten), kein zweites Modell gespeichert; keine "
+           "Mischung mit der Morgenquote mehr")
     # Value-Modell: Trainer-Effekt steckt nicht in der Quote -> oberes Fünftel A/E Platz > 1, unteres < 1
     import racecard as rc_
     hw = _power_synth(tage=80)
@@ -1064,14 +1062,9 @@ def power_modell_pruefen() -> None:
     sc_ = pm._score(1.0, 1e-17, 0.5, 5.0, 1, 0.5, 5.0)
     pruefe(abs(sc_ - 100) < 1e-9 and abs(pm._score(1.0, 0.5, 0.5, 5.0, 1, 0.5, 5.0) - 400 / 3) < 1e-9,
            "Verbindungs-Score: Rundungsrest der Erwartung (1e-17) zählt nicht als A/E (kein Wert wie 1e16)")
-    # Morgenquote als Marktmerkmal (nur Value-Modell): von Hand, im Modell gespeichert, auf der Karte aus den heutigen Zeilen
-    mm = pm.morgen_merkmale(pd.DataFrame({"race_id": ["A", "A", "A", "B"], "odds_morning": [2.0, 4.0, None, 3.0]}))
-    pruefe(abs(mm["m_pm"].iloc[0] - 2 / 3) < 1e-9 and mm["m_rk"].tolist()[:2] == [0.0, 1.0]
-           and abs(mm["m_marge"].iloc[0] - 0.75) < 1e-9 and mm.iloc[2].isna().all() and np.isnan(mm["m_rk"].iloc[3])
-           and abs(mm["m_log"].iloc[3] - np.log(3)) < 1e-9
-           and mw["wert"]["meta"].get("morgenquote") is True and "m_pm" in mw["wert"]["meta"]["spalten"]
-           and not any(c.startswith("m_") for c in mw["meta"]["spalten"]),
-           "Value-Modell: Morgenquote als Merkmal (Marktchance je Rennen, log-Quote, Quotenrang, Marge); Power-Modell ohne")
+    pruefe(mw["wert"]["meta"].get("morgenquote") is False and mw["wert"]["meta"].get("fair_basis") == "power"
+           and not any(c.startswith("m_") for c in mw["wert"]["meta"]["spalten"] + mw["meta"]["spalten"]),
+           "Value- und Power-Modell ohne Morgenquote als Merkmal")
     # Kombi-Ziel (Sieg + Platz, Poisson): findet denselben Trainer-Effekt, Faktor ≈ A/E Kombi
     with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
         ek = pm.trainieren_wert(hist=hw, X=Xw, out=Path(tmp) / pm.MODELL_ORDNER, runden=300, ziel_art="kombi",
@@ -1191,33 +1184,21 @@ def power_modell_pruefen() -> None:
            f"Validierung")
     with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
         o_ = Path(tmp) / pm.MODELL_ORDNER
-        em = pm.trainieren_morgen(hist=h, X=X, out=o_, runden=40, log=print)
-        nur_morgen = (o_ / pm.MORGEN_DATEI).exists() and not (o_ / pm.MODELL_DATEI).exists()
+        o_.mkdir(parents=True)
+        (o_ / pm.MORGEN_ALT).write_text("alt")                 # früheres Kombi-Modell mit Morgenquote
         pm.trainieren(hist=h, X=X, out=o_, runden=40, art="regression", log=print)
         mod_m = pm.laden(Path(tmp))
         heute_m = h[h["race_id"] == h["race_id"].iloc[-1]].drop(columns=["finish_pos", "rel_place", "won", "placed",
                                                                            "prize_won", "arr", "tr", "odds_final"])
-        heute_m = heute_m.assign(race_id="20260601R1C1", date=pd.Timestamp("2026-06-01"))
-        vm = pm.vorhersage(h, heute_m, mod_m, log=print)
-        ohne = heute_m.assign(race_id="20260601R1C2", odds_morning=np.nan)
-        vo = pm.vorhersage(h, ohne, mod_m, log=print)
-    mb = em.get("markt (Morgenquote allein)") or {}
-    sm_ = [v_["sieg"] for v_ in vm.values()]
-    pruefe(nur_morgen and "morgen" in mod_m and em["modell (regression)"]["logloss"] is not None
-           and mb.get("logloss") is not None and mb.get("logloss_endquote") is not None
-           and all(v_["sieg_quelle"] == "mischung" for v_ in vm.values()) and abs(sum(sm_) - 1) < 0.01
-           and mod_m["meta"]["mischung"] and mod_m["meta"]["bericht"]["mischung (Morgenquote × Power)"]["logloss_mischung"]
-           and any(abs(v_["sieg"] - v_["sieg_blind"]) > 1e-3 for v_ in vm.values())
-           and all(v_["sieg_quelle"] == "power" and v_["sieg"] == v_["sieg_blind"] for v_ in vo.values()),
-           f"Faire Siegchance: Mischung Morgenquote^{mod_m['meta']['mischung']['morgen']} × "
-           f"Power^{mod_m['meta']['mischung']['power']} (Exponenten auf der Validierung, Power bleibt ohne Markt); "
-           f"Kombi-Modell {pm.MORGEN_DATEI} als Bericht (Log-Loss {em['modell (regression)']['logloss']}, Morgenquote "
-           f"allein {mb.get('logloss')}); auf der Karte je Rennen mit Morgenquote, sonst Power allein")
-    pm_t = np.array([0.5, 0.3, 0.2, 0.6, 0.4]); pb_t = np.array([0.2, 0.5, 0.3, 0.5, 0.5]); r_t = ["a"] * 3 + ["b"] * 2
-    mc_ = pm.mischung_chance(pm_t, pb_t, r_t, 1.0, 0.0)
-    pruefe(np.allclose(mc_, pm_t) and np.allclose(pm.mischung_chance(pm_t, pb_t, r_t, 0.0, 1.0), pb_t)
-           and abs(pm.mischung_chance(pm_t, pb_t, r_t, 0.5, 0.5)[:3].sum() - 1) < 1e-9,
-           "Mischung Morgenquote × Power: Exponent 1/0 gibt die Quelle selbst, je Rennen auf 1")
+        v1 = pm.vorhersage(h, heute_m.assign(race_id="20260601R1C1", date=pd.Timestamp("2026-06-01")), mod_m, log=print)
+        v2 = pm.vorhersage(h, heute_m.assign(race_id="20260601R1C1", date=pd.Timestamp("2026-06-01"),
+                                             odds_morning=heute_m["odds_morning"] * 3), mod_m, log=print)
+        weg_ = not (o_ / pm.MORGEN_ALT).exists()
+    pruefe(weg_ and "morgen" not in mod_m and not mod_m["meta"].get("mischung")
+           and all(v1[k_]["sieg"] == v2[k_]["sieg"] and v1[k_]["sieg_quelle"] == "power" for k_ in v1)
+           and abs(sum(v_["sieg"] for v_ in v1.values()) - 1) < 0.01,
+           "Faire Siegchance ohne Morgenquote: eine andere Morgenquote ändert nichts; altes Kombi-Modell mit "
+           "Morgenquote wird beim Speichern gelöscht")
     pruefe(pm.vorn_stufe([0.0, 0.5, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0]).tolist() == [0, 0, 1, 1, 2, 2, 3, 3, 4]
            and pm.vorn_stufe([4 / 5, 13 / 15]).tolist() == [2, 2],
            "Ziel „vorn“: Platzanteil ≥ 0,7 / 0,8 / 0,9 → 1 / 2 / 3, Sieg → 4, hinten 0")
