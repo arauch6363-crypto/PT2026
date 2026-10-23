@@ -148,6 +148,8 @@ im Testteil (Norm, Pace-Kalibrierung, Bias auf der ersten Hälfte gelernt). CSV 
 
 ## Power-Modell (einmal trainieren)
 
+Alle Merkmale mit kurzer Definition: [MERKMALE.md](MERKMALE.md).
+
 ```python
 import power_modell as pm
 erg = pm.trainieren(BASE)   # ~1 h: Merkmale über die ganze Historie, Prüfung, Modell nach BASE/modelle/
