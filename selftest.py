@@ -747,6 +747,29 @@ def power_modell_pruefen() -> None:
            and "trk_wert" in mod_t["meta"]["spalten"] and len(v_t) == len(heute_t),
            "Tracking-Wert im Hauptmodell: Teilmodell gespeichert (power_modell_tracking.txt), geladen und auf der Karte "
            "angewandt; Vorgabe ohne (tracking=False)")
+    # Lern-Ziel „sieg“ (Softmax je Rennen auf den Sieger): Gradient gegen numerische Ableitung; gepaarter Vergleich
+    class _D:
+        def __init__(self, w): self.w = w
+        def get_label(self): return self.w
+    r_s = np.array(["a"] * 3 + ["b"] * 2 + ["c"] * 2); w_s = np.array([0, 1, 0, 1, 0, 0, 0], float)
+    f_s = np.array([0.2, -0.1, 0.5, 0.3, 0.0, 0.1, -0.2])
+    def verlust_(f):
+        e = np.exp(f); p_ = e / pd.Series(e).groupby(r_s).transform("sum").to_numpy()
+        return -np.log(p_[w_s == 1]).sum()
+    num_ = np.array([(verlust_(f_s + 1e-6 * np.eye(7)[k]) - verlust_(f_s - 1e-6 * np.eye(7)[k])) / 2e-6 for k in range(7)])
+    g_s, hs_ = pm.sieg_ziel(r_s)(f_s, _D(w_s))
+    with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+        e_s = pm.trainieren(hist=h, X=X, out=Path(tmp) / pm.MODELL_ORDNER, runden=60, art="sieg", log=print)
+        mod_s = pm.laden(Path(tmp))
+        v_s = pm.vorhersage(h, heute.assign(race_id="20260602R1C1", date=pd.Timestamp("2026-06-02")), mod_s, log=print)
+        vg_ = pm.vergleich(e_s, erg, ("sieg", "regression"), log=print)
+    ll_ = e_s["je_rennen"]["power"]
+    pruefe(np.allclose(g_s, num_, atol=1e-5) and np.all(g_s[5:] == 0) and np.all(hs_ > 0)
+           and mod_s["meta"]["art"] == "sieg" and len(v_s) == len(heute) and "je_rennen" not in mod_s["meta"]["bericht"]
+           and abs(np.mean(list(ll_.values())) - e_s["markt_test"]["logloss_power"]) < 0.05
+           and len(vg_) >= 1 and vg_["rennen"].iloc[0] > 0 and np.isfinite(vg_["differenz"].iloc[0]),
+           "Lern-Ziel „sieg“: Gradient = numerische Ableitung von −log Siegchance (Rennen ohne Sieger zählen nicht), "
+           "Training/Speichern/Karte; Log-Loss je Testrennen und gepaarter Vergleich zweier Läufe (pm.vergleich)")
     # Value-Modell: Trainer-Effekt steckt nicht in der Quote -> oberes Fünftel A/E Platz > 1, unteres < 1
     import racecard as rc_
     hw = _power_synth(tage=80)
