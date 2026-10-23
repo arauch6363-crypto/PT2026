@@ -38,12 +38,13 @@ import json
 import re
 import time
 import warnings
-from collections import deque
+from collections import Counter, deque
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+import bahn_orte
 import racecard as rc
 import rtr_arr
 import timeform_ratings
@@ -66,13 +67,14 @@ PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schr
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
 SCHLUESSEL_DATEI = "merkmale_schluessel.parquet"   # je Zeile des Zwischenspeichers: race_id, horse_id
-MERKMAL_VERSION = 18                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+MERKMAL_VERSION = 19                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
            "form5_pos", "form5_best", "form5_lb", "form5_arr", "runs", "age", "arr_best365", "trainer_30_score",
            "dam_score", "form5_ue", "formz_pos", "formz_arr", "formz_ue", "form_steig_pos", "form_steig_arr",
-           "form_pos_hoeher", "abst_pass", "formz_pos_pmu", "formz_pos_vb"]
+           "form_pos_hoeher", "abst_pass", "formz_pos_pmu", "formz_pos_vb", "hcp_spielraum", "going_pref",
+           "gew_erlaubnis"]
 # Value-Modell: Merkmale aus der Morgenquote (PMU-Referenzquote, am Morgen bekannt) – nie im Power-Modell
 MORGEN_MERKMALE = ["m_pm", "m_log", "m_rk", "m_marge"]
 # Segment-Modelle: lernen je Rennart nur die Korrektur zum gemeinsamen Modell (Ausgangswert = dessen Vorhersage)
@@ -113,6 +115,8 @@ ABST_MIN = 30               # beste Gruppe von Vater/Muttervater erst ab so viel
 VB_MIN = 300               # Verlauf-Korrektur der Form erst, wenn die Klasse (gegen/mit/neutral) so viele Läufe hat
 WECHSEL_MAX_LAEUFE, WECHSEL_MAX_TAGE = 10, 730   # Trainer-/Besitzerwechsel: Läufe bzw. Tage seitdem, gedeckelt
 BOX_K = 30                 # box_dev: Box-Schnitt zur Feldmitte hin geschrumpft wie mit so vielen Läufen
+GOING_PREF_N, GOING_PREF_MIN = 3, 3   # Penetrometer-Vorliebe: Ø der besten so vielen Läufe, ab so vielen mit Wert
+GOING_PREF_ABST_MIN = 10   # ... für Vater/Muttervater ab so vielen Spitzenläufen (Pos ≥ FORM_TOP) der Nachkommen
 VERLAUF_MIN_VORHER = 200   # Rennverlauf (zeitlich): Klassengrenzen erst ab so vielen früheren Rennen
 PFERD_MIN = 2               # beste Gruppe des Pferdes erst ab so vielen Läufen in der Gruppe
 KATEGORISCH = ["racetype", "going", "dist_group", "age_group", "sex", "f1_typ", "f2_typ", "f3_typ"]
@@ -148,7 +152,12 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("dam_", "Mutter (Geschwister)"), ("hcp_", "Handicap-Marke"), ("starts_nach_pause", "Starts nach Pause"),
            ("letzte_pause", "Starts nach Pause"),
            ("erst_wallach", "erstmals Wallach"), ("arr_best", "Bestform ARR"), ("blink", "Scheuklappen"),
-           ("race_prize", "Preisgeld des Rennens"), ("m_", "Morgenquote"), ("abst_", "Abstammungs-Passung"),
+           ("race_prize", "Preisgeld des Rennens"), ("gew_erlaubnis", "Gewichtserlaubnis"),
+           ("hcp_spielraum", "Handicap-Spielraum"), ("arr_neue_best", "Bestform ARR"),
+           ("stute_gegen", "Geschlecht im Feld"), ("feld_anteil_maennlich", "Geschlecht im Feld"),
+           ("jockey_ritte_meeting", "Meeting"), ("trainer_starter_meeting", "Meeting"),
+           ("trainer_reise", "Reise des Trainers"), ("stall_", "Stallgefährten"), ("box_stil", "Startbox × Laufstil"),
+           ("going_pref", "Boden-Vorliebe (Penetrometer)"), ("m_", "Morgenquote"), ("abst_", "Abstammungs-Passung"),
            ("cgd_", "Bilanz Kurs/Boden/Distanz (CGD)"), ("erst_", "erstmals Kurs/Boden/Distanz/Belag"), ("feld_val", "Klasse des Feldes"),
            ("lgo_", "letzter Lauf auf heutigem Boden"), ("ldi_", "letzter Lauf auf heutiger Distanz"),
            ("won_", "Sieg-Vorlieben"), ("placed_", "Platz-Vorlieben"), ("best_", "beste Gruppe Pferd"),
@@ -409,9 +418,10 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     trcap = _zahl(h, "tr_gedeckelt")
     werte = {c: _zahl(h, c) for c in ["arr", "tr", "rtr", "d_L600_A", "d_B200_A", "early_pct", "cls_val", "cls_epr_kl",
                                        "lengths_behind", "fi_adj", "pos_gain_800_finish", "weg_med", "odds_final",
-                                       "odds_rank", "valeur", "age", "draw"]}
+                                       "odds_rank", "valeur", "age", "draw", "stride_rel", "stride_change_pct",
+                                       "vmax_rel", "going_value", "weight_assigned_kg"]}
     for c in ["arr", "tr", "rtr", "d_L600_A", "d_B200_A", "early_pct", "fi_adj", "pos_gain_800_finish", "weg_med",
-              "lengths_behind"]:
+              "lengths_behind", "stride_rel", "stride_change_pct", "vmax_rel"]:
         werte[c][hm] = np.nan                                     # heutige Zeilen haben keine Laufwerte
     lb = np.where(fpos == 1, 0.0, werte["lengths_behind"])
     bgrp = np.array([rtr_arr.boden_gruppe(g) for g in going], dtype=object)      # Bodengruppe (FAST, SLOW, PSF …)
@@ -448,6 +458,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     F["n_runners"], F["distance_m"], F["weight"] = nrun, dist, gew
     F["rating"] = werte["valeur"]
     F["rating_adj"] = werte["valeur"] - gew + rc.GEWICHT_REF
+    F["gew_erlaubnis"] = werte["weight_assigned_kg"] - gew              # Erlaubnis des Reiters (zugeteilt − getragen)
     F["age"], F["draw"] = werte["age"], werte["draw"]
     F["draw_rel"] = werte["draw"] / nrun
     typ3 = np.array([renntyp3(t) for t in _text(h, "racetype")], dtype=object)
@@ -457,6 +468,26 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
            "age_group": np.array([altersgruppe(k, a, b) for k, a, b in zip(_text(h, "conditions_age"), a_min, a_max)],
                                  dtype=object),
            "sex": np.array([str(s)[:1].upper() if s is not None else None for s in _text(h, "sex")], dtype=object)}
+    # Geschlecht im Feld: Anteil männlicher Gegner (Hengst M, Wallach H) und Stute (F) gegen männliche Gegner
+    maennl = pd.Series(np.where(pd.isna(kat["sex"]), np.nan, np.isin(kat["sex"], ["M", "H"]).astype(float)))
+    m_sum, m_n = maennl.groupby(rid).transform("sum").to_numpy(), maennl.groupby(rid).transform("count").to_numpy()
+    eigen_m, eigen_n = np.nan_to_num(maennl.to_numpy()), maennl.notna().to_numpy().astype(float)
+    F["feld_anteil_maennlich"] = np.divide(m_sum - eigen_m, m_n - eigen_n, out=np.full(n, np.nan),
+                                           where=(m_n - eigen_n) > 0)
+    F["stute_gegen_hengste"] = np.where(kat["sex"] == "F", (m_sum > 0).astype(float),
+                                        np.where(pd.isna(kat["sex"]), np.nan, 0.0))
+
+    # Meeting (heute bekannt): Ritte des Jockeys bzw. Starter des Trainers an diesem Tag auf dieser Bahn,
+    # Stallgefährten im selben Rennen
+    def anzahl(*keys):
+        d_ = pd.DataFrame({f"k{k_}": pd.Series(v_, dtype=object) for k_, v_ in enumerate(keys)})
+        voll = d_.notna().all(axis=1).to_numpy()
+        a_ = d_.groupby(list(d_.columns), dropna=False)["k0"].transform("size").to_numpy(dtype=float)
+        return np.where(voll, a_, np.nan)
+    kurs_pmu = np.where(ext_ == 1, None, course)          # externe Läufe (PMH/Ausland) zählen nicht: heute unbekannt
+    F["jockey_ritte_meeting"] = anzahl(tag, kurs_pmu, jk)
+    F["trainer_starter_meeting"] = anzahl(tag, kurs_pmu, tk)
+    F["stall_im_rennen"] = anzahl(rid, tk) - 1
 
     # ---- je Pferd: Kacheln, Form, Vorlieben ----------------------------------------------------------------------
     F["race_prize"], F["feld_val"], F["blink"] = preis, feld_val, blink
@@ -473,14 +504,15 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
               "f1_ausland", "formz_pos_pmu", "verlauf5_gegen", "verlauf5_mit", "form5_pos_gegen", "form5_pos_mit",
               "formz_pos_vb", "laeufe_seit_trainerwechsel", "tage_seit_trainerwechsel", "form_neuer_trainer",
               "form_neuer_trainer_n", "chg_owner", "laeufe_seit_besitzerwechsel", "tage_seit_besitzerwechsel",
-              "besitzer_ohne_trainer"]:
+              "besitzer_ohne_trainer", "hcp_spielraum", "arr_neue_best", "going_pref", "f1_vmax_rel"]:
         feld(c)
     for c in ["runs", "runs365", "lgo_pos", "lgo_arr", "ldi_pos", "ldi_arr", "days", "rtr", "arr", "tr", "dl600", "db200", "early", "epr365",
               "won_course", "won_dist", "won_going", "placed_course", "placed_dist", "placed_going", "best_dist", "best_going"]:
         feld(c)
     for k in range(1, FORM_N + 1):
         for c in ["val", "epr", "lb", "pos", "same_going", "same_dist", "arr", "tr", "fi", "g800", "weg", "odds", "orank",
-                  "pm", "verlauf", "tage", "gegner", "duell", "cgd_sieg", "cgd_platz", "cgd_neu", "abst_pass", "extern"]:
+                  "pm", "verlauf", "tage", "gegner", "duell", "cgd_sieg", "cgd_platz", "cgd_neu", "abst_pass", "extern",
+                  "stride_rel", "stride_change"]:
             feld(f"f{k}_{c}")
     # nächster Start jedes Laufs (für den Gegner-Score): Datum und Urteil gegen den Quotenrang
     ord_h = np.lexsort((tag, hid))
@@ -589,6 +621,19 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 F["arr_best365"][i] = max(a365) - gew[i] + rc.GEWICHT_REF
                 if not np.isnan(werte["arr"][vor[0]]):
                     F["arr_best_abst"][i] = werte["arr"][vor[0]] - max(a365)          # letzter Lauf unter Bestform: < 0
+                # Handicap-Spielraum: Rating heute minus bester ARR (beide Valeur-Skala, roh); < 0 = lief schon besser
+                F["hcp_spielraum"][i] = val_i - max(a365)
+            # neue Bestleistung im letzten Lauf: ARR zuletzt minus bester ARR davor (> 0 = Spitze, Rückfallgefahr)
+            if not ausg[vor[0]] and not np.isnan(werte["arr"][vor[0]]):
+                a_vor = [werte["arr"][j] for j in vor[1:] if not ausg[j] and not np.isnan(werte["arr"][j])]
+                if a_vor:
+                    F["arr_neue_best"][i] = werte["arr"][vor[0]] - max(a_vor)
+            # Boden-Vorliebe: heutiger Penetrometer minus Ø Penetrometer der besten Läufe (> 0: heute weicher)
+            pen = werte["going_value"]
+            mit_pen = [j for j in vor if np.isfinite(pen[j]) and np.isfinite(rp0[j]) and not ausg[j]]
+            if len(mit_pen) >= GOING_PREF_MIN and np.isfinite(pen[i]):
+                beste = sorted(mit_pen, key=lambda j: -rp0[j])[:GOING_PREF_N]   # stabil: bei Gleichstand jüngere zuerst
+                F["going_pref"][i] = pen[i] - float(np.mean(pen[beste]))
             if dgrp[i] is not None:
                 ad = [werte["arr"][j] for j in vor if dgrp[j] == dgrp[i] and not ausg[j] and not np.isnan(werte["arr"][j])]
                 if ad:
@@ -764,6 +809,9 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 F[f"f{k}_tage"][i] = tag[i] - tag[j]
                 F[f"f{k}_cgd_sieg"][i], F[f"f{k}_cgd_platz"][i], F[f"f{k}_cgd_neu"][i] = cgd_z[j]
                 F[f"f{k}_extern"][i] = ekz_[j]
+                F[f"f{k}_stride_rel"][i], F[f"f{k}_stride_change"][i] = werte["stride_rel"][j], werte["stride_change_pct"][j]
+                if k == 1:
+                    F["f1_vmax_rel"][i] = werte["vmax_rel"][j]
                 f_pos[i, k - 1] = j
                 f_typ[k][i] = typ3[j]
                 feld_j = rennen_pos.get(rid[j], np.array([], dtype=int))
@@ -823,7 +871,23 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
         for c in ("score", "epr", "val3", "runs") + (("best_dist", "best_going") if l_ != "dam" else ()):
             feld(f"{l_}_{c}")
     feld("box_mean"), feld("box_runs"), feld("box_dev"), feld("chg_jockey_score")
-    feld("trainer_sprung"), feld("besitzer_sprung")
+    feld("trainer_sprung"), feld("besitzer_sprung"), feld("trainer_reise_km"), feld("box_stil_dev"), feld("box_stil_runs")
+    for l_ in ("sire", "dam_sire"):
+        feld(f"{l_}_going_pref")
+    # Box × Laufstil: Boxdrittel (innen/Mitte/außen) und Stil – im Stand der tatsächliche frühe Platz des Laufs, für
+    # die Zielzeile der erwartete Stil (Ø frühe Position der letzten Läufe)
+    def stil3(e):
+        return np.where(np.isnan(e), -1, np.where(e <= rc.VERLAUF_VORNE, 0, np.where(e >= rc.VERLAUF_HINTEN, 2, 1)))
+    q_box = np.nan_to_num((werte["draw"] - 1) / np.maximum(nrun, 1), nan=-1.0)          # 0 = innen … < 1 = außen
+    drittel = np.where(q_box >= 0, np.minimum(np.floor(q_box * 3), 2), -1).astype(int)
+    stil_lauf, stil_heute = stil3(werte["early_pct"]), stil3(F["early"])
+    box_stil: dict = {}
+    # Heimatbahn des Trainers: Bahn mit den meisten Startern in den VERB_TAGE davor; Lage je Bahn (bahn_orte)
+    lage = {c_: bahn_orte.koordinaten(c_) for c_ in set(course) if c_ is not None}
+    trainer_bahn: dict = {}                              # Trainer -> [deque (Tag, Bahn), Counter Bahn]
+    pen = werte["going_value"]
+    pen_top = {l_: {} for l_ in ("sire", "dam_sire")}    # Schlüssel -> [Summe Penetrometer, Anzahl] der Spitzenläufe
+    pen_pop = [0.0, 0]                                   # dasselbe über alle Spitzenläufe
     verb = {r_: {} for r_ in rollen}                     # Schlüssel -> [deque, n, placed, exp, rp, lp]
     glob = [deque(), 0, 0.0, 0.0]                        # 365-Tage-Schnitt aller Läufe: n, rp, lp
     abst = {l_: {} for l_ in linien}                     # Schlüssel -> [n, placed, exp, rp, lp, n3, val3]
@@ -862,6 +926,23 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
         for i in pos[zm[pos]]:
             for r_, keys in rollen.items():
                 F[f"{r_}_score"][i], F[f"{r_}_runs"][i] = verb_score(r_, keys[i])
+            tb = trainer_bahn.get(tr_[i]) if tr_[i] is not None else None
+            if tb is not None:
+                while tb[0] and tb[0][0][0] < d_ - VERB_TAGE:
+                    tb[1][tb[0].popleft()[1]] -= 1
+                heim = max(tb[1].items(), key=lambda kv: kv[1], default=(None, 0))
+                if heim[1] > 0 and course[i] is not None:
+                    F["trainer_reise_km"][i] = bahn_orte.km(lage.get(heim[0]), lage.get(course[i]))
+            if np.isfinite(pen[i]) and pen_pop[1]:            # Penetrometer der Spitzenläufe der Nachkommen
+                g_pen = pen_pop[0] / pen_pop[1]
+                for l_ in ("sire", "dam_sire"):
+                    st_ = pen_top[l_].get(linien[l_][i])
+                    if st_ and st_[1] >= GOING_PREF_ABST_MIN:
+                        F[f"{l_}_going_pref"][i] = pen[i] - (st_[0] + ABST_K * g_pen) / (st_[1] + ABST_K)
+            if konfig[i] is not None and drittel[i] >= 0 and stil_heute[i] >= 0:
+                n_b, s_b = box_stil.get((konfig[i], drittel[i], stil_heute[i]), (0, 0.0))
+                F["box_stil_dev"][i] = (s_b + BOX_K * 0.5) / (n_b + BOX_K) - 0.5
+                F["box_stil_runs"][i] = n_b
             if letzter_jk[i] is not None:                 # Jockey besser/schlechter als beim letzten Lauf (Score heute)
                 F["chg_jockey_score"][i] = F["jockey_score"][i] - verb_score("jockey", letzter_jk[i])[0]
             if alt_trainer[i] is not None:                # neuer Stall besser/schlechter als der vorige (Stand heute)
@@ -941,7 +1022,25 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             if konfig[i] is not None and not np.isnan(werte["draw"][i]):
                 bs = box.setdefault((konfig[i], werte["draw"][i]), [0, 0.0])
                 bs[0] += 1; bs[1] += rp_
+            if konfig[i] is not None and drittel[i] >= 0 and stil_lauf[i] >= 0:
+                k_bs = (konfig[i], drittel[i], stil_lauf[i])
+                n_b, s_b = box_stil.get(k_bs, (0, 0.0))
+                box_stil[k_bs] = (n_b + 1, s_b + rp_)
+            if tr_[i] is not None and course[i] is not None:
+                tb = trainer_bahn.setdefault(tr_[i], [deque(), Counter()])
+                tb[0].append((d_, course[i])); tb[1][course[i]] += 1
+            if np.isfinite(pen[i]) and rp0[i] >= FORM_TOP:
+                pen_pop[0] += pen[i]; pen_pop[1] += 1
+                for l_ in ("sire", "dam_sire"):
+                    if linien[l_][i] is not None:
+                        st_ = pen_top[l_].setdefault(linien[l_][i], [0.0, 0])
+                        st_[0] += pen[i]; st_[1] += 1
     F["trainer_form"] = F["trainer_30_score"] - F["trainer_score"]            # Stall gerade besser/schlechter als im Jahr
+    # Stallgefährten: 1, wenn das Pferd im Rennen den besten Jockey (Score) seines Stalls hat – Nummer 1 des Trainers
+    js = pd.Series(F["jockey_score"])
+    st_max = js.groupby([rid, pd.Series(tr_, dtype=object).fillna("?").to_numpy()]).transform("max").to_numpy()
+    F["stall_erster"] = np.where((F["stall_im_rennen"] > 0) & np.isfinite(F["jockey_score"]),
+                                 (F["jockey_score"] >= st_max - 1e-9).astype(float), np.nan)
     F["jockey_form"] = F["jockey_30_score"] - F["jockey_score"]
     log(f"  Verbindungen, Abstammung, Startbox: {time.time() - t1:.0f} s")
 
@@ -1195,6 +1294,69 @@ def logloss_quoten(p_morgen, rennen, won, odds_final) -> dict:
             "logloss_endquote": round(float(-np.log(pe[s_]).mean()), 4)}
 
 
+ABBRUCH = ("standard", "sieg", "ndcg")
+
+
+def _gruppen_z(pred, G, cnt) -> np.ndarray:
+    """Vorhersage als z-Wert im Rennen (G: Rennnummer 0 … k−1, cnt: Starter je Rennen) – schnell, ohne pandas."""
+    mu = np.bincount(G, pred) / cnt
+    sd = np.sqrt(np.bincount(G, (pred - mu[G]) ** 2) / cnt)
+    return np.divide(pred - mu[G], sd[G], out=np.zeros(len(pred)), where=sd[G] > 0)
+
+
+def sieg_logloss_np(pred, rennen, won, iter_max: int = 30) -> float:
+    """Log-Loss des Siegers der Siegchance Softmax(a × z) je Rennen, a per Maximum-Likelihood (wie markt_test, nur
+    schneller) – über Rennen mit genau einem Sieger."""
+    G = pd.factorize(np.asarray(rennen))[0]
+    pred, won = np.asarray(pred, dtype=float), np.nan_to_num(np.asarray(won, dtype=float))
+    cnt = np.bincount(G).astype(float)
+    r_ok = np.bincount(G, won) == 1                    # Rennen mit genau einem Sieger
+    ok = r_ok[G]
+    z = _gruppen_z(pred, G, cnt)
+    a = 1.0
+    for _ in range(iter_max):
+        eta = a * z
+        mx = np.full(len(cnt), -np.inf)
+        np.maximum.at(mx, G, eta)
+        e = np.exp(eta - mx[G])
+        p = e / np.bincount(G, e)[G]
+        m1 = np.bincount(G, p * z)
+        grad = (won * z)[ok].sum() - m1[r_ok].sum()
+        hess = -(np.bincount(G, p * z * z) - m1 ** 2)[r_ok].sum()
+        if hess >= 0:
+            break
+        schritt = grad / hess
+        a -= schritt
+        if abs(schritt) < 1e-6:
+            break
+    return float(-np.log(np.clip(p[ok & (won == 1)], 1e-12, 1)).mean())
+
+
+def ndcg3_np(pred, rennen, y) -> float:
+    """NDCG@3 je Rennen (Gewinn VORN_GAIN der Stufe aus dem Platzanteil: nur die Spitze zählt), Ø über die Rennen."""
+    G = pd.factorize(np.asarray(rennen))[0]
+    gain = np.asarray(VORN_GAIN)[vorn_stufe(y)]
+    rab = 1 / np.log2(np.arange(2, 5))
+
+    def dcg(score):
+        o = np.lexsort((-np.asarray(score, dtype=float), G))
+        g = G[o]
+        start = np.r_[0, np.flatnonzero(np.diff(g)) + 1]
+        rang = np.arange(len(o)) - np.repeat(start, np.diff(np.r_[start, len(o)]))
+        top = rang < 3
+        return np.bincount(g[top], gain[o][top] * rab[rang[top]], minlength=G.max() + 1)
+    ideal = dcg(gain)
+    return float(np.mean(dcg(pred)[ideal > 0] / ideal[ideal > 0]))
+
+
+def _abbruch_feval(abbruch, rennen, won, y):
+    """Eigene Prüf-Metrik für den Abbruch auf der Validierung (LightGBM feval)."""
+    rennen, won, y = np.asarray(rennen), np.asarray(won, dtype=float), np.asarray(y, dtype=float)
+    if abbruch == "sieg":
+        return lambda pred, _d: ("sieg_logloss", sieg_logloss_np(pred, rennen, won), False)
+    return lambda pred, _d: ("ndcg3_vorn", ndcg3_np(pred, rennen, y), True)
+
+
 def _lgb_daten(lgb, Xk, y, rennen, art, ref=None, init=None):
     """LightGBM-Datensatz; für „rang“/„vorn“ nach Rennen gruppiert (Zeilen eines Rennens hintereinander) mit
     Stufen-Ziel. init: Ausgangswert je Zeile (Segment-Modelle lernen nur die Korrektur dazu)."""
@@ -1306,7 +1468,8 @@ def aufteilung(tage: pd.Series, beginn, ab: str | None = None, aufwaermen: int |
 def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
                X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
                ab: str | None = None, neu: bool = False, art: str = "alle", aufwaermen: int | None = None,
-               segmente: str | None = None, morgenquote: bool = False, speichern: bool = True, log=print) -> dict:
+               segmente: str | None = None, morgenquote: bool = False, speichern: bool = True,
+               abbruch: str = "standard", log=print) -> dict:
     """Einmal trainieren: Merkmale über die ganze Historie; das erste Jahr (AUFWAERM_TAGE) dient nur als Vorgeschichte,
     die übrigen Renntage zeitlich 60/20/20 (ANTEILE): lernen, validieren (Abbruch, Wahl Regression/Rang, Siegchance-a),
     testen (nur Bericht, gegen den Marktfavoriten und das Rating). Danach auf allen Tagen nach dem Aufwärmen neu lernen
@@ -1324,8 +1487,13 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
          zeigt je Segment gemeinsam gegen mit Segment-Modell (Validierung und Test).
     morgenquote: zusätzlich die Merkmale aus der Morgenquote (MORGEN_MERKMALE) – gespeichert als eigenes Modell
          (MORGEN_DATEI, Siegchance/faire Quote auf der Karte), Power (MODELL_DATEI) bleibt ohne Markt.
-         speichern=False: nur prüfen und berichten."""
+         speichern=False: nur prüfen und berichten.
+    abbruch: wonach das Lernen auf der Validierung abbricht (beste Baumzahl) – "standard" (Regression: quadratischer
+         Fehler, Rang/Vorn: NDCG@3 von LightGBM), "sieg" (Log-Loss der Siegchance, dasselbe Maß wie die Modellwahl)
+         oder "ndcg" (NDCG@3 mit den Gewinnen von „vorn“: nur die Spitze zählt, auch für die Regression)."""
     import lightgbm as lgb
+    if abbruch not in ABBRUCH:
+        raise ValueError(f"abbruch: eins von {ABBRUCH}")
     if segmente is not None and segmente not in SEGMENT_SPALTEN:
         raise ValueError(f"segmente: eins von {SEGMENT_SPALTEN}")
     if morgenquote and segmente:
@@ -1367,11 +1535,17 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     bericht: dict = {}
     validierung: dict = {}
     modelle = {}
+    feval = None
+    if abbruch != "standard":
+        feval = _abbruch_feval(abbruch, rennen[valid], hist.loc[X.index[valid], "won"], y[valid])
+        log(f"Abbruch nach {'Log-Loss der Siegchance' if abbruch == 'sieg' else 'NDCG@3 (Spitze)'} auf der Validierung")
     for a_ in arten:
         p = _lgb_params(a_, params)
+        if feval is not None:
+            p = {**p, "metric": "None"}
         d_lern = _lgb_daten(lgb, Xk[lern], y[lern], rennen[lern], a_)
         d_val = _lgb_daten(lgb, Xk[valid], y[valid], rennen[valid], a_, ref=d_lern)
-        m = lgb.train(p, d_lern, num_boost_round=runden, valid_sets=[d_val],
+        m = lgb.train(p, d_lern, num_boost_round=runden, valid_sets=[d_val], feval=feval,
                       callbacks=[lgb.early_stopping(100, first_metric_only=True, verbose=False)])
         best = int(m.best_iteration or runden)
         pv[a_] = m.predict(Xk[valid], num_iteration=best)
@@ -1404,7 +1578,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
         sv = _seg_text(X, segmente)
         roh = m.predict(Xk, num_iteration=best, raw_score=True)
         korr = roh.copy()
-        ps = {**p, **SEG_PARAMS}
+        ps = {**_lgb_params(sieger, params), **SEG_PARAMS}      # Segment-Modelle: Abbruch wie standard
         bew = lambda maske, w: _bewerten(pd.DataFrame({"race_id": rennen[maske].to_numpy(), "y": y[maske].to_numpy(),
                                                        "x": w}), "x")["rang_korr"]
         for s_ in sorted({v for v in sv if v is not None}):
@@ -1470,7 +1644,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     bericht["rot"] = {"anteil_starter": round(float(rot.mean()), 3),
                       "anteil_sieger": round(float(rot[w_t].mean()), 3) if w_t.any() else None,
                       "anteil_platz": round(float(rot[p_t].mean()), 3) if p_t.any() else None}
-    bericht.update({"gewaehlt": sieger, "test_ab": auf["test_ab"], "aufteilung": gr, "ab": ab,
+    bericht.update({"gewaehlt": sieger, "test_ab": auf["test_ab"], "aufteilung": gr, "ab": ab, "abbruch": abbruch,
                     "validierung": validierung})
     log("Validierung (Abbruch, Modellwahl, Siegchance-a):")
     for k, v in validierung.items():

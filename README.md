@@ -148,6 +148,8 @@ im Testteil (Norm, Pace-Kalibrierung, Bias auf der ersten Hälfte gelernt). CSV 
 
 ## Power-Modell (einmal trainieren)
 
+Alle Merkmale mit kurzer Definition: [MERKMALE.md](MERKMALE.md).
+
 ```python
 import power_modell as pm
 erg = pm.trainieren(BASE)   # ~1 h: Merkmale über die ganze Historie, Prüfung, Modell nach BASE/modelle/
@@ -219,6 +221,22 @@ Gemessen auf denselben Testrennen (2026, alle mit Morgen- und Endquote; Modelle 
 Pause von mindestens 60 bzw. 180 Tagen (1 = heute erster Start danach, bis 10); mit jeder neuen Pause beginnt die
 Zählung neu, 0 = keine solche Pause in der bekannten Historie, leer bei Debütanten. `letzte_pause_tage`: Länge der
 ≥ 60-Tage-Pause, mit der die heutige Serie begann. Ersetzt das frühere `seit_pause`.
+
+**Merkmale Version 19** (Definitionen in [MERKMALE.md](MERKMALE.md)):
+- **Gewicht = getragenes Gewicht:** PMU `poidsConditionMonte` (mit Erlaubnis des Reiters), sonst `handicapPoids`;
+  `racecard.gewicht_getragen` korrigiert ältere Tagesdateien über die p_-Spalten. Damit ändern sich auch ARR/RTR
+  leicht.
+- Neue Merkmale:
+  - `gew_erlaubnis`, `hcp_spielraum` (Rating − bester ARR 365) und `arr_neue_best` (letzter ARR − bester davor)
+  - `feld_anteil_maennlich` und `stute_gegen_hengste`
+  - `jockey_ritte_meeting` und `trainer_starter_meeting`
+  - `stall_im_rennen` und `stall_erster`
+  - `trainer_reise_km` (Heimatbahn → heutige Bahn, Lagen in `bahn_orte.py`)
+  - `box_stil_dev` (Box × Laufstil)
+  - `going_pref` sowie `sire_going_pref` / `dam_sire_going_pref` (Penetrometer)
+  - Tracking: `f1…f3_stride_rel`, `f1…f3_stride_change` und `f1_vmax_rel`
+- **Abbruch wählbar:** `pm.trainieren(BASE, art="regression", abbruch="sieg")` bricht nach dem Log-Loss der Siegchance
+  ab, `abbruch="ndcg"` nach NDCG@3 der Spitze. Vorgabe ist `"standard"` (quadratischer Fehler).
 
 Zeitliche Aufteilung (`pm.aufteilung`, Power und Value gleich): das erste Jahr der Historie (`AUFWAERM_TAGE` = 365) dient
 nur als Vorgeschichte für die Merkmale und wird nicht gelernt; die übrigen Renntage zeitlich 60/20/20 (`ANTEILE`):

@@ -257,7 +257,9 @@ def runner_row(rid: str, p: dict) -> dict:
         "trainer": p.get("entraineur"), "owner": p.get("proprietaire"),
         "breeder": p.get("eleveur"),
         "draw": p.get("placeCorde"),
-        "weight_kg": _kg(p.get("handicapPoids") or p.get("poidsConditionMonte")),
+        # getragenes Gewicht (mit Erlaubnis des Reiters); poidsConditionMonte fehlt, wenn es der Zuteilung entspricht
+        "weight_kg": _kg(p.get("poidsConditionMonte") or p.get("handicapPoids")),
+        "weight_assigned_kg": _kg(p.get("handicapPoids") or p.get("poidsConditionMonte")),   # zugeteiltes Gewicht
         "rating": p.get("handicapValeur"),
         "blinkers": p.get("oeilleres"),
         "form": p.get("musique"),

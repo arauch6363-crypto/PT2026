@@ -133,7 +133,7 @@ KATEGORIE = {
 PLAUSIBEL = {"speed_last600_kmh": (40.0, 75.0), "speed_600_400_kmh": (40.0, 75.0),
              "speed_last400_kmh": (40.0, 75.0), "finish_index": (70.0, 130.0),
              "pos_gain_800_finish": (-20, 20), "pace_ratio": (60.0, 160.0), "pace_early_kmh": (40.0, 75.0),
-             "dist_vs_winner_m": (-60.0, 100.0)}
+             "dist_vs_winner_m": (-60.0, 100.0), "vmax_kmh": (45.0, 80.0)}
 
 # Laufstil: mittlere frühe Position als Anteil des Feldes (0 = an der Spitze, 1 = Letzter)
 STIL_LAEUFE = 5                 # so viele Läufe mit Tracking bestimmen den Laufstil
@@ -160,6 +160,21 @@ def norm_name(s: pd.Series) -> pd.Series:
 
 def to_float(s: pd.Series) -> pd.Series:
     return pd.to_numeric(s.astype("string").str.replace(",", ".", regex=False).str.strip(), errors="coerce")
+
+
+def gewicht_getragen(runners: pd.DataFrame) -> pd.DataFrame:
+    """weight_kg = getragenes Gewicht (PMU poidsConditionMonte: mit Erlaubnis des Reiters, fehlt, wenn es der Zuteilung
+    entspricht), weight_assigned_kg = zugeteiltes Gewicht (handicapPoids). Ältere Tagesdateien haben in weight_kg das
+    zugeteilte Gewicht (pmu.runner_row nahm früher handicapPoids zuerst) – mit den p_-Spalten aus pmu_basis wird das
+    hier korrigiert; ohne sie bleibt weight_kg, wie es ist, und die Zuteilung unbekannt (NaN)."""
+    r = runners.copy()
+
+    def kg(c):
+        x = pd.to_numeric(r[c], errors="coerce") if c in r else pd.Series(np.nan, index=r.index)
+        return x.where(x <= 200, x / 10)                      # Hektogramm (585 = 58,5 kg)
+    r["weight_kg"] = kg("p_poidsConditionMonte").fillna(kg("weight_kg"))
+    r["weight_assigned_kg"] = kg("weight_assigned_kg").fillna(kg("p_handicapPoids"))
+    return r
 
 
 def _num(x, nd=2):
@@ -555,13 +570,15 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     r["konfig"] = konfig_schluessel(r)
     r = preisgeld_je_platz(r)
 
+    runners = gewicht_getragen(runners)                    # getragenes Gewicht, auch für ARR/RTR (ratings_je_lauf)
     h = runners.drop_duplicates(["race_id", "saddle_no"], keep="last").copy()
     h["saddle_no"] = pd.to_numeric(h["saddle_no"], errors="coerce")
     for c in ["horse", "jockey", "trainer", "owner", "breeder"]:
         h[c + "_key"] = norm_name(h[c]) if c in h else pd.Series(pd.NA, index=h.index, dtype="string")
     h = abstammung_keys(h)
     h["horse_id"] = h["horse_key"].fillna("?") + "|" + h["sire_key"].fillna("?")
-    for c in ["odds_final", "odds_morning", "weight_kg", "finish_pos", "lengths_behind", "lengths_prev", "age"]:
+    for c in ["odds_final", "odds_morning", "weight_kg", "weight_assigned_kg", "finish_pos", "lengths_behind",
+              "lengths_prev", "age"]:
         if c in h:
             h[c] = pd.to_numeric(h[c], errors="coerce")
         else:
@@ -624,7 +641,7 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
         t["saddle_no"] = pd.to_numeric(t["saddle_no"], errors="coerce")
         cols = [c for c in ["finish_index", "pos_gain_800_finish", "speed_last600_kmh",
                             "speed_last400_kmh", "dist_vs_winner_m", "distance_covered_m", "last600_s",
-                            "official_time_s", "behind_winner_s"] if c in t]
+                            "official_time_s", "behind_winner_s", "vmax_kmh"] if c in t]
         for c in cols:
             t[c] = pd.to_numeric(t[c], errors="coerce")
         t = t.drop_duplicates(["race_id", "saddle_no"], keep="last")[["race_id", "saddle_no", *cols]]
@@ -637,6 +654,9 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
             h[c] = np.nan
     # Tempi der Schlussphase, Finish-Index, Wegfaktor und Gegenprobe neu aus den Abschnitten
     h = speedfig.rohwerte_aus_abschnitten(h, trk_sections)
+    schritt = speedfig.schritt_aus_abschnitten(trk_sections)          # Schrittlänge Rennmitte / Finish
+    if len(schritt):
+        h = h.merge(schritt, on=["race_id", "saddle_no"], how="left")
     if trk_races is not None and not trk_races.empty and "pace_ratio" in trk_races:
         pc = [c for c in ["pace_ratio", "pace_early_kmh"] if c in trk_races]
         p = trk_races.drop_duplicates("race_id", keep="last")[["race_id", *pc]].copy()
@@ -654,11 +674,15 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     if trk_sections is not None and not trk_sections.empty:
         h = h.merge(position_vor_finish(trk_sections), on=["race_id", "saddle_no"], how="left")
         h = h.merge(position_frueh(trk_sections), on=["race_id", "saddle_no"], how="left")
-    for c in list(PLAUSIBEL) + ["pos_before", "pos_before_m", "early_pos"]:
+    for c in list(PLAUSIBEL) + ["pos_before", "pos_before_m", "early_pos", "stride_mid_m", "stride_last_m",
+                                "stride_change_pct"]:
         if c not in h:
             h[c] = np.nan
     for c, (lo, hi) in PLAUSIBEL.items():
         h[c] = h[c].where(h[c].between(lo, hi))
+    # Schrittlänge und Höchsttempo relativ zum damaligen Feld (Abstand zum Ø der Starter mit Wert)
+    for c, rel in (("stride_mid_m", "stride_rel"), ("vmax_kmh", "vmax_rel")):
+        h[rel] = h[c] - h.groupby("race_id")[c].transform("mean")
     h["pace_class"] = h["pace_ratio"].map(pace_klasse)
     h["early_pct"] = ((h["early_pos"] - 1) / (h["n_runners"] - 1).where(h["n_runners"] > 1)).clip(0, 1)
     ok = h["pos_before"].notna() & (h["n_runners"] > 0)
@@ -2253,13 +2277,14 @@ def _prognose_rennen(pg: dict | None) -> tuple[dict | None, dict]:
 def heute_zeilen(rh: pd.DataFrame, ru: pd.DataFrame, heute: pd.Timestamp) -> pd.DataFrame:
     """Heutige Starter (ohne Nichtstarter) mit den Spalten der Historie, ohne Ergebnis – für das Power-Modell."""
     st = ru["status"].astype("string").str.upper().fillna("") if "status" in ru else pd.Series("", index=ru.index)
-    z = ru[st != "NON_PARTANT"].copy()
-    spalten = [c for c in ["race_id", "distance_m", "going", "hippodrome", "categorie", "conditions_age", "konfig",
-                           "prize_eur"] if c in rh]
+    z = gewicht_getragen(ru[st != "NON_PARTANT"])
+    spalten = [c for c in ["race_id", "distance_m", "going", "going_value", "hippodrome", "categorie", "conditions_age",
+                           "konfig", "prize_eur"] if c in rh]
     z = z.merge(rh[spalten], on="race_id", how="inner")
     z["date"] = heute
     for c in ["distance_m", "weight_kg", "age", "draw", "saddle_no"]:
         z[c] = pd.to_numeric(z[c], errors="coerce") if c in z else np.nan
+    z["going_value"] = to_float(z["going_value"]) if "going_value" in z else np.nan
     z["valeur"] = pd.to_numeric(z["rating"], errors="coerce") if "rating" in z else np.nan
     z["going_pmu"] = [going_klasse(g) for g in z["going"]] if "going" in z else BODEN_ANNAHME
     z["dist_group"] = z["distance_m"].map(rtr_arr.distance_group)
