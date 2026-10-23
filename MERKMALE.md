@@ -237,6 +237,12 @@ Trend und Klasse:
   quadratischer Fehler), `"sieg"` (Log-Loss der Siegchance, dasselbe Maß wie die Modellwahl) oder `"ndcg"` (NDCG@3,
   nur die Spitze zählt). Mit `speichern=False` vergleichen, das Bessere speichern.
 
+- **Value in der fairen Quote:** `pm.trainieren` speichert die faire Siegchance auf Validierung/Test
+  (`modelle/power_oos.parquet`, außerhalb der Lerndaten); `pm.trainieren_wert` prüft p ∝ p_fair × exp(κ × Value)
+  (Value = Abweichung des Value-Modells vom Markt, roh), κ auf der Validierung, Likelihood-Quotienten-Test und gepaarter
+  Test (Bericht `value_in_fairer_quote`). Übernommen fließt der Value in die faire Quote ein – die Zahl dazu ist der
+  Edge (angebotene gegen faire Quote). Reihenfolge: erst `trainieren`, dann `trainieren_wert`.
+
 ## Kommentare (PMU, seit Ende August 2026)
 
 - `kommentare.py`: fester Katalog von 16 Kategorien aus französischen Suchmustern (schlecht gestartet, vorne, hinten,

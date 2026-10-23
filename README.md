@@ -246,6 +246,9 @@ Zählung neu, 0 = keine solche Pause in der bekannten Historie, leer bei Debüta
   Test auf der Validierung die Mischung Power × Power-sieg, ist sie Power auf der Karte, Siegchance ohne Markt und
   Grundlage der fairen Quote (`modelle/power_sieg.txt`, Treiber in Power-Punkten). Abschalten mit
   `zweitmodell=False`.
+- **Value in der fairen Quote:** `pm.trainieren_wert` prüft, ob der Value-Faktor die faire Quote verbessert
+  (p_fair × exp(κ × Value), Bericht `value_in_fairer_quote`); übernommen nur nach Likelihood-Quotienten-Test. Immer erst
+  `pm.trainieren`, dann `pm.trainieren_wert`; `speichern=False` zum Prüfen.
 - **Kommentare:** `kommentare.py` ordnet den PMU-Kommentar nach dem Rennen 16 Kategorien zu; die Kategorien zum
   letzten Lauf korrigieren die faire Siegchance (Korrekturschicht), sobald der gepaarte Test sie belegt
   (Bericht: `kommentar_schicht (…)`).

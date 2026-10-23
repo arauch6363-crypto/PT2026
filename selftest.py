@@ -1080,6 +1080,34 @@ def power_modell_pruefen() -> None:
     pruefe(ek["ziel"] == "kombi" and fk[5] > 1.1 and fk[1] < 0.9
            and ek["verlust_kombi_mit_value"] < ek["verlust_kombi_markt"] and 0 < ek["kalib_k"] < 2,
            f"Value-Modell mit Kombi-Ziel (Sieg + Platz): A/E Kombi Fünftel 1 {fk[1]} … 5 {fk[5]}, Sieg-z {ek['sieg_value_z']}")
+    # Value in der fairen Quote: trainieren speichert die faire Siegchance außerhalb der Lerndaten, trainieren_wert prüft κ
+    alt_lr = pm.MISCH3_LR
+    with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+        o_v = Path(tmp) / pm.MODELL_ORDNER
+        pm.trainieren(hist=hw, X=Xw, out=o_v, runden=40, art="regression", log=print)
+        oos_ = pd.read_parquet(o_v / pm.OOS_DATEI)
+        ev0 = pm.trainieren_wert(hist=hw, X=Xw, out=o_v, runden=150, ziel_art="kombi", speichern=False,
+                                 params={"min_data_in_leaf": 20}, log=print)
+        gespeichert_ = (o_v / pm.WERT_DATEI).exists()
+        pm.MISCH3_LR = -1e9                                  # Übernahme erzwingen
+        pm.trainieren_wert(hist=hw, X=Xw, out=o_v, runden=150, ziel_art="kombi", params={"min_data_in_leaf": 20},
+                           log=print)
+        mod_v = pm.laden(Path(tmp))
+        hz_v = hw[hw["race_id"] == hw["race_id"].iloc[-1]].drop(columns=["finish_pos", "rel_place", "won", "placed",
+                                                                          "prize_won", "arr", "tr", "odds_final"])
+        v_v = pm.vorhersage(hw, hz_v.assign(race_id="20260604R1C1", date=pd.Timestamp("2026-06-04")), mod_v, log=print)
+        kap_v = mod_v["wert"]["meta"]["fair_kappa"]
+        mod_v["wert"]["meta"]["fair_kappa"] = None           # dasselbe ohne κ zum Vergleich
+        v_0 = pm.vorhersage(hw, hz_v.assign(race_id="20260604R1C1", date=pd.Timestamp("2026-06-04")), mod_v, log=print)
+    pm.MISCH3_LR = alt_lr
+    fm_ = ev0.get("value_in_fairer_quote") or {}
+    pruefe(set(oos_["teil"]) == {"valid", "test"} and oos_["p_fair"].between(0, 1).all() and not gespeichert_
+           and "kappa" in fm_ and "gepaart_test" in fm_ and kap_v is not None
+           and abs(sum(x_["sieg"] for x_ in v_v.values()) - 1) < 0.01
+           and any(abs(v_v[k_]["sieg"] - v_0[k_]["sieg"]) > 1e-3 for k_ in v_v),
+           f"Value in der fairen Quote: p_fair · exp(κ · Value), κ {fm_.get('kappa')} auf der Validierung, χ² "
+           f"{fm_.get('lr_chi2')}, gepaarter Test; übernommen ändert es die faire Siegchance auf der Karte; "
+           "trainieren_wert(speichern=False) speichert nichts")
     # Segment-Modelle je Renntyp (Schwellen für die kleine Historie gesenkt, damit sie behalten werden)
     alt = (pm.SEG_MIN_STARTER, pm.SEG_MIN_GEWINN, pm.SEG_MIN_VERLUST, pm.SEG_PARAMS)
     pm.SEG_MIN_STARTER, pm.SEG_MIN_GEWINN, pm.SEG_MIN_VERLUST = 50, -1.0, -1.0
