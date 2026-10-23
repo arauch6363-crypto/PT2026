@@ -246,6 +246,9 @@ Zählung neu, 0 = keine solche Pause in der bekannten Historie, leer bei Debüta
   Test auf der Validierung die Mischung Power × Power-sieg, ist sie Power auf der Karte, Siegchance ohne Markt und
   Grundlage der fairen Quote (`modelle/power_sieg.txt`, Treiber in Power-Punkten). Abschalten mit
   `zweitmodell=False`.
+- **Kommentare:** `kommentare.py` ordnet den PMU-Kommentar nach dem Rennen 16 Kategorien zu; die Kategorien zum
+  letzten Lauf korrigieren die faire Siegchance (Korrekturschicht), sobald der gepaarte Test sie belegt
+  (Bericht: `kommentar_schicht (…)`).
 - **Abbruch wählbar:** `pm.trainieren(BASE, art="regression", abbruch="sieg")` bricht nach dem Log-Loss der Siegchance
   ab, `abbruch="ndcg"` nach NDCG@3 der Spitze. Vorgabe ist `"standard"` (quadratischer Fehler).
 

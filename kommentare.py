@@ -112,3 +112,32 @@ def beispiele(d: pd.DataFrame, kategorie: str, n: int = 8, seed: int = 0) -> lis
     """Zufällige Kommentare mit Treffer in einer Kategorie (zum Gegenlesen der Muster)."""
     k = kategorien(d["comment"])
     return d.loc[k[kategorie] == 1, "comment"].sample(min(n, int((k[kategorie] == 1).sum())), random_state=seed).tolist()
+
+
+# Gruppen für die Korrekturschicht der fairen Siegchance (wenige Daten: wenige, grobe Merkmale)
+GRUPPEN = {"k_vorne": ["vorne"], "k_pech": ["behindert", "start_schlecht", "problem", "geschont"],
+           "k_ohne_deckung": ["ohne_deckung"], "k_gut": ["stark", "gut_beendet"], "k_nachgelassen": ["nachgelassen"],
+           "k_knapp": ["knapp"]}
+
+
+def vorlauf_merkmale(hist: pd.DataFrame, zeilen: pd.DataFrame) -> pd.DataFrame:
+    """Je Zeile (horse_id, date) die Kommentar-Gruppen des letzten Laufs davor (0/1; NaN, wenn der letzte Lauf keinen
+    Kommentar hat oder es keinen gibt) – nur Kommentare zu früheren Läufen, kein Blick in die Zukunft. Index wie zeilen."""
+    leer = pd.DataFrame(np.nan, index=zeilen.index, columns=list(GRUPPEN))
+    if "comment" not in hist or not len(zeilen):
+        return leer
+    h = hist[["horse_id", "date", "comment"]].copy()
+    if "extern" in hist:
+        h = h[~hist["extern"].eq(True)]
+    h["date"] = pd.to_datetime(h["date"])
+    k = kategorien(h["comment"])
+    for g, cs in GRUPPEN.items():
+        h[g] = k[cs].max(axis=1, skipna=False)
+    h = h.drop(columns="comment").dropna(subset=["horse_id", "date"]).sort_values("date", kind="stable")
+    h = h.drop_duplicates(["horse_id", "date"], keep="last")
+    z = pd.DataFrame({"horse_id": zeilen["horse_id"].astype(str).to_numpy(), "date": pd.to_datetime(zeilen["date"]).to_numpy(),
+                      "_i": np.arange(len(zeilen))}).sort_values("date", kind="stable")
+    h["horse_id"] = h["horse_id"].astype(str)
+    m = pd.merge_asof(z, h, on="date", by="horse_id", allow_exact_matches=False, direction="backward")
+    out = m.sort_values("_i")[list(GRUPPEN)].to_numpy(dtype=float)
+    return pd.DataFrame(out, index=zeilen.index, columns=list(GRUPPEN))

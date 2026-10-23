@@ -45,6 +45,7 @@ import numpy as np
 import pandas as pd
 
 import bahn_orte
+import kommentare as km
 import racecard as rc
 import rtr_arr
 import timeform_ratings
@@ -1263,6 +1264,65 @@ def power_mix_staerke(p_reg, p_sieg, exp_reg: float, exp_sieg: float) -> np.ndar
             + exp_sieg * np.log(np.clip(np.asarray(p_sieg, dtype=float), 1e-6, 1)))
 
 
+def _clogit_offset(off, F, w, g, l2: float, iter_max: int = 50) -> np.ndarray:
+    """Bedingtes Logit mit festem Ausgangswert off (log der bisherigen Siegchance) und L2-Schrumpfung der Gewichte."""
+    G = pd.factorize(np.asarray(g))[0]
+    b = np.zeros(F.shape[1])
+    for _ in range(iter_max):
+        p = _softmax_im_rennen(off + F @ b, G)
+        EF = np.zeros((G.max() + 1, F.shape[1]))
+        np.add.at(EF, G, p[:, None] * F)
+        grad = (w[:, None] * F).sum(0) - EF.sum(0) - l2 * b
+        H = -(np.einsum("i,ij,ik->jk", p, F, F) - EF.T @ EF) - l2 * np.eye(F.shape[1])
+        schritt = np.linalg.solve(H, grad)
+        b -= schritt
+        if np.abs(schritt).max() < 1e-9:
+            break
+    return b
+
+
+def kommentar_anwenden(p, K: np.ndarray, rennen, b: dict) -> np.ndarray:
+    """Faire Siegchance mit Kommentar-Korrektur: p ∝ p · exp(Σ b_g · Gruppe_g des letzten Laufs) je Rennen."""
+    F = np.nan_to_num(np.asarray(K, dtype=float)) @ np.array([b.get(g, 0.0) for g in km.GRUPPEN])
+    return _softmax_im_rennen(np.log(np.clip(np.asarray(p, dtype=float), 1e-9, 1)) + F, np.asarray(rennen))
+
+
+def kommentar_schicht(p, K: np.ndarray, rennen, won, datum) -> dict:
+    """Korrekturschicht aus den Kommentaren zum letzten Lauf auf die faire Siegchance p: Gewichte je Gruppe
+    (bedingtes Logit mit p als festem Ausgangswert, geschrumpft) auf dem älteren Teil der Rennen mit Kommentar-Vorlauf,
+    gepaarter Test (Log-Loss des Siegers) auf dem jüngeren; übernommen bei z ≤ KOMMENTAR_Z, dann aus allen neu geschätzt."""
+    d = pd.DataFrame({"r": np.asarray(rennen).astype(str), "w": np.nan_to_num(np.asarray(won, dtype=float)),
+                      "p": np.asarray(p, dtype=float), "t": pd.to_datetime(np.asarray(datum))})
+    K = np.asarray(K, dtype=float)
+    info = pd.Series(~np.isnan(K).all(axis=1)).groupby(d["r"].to_numpy()).transform("any").to_numpy()
+    d = d[info & (d.groupby("r")["w"].transform("sum") == 1).to_numpy()]
+    K = K[d.index.to_numpy()]
+    rennen_t = d.groupby("r")["t"].min().sort_values()
+    n_r = len(rennen_t)
+    out = {"rennen_mit_kommentar": int(n_r), "uebernommen": False}
+    if n_r < KOMMENTAR_MIN_RENNEN:
+        out["grund"] = f"zu wenige Rennen mit Kommentar-Vorlauf (ab {KOMMENTAR_MIN_RENNEN})"
+        return out
+    grenze = rennen_t.iloc[int(n_r * KOMMENTAR_LERN)]
+    lern = (d["r"].map(rennen_t) < grenze).to_numpy()
+    off, F, w, r = np.log(np.clip(d["p"].to_numpy(), 1e-9, 1)), np.nan_to_num(K), d["w"].to_numpy(), d["r"].to_numpy()
+    b = _clogit_offset(off[lern], F[lern], w[lern], r[lern], KOMMENTAR_L2)
+    pr = ~lern
+    neu = _softmax_im_rennen(off[pr] + F[pr] @ b, r[pr])
+    s = w[pr] == 1
+    diff = -np.log(neu[s]) + np.log(d["p"].to_numpy()[pr][s])
+    se = float(diff.std(ddof=1) / np.sqrt(len(diff))) if len(diff) > 1 else np.nan
+    z = float(diff.mean() / se) if se and se > 0 else 0.0
+    out.update({"rennen_lernen": int(pd.Series(r[lern]).nunique()), "rennen_pruefen": int(len(diff)),
+                "gewichte_lernteil": {g: round(float(v), 3) for g, v in zip(km.GRUPPEN, b)},
+                "pruef_differenz": round(float(diff.mean()), 4), "pruef_se": round(se, 4), "pruef_z": round(z, 2),
+                "uebernommen": bool(z <= KOMMENTAR_Z and diff.mean() < 0)})
+    if out["uebernommen"]:
+        b = _clogit_offset(off, F, w, r, KOMMENTAR_L2)
+        out["gewichte"] = {g: round(float(v), 4) for g, v in zip(km.GRUPPEN, b)}
+    return out
+
+
 def _ein_sieger(p1, p2, rennen, won) -> pd.DataFrame:
     d = pd.DataFrame({"r": np.asarray(rennen).astype(str), "w": np.nan_to_num(np.asarray(won, dtype=float)),
                       "p1": np.asarray(p1, dtype=float), "p2": np.asarray(p2, dtype=float)})
@@ -1346,6 +1406,10 @@ def logloss_quoten(p_morgen, rennen, won, odds_final) -> dict:
 
 ABBRUCH = ("standard", "sieg", "ndcg")
 ZWEIT_DATEI = "power_sieg.txt"   # zweites Power-Modell (Lern-Ziel „sieg“) für die Dreier-Mischung
+KOMMENTAR_L2 = 5.0           # Korrekturschicht Kommentare: Schrumpfung der Gewichte (wenige Daten)
+KOMMENTAR_LERN = 0.6         # ... gelernt auf dem älteren Teil der Rennen mit Kommentar-Vorlauf, geprüft auf dem Rest
+KOMMENTAR_MIN_RENNEN = 150   # ... erst ab so vielen Rennen mit Kommentar-Vorlauf
+KOMMENTAR_Z = -1.645         # ... übernommen, wenn der gepaarte Test auf dem Prüfteil mindestens so klar ist
 MISCH3_LR = 3.84                 # Dreier-Mischung nur bei χ²(1) > 3,84 auf der Validierung (p < 0,05)
 
 # Tracking-Wert: eigenes Teilmodell nur aus den Tracking-Merkmalen (und dem Rahmen des Rennens), gelernt nur auf Startern
@@ -1928,6 +1992,17 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
             bericht[name_m]["gepaart_test_gegen_bisher"] = gepaart("mischung", "mischung_alt")
     if mischung3:
         bericht["mischung3 (Morgenquote × Power × Power-sieg)"]["gepaart_test"] = gepaart("mischung3", "mischung")
+    # Korrekturschicht aus den PMU-Kommentaren zum letzten Lauf (Kommentare erst seit Ende August 2026 – nur Testtage)
+    kom = {}
+    if mischung:
+        d_f = dt3_ if mischung3.get("uebernommen") else dt_
+        p_f = (mischung_chance(d_f["pm"], d_f["pb"], d_f["r"], mischung3["morgen"], mischung3["power"], d_f["ps"],
+                               mischung3["sieg"]) if mischung3.get("uebernommen")
+               else mischung_chance(d_f["pm"], d_f["pb"], d_f["r"], mischung["morgen"], mischung["power"]))
+        ix_t = X.index[test]
+        K_t = km.vorlauf_merkmale(hist, hist.loc[ix_t]).to_numpy()[d_f.index.to_numpy()]
+        kom = kommentar_schicht(p_f, K_t, d_f["r"], d_f["w"], tage[test].to_numpy()[d_f.index.to_numpy()])
+        bericht["kommentar_schicht (faire Siegchance × Kommentar zum letzten Lauf)"] = kom
     bericht["je_rennen"] = je_rennen
     # Rote Starter (Power ≤ 95): wie oft gewinnen / platzieren sie sich? (fürs Weglassen in der Claude-JSON)
     st_t = (power_mix_staerke(p1_t, p2_t, power_mix["power"], power_mix["sieg"]) if mix_ok
@@ -1996,6 +2071,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
         mix_meta = {"morgen": mischung["morgen"], "power": mischung["power"]}
     meta = {"spalten": list(Xk.columns), "stufen": stufen, "art": sieger, "segmente": seg_meta, "zweit": zweit_meta,
             "power_mix": {"power": power_mix["power"], "sieg": power_mix["sieg"]} if mix_ok else None,
+            "kommentar_schicht": kom.get("gewichte") if kom.get("uebernommen") else None,
             "bericht": {k: v for k, v in bericht.items() if k != "je_rennen"},
             "morgenquote": bool(morgenquote), "tracking": _tracking_speichern(trk, ordner, m_datei),
             "mischung": mix_meta,
@@ -2458,6 +2534,11 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
                                                    mix["morgen"], mix["power"], ps_[voll] if ps_ is not None else None,
                                                    mix.get("sieg", 0.0) if ps_ is not None else 0.0)
             df.loc[voll, "quelle"] = "mischung"
+            ks = meta.get("kommentar_schicht")
+            if ks:                                       # Korrektur aus dem Kommentar zum letzten Lauf
+                K_h = km.vorlauf_merkmale(hist, hz).to_numpy()
+                v_ = voll.to_numpy()
+                df.loc[voll, "sieg"] = kommentar_anwenden(df.loc[voll, "sieg"], K_h[v_], df.loc[voll, "race_id"], ks)
         if not voll.all():
             log(f"  Siegchance: {int((~voll).sum())} Starter ohne vollständige Morgenquote im Rennen – Power allein")
     elif modell.get("morgen"):      # älterer Weg: Kombi-Modell mit Morgenquote (pm.trainieren_morgen)

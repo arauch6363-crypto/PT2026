@@ -1701,6 +1701,32 @@ def kommentare_pruefen() -> None:
            and k.iloc[4].isna().all() and len(km.KATEGORIEN) == k.shape[1],
            f"Kommentar-Kategorien ({k.shape[1]}): Start, Position, Deckung, Tempo, behindert (Verneinung „sans être "
            "gêné“ zählt nicht), Endspurt, nachgelassen …; „im Sillage des Animateurs“ ist nicht vorne; ohne Kommentar leer")
+    # Kommentar zum letzten Lauf: nur frühere Läufe; Korrekturschicht findet ein eingebautes Signal
+    import power_modell as pm
+    hk = pd.DataFrame({"horse_id": ["A", "A", "A", "B"], "date": pd.to_datetime(["2026-09-01", "2026-09-10",
+                                                                                  "2026-09-20", "2026-09-05"]),
+                       "comment": ["A été gêné à 300 mètres.", "Vite en tête, a cédé.", None, "A fini fort."]})
+    vk = km.vorlauf_merkmale(hk, pd.DataFrame({"horse_id": ["A", "A", "A", "B", "C"],
+                                               "date": pd.to_datetime(["2026-09-10", "2026-09-15", "2026-09-25",
+                                                                       "2026-09-05", "2026-09-30"])}))
+    rng = np.random.default_rng(7)
+    n_r, f_ = 1500, 8
+    r_k = np.repeat(np.arange(n_r), f_); t_k = pd.Timestamp("2026-09-01") + pd.to_timedelta(r_k // 10, unit="D")
+    Kk = np.zeros((n_r * f_, len(km.GRUPPEN))); Kk[:, 1] = rng.random(n_r * f_) < .2      # k_pech
+    st_ = rng.normal(size=n_r * f_) + 0.8 * Kk[:, 1]                                          # Pech-Pferde stärker
+    w_k = np.zeros(n_r * f_)
+    for i_ in range(n_r):
+        g_ = st_[i_ * f_:(i_ + 1) * f_] + rng.gumbel(size=f_); w_k[i_ * f_ + np.argmax(g_)] = 1
+    p0_ = pm._softmax_im_rennen(st_ - 0.8 * Kk[:, 1], r_k)                                    # Modell ohne das Wissen
+    ks_ = pm.kommentar_schicht(p0_, Kk, r_k, w_k, t_k)
+    pruefe(vk.iloc[0].tolist()[:2] == [0.0, 1.0] and vk.iloc[1].tolist()[:2] == [1.0, 0.0] and vk.iloc[2].isna().all()
+           and vk.iloc[3].isna().all() and vk.iloc[4].isna().all()
+           and ks_["uebernommen"] and 0.4 < ks_["gewichte"]["k_pech"] < 1.2 and abs(ks_["gewichte"]["k_vorne"]) < 1e-9
+           and ks_["pruef_z"] < -2
+           and abs(pm.kommentar_anwenden([.5, .5], [[0, 1, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]], ["a", "a"],
+                                         {"k_pech": np.log(3)})[0] - .75) < 1e-9,
+           f"Kommentar zum letzten Lauf (nur frühere Läufe, am selben Tag nicht; ohne Kommentar leer); Korrekturschicht "
+           f"findet ein eingebautes Signal (Gewicht Pech {ks_['gewichte']['k_pech']}, Prüfteil z {ks_['pruef_z']})")
 
 
 def racecard_pruefen() -> None:

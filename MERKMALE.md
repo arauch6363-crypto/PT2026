@@ -237,6 +237,19 @@ Trend und Klasse:
   quadratischer Fehler), `"sieg"` (Log-Loss der Siegchance, dasselbe Maß wie die Modellwahl) oder `"ndcg"` (NDCG@3,
   nur die Spitze zählt). Mit `speichern=False` vergleichen, das Bessere speichern.
 
+## Kommentare (PMU, seit Ende August 2026)
+
+- `kommentare.py`: fester Katalog von 16 Kategorien aus französischen Suchmustern (schlecht gestartet, vorne, hinten,
+  ohne Deckung, langsames/schnelles Rennen, behindert, stark/ordentlich beendet, nachgelassen, unruhig, geschont,
+  Problem, überlegen, knapp, Hinweis zum Merken); Verneinungen („sans être gêné“) zählen nicht. Kontrolle mit
+  `km.uebersicht(df)` und `km.beispiele(df, "behindert")`.
+- **Korrekturschicht auf die faire Siegchance** (noch nicht im Hauptmodell – zu wenige Monate): je Starter die Gruppen
+  aus dem Kommentar zu seinem **letzten** Lauf (`k_vorne`, `k_pech` = behindert/schlecht gestartet/Problem/geschont,
+  `k_ohne_deckung`, `k_gut` = stark/ordentlich beendet, `k_nachgelassen`, `k_knapp`); p ∝ p_fair × exp(Σ b × Gruppe),
+  b per bedingtem Logit mit Schrumpfung, gelernt auf den älteren 60 % der Rennen mit Kommentar-Vorlauf, gepaarter Test
+  auf den jüngeren 40 %. Übernommen bei z ≤ −1,645 (dann aus allen neu geschätzt, auf der Karte angewandt); der
+  Bericht zeigt es unter `kommentar_schicht (…)`. Mit jedem Monat mehr Daten – ab etwa einem Jahr ins Hauptmodell.
+
 ## Training: Lern-Ziel „sieg“ und gepaarter Vergleich
 
 - `pm.trainieren(…, art="sieg")`: LightGBM mit eigenem Ziel – Siegchance = Softmax der Vorhersage je Rennen, Verlust =
