@@ -90,7 +90,7 @@ RANG_GAIN = [round(2 ** (s / 2) - 1, 3) for s in range(RANG_STUFEN + 1)]   # Sie
 # Platzanteil ≥ 0,7 → 1, ≥ 0,8 → 2, ≥ 0,9 → 3, Sieg → 4
 VORN_GRENZEN = (0.7, 0.8, 0.9)
 VORN_GAIN = [0.0, 1.0, 3.0, 7.0, 15.0]
-ARTEN = ("regression", "rang", "vorn")
+ARTEN = ("regression", "rang", "vorn", "sieg")
 AUFWAERM_TAGE = 365         # erstes Jahr der Historie: nur Vorgeschichte für die Merkmale, nicht gelernt
 ANTEILE = (0.6, 0.2, 0.2)   # übrige Renntage zeitlich: lernen / validieren (Abbruch, Modellwahl, Eichung) / testen (Bericht)
 ROT_AB = 95                 # Power bis hier = rot (klar unter dem Feldschnitt)
@@ -1461,9 +1461,44 @@ def _abbruch_feval(abbruch, rennen, won, y):
     return lambda pred, _d: ("ndcg3_vorn", ndcg3_np(pred, rennen, y), True)
 
 
+def _ll_je_rennen(p, rennen, won) -> dict:
+    """−log Siegchance des Siegers je Rennen (nur Rennen mit genau einem Sieger): {race_id: Log-Loss}."""
+    d = pd.DataFrame({"r": np.asarray(rennen).astype(str), "p": np.asarray(p, dtype=float),
+                      "w": np.nan_to_num(np.asarray(won, dtype=float))})
+    d = d[d.groupby("r")["w"].transform("sum") == 1]
+    s = d[d["w"] == 1].set_index("r")["p"]
+    return {k: round(float(-np.log(max(v, 1e-12))), 6) for k, v in s.items()}
+
+
+def vergleich(a: dict, b: dict, namen=("A", "B"), log=print) -> pd.DataFrame:
+    """Gepaarter Vergleich zweier Trainingsläufe (Berichte von pm.trainieren, auch mit speichern=False) auf denselben
+    Testrennen: je Rennen Log-Loss A − B, Ø, Standardfehler und z (< 0 = A besser). Weil beide Läufe dieselben Rennen
+    sehen, fällt die Schwierigkeit des Rennens heraus – Unterschiede um 0,002 werden sichtbar."""
+    zeilen = []
+    for teil in ("power", "mischung"):
+        ra, rb = (a.get("je_rennen") or {}).get(teil), (b.get("je_rennen") or {}).get(teil)
+        if not ra or not rb:
+            continue
+        gem = sorted(set(ra) & set(rb))
+        d = np.array([ra[k] - rb[k] for k in gem])
+        se = float(d.std(ddof=1) / np.sqrt(len(d))) if len(d) > 1 else np.nan
+        zeilen.append({"siegchance": teil, "rennen": len(d), f"logloss_{namen[0]}": round(float(np.mean([ra[k] for k in gem])), 4),
+                       f"logloss_{namen[1]}": round(float(np.mean([rb[k] for k in gem])), 4),
+                       "differenz": round(float(d.mean()), 4), "se": round(se, 4),
+                       "z": round(float(d.mean() / se), 2) if se and se > 0 else None,
+                       f"anteil_{namen[0]}_besser": round(float((d < 0).mean()), 3)})
+    out = pd.DataFrame(zeilen)
+    log(f"Gepaarter Vergleich {namen[0]} − {namen[1]} (Log-Loss je Testrennen; < 0 und z ≤ −2: {namen[0]} klar besser):")
+    log(out.to_string(index=False) if len(out) else "  keine gemeinsamen Testrennen (Berichte ohne je_rennen?)")
+    return out
+
+
 def _lgb_daten(lgb, Xk, y, rennen, art, ref=None, init=None):
     """LightGBM-Datensatz; für „rang“/„vorn“ nach Rennen gruppiert (Zeilen eines Rennens hintereinander) mit
-    Stufen-Ziel. init: Ausgangswert je Zeile (Segment-Modelle lernen nur die Korrektur dazu)."""
+    Stufen-Ziel, für „sieg“ mit Ziel Sieg 0/1. init: Ausgangswert je Zeile (Segment-Modelle lernen nur die Korrektur)."""
+    if art == "sieg":
+        return lgb.Dataset(Xk, (y.to_numpy() >= 1 - 1e-9).astype(float), reference=ref, init_score=init,
+                           categorical_feature=KATEGORISCH, free_raw_data=False)
     if art in ("rang", "vorn"):
         stufe = np.rint(y.to_numpy() * RANG_STUFEN).astype(int) if art == "rang" else vorn_stufe(y.to_numpy())
         return lgb.Dataset(Xk, stufe, reference=ref, init_score=init,
@@ -1493,7 +1528,26 @@ def segment_tabelle(df: pd.DataFrame, segment: np.ndarray, spalten: list[str]) -
     return pd.DataFrame(zeilen)
 
 
-def _lgb_params(art, params):
+def sieg_ziel(rennen):
+    """Eigenes Lern-Ziel „sieg“ (Benter): Siegchance = Softmax der Vorhersage je Rennen, Verlust = −log Siegchance des
+    Siegers. Gradient p − Sieg, Hesse p(1 − p); Rennen ohne genau einen Sieger zählen nicht. rennen: race_id je Zeile in
+    der Reihenfolge des Datensatzes."""
+    G = pd.factorize(np.asarray(rennen))[0]
+
+    def ziel_(pred, data):
+        won = data.get_label()
+        ok = (np.bincount(G, won) == 1)[G]
+        mx = np.full(G.max() + 1, -np.inf)
+        np.maximum.at(mx, G, pred)
+        e = np.exp(pred - mx[G])
+        p = e / np.bincount(G, e)[G]
+        return np.where(ok, p - won, 0.0), np.where(ok, np.maximum(p * (1 - p), 1e-6), 1e-6)
+    return ziel_
+
+
+def _lgb_params(art, params, rennen=None):
+    if art == "sieg":                      # eigenes Ziel; Abbruch über den Log-Loss der Siegchance (feval)
+        return {**LGB_PARAMS, "objective": sieg_ziel(rennen), "metric": "None", **(params or {})}
     if art in ("rang", "vorn"):
         return {**LGB_PARAMS, "objective": "lambdarank", "metric": "ndcg", "eval_at": [3],
                 "label_gain": RANG_GAIN if art == "rang" else VORN_GAIN, **(params or {})}
@@ -1573,7 +1627,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
                X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
                ab: str | None = None, neu: bool = False, art: str = "alle", aufwaermen: int | None = None,
                segmente: str | None = None, morgenquote: bool = False, speichern: bool = True,
-               abbruch: str = "standard", tracking: bool = True, log=print) -> dict:
+               abbruch: str = "standard", tracking: bool = False, log=print) -> dict:
     """Einmal trainieren: Merkmale über die ganze Historie; das erste Jahr (AUFWAERM_TAGE) dient nur als Vorgeschichte,
     die übrigen Renntage zeitlich 60/20/20 (ANTEILE): lernen, validieren (Abbruch, Wahl Regression/Rang, Siegchance-a),
     testen (nur Bericht, gegen den Marktfavoriten und das Rating). Danach auf allen Tagen nach dem Aufwärmen neu lernen
@@ -1596,7 +1650,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
          Fehler, Rang/Vorn: NDCG@3 von LightGBM), "sieg" (Log-Loss der Siegchance, dasselbe Maß wie die Modellwahl)
          oder "ndcg" (NDCG@3 mit den Gewinnen von „vorn“: nur die Spitze zählt, auch für die Regression).
     tracking: zusätzlich der Tracking-Wert (tracking_wert: Teilmodell nur aus den Tracking-Merkmalen, je Quartal aus den
-         früheren gelernt) als Merkmal trk_wert; False = ohne (zum Vergleich)."""
+         früheren gelernt) als Merkmal trk_wert. Vorgabe False: im Vergleich (Okt. 2026) kein messbarer Gewinn."""
     import lightgbm as lgb
     if abbruch not in ABBRUCH:
         raise ValueError(f"abbruch: eins von {ABBRUCH}")
@@ -1641,6 +1695,10 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     arten = list(ARTEN) if art == "alle" else ["regression", "rang"] if art == "beide" else [art]
     if any(a_ not in ARTEN for a_ in arten):
         raise ValueError(f"art: eins von {ARTEN}, 'beide' oder 'alle'")
+    if segmente and "sieg" in arten:                     # Segment-Modelle brauchen ein Standard-Ziel
+        if art == "sieg":
+            raise ValueError("segmente: nicht mit art 'sieg'")
+        arten = [a_ for a_ in arten if a_ != "sieg"]
     bericht: dict = {}
     validierung: dict = {}
     modelle = {}
@@ -1649,12 +1707,15 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
         feval = _abbruch_feval(abbruch, rennen[valid], hist.loc[X.index[valid], "won"], y[valid])
         log(f"Abbruch nach {'Log-Loss der Siegchance' if abbruch == 'sieg' else 'NDCG@3 (Spitze)'} auf der Validierung")
     for a_ in arten:
-        p = _lgb_params(a_, params)
-        if feval is not None:
+        p = _lgb_params(a_, params, rennen[lern])
+        fe_ = feval
+        if a_ == "sieg" and fe_ is None:                 # eigenes Ziel: Abbruch nach dem Log-Loss der Siegchance
+            fe_ = _abbruch_feval("sieg", rennen[valid], hist.loc[X.index[valid], "won"], y[valid])
+        if fe_ is not None:
             p = {**p, "metric": "None"}
         d_lern = _lgb_daten(lgb, Xk[lern], y[lern], rennen[lern], a_)
         d_val = _lgb_daten(lgb, Xk[valid], y[valid], rennen[valid], a_, ref=d_lern)
-        m = lgb.train(p, d_lern, num_boost_round=runden, valid_sets=[d_val], feval=feval,
+        m = lgb.train(p, d_lern, num_boost_round=runden, valid_sets=[d_val], feval=fe_,
                       callbacks=[lgb.early_stopping(100, first_metric_only=True, verbose=False)])
         best = int(m.best_iteration or runden)
         pv[a_] = m.predict(Xk[valid], num_iteration=best)
@@ -1745,6 +1806,15 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
             validierung["mischung (Morgenquote × Power)"] = mischung
             bericht["mischung (Morgenquote × Power)"] = {"morgen": mischung["morgen"], "power": mischung["power"],
                                                         **mischung_logloss(dt_, mischung["morgen"], mischung["power"])}
+    # Log-Loss des Siegers je Testrennen (für den gepaarten Vergleich zweier Läufe, pm.vergleich)
+    w_test = hist.loc[X.index[test], "won"].to_numpy()
+    p_pw = _softmax_im_rennen(mv.get("a", 1.0) * _z_im_rennen(pt[spalte_p].to_numpy(), pt["race_id"].to_numpy()),
+                              pt["race_id"].to_numpy())
+    je_rennen = {"power": _ll_je_rennen(p_pw, pt["race_id"].to_numpy(), w_test)}
+    if mischung:
+        je_rennen["mischung"] = _ll_je_rennen(mischung_chance(dt_["pm"], dt_["pb"], dt_["r"], mischung["morgen"],
+                                                              mischung["power"]), dt_["r"].to_numpy(), dt_["w"].to_numpy())
+    bericht["je_rennen"] = je_rennen
     # Rote Starter (Power ≤ 95): wie oft gewinnen / platzieren sie sich? (fürs Weglassen in der Claude-JSON)
     pw_test = 100 + 10 * _z_im_rennen(pt[spalte_p].to_numpy(), pt["race_id"].to_numpy())
     rot = pw_test <= ROT_AB
@@ -1760,7 +1830,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
         log(f"  {k}: {v}")
     log("Test (unberührt, je Rennen):")
     for k, v in bericht.items():
-        if k not in ("validierung", "aufteilung", "segmente", "je_rennart"):
+        if k not in ("validierung", "aufteilung", "segmente", "je_rennart", "je_rennen"):
             log(f"  {k}: {v}")
     for sp, zeilen in je_art.items():
         log(f"  Test je {'Renntyp' if sp == 'racetype' else 'Altersgruppe'} (Modell gegen Endquote):")
@@ -1774,6 +1844,8 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
         log("Nicht gespeichert.")
         return bericht
     # endgültig: alle Tage nach dem Aufwärmen, gleiche Baumzahl
+    if sieger == "sieg":                                 # eigenes Ziel: Rennen jetzt über alle Zeilen
+        p = {**p, "objective": sieg_ziel(rennen)}
     final = lgb.train(p, _lgb_daten(lgb, Xk, y, rennen, sieger), num_boost_round=best)
     ordner.mkdir(parents=True, exist_ok=True)
     final.save_model(str(ordner / m_datei))
@@ -1792,7 +1864,8 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
             sm.save_model(str(ordner / datei))
             seg_meta["modelle"][s_] = datei
         log(f"Segment-Modelle gespeichert ({segmente}): {', '.join(seg_meta['modelle'])}")
-    meta = {"spalten": list(Xk.columns), "stufen": stufen, "art": sieger, "bericht": bericht, "segmente": seg_meta,
+    meta = {"spalten": list(Xk.columns), "stufen": stufen, "art": sieger, "segmente": seg_meta,
+            "bericht": {k: v for k, v in bericht.items() if k != "je_rennen"},
             "morgenquote": bool(morgenquote), "tracking": _tracking_speichern(trk, ordner, m_datei),
             "mischung": {"morgen": mischung["morgen"], "power": mischung["power"]} if mischung else None,
             "sieg_a": mv.get("a", 1.0),
@@ -1906,7 +1979,7 @@ def morgen_merkmale(zeilen: pd.DataFrame) -> pd.DataFrame:
 def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
                     X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
                     ab: str | None = None, neu: bool = False, ziel_art: str = "platz", aufwaermen: int | None = None,
-                    segmente: str | None = None, morgenquote: bool = True, tracking: bool = True, log=print) -> dict:
+                    segmente: str | None = None, morgenquote: bool = True, tracking: bool = False, log=print) -> dict:
     """Value-Modell: lernt, wann ein Pferd öfter platziert ist, als seine Endquote erwarten lässt.
     ziel_art="platz": Ziel platziert 0/1 gegen die Platzchance des Marktes (binär, Faktor ≈ A/E Platz).
     ziel_art="kombi": Ziel Sieg + Platz (Sieger = 2, Platzierter = 1, sonst 0) gegen Siegchance + Platzchance des

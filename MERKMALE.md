@@ -226,14 +226,25 @@ Trend und Klasse:
   frühere Quartale und Starter ohne Tracking bleiben leer. Für die Karte wird das Teilmodell aus allen Zeilen
   gespeichert (`modelle/power_modell_tracking.txt`, für das Value-Modell `power_wert_tracking.txt`).
 - Idee: Das Hauptmodell muss Tracking-Signale nicht aus vielen dünn besetzten Spalten zusammensuchen, sondern bekommt
-  eine verdichtete Einschätzung; alle übrigen Merkmale (und Wechselwirkungen) bleiben. Vergleich mit
-  `pm.trainieren(…, tracking=False, speichern=False)`.
+  eine verdichtete Einschätzung; alle übrigen Merkmale (und Wechselwirkungen) bleiben.
+- **Vorgabe aus** (`tracking=False`): Im Vergleich (Okt. 2026) war es auf der Validierung etwas schlechter
+  (Mischung 2,0854 statt 2,0827), im Test etwas besser (1,9951 statt 1,9964) – beides im Rauschen. Einschalten
+  mit `pm.trainieren(…, tracking=True)`; mit mehr Tracking-Historie erneut prüfen.
 
 ## Training: Abbruch
 
 - `pm.trainieren(…, abbruch=…)`: wonach das Lernen auf der Validierung abbricht – `"standard"` (Regression:
   quadratischer Fehler), `"sieg"` (Log-Loss der Siegchance, dasselbe Maß wie die Modellwahl) oder `"ndcg"` (NDCG@3,
   nur die Spitze zählt). Mit `speichern=False` vergleichen, das Bessere speichern.
+
+## Training: Lern-Ziel „sieg“ und gepaarter Vergleich
+
+- `pm.trainieren(…, art="sieg")`: LightGBM mit eigenem Ziel – Siegchance = Softmax der Vorhersage je Rennen, Verlust =
+  −log Siegchance des Siegers (Benter); Abbruch nach dem Log-Loss der Siegchance. Lernt nur aus den Siegern (weniger
+  Information als der Platzanteil, dafür genau das Maß der fairen Quote). `art="alle"` prüft es mit.
+- `pm.vergleich(bericht_a, bericht_b, ("A", "B"))`: Log-Loss je Testrennen beider Läufe gepaart (Differenz, Standardfehler,
+  z; < 0 = A besser), für Power allein und die Mischung. Die Berichte von `pm.trainieren` enthalten dafür `je_rennen`
+  (nicht in der Meta-Datei gespeichert).
 
 ## Faire Quote (Karte und Value-Dashboard)
 
