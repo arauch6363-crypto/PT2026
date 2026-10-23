@@ -1104,10 +1104,12 @@ def power_modell_pruefen() -> None:
     pruefe(set(oos_["teil"]) == {"valid", "test"} and oos_["p_fair"].between(0, 1).all() and not gespeichert_
            and "kappa" in fm_ and "gepaart_test" in fm_ and kap_v is not None
            and abs(sum(x_["sieg"] for x_ in v_v.values()) - 1) < 0.01
-           and any(abs(v_v[k_]["sieg"] - v_0[k_]["sieg"]) > 1e-3 for k_ in v_v),
+           and any(abs(v_v[k_]["sieg"] - v_0[k_]["sieg"]) > 1e-3 for k_ in v_v)
+           and all(abs((1 + v_v[k_]["value_pct"] / 100) * v_0[k_]["sieg"] - v_v[k_]["sieg"]) < 2e-3 for k_ in v_v)
+           and all(x_["value_pct"] is None for x_ in v_0.values()),
            f"Value in der fairen Quote: p_fair · exp(κ · Value), κ {fm_.get('kappa')} auf der Validierung, χ² "
            f"{fm_.get('lr_chi2')}, gepaarter Test; übernommen ändert es die faire Siegchance auf der Karte; "
-           "trainieren_wert(speichern=False) speichert nichts")
+           "„davon Value“ = Änderung der Siegchance in %; trainieren_wert(speichern=False) speichert nichts")
     # Segment-Modelle je Renntyp (Schwellen für die kleine Historie gesenkt, damit sie behalten werden)
     alt = (pm.SEG_MIN_STARTER, pm.SEG_MIN_GEWINN, pm.SEG_MIN_VERLUST, pm.SEG_PARAMS)
     pm.SEG_MIN_STARTER, pm.SEG_MIN_GEWINN, pm.SEG_MIN_VERLUST = 50, -1.0, -1.0

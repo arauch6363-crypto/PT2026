@@ -241,7 +241,8 @@ Trend und Klasse:
   (`modelle/power_oos.parquet`, außerhalb der Lerndaten); `pm.trainieren_wert` prüft p ∝ p_fair × exp(κ × Value)
   (Value = Abweichung des Value-Modells vom Markt, roh), κ auf der Validierung, Likelihood-Quotienten-Test und gepaarter
   Test (Bericht `value_in_fairer_quote`). Übernommen fließt der Value in die faire Quote ein – die Zahl dazu ist der
-  Edge (angebotene gegen faire Quote). Reihenfolge: erst `trainieren`, dann `trainieren_wert`.
+  Edge (angebotene gegen faire Quote); der Tooltip der fairen Quote nennt „davon Value: ±x %“ (ersetzt den goldenen
+  Rahmen). Reihenfolge: erst `trainieren`, dann `trainieren_wert`.
 
 ## Kommentare (PMU, seit Ende August 2026)
 

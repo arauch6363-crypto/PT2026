@@ -2628,7 +2628,7 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
             df.loc[voll, "sieg"], df.loc[voll, "quelle"] = sm, "morgen"
         if not voll.all():
             log(f"  Siegchance: {int((~voll).sum())} Starter ohne vollständige Morgenquote im Rennen – Power allein")
-    df["wert"], df["gold"], df["warn"] = np.nan, False, False
+    df["wert"], df["gold"], df["warn"], df["value_pct"] = np.nan, False, False, np.nan
     if modell.get("wert"):                      # Value-Faktor ≈ erwartete A/E Platz gegen den Markt (exp der Abweichung)
         wm = modell["wert"]["meta"]
         Xw_ = (tracking_anwenden(X0, alle.loc[X0.index, "race_id"], modell["wert"]["tracking"])
@@ -2645,8 +2645,10 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
         kap = wm.get("fair_kappa")
         mm_ = (df["quelle"] == "mischung").to_numpy()
         if kap and mm_.any():                            # Value in der fairen Quote: p ∝ p_fair · exp(κ · Value)
+            vor_ = df.loc[mm_, "sieg"].to_numpy(float).copy()
             df.loc[mm_, "sieg"] = _softmax_im_rennen(np.log(np.clip(df.loc[mm_, "sieg"].to_numpy(float), 1e-9, 1))
                                                      + kap * np.asarray(fw)[mm_], df.loc[mm_, "race_id"].to_numpy())
+            df.loc[mm_, "value_pct"] = 100 * (df.loc[mm_, "sieg"].to_numpy(float) / np.maximum(vor_, 1e-9) - 1)
         df["gold"] = fw >= wm["gold_ab"] if "gold_ab" in wm else df["wert"] >= 1.2
         # Warnsignal: unterstes Fünftel (Grenze aus der Validierung, ältere Modelle: geeichter Faktor ≤ WARN_FAKTOR)
         df["warn"] = fw <= wm["warn_ab"] if "warn_ab" in wm else df["wert"] <= WARN_FAKTOR
@@ -2664,6 +2666,7 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
                                        "sieg_blind": round(float(z["sieg_blind"]), 3), "sieg_quelle": z["quelle"],
                                        "wert": round(float(z["wert"]), 2) if pd.notna(z["wert"]) else None,
                                        "gold": bool(z["gold"]), "warn": bool(z["warn"]),
+                                       "value_pct": round(float(z["value_pct"]), 1) if pd.notna(z["value_pct"]) else None,
                                        "treiber": [[n_, round(v_, 1)] for n_, v_ in top], "treiber_einheit": einheit}
     return out
 
