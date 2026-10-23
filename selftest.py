@@ -770,9 +770,14 @@ def power_modell_pruefen() -> None:
            and len(vg_) >= 1 and vg_["rennen"].iloc[0] > 0 and np.isfinite(vg_["differenz"].iloc[0]),
            "Lern-Ziel „sieg“: Gradient = numerische Ableitung von −log Siegchance (Rennen ohne Sieger zählen nicht), "
            "Training/Speichern/Karte; Log-Loss je Testrennen und gepaarter Vergleich zweier Läufe (pm.vergleich)")
-    # Dreier-Mischung Morgenquote × Power × Power-sieg: übernommen nur nach Likelihood-Quotienten-Test
-    alt_lr = pm.MISCH3_LR
-    m3_ = {}
+    # Power-Mischung ohne Markt (Power × Power-sieg) bzw. Dreier-Mischung: übernommen nur nach Likelihood-Quotienten-Test
+    alt_lr, alt_tr = pm.MISCH3_LR, pm.treiber_relativ
+    m3_, cap_ = {}, {}
+
+    def tr_(*a_, **k_):
+        cap_["G"] = alt_tr(*a_, **k_)
+        return cap_["G"]
+    pm.treiber_relativ = tr_
     for lr_ in (-1e9, 1e9):                                   # erzwungen übernommen / erzwungen verworfen
         pm.MISCH3_LR = lr_
         with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
@@ -780,18 +785,28 @@ def power_modell_pruefen() -> None:
             mod3_ = pm.laden(Path(tmp))
             v3_ = pm.vorhersage(h, heute.assign(race_id="20260603R1C1", date=pd.Timestamp("2026-06-03")), mod3_,
                                 log=print)
-            m3_[lr_ > 0] = (e3_, mod3_, v3_, (Path(tmp) / pm.MODELL_ORDNER / pm.ZWEIT_DATEI).exists())
-    pm.MISCH3_LR = alt_lr
-    (e_j, mod_j, v_j, d_j), (e_n, mod_n, v_n, d_n) = m3_[False], m3_[True]
-    b3_ = e_j["mischung3 (Morgenquote × Power × Power-sieg)"]
-    pruefe(b3_["uebernommen"] and set(mod_j["meta"]["mischung"]) == {"morgen", "power", "sieg"} and d_j
-           and mod_j.get("zweit") is not None and abs(sum(x["sieg"] for x in v_j.values()) - 1) < 0.01
-           and not e_n["mischung3 (Morgenquote × Power × Power-sieg)"]["uebernommen"] and not d_n
-           and "sieg" not in mod_n["meta"]["mischung"] and "gepaart_test" in b3_ and "mischung3" in e_j["je_rennen"]
+            m3_[lr_ > 0] = (e3_, mod3_, v3_, (Path(tmp) / pm.MODELL_ORDNER / pm.ZWEIT_DATEI).exists(),
+                            cap_["G"].sum(axis=1).to_numpy())
+    pm.MISCH3_LR, pm.treiber_relativ = alt_lr, alt_tr
+    (e_j, mod_j, v_j, d_j, g_j), (e_n, mod_n, v_n, d_n, g_n) = m3_[False], m3_[True]
+    pm_j = e_j["power_mix (Power × Power-sieg, ohne Markt)"]
+    p_j = np.array([x_["p"] for x_ in v_j.values()])
+    pruefe(pm_j["uebernommen"] and set(mod_j["meta"]["power_mix"]) == {"power", "sieg"} and d_j
+           and set(mod_j["meta"]["mischung"]) == {"morgen", "power"} and "gepaart_test" in pm_j
+           and "gepaart_test_gegen_bisher" in e_j["mischung (Morgenquote × Power-Mischung)"]
+           and {"power", "power_reg", "mischung", "mischung_alt"} <= set(e_j["je_rennen"])
+           and all(x_["treiber_einheit"] == "power" for x_ in v_j.values()) and np.allclose(g_j, p_j - 100, atol=0.51)
+           and abs(sum(x_["sieg_blind"] for x_ in v_j.values()) - 1) < 0.01 and abs(p_j.mean() - 100) < 1,
+           f"Power-Mischung ohne Markt Power^{pm_j['power']} × Power-sieg^{pm_j['sieg']}: nach Likelihood-Quotienten-Test "
+           "übernommen – Power, Siegchance ohne Markt und Grundlage der fairen Quote; Treiber in Power-Punkten "
+           "(Summe = Power − 100); gepaarte Tests gegen bisher im Bericht")
+    b3_ = e_n.get("mischung3 (Morgenquote × Power × Power-sieg)") or {}
+    pruefe(not e_n["power_mix (Power × Power-sieg, ohne Markt)"]["uebernommen"] and mod_n["meta"]["power_mix"] is None
+           and b3_ and not b3_["uebernommen"] and not d_n and "sieg" not in mod_n["meta"]["mischung"]
+           and all(x_["treiber_einheit"] == "pos" for x_ in v_n.values())
            and pm.mischung_chance([.5, .5], [.4, .6], ["a", "a"], 1.0, 0.0, [.9, .1], 0.0).tolist() == [.5, .5],
-           f"Dreier-Mischung Morgenquote^{b3_['morgen']} × Power^{b3_['power']} × Power-sieg^{b3_['sieg']}: nur nach "
-           f"Likelihood-Quotienten-Test (χ² {b3_['lr_chi2']}) übernommen, dann zweites Modell gespeichert und auf der "
-           "Karte gemischt; sonst Zweier-Mischung wie bisher; gepaarter Test im Bericht")
+           "Ohne Übernahme: Power = Regression wie bisher (Treiber in Prozentpunkten), Dreier-Mischung nur geprüft, "
+           "kein zweites Modell gespeichert")
     # Value-Modell: Trainer-Effekt steckt nicht in der Quote -> oberes Fünftel A/E Platz > 1, unteres < 1
     import racecard as rc_
     hw = _power_synth(tage=80)
