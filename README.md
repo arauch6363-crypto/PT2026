@@ -238,7 +238,7 @@ Zählung neu, 0 = keine solche Pause in der bekannten Historie, leer bei Debüta
 - **Tracking-Wert:** ein Teilmodell nur aus den Tracking-Merkmalen sagt den Platzanteil voraus (je Quartal aus den
   früheren Quartalen gelernt, ohne Blick in die Zukunft) und geht als `trk_wert` (dazu Rang/Abstand im Feld) ins
   Power- und Value-Modell; gespeichert als `modelle/power_modell_tracking.txt` bzw. `power_wert_tracking.txt`.
-  Vergleich: `pm.trainieren(BASE, art="regression", tracking=False, speichern=False)`.
+  Vorgabe aus (`tracking=False`): im Vergleich kein messbarer Gewinn; einschalten mit `tracking=True`.
 - **Abbruch wählbar:** `pm.trainieren(BASE, art="regression", abbruch="sieg")` bricht nach dem Log-Loss der Siegchance
   ab, `abbruch="ndcg"` nach NDCG@3 der Spitze. Vorgabe ist `"standard"` (quadratischer Fehler).
 

@@ -734,9 +734,8 @@ def power_modell_pruefen() -> None:
            "Rennrahmen; erster Block und Starter ohne Tracking leer; Rang/Abstand im Feld")
     with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
         o_t = Path(tmp) / pm.MODELL_ORDNER
-        e_t = pm.trainieren(hist=h, X=X, out=o_t, runden=40, art="regression", log=print)
-        e_0 = pm.trainieren(hist=h, X=X, out=o_t, runden=40, art="regression", tracking=False, speichern=False,
-                            log=print)
+        e_t = pm.trainieren(hist=h, X=X, out=o_t, runden=40, art="regression", tracking=True, log=print)
+        e_0 = pm.trainieren(hist=h, X=X, out=o_t, runden=40, art="regression", speichern=False, log=print)
         mod_t = pm.laden(Path(tmp))
         heute_t = h[h["race_id"] == h["race_id"].iloc[-1]].drop(columns=["finish_pos", "rel_place", "won", "placed",
                                                                            "prize_won", "arr", "tr", "odds_final"])
@@ -747,7 +746,7 @@ def power_modell_pruefen() -> None:
     pruefe(e_t["tracking"] and not e_0["tracking"] and datei_t and mod_t["tracking"] is not None
            and "trk_wert" in mod_t["meta"]["spalten"] and len(v_t) == len(heute_t),
            "Tracking-Wert im Hauptmodell: Teilmodell gespeichert (power_modell_tracking.txt), geladen und auf der Karte "
-           "angewandt; tracking=False zum Vergleich ohne")
+           "angewandt; Vorgabe ohne (tracking=False)")
     # Value-Modell: Trainer-Effekt steckt nicht in der Quote -> oberes Fünftel A/E Platz > 1, unteres < 1
     import racecard as rc_
     hw = _power_synth(tage=80)

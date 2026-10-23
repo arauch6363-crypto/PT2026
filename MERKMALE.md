@@ -226,8 +226,10 @@ Trend und Klasse:
   frühere Quartale und Starter ohne Tracking bleiben leer. Für die Karte wird das Teilmodell aus allen Zeilen
   gespeichert (`modelle/power_modell_tracking.txt`, für das Value-Modell `power_wert_tracking.txt`).
 - Idee: Das Hauptmodell muss Tracking-Signale nicht aus vielen dünn besetzten Spalten zusammensuchen, sondern bekommt
-  eine verdichtete Einschätzung; alle übrigen Merkmale (und Wechselwirkungen) bleiben. Vergleich mit
-  `pm.trainieren(…, tracking=False, speichern=False)`.
+  eine verdichtete Einschätzung; alle übrigen Merkmale (und Wechselwirkungen) bleiben.
+- **Vorgabe aus** (`tracking=False`): Im Vergleich (Okt. 2026) war es auf der Validierung etwas schlechter
+  (Mischung 2,0854 statt 2,0827), im Test etwas besser (1,9951 statt 1,9964) – beides im Rauschen. Einschalten
+  mit `pm.trainieren(…, tracking=True)`; mit mehr Tracking-Historie erneut prüfen.
 
 ## Training: Abbruch
 

@@ -1573,7 +1573,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
                X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
                ab: str | None = None, neu: bool = False, art: str = "alle", aufwaermen: int | None = None,
                segmente: str | None = None, morgenquote: bool = False, speichern: bool = True,
-               abbruch: str = "standard", tracking: bool = True, log=print) -> dict:
+               abbruch: str = "standard", tracking: bool = False, log=print) -> dict:
     """Einmal trainieren: Merkmale über die ganze Historie; das erste Jahr (AUFWAERM_TAGE) dient nur als Vorgeschichte,
     die übrigen Renntage zeitlich 60/20/20 (ANTEILE): lernen, validieren (Abbruch, Wahl Regression/Rang, Siegchance-a),
     testen (nur Bericht, gegen den Marktfavoriten und das Rating). Danach auf allen Tagen nach dem Aufwärmen neu lernen
@@ -1596,7 +1596,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
          Fehler, Rang/Vorn: NDCG@3 von LightGBM), "sieg" (Log-Loss der Siegchance, dasselbe Maß wie die Modellwahl)
          oder "ndcg" (NDCG@3 mit den Gewinnen von „vorn“: nur die Spitze zählt, auch für die Regression).
     tracking: zusätzlich der Tracking-Wert (tracking_wert: Teilmodell nur aus den Tracking-Merkmalen, je Quartal aus den
-         früheren gelernt) als Merkmal trk_wert; False = ohne (zum Vergleich)."""
+         früheren gelernt) als Merkmal trk_wert. Vorgabe False: im Vergleich (Okt. 2026) kein messbarer Gewinn."""
     import lightgbm as lgb
     if abbruch not in ABBRUCH:
         raise ValueError(f"abbruch: eins von {ABBRUCH}")
@@ -1906,7 +1906,7 @@ def morgen_merkmale(zeilen: pd.DataFrame) -> pd.DataFrame:
 def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
                     X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
                     ab: str | None = None, neu: bool = False, ziel_art: str = "platz", aufwaermen: int | None = None,
-                    segmente: str | None = None, morgenquote: bool = True, tracking: bool = True, log=print) -> dict:
+                    segmente: str | None = None, morgenquote: bool = True, tracking: bool = False, log=print) -> dict:
     """Value-Modell: lernt, wann ein Pferd öfter platziert ist, als seine Endquote erwarten lässt.
     ziel_art="platz": Ziel platziert 0/1 gegen die Platzchance des Marktes (binär, Faktor ≈ A/E Platz).
     ziel_art="kombi": Ziel Sieg + Platz (Sieger = 2, Platzierter = 1, sonst 0) gegen Siegchance + Platzchance des
