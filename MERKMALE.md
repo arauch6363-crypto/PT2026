@@ -1,4 +1,4 @@
-# Merkmale des Power- und Value-Modells (Version 18)
+# Merkmale des Power- und Value-Modells (Version 19)
 
 Übersicht aller Eingangsgrößen von `power_modell.merkmale` mit kurzer Definition und Berechnung. Die Angaben sind
 bewusst knapp gehalten; maßgeblich ist der Code.
@@ -13,10 +13,13 @@ bewusst knapp gehalten; maßgeblich ist der Code.
   × 100; zur 100 hin geschrumpft (Verbindungen wie mit 10, Abstammung wie mit 20 Läufen bei 100).
 - **Gewichtsbereinigung:** ARR, TR, RTR und Ratings werden auf das heutige Gewicht umgerechnet
   (Wert − Gewicht + 55 kg; TR in Pfund je kg).
+- **Gewicht = getragenes Gewicht** (ab Version 19): PMU `poidsConditionMonte` (mit Erlaubnis des Reiters), sonst
+  `handicapPoids`. Das gilt für die Historie (über die p_-Spalten aus pmu_basis), die heutige Karte und die Berechnung
+  von ARR/RTR. Vorher stand in `weight_kg` das zugeteilte Gewicht.
 - **Externe Läufe** (PMH, Ausland, Übersee aus den PMU-Detail-Leistungen) zählen für Form, Tage und Läufe; nicht für
   Verbindungen, A/E und Lernziele. Externe Läufe auf PMU-Bahnen gelten als normale PMU-Läufe.
 - **Feld-relativ:** Für die Merkmale der Liste `RELATIV` gibt es zusätzlich `…_rk` (Rang im heutigen Feld, 0 = schlechtester,
-  1 = bester) und `…_dz` (Abstand zum Ø des heutigen Feldes in Standardabweichungen). Diese Varianten sind meist die
+  1 = bester) und `…_dz` (Abstand zum Ø des heutigen Feldes). Diese Varianten sind meist die
   wichtigsten Merkmale.
 - **Leere Werte** bleiben leer (z. B. Debütanten ohne Form); LightGBM behandelt sie selbst.
 
@@ -35,19 +38,28 @@ bewusst knapp gehalten; maßgeblich ist der Code.
 - `box_mean` / `box_runs` – Ø Pos+ und Zahl früherer Starts aus dieser Box auf derselben Bahnkonfiguration
   (Kurs + Distanz + Bahnart).
 - `box_dev` – dieselbe Box, zur Feldmitte hin geschrumpft: (Σ Pos+ + 30 × 0,5) ÷ (n + 30) − 0,5.
+- `box_stil_dev` / `box_stil_runs` – Box × Laufstil: Ø Pos+ je Bahnkonfiguration, Boxdrittel (innen/Mitte/außen) und
+  Stil (vorne ≤ 0,25 / Mitte / hinten ≥ 0,6 frühe Position), geschrumpft wie `box_dev`. Im Stand zählt der
+  tatsächliche frühe Platz des damaligen Laufs, heute der erwartete Stil (`early`). Nur mit Tracking.
 
 ## Pferd: Stammdaten, Gewicht, Rating
 
 - `age`, `sex` – Alter; Geschlecht (H, F, M), kategorisch.
-- `weight` – heutiges Gewicht in kg.
+- `weight` – heutiges (getragenes) Gewicht in kg.
+- `gew_erlaubnis` – Gewichtserlaubnis: zugeteiltes minus getragenes Gewicht (Nachwuchsreiter, Reiterinnen; 0 = keine;
+  leer, wenn das zugeteilte Gewicht unbekannt ist).
 - `rating` – Valeur (offizielles Rating); `rating_adj` – Rating gewichtsbereinigt.
 - `chg_rating` – Rating heute minus beim letzten Lauf.
 - `hcp_sieg_diff` / `hcp_platz_diff` – Rating heute minus Rating beim letzten Sieg bzw. letzten Platz im Handicap
   (< 0: heute leichter eingestuft als zuletzt erfolgreich).
+- `hcp_spielraum` – Handicap-Spielraum: Rating heute minus bester ARR der letzten 365 Tage (beide auf der
+  Valeur-Skala, ungewichtet; < 0: lief schon besser, als das Rating heute verlangt).
 - `blink` – Scheuklappen heute (0 ohne, 1 klassisch, 2 australisch). `blink_first` – heute erstmals mit.
   `blink_change` – anders als beim letzten Lauf.
 - `erst_wallach` – heute erstmals als Wallach (beim letzten Lauf Hengst).
 - `feld_aelter` / `feld_erfahrener` – Anteil der heutigen Gegner, die älter sind bzw. mehr Starts haben.
+- `feld_anteil_maennlich` – Anteil der Gegner, die Hengst oder Wallach sind.
+- `stute_gegen_hengste` – 1 = Stute in einem Rennen mit mindestens einem Hengst/Wallach, sonst 0.
 
 ## Erfahrung, Pausen, Frische
 
@@ -101,6 +113,11 @@ Trend und Klasse:
 - `f_cgd_sieg` / `_platz` / `_neu` – Kurs/Boden/Distanz-Bilanz vor diesem Lauf.
 - `f_abst_pass` – Abstammungs-Passung zu diesem Rennen.
 - `f_extern` – externer Lauf (PMH/Ausland/Übersee). `f1_ausland` – letzter Lauf im Ausland/Übersee.
+- `f_stride_rel` – Tracking: Schrittlänge in der Rennmitte (Abschnitte bis 400 m vor dem Ziel, ohne Startabschnitt)
+  minus Ø des damaligen Feldes.
+- `f_stride_change` – Tracking: Schrittlänge der letzten 400 m gegen die Rennmitte in % (< 0: Schritt wird im Finish
+  kürzer – Ermüdung).
+- `f1_vmax_rel` – Tracking: Höchsttempo im letzten Lauf minus Ø des damaligen Feldes (km/h).
 - `f_typ` – Renntyp dieses Laufs, kategorisch.
 
 ## Leistungskennzahlen (Kacheln)
@@ -110,6 +127,8 @@ Trend und Klasse:
 - `rtr` – RTR (Rating nach dem Rennen) des letzten Laufs mit Wert, gewichtsbereinigt.
 - `arr_best365` – bester ARR der letzten 365 Tage; `arr_best_dist` – bester ARR auf heutiger Distanzgruppe;
   `arr_best_abst` – letzter ARR minus Bestwert (< 0: zuletzt unter Bestform).
+- `arr_neue_best` – ARR des letzten Laufs minus bester ARR aller Läufe davor (> 0: zuletzt neue Bestleistung –
+  prüft die Rückfall-Hypothese nach einer Spitzenleistung).
 - `dl600` / `db200` – Tracking: Δ letzte 600 m bzw. erste 200 m gegen das Feld (Ø, gewichtet).
 - `early` – Ø frühe Position (Laufstil; klein = vorne).
 - `epr365` – €/Lauf der letzten 365 Tage (Index).
@@ -124,6 +143,8 @@ Trend und Klasse:
 - `cgd_sieg` / `cgd_platz` / `cgd_neu` – CGD-Bilanz vor heute (Siege bzw. Plätze auf Kurs/Boden/Distanz; neu = noch nie).
 - `erst_kurs` / `erst_boden` / `erst_dist` / `erst_belag` – heute erstmals auf diesem Kurs / Boden / Distanz /
   Belag (Gras ↔ PSF).
+- `going_pref` – Boden-Vorliebe über den Penetrometer: heutiger Wert minus Ø Penetrometer der drei besten Läufe
+  (nach Pos+, ab 3 Läufen mit Wert; > 0: heute weicher als in den besten Läufen). Ergänzt die Bodengruppen.
 
 ## Tempo im heutigen Rennen
 
@@ -145,6 +166,13 @@ Trend und Klasse:
 - `trainer_typ_score` – Trainer im heutigen Renntyp; `trainer_kurs_score` – Trainer auf diesem Kurs;
   `jockey_trainer_score` – diese Jockey-Trainer-Kombination.
 - `trainer_debuet_score` / `trainer_pause_score` – Trainer mit Debütanten bzw. nach Pause.
+- `jockey_ritte_meeting` – Ritte des Jockeys heute auf dieser Bahn (PMU-Rennen, dieses eingeschlossen).
+- `trainer_starter_meeting` – Starter des Trainers heute auf dieser Bahn.
+- `trainer_reise_km` – Luftlinie von der Heimatbahn des Trainers (Bahn mit den meisten Startern in den 365 Tagen
+  davor) zur heutigen Bahn; Lage der Bahnen aus `bahn_orte.py`, unbekannte Bahn → leer.
+- `stall_im_rennen` – Zahl der Stallgefährten (gleicher Trainer) im Rennen.
+- `stall_erster` – 1, wenn das Pferd unter den Startern seines Stalls den besten Jockey (Score) hat; leer ohne
+  Stallgefährten.
 - `kennt_jockey` – Jockey hat das Pferd schon geritten. `chg_jockey` – anderer Jockey als zuletzt;
   `chg_jockey_score` – Score heutiger minus voriger Jockey.
 
@@ -173,6 +201,8 @@ Trend und Klasse:
   Richtung, in der das Rennen liegt.
 - `abst_pass_sire` / `abst_pass_dam_sire` – nur Vater bzw. Muttervater.
 - `abst_pass_dist` / `_boden` / `_belag` / `_reife` / `_wechsel` – die einzelnen Skalen (Boden auf PSF leer).
+- `sire_going_pref` / `dam_sire_going_pref` – heutiger Penetrometer minus Ø Penetrometer der Spitzenläufe (Pos+ ≥ 0,75)
+  der Nachkommen, zum Ø aller Spitzenläufe geschrumpft (wie mit 20 Läufen), ab 10 Spitzenläufen.
 
 ## Duelle
 
@@ -185,6 +215,12 @@ Trend und Klasse:
   `m_log` (log-Quote), `m_rk` (Quotenrang 0 Favorit … 1 Außenseiter), `m_marge` (Σ 1/Quote des Rennens).
 - Ziel „kombi“: Sieg + Platz gegen die Erwartung aus der Endquote (Poisson); das Modell lernt nur die Abweichung vom
   Markt.
+
+## Training: Abbruch
+
+- `pm.trainieren(…, abbruch=…)`: wonach das Lernen auf der Validierung abbricht – `"standard"` (Regression:
+  quadratischer Fehler), `"sieg"` (Log-Loss der Siegchance, dasselbe Maß wie die Modellwahl) oder `"ndcg"` (NDCG@3,
+  nur die Spitze zählt). Mit `speichern=False` vergleichen, das Bessere speichern.
 
 ## Faire Quote (Karte und Value-Dashboard)
 

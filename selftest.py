@@ -693,6 +693,22 @@ def power_modell_pruefen() -> None:
     pruefe(mt and mt["a"] > 0 and mt["logloss_power"] > 0 and mt["power_koef"] is not None,
            f"Power-Modell: Test gegen den Markt (a {mt.get('a')}, Log-Loss Power {mt.get('logloss_power')} / Markt "
            f"{mt.get('logloss_markt')}, Power-Koeffizient {mt.get('power_koef')} z {mt.get('power_z')})")
+    # Abbruch nach Log-Loss der Siegchance bzw. NDCG@3 (Spitze) statt quadratischem Fehler
+    rng_a = np.random.default_rng(4)
+    r_a = np.repeat(np.arange(60), 8).astype(str); p_a = rng_a.normal(size=480); w_a = np.zeros(480)
+    for k_ in range(60):
+        w_a[k_ * 8 + np.argmax(p_a[k_ * 8:k_ * 8 + 8] + rng_a.normal(size=8))] = 1
+    y_a = rng_a.uniform(size=480)
+    ab_ = {}
+    with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+        for a_ in ("sieg", "ndcg"):
+            ab_[a_] = pm.trainieren(hist=h, X=X, out=Path(tmp) / pm.MODELL_ORDNER, runden=60, art="regression",
+                                    abbruch=a_, speichern=False, log=print)
+    pruefe(abs(pm.sieg_logloss_np(p_a, r_a, w_a) - pm.markt_test(p_a, r_a, w_a, np.full(480, 8.0))["logloss_power"]) < 1e-3
+           and abs(pm.ndcg3_np(y_a, r_a, y_a) - 1) < 1e-12 and pm.ndcg3_np(-y_a, r_a, y_a) < pm.ndcg3_np(y_a, r_a, y_a)
+           and all(b_["abbruch"] == a_ and b_["modell (regression)"]["baeume"] >= 1
+                   and b_["modell (regression)"]["logloss"] > 0 for a_, b_ in ab_.items()),
+           "Abbruch auf der Validierung wählbar: Log-Loss der Siegchance (wie markt_test, schnell) oder NDCG@3 der Spitze")
     # Value-Modell: Trainer-Effekt steckt nicht in der Quote -> oberes Fünftel A/E Platz > 1, unteres < 1
     import racecard as rc_
     hw = _power_synth(tage=80)
@@ -845,6 +861,106 @@ def power_modell_pruefen() -> None:
            and Xp_["starts_nach_pause60"].eq(0).any() and Xp_.loc[Xp_["runs"] == 0, "starts_nach_pause60"].isna().all(),
            "Starts nach Pause ≥ 60 / ≥ 180 Tage (1 = erster Start danach, neue Pause beginnt neu, 0 = keine Pause, "
            "Debüt leer) und Länge der Pause, mit der die Serie begann")
+    # Merkmale Version 19: Gewicht, Spielraum, Geschlecht, Meeting, Stall, Reise, Box × Stil, Penetrometer, Tracking
+    hn_ = h.copy()
+    rng_ = np.random.default_rng(11)
+    nr_ = hn_["race_id"].str[-1].astype(int)                     # Rennen 1, 2 in Chantilly, 3 in Marseille
+    hn_["course_key"] = np.where(nr_ <= 2, "CHANTILLY", "MARSEILLE BORELY")
+    hn_["hippodrome"] = hn_["course_key"]
+    pen_r = {r: round(float(rng_.uniform(2.5, 5.0)), 1) for r in hn_["race_id"].unique()}
+    hn_["going_value"] = hn_["race_id"].map(pen_r)
+    hn_["weight_assigned_kg"] = hn_["weight_kg"] + np.where(hn_["saddle_no"] == 1, 2.0, 0.0)
+    hn_["sex"] = np.where(hn_["horse"].str[1:].astype(int) % 5 == 1, "FEMELLES", hn_["sex"])
+    for c_ in ("stride_rel", "stride_change_pct", "vmax_rel"):
+        hn_[c_] = np.where(hn_["tracking"], rng_.normal(0, 1, len(hn_)), np.nan)
+    with contextlib.redirect_stdout(io.StringIO()):
+        Xn_ = pm.merkmale(hn_, log=print)
+    dn_ = pd.to_datetime(hn_["date"]); rp_ = pm.ziel(hn_)
+    ok_n = True
+    zeilen_ = Xn_.index[Xn_["runs"] >= 3][::37]
+    for i in zeilen_:
+        fr_ = hn_[(hn_["horse_id"] == hn_.at[i, "horse_id"]) & (dn_ < dn_[i])].assign(_d=dn_).sort_values("_d", ascending=False, kind="stable")
+        if fr_["_d"].duplicated().any():                   # zwei Läufe an einem Tag (nur synthetisch): Reihenfolge offen
+            continue
+        a_ = fr_["arr"].dropna()
+        erw_sp = hn_.at[i, "valeur"] - a_.max() if len(a_) else np.nan
+        erw_nb = fr_["arr"].iloc[0] - fr_["arr"].iloc[1:].max() if pd.notna(fr_["arr"].iloc[0]) and fr_["arr"].iloc[1:].notna().any() else np.nan
+        best_ = fr_.assign(_rp=rp_[fr_.index]).sort_values("_rp", ascending=False, kind="stable").head(3)
+        erw_gp = hn_.at[i, "going_value"] - best_["going_value"].mean()
+        for erw_, spalte_ in ((erw_sp, "hcp_spielraum"), (erw_nb, "arr_neue_best"), (erw_gp, "going_pref")):
+            ist_ = Xn_.at[i, spalte_]
+            if not ((np.isnan(erw_) and np.isnan(ist_)) or abs(erw_ - ist_) < 1e-9):
+                ok_n = False; print("abw", i, spalte_, erw_, ist_)
+        j_ = fr_.index[0]
+        for spalte_, quelle_ in (("f1_stride_rel", "stride_rel"), ("f1_stride_change", "stride_change_pct"), ("f1_vmax_rel", "vmax_rel")):
+            a1, b1 = Xn_.at[i, spalte_], hn_.at[j_, quelle_]
+            ok_n &= (np.isnan(a1) and np.isnan(b1)) or a1 == b1
+    pruefe(ok_n and Xn_["hcp_spielraum"].notna().any() and Xn_["arr_neue_best"].gt(0).any() and Xn_["arr_neue_best"].lt(0).any(),
+           "Handicap-Spielraum (Rating − bester ARR 365), neue Bestleistung im letzten Lauf (ARR − bester davor), "
+           "Boden-Vorliebe (Penetrometer heute − Ø der besten drei Läufe), Schritt/Vmax des letzten Laufs relativ zum Feld")
+    # Geschlecht im Feld, Meeting, Stall, Erlaubnis
+    ok_g = True
+    for i in Xn_.index[::53]:
+        rr_ = hn_[hn_["race_id"] == hn_.at[i, "race_id"]]
+        m_ = rr_["sex"].isin(["MALES", "HONGRES"])
+        andere_ = rr_.index != i
+        erw_a = m_[andere_].mean()
+        erw_s = float(m_.any()) if hn_.at[i, "sex"] == "FEMELLES" else 0.0
+        tag_kurs_ = hn_[(hn_["date"] == hn_.at[i, "date"]) & (hn_["course_key"] == hn_.at[i, "course_key"])]
+        erw_j = (tag_kurs_["jockey_key"] == hn_.at[i, "jockey_key"]).sum() if pd.notna(hn_.at[i, "jockey_key"]) else np.nan
+        erw_t = (tag_kurs_["trainer_key"] == hn_.at[i, "trainer_key"]).sum()
+        erw_st = (rr_["trainer_key"] == hn_.at[i, "trainer_key"]).sum() - 1
+        for erw_, spalte_ in ((erw_a, "feld_anteil_maennlich"), (erw_s, "stute_gegen_hengste"), (erw_j, "jockey_ritte_meeting"),
+                              (erw_t, "trainer_starter_meeting"), (erw_st, "stall_im_rennen"),
+                              (hn_.at[i, "weight_assigned_kg"] - hn_.at[i, "weight_kg"], "gew_erlaubnis")):
+            ist_ = Xn_.at[i, spalte_]
+            if not ((np.isnan(erw_) and np.isnan(ist_)) or abs(erw_ - ist_) < 1e-9):
+                ok_g = False; print("abw", i, spalte_, erw_, ist_)
+        if erw_st > 0 and np.isfinite(Xn_.at[i, "jockey_score"]):
+            js_ = Xn_.loc[rr_.index[rr_["trainer_key"] == hn_.at[i, "trainer_key"]], "jockey_score"]
+            ok_g &= Xn_.at[i, "stall_erster"] == float(Xn_.at[i, "jockey_score"] >= js_.max() - 1e-9)
+    pruefe(ok_g and Xn_["stute_gegen_hengste"].eq(1).any() and Xn_["jockey_ritte_meeting"].eq(2).any()
+           and Xn_["stall_im_rennen"].gt(0).any() and Xn_["stall_erster"].isin([0, 1]).any(),
+           "Geschlecht im Feld (Anteil männlicher Gegner, Stute gegen Hengste), Ritte des Jockeys / Starter des Trainers am "
+           "Meeting, Stallgefährten (Nr. 1 = bester Jockey des Stalls), Gewichtserlaubnis")
+    # Reise des Trainers: Heimatbahn = meiste Starter der 365 Tage davor
+    ok_r = True
+    for i in Xn_.index[::41]:
+        fr_ = hn_[(hn_["trainer_key"] == hn_.at[i, "trainer_key"]) & (dn_ < dn_[i]) & (dn_ >= dn_[i] - pd.Timedelta(days=365))]
+        if fr_.empty:
+            ok_r &= np.isnan(Xn_.at[i, "trainer_reise_km"]); continue
+        heim_ = fr_["course_key"].value_counts()
+        if len(heim_) > 1 and heim_.iloc[0] == heim_.iloc[1]:
+            continue
+        erw_ = pm.bahn_orte.km(pm.bahn_orte.koordinaten(heim_.index[0]), pm.bahn_orte.koordinaten(hn_.at[i, "course_key"]))
+        ok_r &= abs(erw_ - Xn_.at[i, "trainer_reise_km"]) < 1e-6
+    pruefe(ok_r and Xn_["trainer_reise_km"].gt(600).any() and Xn_["trainer_reise_km"].eq(0).any(),
+           "Reise des Trainers: Heimatbahn = Bahn mit den meisten Startern der 365 Tage davor, Luftlinie zur heutigen Bahn")
+    # Box × Laufstil und Penetrometer der Spitzenläufe des Vaters
+    def stil_(e):
+        return -1 if np.isnan(e) else 0 if e <= pm.rc.VERLAUF_VORNE else 2 if e >= pm.rc.VERLAUF_HINTEN else 1
+    dr_ = np.minimum(np.floor((hn_["draw"] - 1) / hn_["n_runners"] * 3), 2)
+    ok_b = True
+    for i in Xn_.index[::29]:
+        s_h = stil_(Xn_.at[i, "early"])
+        if s_h < 0:
+            ok_b &= np.isnan(Xn_.at[i, "box_stil_dev"]); continue
+        vor_ = hn_[(dn_ < dn_[i]) & (hn_["konfig"] == hn_.at[i, "konfig"]) & (dr_ == dr_[i])
+                   & (hn_["early_pct"].map(stil_) == s_h)]
+        erw_ = (rp_[vor_.index].sum() + 15) / (len(vor_) + 30) - 0.5
+        ok_b &= abs(erw_ - Xn_.at[i, "box_stil_dev"]) < 1e-9 and Xn_.at[i, "box_stil_runs"] == len(vor_)
+    gp_min_ = pm.GOING_PREF_ABST_MIN
+    ok_v = True
+    for i in Xn_.index[::31]:
+        vor_ = hn_[(dn_ < dn_[i]) & (rp_ >= pm.FORM_TOP)]
+        eig_ = vor_[vor_["sire_key"] == hn_.at[i, "sire_key"]]
+        if len(eig_) < gp_min_:
+            ok_v &= np.isnan(Xn_.at[i, "sire_going_pref"]); continue
+        erw_ = hn_.at[i, "going_value"] - (eig_["going_value"].sum() + pm.ABST_K * vor_["going_value"].mean()) / (len(eig_) + pm.ABST_K)
+        ok_v &= abs(erw_ - Xn_.at[i, "sire_going_pref"]) < 1e-9
+    pruefe(ok_b and ok_v and Xn_["box_stil_dev"].notna().any() and Xn_["sire_going_pref"].notna().any(),
+           "Box × Laufstil (Boxdrittel, Stil: Stand mit dem tatsächlichen frühen Platz, heute der erwartete Stil; "
+           "geschrumpft) und Penetrometer der Spitzenläufe des Vaters (zum Schnitt aller Spitzenläufe geschrumpft)")
     sc_ = pm._score(1.0, 1e-17, 0.5, 5.0, 1, 0.5, 5.0)
     pruefe(abs(sc_ - 100) < 1e-9 and abs(pm._score(1.0, 0.5, 0.5, 5.0, 1, 0.5, 5.0) - 400 / 3) < 1e-9,
            "Verbindungs-Score: Rundungsrest der Erwartung (1e-17) zählt nicht als A/E (kein Wert wie 1e16)")
@@ -1452,6 +1568,24 @@ def regel_backtest_pruefen() -> None:
            "Rennverlauf: vorne gewonnen -> Vorne-Rennen; Pferd von hinten läuft gegen, Führender mit dem Verlauf")
 
 
+def pmu_runner_gewicht_() -> tuple:
+    """pmu.runner_row: (getragen, zugeteilt) für einen Reiter mit 2,5 kg Erlaubnis."""
+    import pmu
+    z = pmu.runner_row("R", {"numPmu": 1, "handicapPoids": 580, "poidsConditionMonte": 555})
+    return z["weight_kg"], z["weight_assigned_kg"]
+
+
+def pm_bahn_() -> float:
+    """Abweichung der Bahnzuordnung: Summe der km zwischen Schreibweisen derselben Bahn."""
+    import bahn_orte as bo
+    paare = [("LE LION D'ANGERS", "LION D ANGERS"), ("DEAUVILLE-LA TOUQUES", "DEAUVILLE"), ("LA-ROCHE-POSAY", "LA ROCHE POSAY"),
+             ("LYON-PARILLY", "LYON PARILLY"), ("ParisLongchamp", "PARISLONGCHAMP"), ("CAGNES-SUR-MER", "CAGNES MER")]
+    if any(bo.koordinaten(a) is None for a, _ in paare) or bo.koordinaten("ASCOT") is not None:
+        return float("inf")
+    return sum(bo.km(bo.koordinaten(a), bo.koordinaten(b)) for a, b in paare) + abs(
+        bo.km(bo.koordinaten("CHANTILLY"), bo.koordinaten("PARISLONGCHAMP")) - 41)
+
+
 def racecard_pruefen() -> None:
     import numpy as np
     import racecard as rc
@@ -1493,6 +1627,31 @@ def racecard_pruefen() -> None:
                                          "distance_covered_m": 1212.0, "last600_s": 34.4},
                                         {"race_id": rid(10, 1), "saddle_no": 2, "dist_vs_winner_m": 13.31,
                                          "speed_last600_kmh": 63.0, "last600_s": 34.5}]), sections, leader)
+    im_rennen = hist["race_id"] == rid(10, 1)
+    # getragenes Gewicht (poidsConditionMonte, mit Erlaubnis) statt zugeteiltem; Schrittlänge und Vmax relativ zum Feld
+    gw_ = rc.gewicht_getragen(pd.DataFrame({"weight_kg": [58.0, 57.0, 56.0], "p_handicapPoids": [580, 570, None],
+                                            "p_poidsConditionMonte": [555, None, None]}))
+    pruefe(gw_["weight_kg"].tolist() == [55.5, 57.0, 56.0] and gw_["weight_assigned_kg"].tolist()[:2] == [58.0, 57.0]
+           and np.isnan(gw_["weight_assigned_kg"].iloc[2])
+           and pmu_runner_gewicht_() == (55.5, 58.0),
+           "Gewicht: getragen = poidsConditionMonte (Erlaubnis des Reiters), sonst handicapPoids; zugeteilt = handicapPoids "
+           "(ältere Tagesdateien über die p_-Spalten korrigiert)")
+    sec_s = sections.assign(stride_len_m=[6.5, 7.0, 7.2, 7.4, 7.0, 6.6] + [6.5, 6.9, 7.0, 7.2, 7.1, 7.1])
+    sch_ = sf.schritt_aus_abschnitten(sec_s).set_index("saddle_no")
+    hs_ = rc.vorbereiten(races, runners.assign(p_handicapPoids=[600, 570, 570, 570, 570],
+                                               p_poidsConditionMonte=[580, None, None, None, None]),
+                         pd.DataFrame([{"race_id": rid(10, 1), "pace_ratio": 97.0}]),
+                         pd.DataFrame([{"race_id": rid(10, 1), "saddle_no": 1, "vmax_kmh": 64.0},
+                                       {"race_id": rid(10, 1), "saddle_no": 2, "vmax_kmh": 61.0}]), sec_s, leader)
+    z1_ = hs_[(hs_["race_id"] == rid(10, 1)) & (hs_["saddle_no"] == 1)].iloc[0]
+    pruefe(abs(sch_.at[1, "stride_mid_m"] - 7.2) < 1e-9 and abs(sch_.at[1, "stride_last_m"] - 6.8) < 1e-9
+           and abs(sch_.at[1, "stride_change_pct"] - (6.8 / 7.2 - 1) * 100) < 1e-9
+           and z1_["weight_kg"] == 58.0 and z1_["weight_assigned_kg"] == 60.0
+           and abs(z1_["stride_rel"] - (7.2 - (7.2 + sch_.at[2, "stride_mid_m"]) / 2)) < 1e-9 and abs(z1_["vmax_rel"] - 1.5) < 1e-9,
+           "Tracking: Schrittlänge Rennmitte (ohne Startabschnitt) / letzte 400 m, Verkürzung im Finish in %, Schritt und "
+           "Vmax relativ zum Feld; Historie mit getragenem Gewicht")
+    pruefe(pm_bahn_() < 50 and np.isnan(__import__("bahn_orte").km(None, (48.0, 2.0))),
+           "Bahnlagen: Bahnkern (auch mit Artikel/Bindestrich) → Breite/Länge, Luftlinie in km; unbekannt → leer")
     im_rennen = hist["race_id"] == rid(10, 1)
     # abgesagtes Rennen (vergangener Tag, kein Starter mit Platz) fällt weg; Nichtankommer im gelaufenen Rennen bleibt
     races_a = pd.concat([races, pd.DataFrame([{"race_id": rid(50, 1), "hippodrome": "LA TESTE", "distance_m": 1600,

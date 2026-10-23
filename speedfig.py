@@ -93,6 +93,30 @@ def _tempo_bereich(s: pd.DataFrame, von: int, bis: int) -> pd.Series:
     return v.where(ok & (laenge == von - bis))
 
 
+SCHRITT_M = (3.0, 12.0)     # plausible Schrittlänge eines Galoppers (wie parse_tracking.STRIDE_MIN_M/MAX_M)
+
+
+def schritt_aus_abschnitten(sections: pd.DataFrame | None) -> pd.DataFrame:
+    """Schrittlänge je Starter wie parse_tracking.derive_runner: stride_mid_m = Ø der Abschnitte bis 400 m vor dem Ziel
+    ohne den ersten (Start), stride_last_m = Ø der letzten 400 m, stride_change_pct = Änderung im Finish in %
+    (< 0: Schritt wird kürzer – Ermüdung). Leer, wenn es keine Schrittlängen gibt."""
+    spalten = ["race_id", "saddle_no", "stride_mid_m", "stride_last_m", "stride_change_pct"]
+    if sections is None or sections.empty or not {"m_to_go", "stride_len_m"} <= set(sections):
+        return pd.DataFrame(columns=spalten)
+    s = _abschnitte(sections)
+    s["sl"] = pd.to_numeric(s["stride_len_m"], errors="coerce")
+    s["sl"] = s["sl"].where(s["sl"].between(*SCHRITT_M))
+    key = ["race_id", "saddle_no"]
+    erster = s.groupby(key)["m_to_go"].transform("max")
+    out = pd.DataFrame({"stride_mid_m": s[(s["m_to_go"] >= 400) & (s["m_to_go"] < erster)].groupby(key)["sl"].mean(),
+                        "stride_last_m": s[s["m_to_go"] < 400].groupby(key)["sl"].mean()})
+    out = out.dropna(how="all")
+    if out.empty:
+        return pd.DataFrame(columns=spalten)
+    out["stride_change_pct"] = (out["stride_last_m"] / out["stride_mid_m"] - 1) * 100
+    return out.reset_index()[spalten]
+
+
 def rohwerte_aus_abschnitten(h: pd.DataFrame, sections: pd.DataFrame | None) -> pd.DataFrame:
     """Bildet aus tracking_sections je Starter neu (und überschreibt die geparsten Spalten):
     speed_last600_kmh, speed_last400_kmh, speed_600_400_kmh, finish_index, path_factor,
