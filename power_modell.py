@@ -66,7 +66,7 @@ PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schr
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
 SCHLUESSEL_DATEI = "merkmale_schluessel.parquet"   # je Zeile des Zwischenspeichers: race_id, horse_id
-MERKMAL_VERSION = 17                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+MERKMAL_VERSION = 18                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
@@ -104,6 +104,8 @@ ABST_STAND_MIN = 2000       # Abstammungs-Passung: Monatsstand erst ab so vielen
 FORM_KLASSE_TOL = 0.2       # Form in gleicher/höherer Klasse: Preisgeld (log) höchstens so viel unter heute
 VERB_TAGE = 365             # Verbindungen: Fenster
 KURZ_TAGE = 30              # Stallform / Jockeyform: kurzes Fenster
+PAUSE_LANG = 180            # lange Pause (Verletzung, Winter, 2- zu 3-jährig)
+PAUSE_MAX_STARTS = 10       # Starts nach Pause: höchstens so viele gezählt
 PAUSE_TAGE = 60             # ab so vielen Tagen ohne Start gilt ein Lauf als „nach Pause“
 VERB_K = 10                 # Verbindungs-Score zur 100 hin geschrumpft wie mit so vielen Läufen bei 100
 ABST_K = 20                 # dasselbe für Vater/Muttervater
@@ -143,7 +145,8 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("form_best3", "Formtrend"), ("form_pos_hoeher", "Form in gleicher/höherer Klasse"), ("season", "Jahreszeit"), ("feld_aelter", "Erfahrung im Feld"),
            ("feld_erfahrener", "Erfahrung im Feld"), ("chg_", "Wechsel zum letzten Lauf"),
            ("kennt_jockey", "Jockey kennt Pferd"), ("trainerwechsel5", "Trainerwechsel"),
-           ("dam_", "Mutter (Geschwister)"), ("hcp_", "Handicap-Marke"), ("seit_pause", "Läufe seit Pause"),
+           ("dam_", "Mutter (Geschwister)"), ("hcp_", "Handicap-Marke"), ("starts_nach_pause", "Starts nach Pause"),
+           ("letzte_pause", "Starts nach Pause"),
            ("erst_wallach", "erstmals Wallach"), ("arr_best", "Bestform ARR"), ("blink", "Scheuklappen"),
            ("race_prize", "Preisgeld des Rennens"), ("m_", "Morgenquote"), ("abst_", "Abstammungs-Passung"),
            ("cgd_", "Bilanz Kurs/Boden/Distanz (CGD)"), ("erst_", "erstmals Kurs/Boden/Distanz/Belag"), ("feld_val", "Klasse des Feldes"),
@@ -462,7 +465,8 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
               "form_steig_pos", "form_steig_arr", "form_steig_lb",
               "form_steig_ue", "form_best3_diff", "form_pos_hoeher", "chg_weight", "chg_dist", "chg_class",
               "chg_prize", "chg_jockey", "chg_trainer", "blink_first", "blink_change", "kennt_jockey", "trainerwechsel5",
-              "chg_rating", "hcp_sieg_diff", "hcp_platz_diff", "seit_pause", "arr_best365", "arr_best_dist",
+              "chg_rating", "hcp_sieg_diff", "hcp_platz_diff", "starts_nach_pause60", "starts_nach_pause180",
+              "letzte_pause_tage", "arr_best365", "arr_best_dist",
               "arr_best_abst", "erst_wallach", "cgd_sieg", "cgd_platz", "cgd_neu", "erst_kurs", "erst_boden",
               "erst_dist", "erst_belag", "abst_pass", "abst_pass_sire", "abst_pass_dam_sire", "abst_pass_dist",
               "abst_pass_boden", "abst_pass_belag", "abst_pass_reife", "abst_pass_wechsel", "form5_extern",
@@ -561,13 +565,15 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 F["kennt_jockey"][i] = float(any(jk[j] == jk[i] for j in vor))
             if not vor:
                 continue
-            # Läufe seit der letzten Pause (≥ PAUSE_TAGE): 0 = heute erster Start nach Pause, höchstens 10
-            c_, vt = 0, tag[i]
-            for j in vor:
-                if vt - tag[j] >= PAUSE_TAGE:
-                    break
-                c_, vt = c_ + 1, tag[j]
-            F["seit_pause"][i] = min(c_, 10)
+            # Starts nach Pause (≥ 60 bzw. ≥ 180 Tage ohne Start): 1 = heute erster Start nach der Pause, 2, 3 …
+            # (höchstens PAUSE_MAX_STARTS); mit jeder neuen Pause beginnt die Zählung neu; 0 = keine solche Pause in der
+            # bekannten Historie. letzte_pause_tage: Länge der ≥ 60-Tage-Pause, mit der die heutige Serie begann.
+            luecken = np.diff(np.array([tag[i]] + [tag[j] for j in vor], dtype=float)) * -1   # neueste Lücke zuerst
+            for name, grenze in (("starts_nach_pause60", PAUSE_TAGE), ("starts_nach_pause180", PAUSE_LANG)):
+                k_ = np.flatnonzero(luecken >= grenze)
+                F[name][i] = float(min(k_[0] + 1, PAUSE_MAX_STARTS)) if len(k_) else 0.0
+                if grenze == PAUSE_TAGE and len(k_):
+                    F["letzte_pause_tage"][i] = float(luecken[k_[0]])
             # Rating: Änderung seit dem letzten Lauf und Abstand zur letzten Sieg-/Platzmarke im Handicap
             val_i = werte["valeur"][i]
             if not np.isnan(val_i):

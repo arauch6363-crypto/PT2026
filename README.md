@@ -215,6 +215,11 @@ Gemessen auf denselben Testrennen (2026, alle mit Morgen- und Endquote; Modelle 
 - Besitzer genauso: `chg_owner`, `laeufe_seit_besitzerwechsel`, `tage_seit_besitzerwechsel`, `besitzer_sprung`;
   dazu `besitzer_ohne_trainer` (Besitzer neu, Trainer gleich – oft ein Verkauf im Stall).
 
+**Pausen (Merkmale Version 18):** `starts_nach_pause60` und `starts_nach_pause180` zählen die Starts seit der letzten
+Pause von mindestens 60 bzw. 180 Tagen (1 = heute erster Start danach, bis 10); mit jeder neuen Pause beginnt die
+Zählung neu, 0 = keine solche Pause in der bekannten Historie, leer bei Debütanten. `letzte_pause_tage`: Länge der
+≥ 60-Tage-Pause, mit der die heutige Serie begann. Ersetzt das frühere `seit_pause`.
+
 Zeitliche Aufteilung (`pm.aufteilung`, Power und Value gleich): das erste Jahr der Historie (`AUFWAERM_TAGE` = 365) dient
 nur als Vorgeschichte für die Merkmale und wird nicht gelernt; die übrigen Renntage zeitlich 60/20/20 (`ANTEILE`):
 lernen, validieren (Abbruch der Bäume, Modellwahl, Siegchance-a, Eichung k und Gold-Grenze des Value-Modells), testen
