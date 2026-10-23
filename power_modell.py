@@ -1245,36 +1245,47 @@ def _clogit_np(F: np.ndarray, w: np.ndarray, g, iter_max: int = 100) -> np.ndarr
     return b
 
 
-def mischung_chance(p_morgen, p_power, rennen, exp_morgen: float, exp_power: float) -> np.ndarray:
-    """Faire Siegchance ∝ p_Morgen^exp_morgen · p_Power^exp_power je Rennen."""
+def mischung_chance(p_morgen, p_power, rennen, exp_morgen: float, exp_power: float, p_sieg=None,
+                    exp_sieg: float = 0.0) -> np.ndarray:
+    """Faire Siegchance ∝ p_Morgen^exp_morgen · p_Power^exp_power (· p_Sieg^exp_sieg, zweites Power-Modell mit
+    Lern-Ziel „sieg“) je Rennen."""
     f = (exp_morgen * np.log(np.clip(np.asarray(p_morgen, dtype=float), 1e-6, 1))
          + exp_power * np.log(np.clip(np.asarray(p_power, dtype=float), 1e-6, 1)))
+    if p_sieg is not None and exp_sieg:
+        f = f + exp_sieg * np.log(np.clip(np.asarray(p_sieg, dtype=float), 1e-6, 1))
     return _softmax_im_rennen(f, np.asarray(rennen))
 
 
-def _mischung_daten(p_morgen, p_power, rennen, won) -> pd.DataFrame:
+def _mischung_daten(p_morgen, p_power, rennen, won, p_sieg=None) -> pd.DataFrame:
     """Rennen mit allen Morgenquoten und genau einem Sieger; Morgenchance je Rennen auf 1."""
     d = pd.DataFrame({"r": np.asarray(rennen).astype(str), "w": np.asarray(won, dtype=float),
                       "pm": np.asarray(p_morgen, dtype=float), "pb": np.asarray(p_power, dtype=float)})
+    if p_sieg is not None:
+        d["ps"] = np.asarray(p_sieg, dtype=float)
     d = d[d.groupby("r")["pm"].transform(lambda s: s.notna().all()) & (d.groupby("r")["w"].transform("sum") == 1)]
     d["pm"] = d["pm"] / d.groupby("r")["pm"].transform("sum")
     return d
 
 
-def mischung_schaetzen(p_morgen, p_power, rennen, won) -> dict:
-    """Exponenten der Mischung Morgenquote × Power per Maximum-Likelihood auf den Siegern (Validierung)."""
-    d = _mischung_daten(p_morgen, p_power, rennen, won)
+def mischung_schaetzen(p_morgen, p_power, rennen, won, p_sieg=None) -> dict:
+    """Exponenten der Mischung Morgenquote × Power (× zweites Power-Modell „sieg“) per Maximum-Likelihood auf den
+    Siegern (Validierung)."""
+    d = _mischung_daten(p_morgen, p_power, rennen, won, p_sieg)
     if d["r"].nunique() < 20:
         return {}
-    F = np.log(np.clip(d[["pm", "pb"]].to_numpy(), 1e-6, 1))
+    quellen = ["pm", "pb"] + (["ps"] if p_sieg is not None else [])
+    F = np.log(np.clip(d[quellen].to_numpy(), 1e-6, 1))
     b = _clogit_np(F, d["w"].to_numpy(), d["r"].to_numpy())
-    return {"morgen": round(float(b[0]), 4), "power": round(float(b[1]), 4), **mischung_logloss(d, b[0], b[1])}
+    out = {"morgen": round(float(b[0]), 4), "power": round(float(b[1]), 4)}
+    if p_sieg is not None:
+        out["sieg"] = round(float(b[2]), 4)
+    return {**out, **mischung_logloss(d, b[0], b[1], b[2] if p_sieg is not None else 0.0)}
 
 
-def mischung_logloss(d: pd.DataFrame, exp_morgen: float, exp_power: float) -> dict:
+def mischung_logloss(d: pd.DataFrame, exp_morgen: float, exp_power: float, exp_sieg: float = 0.0) -> dict:
     """Log-Loss des Siegers: Mischung, Power allein, Morgenquote allein (d aus _mischung_daten)."""
     s = d["w"].to_numpy() == 1
-    pmix = mischung_chance(d["pm"], d["pb"], d["r"], exp_morgen, exp_power)
+    pmix = mischung_chance(d["pm"], d["pb"], d["r"], exp_morgen, exp_power, d["ps"] if "ps" in d else None, exp_sieg)
     return {"rennen": int(d["r"].nunique()), "logloss_mischung": round(float(-np.log(pmix[s]).mean()), 4),
             "logloss_power": round(float(-np.log(d["pb"].to_numpy()[s]).mean()), 4),
             "logloss_morgen": round(float(-np.log(d["pm"].to_numpy()[s]).mean()), 4)}
@@ -1299,6 +1310,8 @@ def logloss_quoten(p_morgen, rennen, won, odds_final) -> dict:
 
 
 ABBRUCH = ("standard", "sieg", "ndcg")
+ZWEIT_DATEI = "power_sieg.txt"   # zweites Power-Modell (Lern-Ziel „sieg“) für die Dreier-Mischung
+MISCH3_LR = 3.84                 # Dreier-Mischung nur bei χ²(1) > 3,84 auf der Validierung (p < 0,05)
 
 # Tracking-Wert: eigenes Teilmodell nur aus den Tracking-Merkmalen (und dem Rahmen des Rennens), gelernt nur auf Startern
 # mit Tracking-Vorgeschichte; seine Vorhersage geht als Merkmal trk_wert ins Hauptmodell. Ohne Blick in die Zukunft: je
@@ -1475,7 +1488,7 @@ def vergleich(a: dict, b: dict, namen=("A", "B"), log=print) -> pd.DataFrame:
     Testrennen: je Rennen Log-Loss A − B, Ø, Standardfehler und z (< 0 = A besser). Weil beide Läufe dieselben Rennen
     sehen, fällt die Schwierigkeit des Rennens heraus – Unterschiede um 0,002 werden sichtbar."""
     zeilen = []
-    for teil in ("power", "mischung"):
+    for teil in ("power", "mischung", "mischung3"):
         ra, rb = (a.get("je_rennen") or {}).get(teil), (b.get("je_rennen") or {}).get(teil)
         if not ra or not rb:
             continue
@@ -1627,7 +1640,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
                X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
                ab: str | None = None, neu: bool = False, art: str = "alle", aufwaermen: int | None = None,
                segmente: str | None = None, morgenquote: bool = False, speichern: bool = True,
-               abbruch: str = "standard", tracking: bool = False, log=print) -> dict:
+               abbruch: str = "standard", tracking: bool = False, zweitmodell: bool = True, log=print) -> dict:
     """Einmal trainieren: Merkmale über die ganze Historie; das erste Jahr (AUFWAERM_TAGE) dient nur als Vorgeschichte,
     die übrigen Renntage zeitlich 60/20/20 (ANTEILE): lernen, validieren (Abbruch, Wahl Regression/Rang, Siegchance-a),
     testen (nur Bericht, gegen den Marktfavoriten und das Rating). Danach auf allen Tagen nach dem Aufwärmen neu lernen
@@ -1650,7 +1663,9 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
          Fehler, Rang/Vorn: NDCG@3 von LightGBM), "sieg" (Log-Loss der Siegchance, dasselbe Maß wie die Modellwahl)
          oder "ndcg" (NDCG@3 mit den Gewinnen von „vorn“: nur die Spitze zählt, auch für die Regression).
     tracking: zusätzlich der Tracking-Wert (tracking_wert: Teilmodell nur aus den Tracking-Merkmalen, je Quartal aus den
-         früheren gelernt) als Merkmal trk_wert. Vorgabe False: im Vergleich (Okt. 2026) kein messbarer Gewinn."""
+         früheren gelernt) als Merkmal trk_wert. Vorgabe False: im Vergleich (Okt. 2026) kein messbarer Gewinn.
+    zweitmodell: zusätzlich ein Power-Modell mit Lern-Ziel „sieg“ und die Mischung Morgenquote × Power × Power-sieg;
+         übernommen nur, wenn sie die Validierung laut Likelihood-Quotienten-Test (χ² > MISCH3_LR) verbessert."""
     import lightgbm as lgb
     if abbruch not in ABBRUCH:
         raise ValueError(f"abbruch: eins von {ABBRUCH}")
@@ -1706,7 +1721,9 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     if abbruch != "standard":
         feval = _abbruch_feval(abbruch, rennen[valid], hist.loc[X.index[valid], "won"], y[valid])
         log(f"Abbruch nach {'Log-Loss der Siegchance' if abbruch == 'sieg' else 'NDCG@3 (Spitze)'} auf der Validierung")
-    for a_ in arten:
+    a_je_art = {}
+
+    def lerne(a_):
         p = _lgb_params(a_, params, rennen[lern])
         fe_ = feval
         if a_ == "sieg" and fe_ is None:                 # eigenes Ziel: Abbruch nach dem Log-Loss der Siegchance
@@ -1729,6 +1746,9 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
         validierung[f"modell ({a_})"] = {**_bewerten(pv, a_), **kurz(mv_), "baeume": best}
         bericht[f"modell ({a_})"] = {**_bewerten(pt, a_), **kurz(mt_), "baeume": best}
         modelle[a_] = (m, best, p)
+        a_je_art[a_] = mv_.get("a", 1.0)
+    for a_ in arten:
+        lerne(a_)
     bericht["markt (Endquote)"] = _bewerten(pt, "markt")
     bericht["rating (bereinigt)"] = _bewerten(pt, "rating")
     if morgenquote:      # Vergleich: die Morgenquote allein (Log-Loss des Siegers, Rennen mit allen Morgenquoten)
@@ -1806,6 +1826,27 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
             validierung["mischung (Morgenquote × Power)"] = mischung
             bericht["mischung (Morgenquote × Power)"] = {"morgen": mischung["morgen"], "power": mischung["power"],
                                                         **mischung_logloss(dt_, mischung["morgen"], mischung["power"])}
+    # Zweites Power-Modell (Lern-Ziel „sieg“) als dritte Quelle der Mischung – nur, wenn es die Validierung belegt
+    mischung3, dt3_, zweit = {}, None, None
+    if mischung and zweitmodell and spalte_p != "sieg" and spalte_p != "segment":
+        if "sieg" not in modelle:
+            log("Zweites Power-Modell (Lern-Ziel „sieg“) für die Mischung …")
+            lerne("sieg")
+        a2 = a_je_art["sieg"]
+        ps_v = _softmax_im_rennen(a2 * _z_im_rennen(pv["sieg"].to_numpy(), pv["race_id"].to_numpy()), pv["race_id"].to_numpy())
+        ps_t = _softmax_im_rennen(a2 * _z_im_rennen(pt["sieg"].to_numpy(), pt["race_id"].to_numpy()), pt["race_id"].to_numpy())
+        mischung3 = mischung_schaetzen(mq_[valid].to_numpy(), pb_v, pv["race_id"], hist.loc[X.index[valid], "won"], ps_v)
+        if mischung3:
+            lr = 2 * mischung3["rennen"] * (mischung["logloss_mischung"] - mischung3["logloss_mischung"])
+            mischung3["lr_chi2"] = round(float(lr), 2)
+            mischung3["uebernommen"] = bool(lr > MISCH3_LR)
+            dt3_ = _mischung_daten(mq_[test].to_numpy(), pb_t, pt["race_id"], hist.loc[X.index[test], "won"], ps_t)
+            validierung["mischung3 (Morgenquote × Power × Power-sieg)"] = mischung3
+            bericht["mischung3 (Morgenquote × Power × Power-sieg)"] = {
+                k: mischung3[k] for k in ("morgen", "power", "sieg", "lr_chi2", "uebernommen")} | mischung_logloss(
+                dt3_, mischung3["morgen"], mischung3["power"], mischung3["sieg"])
+            if mischung3["uebernommen"]:
+                zweit = modelle["sieg"]
     # Log-Loss des Siegers je Testrennen (für den gepaarten Vergleich zweier Läufe, pm.vergleich)
     w_test = hist.loc[X.index[test], "won"].to_numpy()
     p_pw = _softmax_im_rennen(mv.get("a", 1.0) * _z_im_rennen(pt[spalte_p].to_numpy(), pt["race_id"].to_numpy()),
@@ -1814,6 +1855,15 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     if mischung:
         je_rennen["mischung"] = _ll_je_rennen(mischung_chance(dt_["pm"], dt_["pb"], dt_["r"], mischung["morgen"],
                                                               mischung["power"]), dt_["r"].to_numpy(), dt_["w"].to_numpy())
+    if mischung3:
+        je_rennen["mischung3"] = _ll_je_rennen(
+            mischung_chance(dt3_["pm"], dt3_["pb"], dt3_["r"], mischung3["morgen"], mischung3["power"], dt3_["ps"],
+                            mischung3["sieg"]), dt3_["r"].to_numpy(), dt3_["w"].to_numpy())
+        v3 = vergleich({"je_rennen": {"mischung": je_rennen["mischung3"]}}, {"je_rennen": {"mischung": je_rennen["mischung"]}},
+                       ("drei", "zwei"), log=lambda *a: None)
+        if len(v3):
+            bericht["mischung3 (Morgenquote × Power × Power-sieg)"]["gepaart_test"] = {
+                k: float(v3.iloc[0][k]) for k in ("differenz", "se", "z")}
     bericht["je_rennen"] = je_rennen
     # Rote Starter (Power ≤ 95): wie oft gewinnen / platzieren sie sich? (fürs Weglassen in der Claude-JSON)
     pw_test = 100 + 10 * _z_im_rennen(pt[spalte_p].to_numpy(), pt["race_id"].to_numpy())
@@ -1864,10 +1914,24 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
             sm.save_model(str(ordner / datei))
             seg_meta["modelle"][s_] = datei
         log(f"Segment-Modelle gespeichert ({segmente}): {', '.join(seg_meta['modelle'])}")
-    meta = {"spalten": list(Xk.columns), "stufen": stufen, "art": sieger, "segmente": seg_meta,
+    zweit_meta = None
+    if zweit is not None:                                # zweites Power-Modell „sieg“ für die Mischung
+        p2 = {**zweit[2], "objective": sieg_ziel(rennen)}
+        f2 = lgb.train(p2, _lgb_daten(lgb, Xk, y, rennen, "sieg"), num_boost_round=zweit[1])
+        f2.save_model(str(ordner / ZWEIT_DATEI))
+        zweit_meta = {"datei": ZWEIT_DATEI, "sieg_a": a_je_art["sieg"]}
+        log(f"Zweites Power-Modell (sieg) gespeichert: {ordner / ZWEIT_DATEI}")
+    elif not morgenquote:
+        (ordner / ZWEIT_DATEI).unlink(missing_ok=True)
+    mix_meta = None
+    if mischung3.get("uebernommen"):
+        mix_meta = {k: mischung3[k] for k in ("morgen", "power", "sieg")}
+    elif mischung:
+        mix_meta = {"morgen": mischung["morgen"], "power": mischung["power"]}
+    meta = {"spalten": list(Xk.columns), "stufen": stufen, "art": sieger, "segmente": seg_meta, "zweit": zweit_meta,
             "bericht": {k: v for k, v in bericht.items() if k != "je_rennen"},
             "morgenquote": bool(morgenquote), "tracking": _tracking_speichern(trk, ordner, m_datei),
-            "mischung": {"morgen": mischung["morgen"], "power": mischung["power"]} if mischung else None,
+            "mischung": mix_meta,
             "sieg_a": mv.get("a", 1.0),
             "wichtig": {k: round(float(v / imp.sum()), 4) for k, v in imp.head(30).items()},
             "trainiert": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"), "starter": int(len(X))}
@@ -2217,6 +2281,9 @@ def laden(base: Path | None) -> dict | None:
     meta = json.loads((ordner / META_DATEI).read_text(encoding="utf-8"))
     out = {"booster": lgb.Booster(model_file=str(ordner / MODELL_DATEI)), "meta": meta, "segmente": seg(meta)}
     out["tracking"] = _tracking_laden(lgb, ordner, meta)                   # Tracking-Teilmodell (Merkmal trk_wert)
+    zm = meta.get("zweit")
+    if zm and (ordner / zm["datei"]).exists():                            # zweites Power-Modell „sieg“ (Mischung)
+        out["zweit"] = {"booster": lgb.Booster(model_file=str(ordner / zm["datei"])), **zm}
     if (ordner / MORGEN_DATEI).exists() and (ordner / MORGEN_META).exists():  # Siegchance mit Morgenquote
         mm = json.loads((ordner / MORGEN_META).read_text(encoding="utf-8"))
         out["morgen"] = {"booster": lgb.Booster(model_file=str(ordner / MORGEN_DATEI)), "meta": mm}
@@ -2295,9 +2362,14 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
         mq_ = morgen_merkmale(alle.loc[X.index])
         pm_ = pd.Series(mq_["m_pm"].to_numpy(), index=df.index)
         voll = pm_.notna().groupby(df["race_id"]).transform("all")
+        ps_ = None
+        if mix.get("sieg") and modell.get("zweit"):     # zweites Power-Modell „sieg“ als dritte Quelle
+            z2 = _z_im_rennen(modell["zweit"]["booster"].predict(Xk), df["race_id"])
+            ps_ = pd.Series(_softmax_im_rennen(modell["zweit"]["sieg_a"] * z2, df["race_id"]), index=df.index)
         if voll.any():
             df.loc[voll, "sieg"] = mischung_chance(pm_[voll], df.loc[voll, "sieg_blind"], df.loc[voll, "race_id"],
-                                                   mix["morgen"], mix["power"])
+                                                   mix["morgen"], mix["power"], ps_[voll] if ps_ is not None else None,
+                                                   mix.get("sieg", 0.0) if ps_ is not None else 0.0)
             df.loc[voll, "quelle"] = "mischung"
         if not voll.all():
             log(f"  Siegchance: {int((~voll).sum())} Starter ohne vollständige Morgenquote im Rennen – Power allein")
