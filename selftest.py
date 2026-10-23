@@ -604,11 +604,11 @@ def power_modell_pruefen() -> None:
            "Power-Modell: Altersgruppe 2yo/3yo/3yo+/4yo+ aus der Altersklasse, sonst aus den Altern im Feld")
     neu = ["trainer_30_score", "trainer_form", "jockey_30_score", "trainer_typ_score", "trainer_kurs_score",
            "jockey_trainer_score", "trainer_debuet_score", "trainer_pause_score", "dam_score", "chg_rating",
-           "hcp_sieg_diff", "seit_pause", "arr_best365", "arr_best_dist", "arr_best_abst", "erst_wallach"]
+           "hcp_sieg_diff", "starts_nach_pause60", "starts_nach_pause180", "letzte_pause_tage", "arr_best365", "arr_best_dist", "arr_best_abst", "erst_wallach"]
     deb = X["runs"] == 0
     wal = X.index[X["erst_wallach"] == 1]
     pruefe(all(c in X for c in neu) and X.loc[~deb, "trainer_debuet_score"].isna().all()
-           and X.loc[deb, "trainer_debuet_score"].notna().any() and X["seit_pause"].between(0, 10).all() is not None
+           and X.loc[deb, "trainer_debuet_score"].notna().any() and X["starts_nach_pause60"].dropna().between(0, 10).all()
            and X["dam_score"].notna().any() and len(wal) and (h.loc[wal, "sex"] == "HONGRES").all()
            and (X.loc[X["arr_best365"].notna(), "arr_best_abst"].dropna() <= 0).all(),
            f"Power-Modell: Stallform 30 Tage, Trainer-Lagen (Debüt, Pause, Renntyp, Kurs, Jockey), Mutter, "
@@ -818,6 +818,33 @@ def power_modell_pruefen() -> None:
            and Xw_.at[l2_[6], "laeufe_seit_besitzerwechsel"] == 1 and np.isnan(Xw_.at[l2_[6], "laeufe_seit_trainerwechsel"]),
            "Trainer-/Besitzerwechsel: Läufe/Tage seit dem Wechsel, Trainer-Sprung (Score neu − alt), Form beim neuen "
            "Trainer, Besitzerwechsel ohne Trainerwechsel")
+    # Starts nach Pause (≥ 60 / ≥ 180 Tage), Zählung beginnt mit jeder neuen Pause neu; 0 = keine Pause
+    hp_ = h.copy()
+    d0_ = pd.to_datetime(hp_["date"]); tg_ = sorted(d0_.unique())
+    hp_["date"] = d0_ + pd.to_timedelta(np.where(d0_ >= tg_[len(tg_) // 3], 70, 0)
+                                        + np.where(d0_ >= tg_[2 * len(tg_) // 3], 200, 0), unit="D")
+    with contextlib.redirect_stdout(io.StringIO()):
+        Xp_ = pm.merkmale(hp_, log=print)
+    dp_ = pd.to_datetime(hp_["date"])
+    ok_p = True
+    for i in Xp_.index:
+        fr_ = sorted(dp_[(hp_["horse_id"] == hp_.at[i, "horse_id"]) & (dp_ < dp_[i])], reverse=True)
+        kette_ = [dp_[i]] + fr_
+        for spalte_, grenze_ in (("starts_nach_pause60", 60), ("starts_nach_pause180", 180)):
+            erw_, gap_ = (np.nan, np.nan) if not fr_ else (0.0, np.nan)
+            for k_ in range(len(kette_) - 1):
+                if (kette_[k_] - kette_[k_ + 1]).days >= grenze_:
+                    erw_, gap_ = float(min(k_ + 1, 10)), float((kette_[k_] - kette_[k_ + 1]).days)
+                    break
+            ist_ = Xp_.at[i, spalte_]
+            ok_p &= (np.isnan(erw_) and np.isnan(ist_)) or erw_ == ist_
+            if grenze_ == 60:
+                b_ = Xp_.at[i, "letzte_pause_tage"]
+                ok_p &= (np.isnan(gap_) and np.isnan(b_)) or gap_ == b_
+    pruefe(ok_p and Xp_["starts_nach_pause60"].gt(1).any() and Xp_["starts_nach_pause180"].eq(1).any()
+           and Xp_["starts_nach_pause60"].eq(0).any() and Xp_.loc[Xp_["runs"] == 0, "starts_nach_pause60"].isna().all(),
+           "Starts nach Pause ≥ 60 / ≥ 180 Tage (1 = erster Start danach, neue Pause beginnt neu, 0 = keine Pause, "
+           "Debüt leer) und Länge der Pause, mit der die Serie begann")
     sc_ = pm._score(1.0, 1e-17, 0.5, 5.0, 1, 0.5, 5.0)
     pruefe(abs(sc_ - 100) < 1e-9 and abs(pm._score(1.0, 0.5, 0.5, 5.0, 1, 0.5, 5.0) - 400 / 3) < 1e-9,
            "Verbindungs-Score: Rundungsrest der Erwartung (1e-17) zählt nicht als A/E (kein Wert wie 1e16)")
