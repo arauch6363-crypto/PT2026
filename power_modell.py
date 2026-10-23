@@ -1323,6 +1323,43 @@ def kommentar_schicht(p, K: np.ndarray, rennen, won, datum) -> dict:
     return out
 
 
+def value_fair_mix(oos: pd.DataFrame, teile: dict) -> dict:
+    """Value-Faktor in der fairen Quote: p ∝ p_fair · exp(κ · f) je Rennen (f = Abweichung des Value-Modells vom Markt,
+    roh). κ per Maximum-Likelihood auf der Validierung, Likelihood-Quotienten-Test (χ² > MISCH3_LR), gepaarter Test auf
+    den Testtagen. teile: {"valid"/"test": DataFrame race_id, horse_id, f, won}; nur Rennen, in denen jeder Starter
+    der fairen Siegchance einen Value-Faktor hat."""
+    out, daten = {}, {}
+    for teil, t in teile.items():
+        o = oos[oos["teil"] == teil]
+        d = o.merge(t.astype({"race_id": str, "horse_id": str}), on=["race_id", "horse_id"], how="left")
+        d = d[d.groupby("race_id")["f"].transform(lambda s_: s_.notna().all())
+              & (d.groupby("race_id")["won"].transform("sum") == 1)]
+        daten[teil] = d
+    dv, dt = daten.get("valid"), daten.get("test")
+    if dv is None or dv["race_id"].nunique() < 20:
+        return {"uebernommen": False, "grund": "zu wenige Rennen"}
+    off = np.log(np.clip(dv["p_fair"].to_numpy(), 1e-9, 1))
+    kap = float(_clogit_offset(off, dv[["f"]].to_numpy(), dv["won"].to_numpy(float), dv["race_id"].to_numpy(), 0.0)[0])
+
+    def ll(d, k):
+        p_ = _softmax_im_rennen(np.log(np.clip(d["p_fair"].to_numpy(), 1e-9, 1)) + k * d["f"].to_numpy(),
+                                d["race_id"].to_numpy())
+        return -np.log(p_[d["won"].to_numpy() == 1])
+    l0, l1 = ll(dv, 0.0), ll(dv, kap)
+    lr = 2 * (l0.sum() - l1.sum())
+    out = {"kappa": round(kap, 4), "rennen_valid": int(dv["race_id"].nunique()),
+           "logloss_valid_ohne": round(float(l0.mean()), 4), "logloss_valid_mit": round(float(l1.mean()), 4),
+           "lr_chi2": round(float(lr), 2), "uebernommen": bool(lr > MISCH3_LR and kap > 0)}
+    if dt is not None and dt["race_id"].nunique() > 1:
+        dd = ll(dt, kap) - ll(dt, 0.0)
+        se = float(dd.std(ddof=1) / np.sqrt(len(dd)))
+        out.update({"rennen_test": int(len(dd)), "logloss_test_ohne": round(float(ll(dt, 0.0).mean()), 4),
+                    "logloss_test_mit": round(float(ll(dt, kap).mean()), 4),
+                    "gepaart_test": {"differenz": round(float(dd.mean()), 4), "se": round(se, 4),
+                                     "z": round(float(dd.mean() / se), 2) if se > 0 else None}})
+    return out
+
+
 def _ein_sieger(p1, p2, rennen, won) -> pd.DataFrame:
     d = pd.DataFrame({"r": np.asarray(rennen).astype(str), "w": np.nan_to_num(np.asarray(won, dtype=float)),
                       "p1": np.asarray(p1, dtype=float), "p2": np.asarray(p2, dtype=float)})
@@ -1406,6 +1443,7 @@ def logloss_quoten(p_morgen, rennen, won, odds_final) -> dict:
 
 ABBRUCH = ("standard", "sieg", "ndcg")
 ZWEIT_DATEI = "power_sieg.txt"   # zweites Power-Modell (Lern-Ziel „sieg“) für die Dreier-Mischung
+OOS_DATEI = "power_oos.parquet"   # faire Siegchance auf Validierung/Test (außerhalb der Lerndaten) für trainieren_wert
 KOMMENTAR_L2 = 5.0           # Korrekturschicht Kommentare: Schrumpfung der Gewichte (wenige Daten)
 KOMMENTAR_LERN = 0.6         # ... gelernt auf dem älteren Teil der Rennen mit Kommentar-Vorlauf, geprüft auf dem Rest
 KOMMENTAR_MIN_RENNEN = 150   # ... erst ab so vielen Rennen mit Kommentar-Vorlauf
@@ -2003,6 +2041,21 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
         K_t = km.vorlauf_merkmale(hist, hist.loc[ix_t]).to_numpy()[d_f.index.to_numpy()]
         kom = kommentar_schicht(p_f, K_t, d_f["r"], d_f["w"], tage[test].to_numpy()[d_f.index.to_numpy()])
         bericht["kommentar_schicht (faire Siegchance × Kommentar zum letzten Lauf)"] = kom
+    # faire Siegchance auf Validierung und Test (außerhalb der Lerndaten) – für den Value in der fairen Quote
+    oos = None
+    if mischung:
+        m3 = bool(mischung3.get("uebernommen"))
+        d_v = _mischung_daten(mq_[valid].to_numpy(), pb_v, rv, wv, p2_v if m3 else None)
+        p_v = (mischung_chance(d_v["pm"], d_v["pb"], d_v["r"], mischung3["morgen"], mischung3["power"], d_v["ps"],
+                               mischung3["sieg"]) if m3
+               else mischung_chance(d_v["pm"], d_v["pb"], d_v["r"], mischung["morgen"], mischung["power"]))
+        teile = []
+        for teil_, maske_, d_x, p_x in (("valid", valid, d_v, p_v), ("test", test, d_f, p_f)):
+            ix_ = X.index[maske_][d_x.index.to_numpy()]
+            teile.append(pd.DataFrame({"race_id": hist.loc[ix_, "race_id"].astype(str).to_numpy(),
+                                       "horse_id": hist.loc[ix_, "horse_id"].astype(str).to_numpy(),
+                                       "teil": teil_, "p_fair": np.asarray(p_x, dtype=float)}))
+        oos = pd.concat(teile, ignore_index=True)
     bericht["je_rennen"] = je_rennen
     # Rote Starter (Power ≤ 95): wie oft gewinnen / platzieren sie sich? (fürs Weglassen in der Claude-JSON)
     st_t = (power_mix_staerke(p1_t, p2_t, power_mix["power"], power_mix["sieg"]) if mix_ok
@@ -2055,6 +2108,8 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
             sm.save_model(str(ordner / datei))
             seg_meta["modelle"][s_] = datei
         log(f"Segment-Modelle gespeichert ({segmente}): {', '.join(seg_meta['modelle'])}")
+    if oos is not None:                                  # für pm.trainieren_wert (Value in der fairen Quote)
+        oos.to_parquet(ordner / OOS_DATEI)
     zweit_meta = None
     if zweit is not None:                                # zweites Power-Modell „sieg“ für die Mischung
         p2 = {**zweit[2], "objective": sieg_ziel(rennen)}
@@ -2186,7 +2241,8 @@ def morgen_merkmale(zeilen: pd.DataFrame) -> pd.DataFrame:
 def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
                     X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
                     ab: str | None = None, neu: bool = False, ziel_art: str = "platz", aufwaermen: int | None = None,
-                    segmente: str | None = None, morgenquote: bool = True, tracking: bool = False, log=print) -> dict:
+                    segmente: str | None = None, morgenquote: bool = True, tracking: bool = False, speichern: bool = True,
+                    log=print) -> dict:
     """Value-Modell: lernt, wann ein Pferd öfter platziert ist, als seine Endquote erwarten lässt.
     ziel_art="platz": Ziel platziert 0/1 gegen die Platzchance des Marktes (binär, Faktor ≈ A/E Platz).
     ziel_art="kombi": Ziel Sieg + Platz (Sieger = 2, Platzierter = 1, sonst 0) gegen Siegchance + Platzchance des
@@ -2198,7 +2254,10 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     bedingtes Logit Sieg mit Markt + Value) nur auf den Testtagen.
     morgenquote=True: zusätzlich Merkmale aus der Morgenquote (MORGEN_MERKMALE) – das Modell lernt so, wo der Markt am
     Morgen danebenliegt; Ziel bleibt der Vergleich mit der Endquote. Die Karte braucht dann die Morgenquote.
-    tracking: Tracking-Wert als Merkmal wie bei Power (Teilmodell auf den Platzanteil, je Quartal aus den früheren)."""
+    tracking: Tracking-Wert als Merkmal wie bei Power (Teilmodell auf den Platzanteil, je Quartal aus den früheren).
+    Value in der fairen Quote: liegt BASE/modelle/power_oos.parquet vor (von pm.trainieren gespeichert), wird geprüft,
+    ob p_fair · exp(κ · Value) besser ist (value_fair_mix); übernommen nur nach Likelihood-Quotienten-Test.
+    speichern=False: nur prüfen und berichten."""
     import lightgbm as lgb
     import hypothesen_backtest as hb
     if segmente is not None and segmente not in SEGMENT_SPALTEN:
@@ -2317,6 +2376,16 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     gold_ab = float(np.quantile(f_val, 1 - WERT_GOLD))
     warn_ab = float(np.quantile(f_val, 1 / WERT_STUFEN))                   # Grenze des untersten Fünftels
     gold_test = f >= gold_ab
+    # Value in der fairen Quote (faire Siegchance von pm.trainieren, außerhalb der Lerndaten)
+    fair_mix = None
+    if ordner is not None and (ordner / OOS_DATEI).exists():
+        teile_ = {}
+        for teil_, maske_, f_ in (("valid", valid, f_val), ("test", test, f)):
+            ix_ = X.index[maske_]
+            teile_[teil_] = pd.DataFrame({"race_id": hist.loc[ix_, "race_id"].astype(str).to_numpy(),
+                                          "horse_id": hist.loc[ix_, "horse_id"].astype(str).to_numpy(), "f": f_,
+                                          "won": pd.to_numeric(hist.loc[ix_, "won"], errors="coerce").to_numpy()})
+        fair_mix = value_fair_mix(pd.read_parquet(ordner / OOS_DATEI), teile_)
     d = pd.DataFrame({"race_id": rennen, "won": won, "z": _z_im_rennen(f, rennen), "p_mkt": p_sieg})
     d = d[d.groupby("race_id")["p_mkt"].transform(lambda s_: s_.notna().all())]
     d = d[d.groupby("race_id")["won"].transform("sum") == 1]
@@ -2355,6 +2424,8 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
             zeilen.append(z)
         je_art[sp] = zeilen
     bericht["je_rennart"] = je_art
+    if fair_mix is not None:
+        bericht["value_in_fairer_quote"] = fair_mix
     if segmente:
         bericht["segmente"] = {"spalte": segmente, "je_segment": seg_bericht}
     log(f"Value-Modell ({ziel_art}) – Test (unberührt; Eichung und Gold-Grenze aus der Validierung):")
@@ -2376,6 +2447,9 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
         log(t.to_string(index=False))
     imp = pd.Series(m.feature_importance("gain"), index=Xk.columns).sort_values(ascending=False)
     log("Wichtigste Merkmale (Value, Gain): " + ", ".join(f"{k} {v / imp.sum():.1%}" for k, v in imp.head(15).items()))
+    if not speichern:
+        log("Nicht gespeichert.")
+        return bericht
     final = lgb.train(p, lgb.Dataset(Xk, y_all, init_score=basis, categorical_feature=KATEGORISCH), num_boost_round=best)
     ordner.mkdir(parents=True, exist_ok=True)
     final.save_model(str(ordner / WERT_DATEI))
@@ -2397,6 +2471,7 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     meta = {"spalten": list(Xk.columns), "stufen": stufen, "bericht": bericht, "kalib_k": k_, "gold_ab": gold_ab,
             "warn_ab": warn_ab, "segmente": seg_meta, "tracking": _tracking_speichern(trk, ordner, WERT_DATEI),
             "ziel": ziel_art, "morgenquote": bool(morgenquote),
+            "fair_kappa": fair_mix["kappa"] if fair_mix and fair_mix.get("uebernommen") else None,
             "wichtig": {k: round(float(v / imp.sum()), 4) for k, v in imp.head(30).items()},
             "trainiert": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"), "starter": int(len(X))}
     (ordner / WERT_META).write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -2567,6 +2642,11 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
         fw = (modell["wert"]["booster"].predict(Xw[wm["spalten"]], raw_score=True)
               + _seg_korrektur(modell["wert"], X, Xw[wm["spalten"]]))
         df["wert"] = np.exp(wm.get("kalib_k", 1.0) * fw)                 # geeicht: was auf der Validierung eintrat
+        kap = wm.get("fair_kappa")
+        mm_ = (df["quelle"] == "mischung").to_numpy()
+        if kap and mm_.any():                            # Value in der fairen Quote: p ∝ p_fair · exp(κ · Value)
+            df.loc[mm_, "sieg"] = _softmax_im_rennen(np.log(np.clip(df.loc[mm_, "sieg"].to_numpy(float), 1e-9, 1))
+                                                     + kap * np.asarray(fw)[mm_], df.loc[mm_, "race_id"].to_numpy())
         df["gold"] = fw >= wm["gold_ab"] if "gold_ab" in wm else df["wert"] >= 1.2
         # Warnsignal: unterstes Fünftel (Grenze aus der Validierung, ältere Modelle: geeichter Faktor ≤ WARN_FAKTOR)
         df["warn"] = fw <= wm["warn_ab"] if "warn_ab" in wm else df["wert"] <= WARN_FAKTOR
