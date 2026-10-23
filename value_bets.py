@@ -177,7 +177,7 @@ def _pferde_rennen(rennen: dict, datum: str) -> list[dict]:
 
 
 CHANCE_SPALTEN = ["p", "fair", "rank_fq", "rank_pct", "rel", "wert", "p_model", "p_platz", "fair_platz", "is_top"]
-CHANCEN = ("mix", "power")   # faire Quote: gemischt (Morgenquote × Power, Vorgabe) oder Power allein
+CHANCEN = ("mix", "power")   # faire Quote: wie auf der Karte (Vorgabe; ältere Karten: mit Morgenquote) oder sieg_blind
 
 
 def _chance_werte(p: np.ndarray, fks: list, n: int, plaetze: int) -> list[dict]:
@@ -392,7 +392,8 @@ class FilterConfig:
     minw: Mindest-Wert (0–1,5); gold_on: Gold-Pferde schon ab min(0,2; minw);
     mode: genau einer von "max" (faire Quote < X), "rank" (rank_pct ≥ X),
     "rel" (rel ≥ X) oder "none"; top: "beides", "ja" (nur Top-Wert) oder "nein";
-    chance: Siegchance für faire Quote, Wert und Kelly – "mix" (Morgenquote × Power, Vorgabe) oder "power".
+    chance: Siegchance für faire Quote, Wert und Kelly – "mix" (faire Quote der Karte, Vorgabe) oder "power"
+            (sieg_blind: Power ohne Value bzw. bei älteren Karten ohne Morgenquote).
     """
     minw: float = 0.5
     gold_on: bool = True

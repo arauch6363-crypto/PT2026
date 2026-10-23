@@ -179,24 +179,12 @@ Gespeichert wird das Ziel mit dem kleinsten Log-Loss der Siegchance auf der Vali
 Log-Loss, Power-z, Siegertreffer und Rangkorrelation; die Rangkorrelation über das ganze Feld ist nur Information,
 weil sie die Reihenfolge hinten belohnt. `art="beide"` prüft nur Regression und Rang.
 
-**Faire Siegchance: Mischung Morgenquote × Power.** `pm.trainieren(BASE)` schätzt auf den Siegern der Validierung
-zwei Exponenten (`meta["mischung"]`). Die Siegchance auf der Karte ist dann p ∝ p_Morgen^α · p_Power^β je Rennen.
-Gemessen auf denselben Testrennen (2026, alle mit Morgen- und Endquote; Modelle nur auf dem Lernzeitraum trainiert):
-
-| Siegchance aus | Log-Loss Test |
-|---|---|
-| Power allein | 2,057 |
-| Morgenquote allein | 2,029 |
-| Kombi-Modell Power-Merkmale + Morgenquote (`pm.trainieren_morgen`) | 2,018 |
-| **Mischung Morgen^0,66 × Power^0,55** | **1,996** |
-| Endquote | 1,925 |
-
-- Die Karte nutzt die Mischung (`power.sieg`, `sieg_quelle: "mischung"`) in jedem Rennen, in dem alle Starter eine
-  Morgenquote haben, sonst Power allein. `power.sieg_blind` = Power allein; Power (`p`) bleibt ohne Markt.
-- Der Bericht von `pm.trainieren` zeigt die Exponenten und den Log-Loss im Test unter
-  `mischung (Morgenquote × Power)`.
-- Das Kombi-Modell (`pm.trainieren_morgen`, `modelle/power_morgen.txt`) wird nur noch genutzt, wenn das Power-Modell
-  keine Mischung hat (älterer Stand). Es ist schlechter als die Mischung und braucht nicht mehr trainiert zu werden.
+**Faire Siegchance ohne Marktquote (seit 10/2026).** Die Morgenquote ist ausgebaut: Die Karte sah um 10 Uhr einen
+anderen Stand der PMU-Referenzquote als den später gespeicherten (Rückrechnung an der Karte vom 22.10.2026, im Schnitt
+rund 50 % Abweichung) – Training und Karte ließen sich nicht gleich rechnen. Faire Siegchance = Power-Mischung
+(Power × Power-sieg, siehe unten) × exp(κ × Value) (`pm.trainieren_wert`), dazu die Kommentar-Schicht, sobald sie
+übernommen ist. Die Karte zeigt nur diese eine faire Quote; `power.sieg_blind` = ohne Value. Ein früheres
+Kombi-Modell `modelle/power_morgen.txt` wird beim nächsten Speichern gelöscht.
 **Rennverlauf und Startbox (Merkmale Version 16):**
 - `verlauf5_gegen` / `verlauf5_mit`: Anteil der letzten fünf Läufe gegen bzw. mit dem Rennverlauf.
 - `form5_pos_gegen` / `form5_pos_mit`: Ø Pos+ nur aus diesen Läufen.
@@ -297,11 +285,7 @@ Quote noch nicht enthält.
 
 Zweites Modell (Value): `pm.trainieren_wert(BASE)` bzw. `pm.trainieren_wert(BASE, ziel_art="kombi")` (Ziel Sieg + Platz gegen Sieg- + Platzchance des Marktes, Poisson – ein Sieg zählt doppelt) (Minuten, Merkmale aus dem Zwischenspeicher). Ziel platziert ja/nein,
 Ausgangswert die Platzchance des Marktes (`exp_place`, Harville aus der Endquote) – LightGBM lernt nur die Abweichung.
-Die Endquote steckt nur im Lern-Ziel, nie in den Merkmalen. Seit 10/2026 sieht das Value-Modell zusätzlich die
-Morgenquote (PMU-Referenzquote, `odds_morning`; Vorgabe `morgenquote=True`): Marktchance je Rennen normiert, log-Quote,
-Quotenrang im Feld und Marge (`pm.morgen_merkmale`). So lernt es, wo der Markt am Morgen danebenliegt – gemessen am
-Ergebnis gegen die Endquote. Historisch zu ~98 % vorhanden, nur 4 % gleich der Endquote (Rangkorrelation 0,89). Das
-Power-Modell bleibt ohne jede heutige Quote. Ohne Morgenquote auf der Karte fehlen diese Merkmale (Hinweis im Log). Bericht: Log-Loss der Platzierung Markt gegen Markt + Value, A/E Platz und Sieg je Fünftel
+Die Endquote steckt nur im Lern-Ziel, nie in den Merkmalen; keine Marktquote als Merkmal (die Morgenquote ist seit 10/2026 ausgebaut). Bericht: Log-Loss der Platzierung Markt gegen Markt + Value, A/E Platz und Sieg je Fünftel
 des Faktors auf den Testtagen, bedingtes Logit (Sieg) mit Markt + Value. Gespeichert als `power_wert.txt/.json`; die Karte
 zeigt einen goldenen Rahmen um die faire Quote bei den obersten 10 % des Value-Faktors (Grenze aus der Validierung; `gold_test`: Anteil und Rendite dieser Auswahl auf den Testtagen).
 Dazu im Bericht: Rendite einer Siegwette 1 € zur echten Endquote (mit Marge) für alle, die obersten 20/10/5/2 % des
@@ -686,7 +670,7 @@ vergleicht beide Rechnungen über Node.
   (`sieg_blind`, ohne Morgenquote) und robustem t (HC1); zweite Variante zusätzlich mit der Presse-Quote. t ≤ −2:
   Pferde, die das Modell bei gleichem Festkurs höher einschätzt, enden kürzer im Toto (`vb.modell_toto`). Das
   Diagramm „Modell → Toto im Verlauf“ zeigt den t-Wert je Renntag kumuliert, ab 20 Picks.
-- **Faire Quote:** gemischt (Morgenquote × Power, Vorgabe) oder nur Power – bestimmt faire Quote, Wert, Rang, Top-Wert,
+- **Faire Quote:** wie auf der Karte (Vorgabe) oder ohne Value (`sieg_blind`; ältere Karten: ohne Morgenquote) – bestimmt faire Quote, Wert, Rang, Top-Wert,
   Platzchance und Kelly (`vb.FilterConfig(chance="power")`; Spalten `…_pw` im Pool). Auf der Karte gibt es denselben
   Umschalter neben „Sortieren“; die Sortierung „Faire Quote“ und der Rang „#n“ im Kästchen folgen ihm, „Power“
   sortiert weiter nach der Stärke ohne Markt.
