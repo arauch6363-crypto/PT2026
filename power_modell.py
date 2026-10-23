@@ -1695,8 +1695,10 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     arten = list(ARTEN) if art == "alle" else ["regression", "rang"] if art == "beide" else [art]
     if any(a_ not in ARTEN for a_ in arten):
         raise ValueError(f"art: eins von {ARTEN}, 'beide' oder 'alle'")
-    if segmente and "sieg" in arten:
-        raise ValueError("segmente: nicht mit art 'sieg'")
+    if segmente and "sieg" in arten:                     # Segment-Modelle brauchen ein Standard-Ziel
+        if art == "sieg":
+            raise ValueError("segmente: nicht mit art 'sieg'")
+        arten = [a_ for a_ in arten if a_ != "sieg"]
     bericht: dict = {}
     validierung: dict = {}
     modelle = {}
