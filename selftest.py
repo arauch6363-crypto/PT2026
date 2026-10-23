@@ -770,6 +770,28 @@ def power_modell_pruefen() -> None:
            and len(vg_) >= 1 and vg_["rennen"].iloc[0] > 0 and np.isfinite(vg_["differenz"].iloc[0]),
            "Lern-Ziel „sieg“: Gradient = numerische Ableitung von −log Siegchance (Rennen ohne Sieger zählen nicht), "
            "Training/Speichern/Karte; Log-Loss je Testrennen und gepaarter Vergleich zweier Läufe (pm.vergleich)")
+    # Dreier-Mischung Morgenquote × Power × Power-sieg: übernommen nur nach Likelihood-Quotienten-Test
+    alt_lr = pm.MISCH3_LR
+    m3_ = {}
+    for lr_ in (-1e9, 1e9):                                   # erzwungen übernommen / erzwungen verworfen
+        pm.MISCH3_LR = lr_
+        with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+            e3_ = pm.trainieren(hist=h, X=X, out=Path(tmp) / pm.MODELL_ORDNER, runden=40, art="regression", log=print)
+            mod3_ = pm.laden(Path(tmp))
+            v3_ = pm.vorhersage(h, heute.assign(race_id="20260603R1C1", date=pd.Timestamp("2026-06-03")), mod3_,
+                                log=print)
+            m3_[lr_ > 0] = (e3_, mod3_, v3_, (Path(tmp) / pm.MODELL_ORDNER / pm.ZWEIT_DATEI).exists())
+    pm.MISCH3_LR = alt_lr
+    (e_j, mod_j, v_j, d_j), (e_n, mod_n, v_n, d_n) = m3_[False], m3_[True]
+    b3_ = e_j["mischung3 (Morgenquote × Power × Power-sieg)"]
+    pruefe(b3_["uebernommen"] and set(mod_j["meta"]["mischung"]) == {"morgen", "power", "sieg"} and d_j
+           and mod_j.get("zweit") is not None and abs(sum(x["sieg"] for x in v_j.values()) - 1) < 0.01
+           and not e_n["mischung3 (Morgenquote × Power × Power-sieg)"]["uebernommen"] and not d_n
+           and "sieg" not in mod_n["meta"]["mischung"] and "gepaart_test" in b3_ and "mischung3" in e_j["je_rennen"]
+           and pm.mischung_chance([.5, .5], [.4, .6], ["a", "a"], 1.0, 0.0, [.9, .1], 0.0).tolist() == [.5, .5],
+           f"Dreier-Mischung Morgenquote^{b3_['morgen']} × Power^{b3_['power']} × Power-sieg^{b3_['sieg']}: nur nach "
+           f"Likelihood-Quotienten-Test (χ² {b3_['lr_chi2']}) übernommen, dann zweites Modell gespeichert und auf der "
+           "Karte gemischt; sonst Zweier-Mischung wie bisher; gepaarter Test im Bericht")
     # Value-Modell: Trainer-Effekt steckt nicht in der Quote -> oberes Fünftel A/E Platz > 1, unteres < 1
     import racecard as rc_
     hw = _power_synth(tage=80)

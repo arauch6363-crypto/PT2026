@@ -251,6 +251,10 @@ Trend und Klasse:
 - Siegchance Power allein = Softmax(a × z) der Power-Vorhersage je Rennen (a auf der Validierung geschätzt).
 - **Mischung (Vorgabe):** p ∝ p_Morgen^α × p_Power^β je Rennen, α und β auf den Siegern der Validierung geschätzt
   (zuletzt α ≈ 0,66, β ≈ 0,55); nur in Rennen mit vollständiger Morgenquote, sonst Power allein.
+- **Dreier-Mischung** (`zweitmodell=True`, Vorgabe): zusätzlich ein zweites Power-Modell mit Lern-Ziel „sieg“,
+  p ∝ p_Morgen^α × p_Power^β × p_Power-sieg^γ. Übernommen nur, wenn der Likelihood-Quotienten-Test auf der Validierung
+  χ²(1) > 3,84 ergibt; dann wird `modelle/power_sieg.txt` gespeichert und auf der Karte mitgerechnet, sonst bleibt die
+  Zweier-Mischung. Der Bericht zeigt den gepaarten Test drei gegen zwei Quellen auf den Testtagen.
 
 ## Offen für den nächsten Neubau (Version 20)
 

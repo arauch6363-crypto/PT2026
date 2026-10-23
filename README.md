@@ -242,6 +242,9 @@ Zählung neu, 0 = keine solche Pause in der bekannten Historie, leer bei Debüta
 - **Lern-Ziel „sieg“:** `pm.trainieren(BASE, art="sieg")` lernt die Siegchance direkt (Softmax je Rennen auf den
   Sieger). **Gepaarter Vergleich:** `pm.vergleich(bericht_a, bericht_b, ("A", "B"))` vergleicht zwei Läufe je
   Testrennen (Differenz, Standardfehler, z).
+- **Dreier-Mischung:** `pm.trainieren` lernt zusätzlich ein Power-Modell „sieg“ und prüft die faire Siegchance
+  Morgenquote × Power × Power-sieg; übernommen nur nach Likelihood-Quotienten-Test auf der Validierung
+  (`modelle/power_sieg.txt`). Abschalten mit `zweitmodell=False`.
 - **Abbruch wählbar:** `pm.trainieren(BASE, art="regression", abbruch="sieg")` bricht nach dem Log-Loss der Siegchance
   ab, `abbruch="ndcg"` nach NDCG@3 der Spitze. Vorgabe ist `"standard"` (quadratischer Fehler).
 
