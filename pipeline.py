@@ -255,6 +255,16 @@ def tag_verarbeiten(tag: date, base: Path, pdf_dir: Path, *, nur_flach: bool = T
     _write(base, "pmu_laeufe_extern", ymd, ext)
     _extern_erledigt(base, ymd)
 
+    # 2c) PMU-Prognosen (cote probable, Tipps) – PMU hält sie nur einige Monate vor; eine schon gespeicherte Datei
+    # (z. B. von der Karte am Morgen) bleibt
+    import prognose_basis
+    if not (base / "parquet" / prognose_basis.TABELLE / f"{ymd}.parquet").exists():
+        try:
+            pg = pmu.prognosen(tag, s, [(r["reunion"], r["race_no"]) for r in races], pause=pause)
+            prognose_basis.speichern(base, tag, pg)
+        except Exception as e:                           # Prognosen sind Zusatz – der Tag gilt trotzdem als erledigt
+            log(f"{ymd}: Prognosen nicht geholt ({e})")
+
     # 3) je Rennen bei France Galop nach dem Tracking-PDF sehen
     store = fg.CodeStore(base)
     status = fg.tracking_fuer_tag(tag, meets, s, store, pdf_dir, pause=pause,

@@ -32,10 +32,12 @@ MIN_N = 50               # kleinere Gruppen werden markiert („dünn“)
 def laden(base: Path) -> pd.DataFrame:
     import pipeline as tp
     import standardzeiten
-    return rc.vorbereiten(tp.lade("pmu_races", base), tp.lade("pmu_runners", base),
-                          tp.lade("tracking_races", base), tp.lade("tracking_runners", base),
-                          tp.lade("tracking_sections", base), tp.lade("tracking_leader", base),
-                          standards=standardzeiten.je_rennen(base), extern=tp.lade("pmu_laeufe_extern", base))
+    import prognose_basis
+    h = rc.vorbereiten(tp.lade("pmu_races", base), tp.lade("pmu_runners", base),
+                       tp.lade("tracking_races", base), tp.lade("tracking_runners", base),
+                       tp.lade("tracking_sections", base), tp.lade("tracking_leader", base),
+                       standards=standardzeiten.je_rennen(base), extern=tp.lade("pmu_laeufe_extern", base))
+    return prognose_basis.anfuegen(h, tp.lade(prognose_basis.TABELLE, base)) if len(h) else h   # PMU-Prognosen
 
 
 def _rang(h: pd.DataFrame, spalte: str) -> pd.Series:

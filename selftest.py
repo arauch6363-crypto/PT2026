@@ -343,6 +343,8 @@ def main() -> int:
     festkurse_aktualisieren_pruefen()
     print("\n15) Kommentare: Kategorien aus dem PMU-Kommentar")
     kommentare_pruefen()
+    print("\n16) PMU-Prognosen: Tabelle und Prognose-Schicht")
+    prognose_pruefen()
 
     pt.read_pages = requests_session_orig
     print("\n" + ("Alle Prüfungen bestanden." if not fehler else f"{len(fehler)} Prüfung(en) fehlgeschlagen:"))
@@ -1738,6 +1740,83 @@ def kommentare_pruefen() -> None:
                                          {"k_pech": np.log(3)})[0] - .75) < 1e-9,
            f"Kommentar zum letzten Lauf (nur frühere Läufe, am selben Tag nicht; ohne Kommentar leer); Korrekturschicht "
            f"findet ein eingebautes Signal (Gewicht Pech {ks_['gewichte']['k_pech']}, Prüfteil z {ks_['pruef_z']})")
+
+
+def prognose_pruefen() -> None:
+    import numpy as np
+    import prognose_basis as pb
+    import power_modell as pm
+    pg = {(1, 2): {"selection": [{"no": 1, "rank": 1, "cote_dec": 2.0}, {"no": 2, "rank": 2, "cote_dec": 4.0},
+                                 {"no": 3, "rank": 3, "cote_dec": 4.0}],
+                   "tips": [{"source": "A", "nos": [1, 2]}, {"source": "B", "nos": [2, 3]}]},
+          (1, 3): {"selection": [{"no": 1, "rank": 1, "cote_dec": 3.0}], "tips": []}}
+    z = pb.zeilen(date(2026, 9, 1), pg)
+    with tempfile.TemporaryDirectory() as tmp:
+        n_ = pb.speichern(Path(tmp), date(2026, 9, 1), pg)
+        geladen = pd.read_parquet(Path(tmp) / "parquet" / pb.TABELLE / "20260901.parquet")
+    h = pd.DataFrame({"race_id": ["20260901R1C2"] * 3 + ["20260901R1C3"] * 2, "saddle_no": [1, 2, 3, 1, 2]})
+    h = pb.anfuegen(h, z)
+    m = pb.merkmale(h)
+    lp = np.log(np.array([.5, .25, .25]))
+    pruefe(n_ == 4 and len(geladen) == 4 and z.loc[z["saddle_no"] == 2, "tipps_n"].iloc[0] == 2
+           and np.allclose(m["pr_lp"].iloc[:3], lp - lp.mean()) and m["pr_lp"].iloc[3:].isna().all()
+           and m["pr_tipp"].iloc[:3].tolist() == [0.5, 1.0, 0.5] and m["pr_tipp"].iloc[3:].isna().all(),
+           "Prognosen: Tabelle je Tag (cote probable, Tipps), an Starter angehängt; Merkmale log Prognose-Chance "
+           "(nur bei vollständiger Auswahl) und Anteil der Tippgeber")
+    # Rückwärts nachholen: bis 7 Renntage in Folge ohne Prognose (Tage ohne Rennen zählen nicht)
+    import pmu as pmu_
+    alt_ = (pmu_.heute, pmu_.meetings, pmu_.prognosen)
+    pmu_.heute = lambda: date(2026, 7, 20)
+    pmu_.meetings = lambda tag, s_, **k_: None if tag.weekday() == 6 else [{"reunion": 1, "courses": [{"numOrdre": 1}]}]
+    pmu_.prognosen = lambda tag, s_, rennen, pause=0: ({(1, 1): {"selection": [{"no": 1, "rank": 1, "cote_dec": 2.0}],
+                                                                "tips": []}} if tag >= date(2026, 7, 1) else {})
+    with tempfile.TemporaryDirectory() as tmp:
+        rw_ = pb.nachholen_rueckwaerts(Path(tmp), pause=0, log=lambda *a_: None)
+    pmu_.heute, pmu_.meetings, pmu_.prognosen = alt_
+    leer_ = rw_[rw_["mit_prognose"] == 0]
+    pruefe(rw_["tag"].max() == date(2026, 7, 18) and len(leer_) == 7 and leer_["tag"].max() < date(2026, 7, 1)
+           and (rw_["mit_prognose"] > 0).sum() == 16,
+           "Prognosen rückwärts nachholen: ab gestern zurück, Ende nach 7 Renntagen in Folge ohne Prognose")
+    # Tagesverarbeitung der Pipeline schreibt die Prognosen mit (vorhandene Datei, z. B. von der Karte, bleibt)
+    import pipeline as tp_
+    import france_galop as fg_
+    alt_ = (pmu_.meetings, pmu_.starter, pmu_.externe_laeufe, pmu_.prognosen, fg_.tracking_fuer_tag, tp_.pdfs_auswerten,
+            fg_.CodeStore)
+    pmu_.meetings = lambda tag, s_, **k_: [{"reunion": 1, "hippodrome": "X", "pmu_code": "X", "courses": [{"numOrdre": 2}]}]
+    pmu_.starter = lambda tag, s_, meets, pause=0: ([{"race_id": "20260902R1C2", "reunion": 1, "race_no": 2}],
+                                                    [{"race_id": "20260902R1C2", "saddle_no": 1, "horse": "A"}])
+    pmu_.externe_laeufe = lambda *a_, **k_: []
+    pmu_.prognosen = lambda tag, s_, rennen, pause=0: {(r_, c_): pg[(1, 2)] for r_, c_ in rennen}
+    fg_.tracking_fuer_tag = lambda *a_, **k_: []
+    tp_.pdfs_auswerten = lambda *a_, **k_: {}
+    fg_.CodeStore = lambda base: type("S", (), {"gelernt": 0})()
+    with tempfile.TemporaryDirectory() as tmp:
+        tp_.tag_verarbeiten(date(2026, 9, 2), Path(tmp), Path(tmp) / "pdf", log=lambda *a_: None)
+        neu_ = pd.read_parquet(Path(tmp) / "parquet" / pb.TABELLE / "20260902.parquet")
+        pb.speichern(Path(tmp), date(2026, 9, 3), {(1, 3): pg[(1, 3)]})          # „Karte vom Morgen“
+        pmu_.meetings = lambda tag, s_, **k_: [{"reunion": 1, "hippodrome": "X", "pmu_code": "X",
+                                                "courses": [{"numOrdre": 3}]}]
+        tp_.tag_verarbeiten(date(2026, 9, 3), Path(tmp), Path(tmp) / "pdf", log=lambda *a_: None)
+        bleibt_ = pd.read_parquet(Path(tmp) / "parquet" / pb.TABELLE / "20260903.parquet")
+    (pmu_.meetings, pmu_.starter, pmu_.externe_laeufe, pmu_.prognosen, fg_.tracking_fuer_tag, tp_.pdfs_auswerten,
+     fg_.CodeStore) = alt_
+    pruefe(len(neu_) == 3 and set(neu_["race_id"]) == {"20260902R1C2"} and len(bleibt_) == 1,
+           "Pipeline: jeder neu verarbeitete Tag schreibt die PMU-Prognosen mit; eine vorhandene Datei (Karte) bleibt")
+    # Prognose-Schicht findet eingebautes Signal (Modell kennt die Prognose nicht, die Prognose weiß etwas)
+    rng = np.random.default_rng(3)
+    n_r, f_ = 1500, 8
+    r_k = np.repeat(np.arange(n_r), f_); t_k = pd.Timestamp("2026-07-01") + pd.to_timedelta(r_k // 12, unit="D")
+    wahr = rng.normal(size=n_r * f_); info = wahr + rng.normal(size=n_r * f_)
+    prono = pd.Series(info).groupby(r_k).transform(lambda v: v - v.mean()).to_numpy()
+    w_k = np.zeros(n_r * f_)
+    for i_ in range(n_r):
+        w_k[i_ * f_ + np.argmax(wahr[i_ * f_:(i_ + 1) * f_] + rng.gumbel(size=f_))] = 1
+    p0_ = pm._softmax_im_rennen(np.zeros(n_r * f_), r_k)
+    F_ = np.c_[prono, np.full(n_r * f_, np.nan)]
+    ps_ = pm.kommentar_schicht(p0_, F_, r_k, w_k, t_k, namen=pm.PROGNOSE_NAMEN, l2=pm.PROGNOSE_L2)
+    pruefe(ps_["uebernommen"] and ps_["gewichte"]["pr_lp"] > 0.2 and ps_["pruef_z"] < -2,
+           f"Prognose-Schicht: findet eine eingebaute Prognose-Information (Gewicht {ps_['gewichte']['pr_lp']}, "
+           f"Prüfteil z {ps_['pruef_z']}); übernommen nur nach gepaartem Test")
 
 
 def racecard_pruefen() -> None:

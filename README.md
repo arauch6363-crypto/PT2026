@@ -237,6 +237,9 @@ Zählung neu, 0 = keine solche Pause in der bekannten Historie, leer bei Debüta
 - **Value in der fairen Quote:** `pm.trainieren_wert` prüft, ob der Value-Faktor die faire Quote verbessert
   (p_fair × exp(κ × Value), Bericht `value_in_fairer_quote`); übernommen nur nach Likelihood-Quotienten-Test. Immer erst
   `pm.trainieren`, dann `pm.trainieren_wert`; `speichern=False` zum Prüfen.
+- **PMU-Prognosen:** `prognose_basis.nachholen_rueckwaerts(BASE)` holt (ab gestern zurück, bis 7 Renntage in Folge ohne Prognose); jeder neu verarbeitete Tag der Pipeline (`pipeline.run`) und jede Karte schreiben ihren Tag mit die Prognosen (cote probable, Tipps) in die
+  Tabelle `pmu_prognosen`; jede Karte ergänzt ihren Tag. Die Prognose-Schicht korrigiert die faire Siegchance, sobald
+  der gepaarte Test sie belegt (Bericht `prognose_schicht (…)`).
 - **Kommentare:** `kommentare.py` ordnet den PMU-Kommentar nach dem Rennen 16 Kategorien zu; die Kategorien zum
   letzten Lauf korrigieren die faire Siegchance (Korrekturschicht), sobald der gepaarte Test sie belegt
   (Bericht: `kommentar_schicht (…)`).
