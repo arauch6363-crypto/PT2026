@@ -67,6 +67,26 @@ def speichern(base: Path, tag: date, prognosen: dict) -> int:
     return len(d)
 
 
+TIMEOUT_S = 10          # Nachholen: so lange je Anfrage warten (PMU antwortet sonst bis zu 30 s nicht)
+ABBRUCH_LEER = 3        # … und einen Tag aufgeben, wenn die ersten so vielen Rennen keine Prognose haben
+
+
+def _tag_holen(base: Path, tag: date, s, pause: float, log) -> dict:
+    """Ein Tag: Programm, Prognosen (mit Fortschritt), speichern. Rückgabe: Zeile für den Bericht."""
+    t0 = time.time()
+    meets = pmu.meetings(tag, s, nur_flach=True, nur_gelaufen=True)
+    if not meets:
+        log(f"{tag}: keine Flachrennen ({time.time() - t0:.0f} s)")
+        return {"tag": tag, "rennen": 0, "mit_prognose": 0, "starter": 0}
+    rennen = [(m["reunion"], pmu.race_no(c)) for m in meets for c in m["courses"]]
+    log(f"{tag}: {len(rennen)} Rennen – hole Prognosen …")
+    pg = pmu.prognosen(tag, s, rennen, pause=pause, timeout=TIMEOUT_S, abbruch_leer=ABBRUCH_LEER)
+    n = speichern(base, tag, pg)
+    log(f"{tag}: {len(pg)} von {len(rennen)} Rennen mit Prognose, {n} Starter gespeichert ({time.time() - t0:.0f} s)"
+        + ("" if pg else f" – PMU: {pmu.LETZTER_FEHLER or 'keine Daten'}"))
+    return {"tag": tag, "rennen": len(rennen), "mit_prognose": len(pg), "starter": n}
+
+
 def nachholen(base: Path, von, bis=None, *, neu: bool = False, pause: float = 0.3, log=print) -> pd.DataFrame:
     """Prognosen für alle Tage von … bis (Vorgabe: gestern) holen und speichern; vorhandene Tage überspringen."""
     s = _sitzung()
@@ -75,16 +95,9 @@ def nachholen(base: Path, von, bis=None, *, neu: bool = False, pause: float = 0.
     bericht = []
     for tag in pd.date_range(pd.Timestamp(von), pd.Timestamp(ende), freq="D").date:
         if not neu and (ordner / f"{tag:%Y%m%d}.parquet").exists():
+            log(f"{tag}: schon gespeichert")
             continue
-        meets = pmu.meetings(tag, s, nur_flach=True, nur_gelaufen=True)
-        if not meets:
-            bericht.append({"tag": tag, "rennen": 0, "mit_prognose": 0, "starter": 0})
-            continue
-        rennen = [(m["reunion"], pmu.race_no(c)) for m in meets for c in m["courses"]]
-        pg = pmu.prognosen(tag, s, rennen, pause=pause)
-        n = speichern(base, tag, pg)
-        bericht.append({"tag": tag, "rennen": len(rennen), "mit_prognose": len(pg), "starter": n})
-        log(f"{tag}: {len(pg)} von {len(rennen)} Rennen mit Prognose, {n} Starter")
+        bericht.append(_tag_holen(base, tag, s, pause, log))
         time.sleep(pause)
     return pd.DataFrame(bericht)
 
@@ -101,17 +114,15 @@ def nachholen_rueckwaerts(base: Path, ab=None, *, stopp_tage: int = 7, pause: fl
         datei = ordner / f"{tag:%Y%m%d}.parquet"
         if datei.exists():
             leer_folge = 0
+            log(f"{tag}: schon gespeichert")
         else:
-            meets = pmu.meetings(tag, s, nur_flach=True, nur_gelaufen=True)
-            if meets:
-                rennen = [(m["reunion"], pmu.race_no(c)) for m in meets for c in m["courses"]]
-                pg = pmu.prognosen(tag, s, rennen, pause=pause)
-                n = speichern(base, tag, pg)
-                bericht.append({"tag": tag, "rennen": len(rennen), "mit_prognose": len(pg), "starter": n})
-                leer_folge = 0 if pg else leer_folge + 1
-                log(f"{tag}: {len(pg)} von {len(rennen)} Rennen mit Prognose, {n} Starter"
-                    + (f" – {leer_folge}. Renntag in Folge ohne Prognose" if not pg else ""))
-                time.sleep(pause)
+            z = _tag_holen(base, tag, s, pause, log)
+            if z["rennen"]:
+                bericht.append(z)
+                leer_folge = 0 if z["mit_prognose"] else leer_folge + 1
+                if leer_folge:
+                    log(f"   {leer_folge}. Renntag in Folge ohne Prognose (Ende bei {stopp_tage})")
+            time.sleep(pause)
         tag = tag - pd.Timedelta(days=1)
     log(f"Ende: {stopp_tage} Renntage in Folge ohne Prognose – frühester Tag mit Prognose "
         f"{min((b_['tag'] for b_ in bericht if b_['mit_prognose']), default='–')}")
