@@ -287,6 +287,13 @@ Trend und Klasse:
   der Karte (100 + 10 × z der Stärke im Feld) und die Grundlage der fairen Quote; die Treiber im Tooltip sind dann
   Power-Punkte aus beiden Modellen (Summe = Power − 100). `modelle/power_sieg.txt` wird gespeichert. Sonst bleibt Power
   die Regression.
+- **CatBoost in der Power-Mischung** (`catboost=True`, Vorgabe; braucht `pip install catboost`): CatBoost lernt den
+  Platzanteil auf denselben Merkmalen mit derselben Aufteilung (Abbruch auf der Validierung) und kommt als weitere Quelle
+  hinzu: Stärke = β × log p_Power + γ × log p_Power-sieg + δ × log p_CatBoost (γ nur, wenn die Mischung ohne CatBoost
+  übernommen ist). Übernommen nur nach Likelihood-Quotienten-Test gegen die Mischung ohne CatBoost (χ²(1) > 3,84, δ > 0);
+  Bericht `power_mix mit CatBoost (ohne Markt)` mit gepaartem Test auf den Testtagen. Dann wird `modelle/power_cat.cbm`
+  gespeichert, die Treiber enthalten die CatBoost-SHAP-Werte. Ohne installiertes catboost läuft alles wie bisher; fehlt
+  es nur auf der Karte, bleibt Power dort die Regression (mit Hinweis).
 - **Faire Quote auf der Karte** (nur noch eine): Power-Mischung × exp(κ × Value) (siehe oben) und – sobald übernommen –
   die Kommentar-Schicht. `sieg_blind` = ohne Value.
 

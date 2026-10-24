@@ -785,7 +785,8 @@ def power_modell_pruefen() -> None:
     for lr_ in (-1e9, 1e9):                                   # erzwungen übernommen / erzwungen verworfen
         pm.MISCH3_LR = lr_
         with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
-            e3_ = pm.trainieren(hist=h, X=X, out=Path(tmp) / pm.MODELL_ORDNER, runden=40, art="regression", log=print)
+            e3_ = pm.trainieren(hist=h, X=X, out=Path(tmp) / pm.MODELL_ORDNER, runden=40, art="regression",
+                                catboost=False, log=print)
             mod3_ = pm.laden(Path(tmp))
             v3_ = pm.vorhersage(h, heute.assign(race_id="20260603R1C1", date=pd.Timestamp("2026-06-03")), mod3_,
                                 log=print)
@@ -809,6 +810,45 @@ def power_modell_pruefen() -> None:
            and not any(k_.startswith("mischung") for k_ in e_n),
            "Ohne Übernahme: Power = Regression (Treiber in Prozentpunkten), kein zweites Modell gespeichert; keine "
            "Mischung mit der Morgenquote mehr")
+    # CatBoost als weitere Quelle der Power-Mischung: erzwungen übernommen (Exponent > 0) bzw. ohne installiertes catboost
+    import importlib.util
+    if importlib.util.find_spec("catboost") is not None:
+        alt_cs = pm.power_mix_cat_schaetzen
+
+        def cs_(*a_, **k_):
+            o_ = alt_cs(*a_, **k_)
+            return o_ and {**o_, "cat": max(abs(o_["cat"]), 0.3), "uebernommen": True}
+        pm.power_mix_cat_schaetzen, pm.treiber_relativ = cs_, tr_
+        with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+            e_c = pm.trainieren(hist=h, X=X, out=Path(tmp) / pm.MODELL_ORDNER, runden=40, art="regression", log=print)
+            mod_c = pm.laden(Path(tmp))
+            v_c = pm.vorhersage(h, heute.assign(race_id="20260603R1C1", date=pd.Timestamp("2026-06-03")), mod_c,
+                                log=print)
+            g_c = cap_["G"].sum(axis=1).to_numpy()
+            datei_c = (Path(tmp) / pm.MODELL_ORDNER / pm.CAT_DATEI).exists()
+            alt_mod = sys.modules.get("catboost")
+            sys.modules["catboost"] = None                   # wie ohne installiertes catboost
+            try:
+                mod_o = pm.laden(Path(tmp))
+                v_o = pm.vorhersage(h, heute.assign(race_id="20260603R1C1", date=pd.Timestamp("2026-06-03")), mod_o,
+                                    log=print)
+                e_o = pm.trainieren(hist=h, X=X, out=Path(tmp) / pm.MODELL_ORDNER, runden=40, art="regression",
+                                    speichern=False, log=print)
+            finally:
+                sys.modules["catboost"] = alt_mod
+        pm.power_mix_cat_schaetzen, pm.treiber_relativ = alt_cs, alt_tr
+        pc_ = e_c["power_mix mit CatBoost (ohne Markt)"]
+        p_c = np.array([x_["p"] for x_ in v_c.values()])
+        pruefe(pc_["uebernommen"] and "gepaart_test" in pc_ and datei_c and mod_c.get("cat") is not None
+               and mod_c["meta"]["power_mix"].get("cat", 0) > 0 and "power_ohne_cat" in e_c["je_rennen"]
+               and "modell (catboost)" in e_c and all(x_["treiber_einheit"] == "power" for x_ in v_c.values())
+               and np.allclose(g_c, p_c - 100, atol=0.51) and abs(sum(x_["sieg"] for x_ in v_c.values()) - 1) < 0.01,
+               f"CatBoost in der Power-Mischung (Exponent {pc_['cat']}): gespeichert, geladen, auf der Karte; Treiber "
+               "mit CatBoost-SHAP (Summe = Power − 100); gepaarter Test gegen die Mischung ohne CatBoost")
+        pruefe(mod_o.get("cat") is None and all(x_["treiber_einheit"] == "pos" for x_ in v_o.values())
+               and len(v_o) == len(heute) and "modell (catboost)" not in e_o,
+               "Ohne installiertes catboost: Training ohne CatBoost, gespeicherte CatBoost-Mischung fällt auf der Karte "
+               "auf Power zurück")
     # Value-Modell: Trainer-Effekt steckt nicht in der Quote -> oberes Fünftel A/E Platz > 1, unteres < 1
     import racecard as rc_
     hw = _power_synth(tage=80)

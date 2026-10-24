@@ -234,6 +234,9 @@ Zählung neu, 0 = keine solche Pause in der bekannten Historie, leer bei Debüta
   Test auf der Validierung die Mischung Power × Power-sieg, ist sie Power auf der Karte, Siegchance ohne Markt und
   Grundlage der fairen Quote (`modelle/power_sieg.txt`, Treiber in Power-Punkten). Abschalten mit
   `zweitmodell=False`.
+- **CatBoost in der Power-Mischung:** `pm.trainieren` lernt zusätzlich CatBoost (Platzanteil) und nimmt es als
+  weitere Quelle in die Mischung, wenn der Likelihood-Quotienten-Test es bestätigt (`modelle/power_cat.cbm`). In Colab
+  einmal `!pip install catboost`; ohne läuft alles wie bisher. Abschalten mit `catboost=False`.
 - **Value in der fairen Quote:** `pm.trainieren_wert` prüft, ob der Value-Faktor die faire Quote verbessert
   (p_fair × exp(κ × Value), Bericht `value_in_fairer_quote`); übernommen nur nach Likelihood-Quotienten-Test. Immer erst
   `pm.trainieren`, dann `pm.trainieren_wert`; `speichern=False` zum Prüfen.
