@@ -2458,7 +2458,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
     if power is not None and len(h):                       # Power-Modell: Vorhersage für alle heutigen Starter
         import power_modell
         try:
-            power_je = power_modell.vorhersage(h, heute_zeilen(rh, ru, heute), power)
+            import prognose_basis
+            hz_ = prognose_basis.anfuegen(heute_zeilen(rh, ru, heute), prognose_basis.zeilen(tag, prognosen))
+            power_je = power_modell.vorhersage(h, hz_, power)
         except Exception as e:                             # Modell passt nicht (mehr): Karte ohne ML-Power
             print(f"Power-Modell: Vorhersage fehlgeschlagen ({e}) – Karte zeigt den bisherigen Power-Wert")
     ids = set(ru["horse_id"])
@@ -2894,7 +2896,9 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     races_heute = boden_manuell_anwenden(races_heute, boden_manuell_laden(tag=tag))   # fehlt PMU-Boden: manuell
     print(f"{len(races_heute)} Rennen, {len(runners_heute)} Starter. PMU-Prognosen holen …")
     prognosen = pmu.prognosen(tag, requests.Session(), list(zip(races_heute["reunion"], races_heute["race_no"])))
-    print(f"Prognosen für {len(prognosen)} von {len(races_heute)} Rennen. Historie laden …")
+    import prognose_basis
+    n_pg = prognose_basis.speichern(base, tag, prognosen)       # Tabelle pmu_prognosen (Prognose-Schicht)
+    print(f"Prognosen für {len(prognosen)} von {len(races_heute)} Rennen ({n_pg} Starter gespeichert). Historie laden …")
     std_rennen = standardzeiten.je_rennen(base)
     print(f"Standardzeiten je Konfiguration: {len(std_rennen):,} Rennen zugeordnet"
           + ("" if len(std_rennen) else " – keine Sammlung gefunden (standardzeiten.run), TR schätzt sie selbst"))
