@@ -1768,7 +1768,7 @@ def prognose_pruefen() -> None:
     alt_ = (pmu_.heute, pmu_.meetings, pmu_.prognosen)
     pmu_.heute = lambda: date(2026, 7, 20)
     pmu_.meetings = lambda tag, s_, **k_: None if tag.weekday() == 6 else [{"reunion": 1, "courses": [{"numOrdre": 1}]}]
-    pmu_.prognosen = lambda tag, s_, rennen, pause=0: ({(1, 1): {"selection": [{"no": 1, "rank": 1, "cote_dec": 2.0}],
+    pmu_.prognosen = lambda tag, s_, rennen, pause=0, **k_: ({(1, 1): {"selection": [{"no": 1, "rank": 1, "cote_dec": 2.0}],
                                                                 "tips": []}} if tag >= date(2026, 7, 1) else {})
     with tempfile.TemporaryDirectory() as tmp:
         rw_ = pb.nachholen_rueckwaerts(Path(tmp), pause=0, log=lambda *a_: None)
@@ -1777,6 +1777,15 @@ def prognose_pruefen() -> None:
     pruefe(rw_["tag"].max() == date(2026, 7, 18) and len(leer_) == 7 and leer_["tag"].max() < date(2026, 7, 1)
            and (rw_["mit_prognose"] > 0).sum() == 16,
            "Prognosen rückwärts nachholen: ab gestern zurück, Ende nach 7 Renntagen in Folge ohne Prognose")
+    # Nachholen alter Tage: nach ABBRUCH_LEER Rennen ohne Prognose wird der Tag aufgegeben (statt jedes Rennen abzufragen)
+    aufrufe_ = []
+    alt_j = pmu_._json
+    pmu_._json = lambda *a_, **k_: aufrufe_.append(k_.get("timeout")) or None
+    leer_pg = pmu_.prognosen(date(2026, 1, 1), None, [(1, c_) for c_ in range(1, 9)], pause=0, timeout=10,
+                             abbruch_leer=3)
+    pmu_._json = alt_j
+    pruefe(leer_pg == {} and len(aufrufe_) == 6 and set(aufrufe_) == {10},
+           "Prognosen nachholen: kurze Wartezeit je Anfrage, Tag nach 3 Rennen ohne Prognose aufgegeben")
     # Tagesverarbeitung der Pipeline schreibt die Prognosen mit (vorhandene Datei, z. B. von der Karte, bleibt)
     import pipeline as tp_
     import france_galop as fg_
@@ -1786,7 +1795,7 @@ def prognose_pruefen() -> None:
     pmu_.starter = lambda tag, s_, meets, pause=0: ([{"race_id": "20260902R1C2", "reunion": 1, "race_no": 2}],
                                                     [{"race_id": "20260902R1C2", "saddle_no": 1, "horse": "A"}])
     pmu_.externe_laeufe = lambda *a_, **k_: []
-    pmu_.prognosen = lambda tag, s_, rennen, pause=0: {(r_, c_): pg[(1, 2)] for r_, c_ in rennen}
+    pmu_.prognosen = lambda tag, s_, rennen, pause=0, **k_: {(r_, c_): pg[(1, 2)] for r_, c_ in rennen}
     fg_.tracking_fuer_tag = lambda *a_, **k_: []
     tp_.pdfs_auswerten = lambda *a_, **k_: {}
     fg_.CodeStore = lambda base: type("S", (), {"gelernt": 0})()

@@ -108,7 +108,7 @@ def _g(d, *keys):
     return d
 
 
-def _json(session: requests.Session, urls: list[str], *, runden: int = 2, **fmt):
+def _json(session: requests.Session, urls: list[str], *, runden: int = 2, timeout: float = 30, **fmt):
     """Erste Adresse, die JSON liefert. None = keine erreichbar."""
     global LETZTER_FEHLER
     fehler = []
@@ -116,7 +116,7 @@ def _json(session: requests.Session, urls: list[str], *, runden: int = 2, **fmt)
         for u in urls:
             kurz = u.split("//")[1].split(".")[0] + "/" + u.split("/client/")[1].split("/")[0]
             try:
-                r = session.get(u.format(**fmt), headers=HEADERS, timeout=30)
+                r = session.get(u.format(**fmt), headers=HEADERS, timeout=timeout)
                 if r.ok and r.text.lstrip()[:1] in ("{", "["):
                     LETZTER_FEHLER = ""
                     return r.json()
@@ -444,13 +444,16 @@ def prognose(sel: dict | None, det: dict | None) -> dict:
 
 
 def prognosen(tag: date, session: requests.Session, rennen: list[tuple[int, int]], *,
-              pause: float = 0.2) -> dict[tuple[int, int], dict]:
-    """Prognosen je (Reunion, Rennen); fehlt beides, wird das Rennen ausgelassen."""
+              pause: float = 0.2, timeout: float = 30, abbruch_leer: int | None = None) -> dict[tuple[int, int], dict]:
+    """Prognosen je (Reunion, Rennen); fehlt beides, wird das Rennen ausgelassen. abbruch_leer: nach so vielen Rennen
+    ohne Prognose zu Beginn den Tag aufgeben (Nachholen alter Tage: PMU hat dann gar keine mehr)."""
     d = tag.strftime("%d%m%Y")
     out = {}
-    for r, c in rennen:
-        sel = _json(session, PRONOSTIC_URLS, runden=1, d=d, r=r, c=c)
-        det = _json(session, PRONOSTIC_DETAIL_URLS, runden=1, d=d, r=r, c=c)
+    for k, (r, c) in enumerate(rennen):
+        if abbruch_leer and k >= abbruch_leer and not out:
+            break
+        sel = _json(session, PRONOSTIC_URLS, runden=1, timeout=timeout, d=d, r=r, c=c)
+        det = _json(session, PRONOSTIC_DETAIL_URLS, runden=1, timeout=timeout, d=d, r=r, c=c)
         time.sleep(pause)
         if sel or det:
             out[(int(r), int(c))] = prognose(sel if isinstance(sel, dict) else None,
