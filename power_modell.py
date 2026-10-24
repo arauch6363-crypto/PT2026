@@ -1244,11 +1244,16 @@ def _clogit_np(F: np.ndarray, w: np.ndarray, g, iter_max: int = 100) -> np.ndarr
     return b
 
 
-def power_mix_staerke(p_reg, p_sieg, exp_reg: float, exp_sieg: float) -> np.ndarray:
-    """Stärke der Power-Mischung ohne Markt: exp_reg · log p_Power + exp_sieg · log p_Power-sieg (Softmax je Rennen =
-    Siegchance, z im Rennen = Power)."""
-    return (exp_reg * np.log(np.clip(np.asarray(p_reg, dtype=float), 1e-6, 1))
-            + exp_sieg * np.log(np.clip(np.asarray(p_sieg, dtype=float), 1e-6, 1)))
+def power_mix_staerke(p_reg, p_sieg, exp_reg: float, exp_sieg: float, p_cat=None, exp_cat: float = 0.0) -> np.ndarray:
+    """Stärke der Power-Mischung ohne Markt: exp_reg · log p_Power + exp_sieg · log p_Power-sieg (+ exp_cat · log
+    p_CatBoost) (Softmax je Rennen = Siegchance, z im Rennen = Power). Exponent 0: Quelle fehlt (p darf None sein)."""
+    lg = lambda p_: np.log(np.clip(np.asarray(p_, dtype=float), 1e-6, 1))
+    s = exp_reg * lg(p_reg)
+    if exp_sieg:
+        s = s + exp_sieg * lg(p_sieg)
+    if exp_cat:
+        s = s + exp_cat * lg(p_cat)
+    return s
 
 
 def _clogit_offset(off, F, w, g, l2: float, iter_max: int = 50) -> np.ndarray:
@@ -1389,6 +1394,51 @@ def power_mix_schaetzen(p1, p2, rennen, won) -> dict:
             "uebernommen": bool(lr > MISCH3_LR)}
 
 
+def power_mix_cat_schaetzen(p1, p2, p3, rennen, won, basis: dict | None) -> dict:
+    """CatBoost als weitere Quelle der Power-Mischung: Exponenten von [Power, Power-sieg (nur wenn die Mischung
+    übernommen ist), CatBoost] per Maximum-Likelihood auf der Validierung, Likelihood-Quotienten-Test gegen die bisherige
+    Mischung (bzw. Power allein), ein Freiheitsgrad mehr (übernommen bei χ² > MISCH3_LR und Exponent > 0)."""
+    mit2 = bool(basis and basis.get("uebernommen"))
+    d = pd.DataFrame({"r": np.asarray(rennen).astype(str), "w": np.nan_to_num(np.asarray(won, dtype=float)),
+                      "p1": np.asarray(p1, dtype=float), "p2": np.asarray(p2 if mit2 else p1, dtype=float),
+                      "p3": np.asarray(p3, dtype=float)})
+    d = d[d.groupby("r")["w"].transform("sum") == 1]
+    if d["r"].nunique() < 20:
+        return {}
+    spalten = ["p1", "p2", "p3"] if mit2 else ["p1", "p3"]
+    r, s_ = d["r"].to_numpy(), d["w"].to_numpy() == 1
+    b = _clogit_np(np.log(np.clip(d[spalten].to_numpy(), 1e-6, 1)), d["w"].to_numpy(), r)
+    e = dict(zip(spalten, b))
+    alt = (power_mix_staerke(d["p1"], d["p2"], basis["power"], basis["sieg"]) if mit2
+           else np.log(np.clip(d["p1"].to_numpy(), 1e-6, 1)))
+    neu = power_mix_staerke(d["p1"], d["p2"], e["p1"], e.get("p2", 0.0), d["p3"], e["p3"])
+    l0 = float(-np.log(_softmax_im_rennen(alt, r)[s_]).mean())
+    l1 = float(-np.log(_softmax_im_rennen(neu, r)[s_]).mean())
+    lr = 2 * int(s_.sum()) * (l0 - l1)
+    return {"power": round(float(e["p1"]), 4), "sieg": round(float(e.get("p2", 0.0)), 4), "cat": round(float(e["p3"]), 4),
+            "rennen": int(d["r"].nunique()), "logloss_ohne_cat": round(l0, 4), "logloss_mit_cat": round(l1, 4),
+            "lr_chi2": round(float(lr), 2), "uebernommen": bool(lr > MISCH3_LR and e["p3"] > 0)}
+
+
+def _cat_matrix(Xk: pd.DataFrame) -> pd.DataFrame:
+    """Merkmale für CatBoost: kategorische Spalten als Text (fehlend = „NA“), alles andere als Zahl."""
+    Xc = Xk.copy()
+    for c in Xc.columns:
+        if _ist_text(Xc[c]):
+            Xc[c] = pd.Series([str(v) if pd.notna(v) else "NA" for v in Xc[c]], index=Xc.index, dtype=object)
+        else:
+            Xc[c] = pd.to_numeric(Xc[c], errors="coerce").astype(float)
+    return Xc
+
+
+def _ist_text(s: pd.Series) -> bool:
+    return (isinstance(s.dtype, pd.CategoricalDtype) or s.dtype == object or pd.api.types.is_string_dtype(s.dtype))
+
+
+def _cat_spalten(Xc: pd.DataFrame) -> list[str]:
+    return [c for c in Xc.columns if _ist_text(Xc[c])]
+
+
 def tracking_spalten(spalten) -> tuple[list[str], list[str]]:
     """(Merkmale des Tracking-Teilmodells, davon die eigentlichen Tracking-Merkmale ohne Rahmen und Tempo des Feldes)."""
     trk = [c for c in spalten if _TRACKING_MUSTER.match(c)]
@@ -1478,6 +1528,9 @@ def _tracking_laden(lgb, ordner: Path, meta: dict) -> dict | None:
 
 ABBRUCH = ("standard", "sieg", "ndcg")
 ZWEIT_DATEI = "power_sieg.txt"   # zweites Power-Modell (Lern-Ziel „sieg“) für die Dreier-Mischung
+CAT_DATEI = "power_cat.cbm"      # CatBoost (Lern-Ziel Platzanteil wie Power) als weitere Quelle der Power-Mischung
+CAT_PARAMS = dict(loss_function="RMSE", learning_rate=0.05, depth=6, l2_leaf_reg=3.0, od_type="Iter", od_wait=100,
+                  random_seed=0, verbose=False, allow_writing_files=False)
 OOS_DATEI = "power_oos.parquet"   # faire Siegchance auf Validierung/Test (außerhalb der Lerndaten) für trainieren_wert
 KOMMENTAR_L2 = 5.0           # Korrekturschicht Kommentare: Schrumpfung der Gewichte (wenige Daten)
 SCHICHT_MIN_LERN = 100       # ... rollierende Prüfung: eine Woche erst prüfen, wenn davor so viele Rennen liegen
@@ -1727,7 +1780,8 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
                X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
                ab: str | None = None, neu: bool = False, art: str = "alle", aufwaermen: int | None = None,
                segmente: str | None = None, speichern: bool = True,
-               abbruch: str = "standard", tracking: bool = False, zweitmodell: bool = True, log=print) -> dict:
+               abbruch: str = "standard", tracking: bool = False, zweitmodell: bool = True, catboost: bool = True,
+               log=print) -> dict:
     """Einmal trainieren: Merkmale über die ganze Historie; das erste Jahr (AUFWAERM_TAGE) dient nur als Vorgeschichte,
     die übrigen Renntage zeitlich 60/20/20 (ANTEILE): lernen, validieren (Abbruch, Wahl Regression/Rang, Siegchance-a),
     testen (nur Bericht, gegen den Marktfavoriten und das Rating). Danach auf allen Tagen nach dem Aufwärmen neu lernen
@@ -1751,7 +1805,10 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
          früheren gelernt) als Merkmal trk_wert. Vorgabe False: im Vergleich (Okt. 2026) kein messbarer Gewinn.
     zweitmodell: zusätzlich ein Power-Modell mit Lern-Ziel „sieg“ und die Power-Mischung Power × Power-sieg (= Power
          und faire Siegchance auf der Karte); übernommen nur, wenn sie die Validierung laut Likelihood-Quotienten-Test
-         (χ² > MISCH3_LR) verbessert. Ohne Marktquote: die Morgenquote der Karte ist nicht die gespeicherte."""
+         (χ² > MISCH3_LR) verbessert. Ohne Marktquote: die Morgenquote der Karte ist nicht die gespeicherte.
+    catboost: zusätzlich CatBoost (Platzanteil, dieselben Merkmale und dieselbe Aufteilung) als weitere Quelle der
+         Power-Mischung; übernommen nur nach Likelihood-Quotienten-Test gegen die Mischung ohne CatBoost. Ohne
+         installiertes catboost (pip install catboost) läuft alles wie bisher."""
     import lightgbm as lgb
     if abbruch not in ABBRUCH:
         raise ValueError(f"abbruch: eins von {ABBRUCH}")
@@ -1913,18 +1970,72 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
         pb_t = _softmax_im_rennen(power_mix_staerke(p1_t, p2_t, power_mix["power"], power_mix["sieg"]), rt_)
     else:
         pb_v, pb_t = p1_v, p1_t
+    # CatBoost als weitere Quelle der Power-Mischung (anderes Verfahren auf denselben Merkmalen) – übernommen nur nach
+    # Likelihood-Quotienten-Test gegen die Mischung ohne CatBoost (Validierung)
+    cat_mix, cat_m, pb_ohne_cat = {}, None, None
+    if catboost and spalte_p not in ("sieg", "segment"):
+        try:
+            from catboost import CatBoostRegressor, Pool
+        except ImportError:
+            CatBoostRegressor = None
+            log("CatBoost nicht installiert (pip install catboost) – Power-Mischung ohne CatBoost")
+        if CatBoostRegressor is not None:
+            log("CatBoost (Platzanteil) für die Power-Mischung …")
+            Xc = _cat_matrix(Xk)
+            kc = _cat_spalten(Xc)
+            cm = CatBoostRegressor(iterations=runden, **CAT_PARAMS)
+            cm.fit(Pool(Xc[lern], y[lern].to_numpy(), cat_features=kc),
+                   eval_set=Pool(Xc[valid], y[valid].to_numpy(), cat_features=kc), use_best_model=True)
+            bi = cm.get_best_iteration()
+            best3 = (runden if bi is None else int(bi)) + (0 if bi is None else 1)
+            pv["cat"], pt["cat"] = cm.predict(Xc[valid]), cm.predict(Xc[test])
+            mv3 = markt_test(pv["cat"].to_numpy(), rv, wv, hist.loc[X.index[valid], "odds_final"].to_numpy())
+            mt3 = markt_test(pt["cat"].to_numpy(), rt_, w_test, hist.loc[X.index[test], "odds_final"].to_numpy(),
+                             a=mv3.get("a"))
+            a3 = mv3.get("a", 1.0)
+            validierung["modell (catboost)"] = {**_bewerten(pv, "cat"), "logloss": mv3.get("logloss_power"), "baeume": best3}
+            bericht["modell (catboost)"] = {**_bewerten(pt, "cat"), "logloss": mt3.get("logloss_power"), "baeume": best3}
+            p3_v = _softmax_im_rennen(a3 * _z_im_rennen(pv["cat"].to_numpy(), rv), rv)
+            p3_t = _softmax_im_rennen(a3 * _z_im_rennen(pt["cat"].to_numpy(), rt_), rt_)
+            cat_mix = power_mix_cat_schaetzen(p1_v, p2_v, p3_v, rv, wv, power_mix)
+            if cat_mix:
+                titel = "power_mix mit CatBoost (ohne Markt)"
+                validierung[titel] = cat_mix
+                neu_t = _softmax_im_rennen(power_mix_staerke(p1_t, p2_t, cat_mix["power"], cat_mix["sieg"], p3_t,
+                                                             cat_mix["cat"]), rt_)
+                d3 = _ein_sieger(pb_t, neu_t, rt_, w_test)
+                s3 = d3["w"].to_numpy() == 1
+                bericht[titel] = {k: cat_mix[k] for k in ("power", "sieg", "cat", "lr_chi2", "uebernommen")} | {
+                    "rennen": int(d3["r"].nunique()), "logloss_ohne_cat": round(float(-np.log(d3["p1"].to_numpy()[s3]).mean()), 4),
+                    "logloss_mit_cat": round(float(-np.log(d3["p2"].to_numpy()[s3]).mean()), 4)}
+                if cat_mix["uebernommen"]:
+                    cat_m = (best3, a3)
+                    pb_ohne_cat = pb_t
+                    pb_v = _softmax_im_rennen(power_mix_staerke(p1_v, p2_v, cat_mix["power"], cat_mix["sieg"], p3_v,
+                                                                cat_mix["cat"]), rv)
+                    pb_t = neu_t
+    mix_meta = ({"power": power_mix["power"], "sieg": power_mix["sieg"]} if mix_ok else None)
+    if cat_m is not None:
+        mix_meta = {k: cat_mix[k] for k in ("power", "sieg", "cat")}
+        if not cat_mix["sieg"]:
+            zweit = None
     # Faire Siegchance = Power-Mischung (bzw. Power allein) – ohne Marktquote: die Morgenquote der Karte (Stand am
     # Vormittag) ist nicht die gespeicherte (späterer Stand), Training und Karte ließen sich nicht gleich rechnen
     je_rennen = {"power": _ll_je_rennen(pb_t, rt_, w_test)}
-    if mix_ok:
+    if mix_ok or cat_m is not None:
         je_rennen["power_reg"] = _ll_je_rennen(p1_t, rt_, w_test)
+    if cat_m is not None:
+        je_rennen["power_ohne_cat"] = _ll_je_rennen(pb_ohne_cat, rt_, w_test)
 
     def gepaart(neu_, alt_):
         v_ = vergleich({"je_rennen": {"power": je_rennen[neu_]}}, {"je_rennen": {"power": je_rennen[alt_]}},
                        log=lambda *a: None)
         return {k: float(v_.iloc[0][k]) for k in ("differenz", "se", "z")} if len(v_) else None
     if mix_ok:
-        bericht["power_mix (Power × Power-sieg, ohne Markt)"]["gepaart_test"] = gepaart("power", "power_reg")
+        bericht["power_mix (Power × Power-sieg, ohne Markt)"]["gepaart_test"] = gepaart(
+            "power_ohne_cat" if cat_m is not None else "power", "power_reg")
+    if cat_m is not None:
+        bericht["power_mix mit CatBoost (ohne Markt)"]["gepaart_test"] = gepaart("power", "power_ohne_cat")
     d_v, d_f = _ein_sieger(pb_v, pb_v, rv, wv), _ein_sieger(pb_t, pb_t, rt_, w_test)
     # Korrekturschicht aus den PMU-Kommentaren zum letzten Lauf (Kommentare erst seit Ende August 2026 – nur Testtage)
     ix_t = X.index[test]
@@ -1949,8 +2060,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     oos = pd.concat(teile, ignore_index=True)
     bericht["je_rennen"] = je_rennen
     # Rote Starter (Power ≤ 95): wie oft gewinnen / platzieren sie sich? (fürs Weglassen in der Claude-JSON)
-    st_t = (power_mix_staerke(p1_t, p2_t, power_mix["power"], power_mix["sieg"]) if mix_ok
-            else pt[spalte_p].to_numpy())
+    st_t = np.log(np.clip(pb_t, 1e-12, 1))                # z im Rennen wie die Stärke der Power-Mischung
     pw_test = 100 + 10 * _z_im_rennen(st_t, pt["race_id"].to_numpy())
     rot = pw_test <= ROT_AB
     w_t = pd.to_numeric(hist.loc[X.index[test], "won"], errors="coerce").fillna(0).to_numpy() == 1
@@ -2010,10 +2120,22 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
         log(f"Zweites Power-Modell (sieg) gespeichert: {ordner / ZWEIT_DATEI}")
     else:
         (ordner / ZWEIT_DATEI).unlink(missing_ok=True)
+    cat_meta = None
+    if cat_m is not None:                                # CatBoost für die Mischung: alle Tage, gleiche Baumzahl
+        from catboost import CatBoostRegressor, Pool
+        Xc = _cat_matrix(Xk)
+        kc = _cat_spalten(Xc)
+        f3 = CatBoostRegressor(iterations=cat_m[0], **{k: v for k, v in CAT_PARAMS.items() if k not in ("od_type", "od_wait")})
+        f3.fit(Pool(Xc, y.to_numpy(), cat_features=kc))
+        f3.save_model(str(ordner / CAT_DATEI))
+        cat_meta = {"datei": CAT_DATEI, "sieg_a": cat_m[1]}
+        log(f"CatBoost für die Power-Mischung gespeichert: {ordner / CAT_DATEI}")
+    else:
+        (ordner / CAT_DATEI).unlink(missing_ok=True)
     for alt in (MORGEN_ALT, MORGEN_META_ALT):            # früheres Kombi-Modell mit Morgenquote: nicht mehr genutzt
         (ordner / alt).unlink(missing_ok=True)
     meta = {"spalten": list(Xk.columns), "stufen": stufen, "art": sieger, "segmente": seg_meta, "zweit": zweit_meta,
-            "power_mix": {"power": power_mix["power"], "sieg": power_mix["sieg"]} if mix_ok else None,
+            "cat": cat_meta, "power_mix": mix_meta,
             "kommentar_schicht": kom.get("gewichte") if kom.get("uebernommen") else None,
             "prognose_schicht": prog.get("gewichte") if prog.get("uebernommen") else None,
             "bericht": {k: v for k, v in bericht.items() if k != "je_rennen"},
@@ -2365,6 +2487,13 @@ def laden(base: Path | None) -> dict | None:
     zm = meta.get("zweit")
     if zm and (ordner / zm["datei"]).exists():                            # zweites Power-Modell „sieg“ (Mischung)
         out["zweit"] = {"booster": lgb.Booster(model_file=str(ordner / zm["datei"])), **zm}
+    cm = meta.get("cat")
+    if cm and (ordner / cm["datei"]).exists():                            # CatBoost (Mischung), falls installiert
+        try:
+            from catboost import CatBoostRegressor
+            out["cat"] = {"modell": CatBoostRegressor().load_model(str(ordner / cm["datei"])), **cm}
+        except ImportError:
+            print("Power-Mischung mit CatBoost: catboost fehlt (pip install catboost) – Power ohne Mischung")
     if (ordner / WERT_DATEI).exists() and (ordner / WERT_META).exists():      # Value-Modell, falls trainiert
         wm = json.loads((ordner / WERT_META).read_text(encoding="utf-8"))
         out["wert"] = {"booster": lgb.Booster(model_file=str(ordner / WERT_DATEI)), "meta": wm, "segmente": seg(wm),
@@ -2437,21 +2566,33 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
     df["sieg"] = _softmax_im_rennen(a1 * _z_im_rennen(df["pred"], rid_), rid_)
     df["staerke"] = df["pred"]                            # Grundlage von Power (z im Rennen)
     pmx = meta.get("power_mix")
-    zw = modell.get("zweit")
-    p2_ = None
-    if zw and pmx:                                       # zweites Power-Modell „sieg“
-        pred2 = zw["booster"].predict(Xk)
-        p2_ = _softmax_im_rennen(zw["sieg_a"] * _z_im_rennen(pred2, rid_), rid_)
-    if pmx and p2_ is not None:                          # Power-Mischung ohne Markt: Power, Siegchance, Treiber
-        df["staerke"] = power_mix_staerke(df["sieg"], p2_, pmx["power"], pmx["sieg"])
+    zw, cb = modell.get("zweit"), modell.get("cat")
+    braucht = pmx and ((not pmx.get("sieg") or zw) and (not pmx.get("cat") or cb))
+    if pmx and not braucht:
+        log("  Power-Mischung: Teilmodell fehlt (power_sieg / CatBoost) – Power ohne Mischung")
+    if braucht:                                          # Power-Mischung ohne Markt: Power, Siegchance, Treiber
+        # Treiber in Power-Punkten: Stärke = Σ b·a·z je Quelle (+ je Rennen gleich), z = (Vorhersage − Ø) / sd
+        quellen = []                                     # (Exponent, a, Vorhersage, Beiträge)
+        p2_ = p3_ = None
+        if pmx.get("sieg"):                              # zweites Power-Modell „sieg“
+            pred2 = zw["booster"].predict(Xk)
+            p2_ = _softmax_im_rennen(zw["sieg_a"] * _z_im_rennen(pred2, rid_), rid_)
+            quellen.append((pmx["sieg"], zw["sieg_a"], pred2, zw["booster"].predict(Xk, pred_contrib=True)[:, :-1]))
+        if pmx.get("cat"):                               # CatBoost (Platzanteil)
+            from catboost import Pool
+            Xc = _cat_matrix(Xk)
+            pc = Pool(Xc, cat_features=_cat_spalten(Xc))
+            pred3 = cb["modell"].predict(pc)
+            p3_ = _softmax_im_rennen(cb["sieg_a"] * _z_im_rennen(pred3, rid_), rid_)
+            quellen.append((pmx["cat"], cb["sieg_a"], pred3,
+                            cb["modell"].get_feature_importance(pc, type="ShapValues")[:, :-1]))
+        df["staerke"] = power_mix_staerke(df["sieg"], p2_, pmx["power"], pmx.get("sieg", 0.0), p3_, pmx.get("cat", 0.0))
         df["sieg"] = _softmax_im_rennen(df["staerke"].to_numpy(), rid_)
-        # Treiber in Power-Punkten: Stärke = b1·a1·z1 + b2·a2·z2 (+ je Rennen gleich), z = (Vorhersage − Ø) / sd
-        b2 = zw["booster"].predict(Xk, pred_contrib=True)[:, :-1]
         sd = lambda v: pd.Series(np.asarray(v, dtype=float)).groupby(rid_).transform("std", ddof=0).replace(0, np.nan).to_numpy()
         sd_s = sd(df["staerke"])
-        f1 = np.nan_to_num(10 * pmx["power"] * a1 / (sd(pred) * sd_s))
-        f2 = np.nan_to_num(10 * pmx["sieg"] * zw["sieg_a"] / (sd(pred2) * sd_s))
-        beitr = f1[:, None] * beitr + f2[:, None] * b2
+        beitr = np.nan_to_num(10 * pmx["power"] * a1 / (sd(pred) * sd_s))[:, None] * beitr
+        for b_, a_q, pr_q, bt_q in quellen:
+            beitr = beitr + np.nan_to_num(10 * b_ * a_q / (sd(pr_q) * sd_s))[:, None] * bt_q
         einheit = "power"
     else:
         beitr = beitr * 100                              # Prozentpunkte des Platzanteils
