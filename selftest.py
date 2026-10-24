@@ -1765,37 +1765,47 @@ def prognose_pruefen() -> None:
            "(nur bei vollständiger Auswahl) und Anteil der Tippgeber")
     # Rückwärts nachholen: bis 7 Renntage in Folge ohne Prognose (Tage ohne Rennen zählen nicht)
     import pmu as pmu_
-    alt_ = (pmu_.heute, pmu_.meetings, pmu_.prognosen)
+    alt_ = (pmu_.heute, pmu_.meetings, pb._prognosen_tag)
     pmu_.heute = lambda: date(2026, 7, 20)
     pmu_.meetings = lambda tag, s_, **k_: None if tag.weekday() == 6 else [{"reunion": 1, "courses": [{"numOrdre": 1}]}]
-    pmu_.prognosen = lambda tag, s_, rennen, pause=0, **k_: ({(1, 1): {"selection": [{"no": 1, "rank": 1, "cote_dec": 2.0}],
-                                                                "tips": []}} if tag >= date(2026, 7, 1) else {})
+    pb._prognosen_tag = lambda tag, s_, rennen, pause=0: ({(1, 1): {"selection": [{"no": 1, "rank": 1, "cote_dec": 2.0}],
+                                                                     "tips": []}} if tag >= date(2026, 7, 1) else {})
     with tempfile.TemporaryDirectory() as tmp:
         rw_ = pb.nachholen_rueckwaerts(Path(tmp), pause=0, log=lambda *a_: None)
-    pmu_.heute, pmu_.meetings, pmu_.prognosen = alt_
+    pmu_.heute, pmu_.meetings, pb._prognosen_tag = alt_
     leer_ = rw_[rw_["mit_prognose"] == 0]
     pruefe(rw_["tag"].max() == date(2026, 7, 18) and len(leer_) == 7 and leer_["tag"].max() < date(2026, 7, 1)
            and (rw_["mit_prognose"] > 0).sum() == 16,
            "Prognosen rückwärts nachholen: ab gestern zurück, Ende nach 7 Renntagen in Folge ohne Prognose")
-    # Nachholen alter Tage: nach ABBRUCH_LEER Rennen ohne Prognose wird der Tag aufgegeben (statt jedes Rennen abzufragen)
+    # Nachholen wie die Renntage (pmu_basis): erfolgreicher Host zuerst; Tag nach ABBRUCH_LEER leeren Rennen aufgegeben
+    import pmu_basis as pbas_
     aufrufe_ = []
-    alt_j = pmu_._json
-    pmu_._json = lambda *a_, **k_: aufrufe_.append(k_.get("timeout")) or None
-    leer_pg = pmu_.prognosen(date(2026, 1, 1), None, [(1, c_) for c_ in range(1, 9)], pause=0, timeout=10,
-                             abbruch_leer=3)
-    pmu_._json = alt_j
-    pruefe(leer_pg == {} and len(aufrufe_) == 6 and set(aufrufe_) == {10},
-           "Prognosen nachholen: kurze Wartezeit je Anfrage, Tag nach 3 Rennen ohne Prognose aufgegeben")
+    alt_h = pbas_._hole_mit_host
+
+    def hole_(s_, pfad, hosts):
+        aufrufe_.append(hosts[0])
+        return ({"selection": [{"numPmu": 1, "rang": 1, "cote_prob": "3/1"}]}, pbas_.HOSTS[2]) if "C1/" in pfad \
+            else (None, None)
+    pbas_._hole_mit_host = hole_
+    pb._HOST = None
+    voll_ = pb._prognosen_tag(date(2026, 9, 1), None, [(1, 1), (1, 2)], 0)
+    n_voll = len(aufrufe_)
+    leer_pg = pb._prognosen_tag(date(2026, 1, 1), None, [(1, c_) for c_ in range(2, 10)], 0)
+    pbas_._hole_mit_host = alt_h
+    pruefe(list(voll_) == [(1, 1)] and aufrufe_[2] == pbas_.HOSTS[2] and leer_pg == {}
+           and len(aufrufe_) - n_voll == 2 * pb.ABBRUCH_LEER,
+           "Prognosen nachholen wie die Renntage: der zuletzt erfolgreiche PMU-Client wird zuerst gefragt; ein Tag ohne "
+           "Prognosen wird nach 3 Rennen aufgegeben")
     # Tagesverarbeitung der Pipeline schreibt die Prognosen mit (vorhandene Datei, z. B. von der Karte, bleibt)
     import pipeline as tp_
     import france_galop as fg_
-    alt_ = (pmu_.meetings, pmu_.starter, pmu_.externe_laeufe, pmu_.prognosen, fg_.tracking_fuer_tag, tp_.pdfs_auswerten,
+    alt_ = (pmu_.meetings, pmu_.starter, pmu_.externe_laeufe, pb._prognosen_tag, fg_.tracking_fuer_tag, tp_.pdfs_auswerten,
             fg_.CodeStore)
     pmu_.meetings = lambda tag, s_, **k_: [{"reunion": 1, "hippodrome": "X", "pmu_code": "X", "courses": [{"numOrdre": 2}]}]
     pmu_.starter = lambda tag, s_, meets, pause=0: ([{"race_id": "20260902R1C2", "reunion": 1, "race_no": 2}],
                                                     [{"race_id": "20260902R1C2", "saddle_no": 1, "horse": "A"}])
     pmu_.externe_laeufe = lambda *a_, **k_: []
-    pmu_.prognosen = lambda tag, s_, rennen, pause=0, **k_: {(r_, c_): pg[(1, 2)] for r_, c_ in rennen}
+    pb._prognosen_tag = lambda tag, s_, rennen, pause=0, **k_: {(r_, c_): pg[(1, 2)] for r_, c_ in rennen}
     fg_.tracking_fuer_tag = lambda *a_, **k_: []
     tp_.pdfs_auswerten = lambda *a_, **k_: {}
     fg_.CodeStore = lambda base: type("S", (), {"gelernt": 0})()
@@ -1807,7 +1817,7 @@ def prognose_pruefen() -> None:
                                                 "courses": [{"numOrdre": 3}]}]
         tp_.tag_verarbeiten(date(2026, 9, 3), Path(tmp), Path(tmp) / "pdf", log=lambda *a_: None)
         bleibt_ = pd.read_parquet(Path(tmp) / "parquet" / pb.TABELLE / "20260903.parquet")
-    (pmu_.meetings, pmu_.starter, pmu_.externe_laeufe, pmu_.prognosen, fg_.tracking_fuer_tag, tp_.pdfs_auswerten,
+    (pmu_.meetings, pmu_.starter, pmu_.externe_laeufe, pb._prognosen_tag, fg_.tracking_fuer_tag, tp_.pdfs_auswerten,
      fg_.CodeStore) = alt_
     pruefe(len(neu_) == 3 and set(neu_["race_id"]) == {"20260902R1C2"} and len(bleibt_) == 1,
            "Pipeline: jeder neu verarbeitete Tag schreibt die PMU-Prognosen mit; eine vorhandene Datei (Karte) bleibt")
@@ -1823,6 +1833,16 @@ def prognose_pruefen() -> None:
     p0_ = pm._softmax_im_rennen(np.zeros(n_r * f_), r_k)
     F_ = np.c_[prono, np.full(n_r * f_, np.nan)]
     ps_ = pm.kommentar_schicht(p0_, F_, r_k, w_k, t_k, namen=pm.PROGNOSE_NAMEN, l2=pm.PROGNOSE_L2)
+    # rollierend ohne Blick in die Zukunft: ein Merkmal, das erst ab der letzten Woche den Sieger verrät, bringt bei der
+    # Prüfung dieser Woche nichts (die Gewichte stammen nur aus den Wochen davor, dort war es 0)
+    wk_ = pd.Series(t_k).dt.to_period("W")
+    spaet_ = (wk_ == wk_.max()).to_numpy()                   # nur die letzte Kalenderwoche
+    F_c = np.c_[np.where(spaet_, w_k, 0.0), np.full(n_r * f_, np.nan)]
+    pc_ = pm.kommentar_schicht(p0_, F_c, r_k, w_k, t_k, namen=pm.PROGNOSE_NAMEN, l2=pm.PROGNOSE_L2)
+    pruefe(not pc_["uebernommen"] and abs(pc_["pruef_differenz"]) < 1e-6 and pc_["wochen_geprueft"] >= 10,
+           f"Schicht rollierend geprüft ({pc_['wochen_geprueft']} Wochen, {pc_['rennen_pruefen']} Prüfrennen): jede Woche "
+           "nur mit Gewichten aus den Wochen davor – ein Merkmal, das erst ab der letzten Woche den Sieger verrät, hilft "
+           "dort nicht")
     pruefe(ps_["uebernommen"] and ps_["gewichte"]["pr_lp"] > 0.2 and ps_["pruef_z"] < -2,
            f"Prognose-Schicht: findet eine eingebaute Prognose-Information (Gewicht {ps_['gewichte']['pr_lp']}, "
            f"Prüfteil z {ps_['pruef_z']}); übernommen nur nach gepaartem Test")

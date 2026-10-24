@@ -67,8 +67,32 @@ def speichern(base: Path, tag: date, prognosen: dict) -> int:
     return len(d)
 
 
-TIMEOUT_S = 10          # Nachholen: so lange je Anfrage warten (PMU antwortet sonst bis zu 30 s nicht)
 ABBRUCH_LEER = 3        # … und einen Tag aufgeben, wenn die ersten so vielen Rennen keine Prognose haben
+
+
+_HOST: str | None = None   # Client, der zuletzt Prognosen geliefert hat – wird zuerst gefragt (wie pmu_basis)
+
+
+def _prognosen_tag(tag: date, s, rennen: list, pause: float, abbruch_leer: int | None = ABBRUCH_LEER) -> dict:
+    """Prognosen eines Tages wie der Nachlauf der Renntage (pmu_basis): Hosts der Reihe nach, der zuletzt
+    erfolgreiche zuerst; nach ABBRUCH_LEER Rennen ohne Prognose zu Beginn wird der Tag aufgegeben."""
+    import pmu_basis
+    global _HOST
+    d = tag.strftime("%d%m%Y")
+    out = {}
+    for k, (r, c) in enumerate(rennen):
+        if abbruch_leer and k >= abbruch_leer and not out:
+            break
+        reihe = ([_HOST] if _HOST else []) + [h for h in pmu_basis.HOSTS if h != _HOST]
+        pfad = pmu_basis.RACE_PFAD.format(d=d, r=r, c=c)
+        sel, h1 = pmu_basis._hole_mit_host(s, f"{pfad}/pronostics", reihe)
+        det, h2 = pmu_basis._hole_mit_host(s, f"{pfad}/pronostics-detailles", reihe)
+        _HOST = h1 or h2 or _HOST
+        time.sleep(pause)
+        if sel or det:
+            out[(int(r), int(c))] = pmu.prognose(sel if isinstance(sel, dict) else None,
+                                                 det if isinstance(det, dict) else None)
+    return out
 
 
 def _tag_holen(base: Path, tag: date, s, pause: float, log) -> dict:
@@ -80,14 +104,14 @@ def _tag_holen(base: Path, tag: date, s, pause: float, log) -> dict:
         return {"tag": tag, "rennen": 0, "mit_prognose": 0, "starter": 0}
     rennen = [(m["reunion"], pmu.race_no(c)) for m in meets for c in m["courses"]]
     log(f"{tag}: {len(rennen)} Rennen – hole Prognosen …")
-    pg = pmu.prognosen(tag, s, rennen, pause=pause, timeout=TIMEOUT_S, abbruch_leer=ABBRUCH_LEER)
+    pg = _prognosen_tag(tag, s, rennen, pause)
     n = speichern(base, tag, pg)
     log(f"{tag}: {len(pg)} von {len(rennen)} Rennen mit Prognose, {n} Starter gespeichert ({time.time() - t0:.0f} s)"
-        + ("" if pg else f" – PMU: {pmu.LETZTER_FEHLER or 'keine Daten'}"))
+        + ("" if pg else " – PMU liefert für diesen Tag keine Prognosen"))
     return {"tag": tag, "rennen": len(rennen), "mit_prognose": len(pg), "starter": n}
 
 
-def nachholen(base: Path, von, bis=None, *, neu: bool = False, pause: float = 0.3, log=print) -> pd.DataFrame:
+def nachholen(base: Path, von, bis=None, *, neu: bool = False, pause: float = 0.2, log=print) -> pd.DataFrame:
     """Prognosen für alle Tage von … bis (Vorgabe: gestern) holen und speichern; vorhandene Tage überspringen."""
     s = _sitzung()
     ende = pd.Timestamp(bis).date() if bis else (pd.Timestamp(pmu.heute()) - pd.Timedelta(days=1)).date()
@@ -102,7 +126,7 @@ def nachholen(base: Path, von, bis=None, *, neu: bool = False, pause: float = 0.
     return pd.DataFrame(bericht)
 
 
-def nachholen_rueckwaerts(base: Path, ab=None, *, stopp_tage: int = 7, pause: float = 0.3, log=print) -> pd.DataFrame:
+def nachholen_rueckwaerts(base: Path, ab=None, *, stopp_tage: int = 7, pause: float = 0.2, log=print) -> pd.DataFrame:
     """Ab `ab` (Vorgabe: gestern) Tag für Tag zurück nachholen, bis an STOPP_TAGE Renntagen in Folge keine Prognose
     mehr kommt (PMU hält sie nur eine Zeit lang vor). Tage ohne Flachrennen zählen nicht; schon gespeicherte Tage
     werden nicht erneut abgefragt (zählen als „mit Prognose“)."""

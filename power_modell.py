@@ -1277,10 +1277,11 @@ def kommentar_anwenden(p, K: np.ndarray, rennen, b: dict, namen=None) -> np.ndar
 
 
 def kommentar_schicht(p, K: np.ndarray, rennen, won, datum, namen=None, l2: float | None = None) -> dict:
-    """Korrekturschicht aus den Kommentaren zum letzten Lauf auf die faire Siegchance p: Gewichte je Gruppe
-    (bedingtes Logit mit p als festem Ausgangswert, geschrumpft) auf dem älteren Teil der Rennen mit Kommentar-Vorlauf,
-    gepaarter Test (Log-Loss des Siegers) auf dem jüngeren; übernommen bei z ≤ KOMMENTAR_Z, dann aus allen neu geschätzt.
-    namen/l2: andere Merkmale (z. B. Prognose-Schicht) und Schrumpfung."""
+    """Korrekturschicht auf die faire Siegchance p (Kommentare zum letzten Lauf, mit namen auch die Prognose): Gewichte
+    je Merkmal per bedingtem Logit mit p als festem Ausgangswert, geschrumpft (l2).
+    Prüfung rollierend: Rennen nach Wochen; jede Woche wird mit Gewichten aus allen Wochen DAVOR vorhergesagt (wie auf
+    der Karte), sobald davor mindestens SCHICHT_MIN_LERN Rennen liegen. Gepaarter Test (Log-Loss des Siegers mit gegen
+    ohne Schicht) über alle so geprüften Rennen; übernommen bei z ≤ KOMMENTAR_Z, dann Gewichte aus allen Rennen."""
     namen = list(km.GRUPPEN) if namen is None else list(namen)
     l2 = KOMMENTAR_L2 if l2 is None else l2
     d = pd.DataFrame({"r": np.asarray(rennen).astype(str), "w": np.nan_to_num(np.asarray(won, dtype=float)),
@@ -1291,27 +1292,35 @@ def kommentar_schicht(p, K: np.ndarray, rennen, won, datum, namen=None, l2: floa
     K = K[d.index.to_numpy()]
     rennen_t = d.groupby("r")["t"].min().sort_values()
     n_r = len(rennen_t)
-    out = {"rennen_mit_kommentar": int(n_r), "uebernommen": False}
+    out = {"rennen_mit_daten": int(n_r), "uebernommen": False}
     if n_r < KOMMENTAR_MIN_RENNEN:
-        out["grund"] = f"zu wenige Rennen mit Kommentar-Vorlauf (ab {KOMMENTAR_MIN_RENNEN})"
+        out["grund"] = f"zu wenige Rennen mit Daten (ab {KOMMENTAR_MIN_RENNEN})"
         return out
-    grenze = rennen_t.iloc[int(n_r * KOMMENTAR_LERN)]
-    lern = (d["r"].map(rennen_t) < grenze).to_numpy()
     off, F, w, r = np.log(np.clip(d["p"].to_numpy(), 1e-9, 1)), np.nan_to_num(K), d["w"].to_numpy(), d["r"].to_numpy()
-    b = _clogit_offset(off[lern], F[lern], w[lern], r[lern], l2)
-    pr = ~lern
-    neu = _softmax_im_rennen(off[pr] + F[pr] @ b, r[pr])
-    s = w[pr] == 1
-    diff = -np.log(neu[s]) + np.log(d["p"].to_numpy()[pr][s])
-    se = float(diff.std(ddof=1) / np.sqrt(len(diff))) if len(diff) > 1 else np.nan
-    z = float(diff.mean() / se) if se and se > 0 else 0.0
-    out.update({"rennen_lernen": int(pd.Series(r[lern]).nunique()), "rennen_pruefen": int(len(diff)),
-                "gewichte_lernteil": {g: round(float(v), 3) for g, v in zip(namen, b)},
+    woche = pd.to_datetime(d["r"].map(rennen_t)).dt.to_period("W").to_numpy()
+    diffs, wochen = [], 0
+    for wo in sorted(set(woche)):
+        vor, hier = woche < wo, woche == wo
+        if pd.Series(r[vor]).nunique() < SCHICHT_MIN_LERN:
+            continue
+        b = _clogit_offset(off[vor], F[vor], w[vor], r[vor], l2)
+        neu = _softmax_im_rennen(off[hier] + F[hier] @ b, r[hier])
+        s_ = w[hier] == 1
+        diffs.append(-np.log(neu[s_]) + off[hier][s_])
+        wochen += 1
+    diff = np.concatenate(diffs) if diffs else np.array([])
+    if len(diff) < 2:
+        out["grund"] = f"zu wenige Prüfrennen (Lernen erst ab {SCHICHT_MIN_LERN} Rennen davor)"
+        return out
+    se = float(diff.std(ddof=1) / np.sqrt(len(diff)))
+    z = float(diff.mean() / se) if se > 0 else 0.0
+    b_alle = _clogit_offset(off, F, w, r, l2)
+    out.update({"rennen_pruefen": int(len(diff)), "wochen_geprueft": wochen,
+                "gewichte_alle": {g: round(float(v), 3) for g, v in zip(namen, b_alle)},
                 "pruef_differenz": round(float(diff.mean()), 4), "pruef_se": round(se, 4), "pruef_z": round(z, 2),
                 "uebernommen": bool(z <= KOMMENTAR_Z and diff.mean() < 0)})
     if out["uebernommen"]:
-        b = _clogit_offset(off, F, w, r, l2)
-        out["gewichte"] = {g: round(float(v), 4) for g, v in zip(namen, b)}
+        out["gewichte"] = {g: round(float(v), 4) for g, v in zip(namen, b_alle)}
     return out
 
 
@@ -1471,8 +1480,8 @@ ABBRUCH = ("standard", "sieg", "ndcg")
 ZWEIT_DATEI = "power_sieg.txt"   # zweites Power-Modell (Lern-Ziel „sieg“) für die Dreier-Mischung
 OOS_DATEI = "power_oos.parquet"   # faire Siegchance auf Validierung/Test (außerhalb der Lerndaten) für trainieren_wert
 KOMMENTAR_L2 = 5.0           # Korrekturschicht Kommentare: Schrumpfung der Gewichte (wenige Daten)
-KOMMENTAR_LERN = 0.6         # ... gelernt auf dem älteren Teil der Rennen mit Kommentar-Vorlauf, geprüft auf dem Rest
-KOMMENTAR_MIN_RENNEN = 150   # ... erst ab so vielen Rennen mit Kommentar-Vorlauf
+SCHICHT_MIN_LERN = 100       # ... rollierende Prüfung: eine Woche erst prüfen, wenn davor so viele Rennen liegen
+KOMMENTAR_MIN_RENNEN = 150   # ... erst ab so vielen Rennen mit Daten (Kommentar-Vorlauf bzw. Prognose)
 PROGNOSE_L2 = 2.0            # Prognose-Schicht: Schrumpfung (zwei Merkmale: Prognose-Chance, Anteil der Tipps)
 PROGNOSE_NAMEN = ("pr_lp", "pr_tipp")
 KOMMENTAR_Z = -1.645         # ... übernommen, wenn der gepaarte Test auf dem Prüfteil mindestens so klar ist
