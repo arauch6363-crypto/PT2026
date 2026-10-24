@@ -1777,6 +1777,31 @@ def prognose_pruefen() -> None:
     pruefe(rw_["tag"].max() == date(2026, 7, 18) and len(leer_) == 7 and leer_["tag"].max() < date(2026, 7, 1)
            and (rw_["mit_prognose"] > 0).sum() == 16,
            "Prognosen rückwärts nachholen: ab gestern zurück, Ende nach 7 Renntagen in Folge ohne Prognose")
+    # Tagesverarbeitung der Pipeline schreibt die Prognosen mit (vorhandene Datei, z. B. von der Karte, bleibt)
+    import pipeline as tp_
+    import france_galop as fg_
+    alt_ = (pmu_.meetings, pmu_.starter, pmu_.externe_laeufe, pmu_.prognosen, fg_.tracking_fuer_tag, tp_.pdfs_auswerten,
+            fg_.CodeStore)
+    pmu_.meetings = lambda tag, s_, **k_: [{"reunion": 1, "hippodrome": "X", "pmu_code": "X", "courses": [{"numOrdre": 2}]}]
+    pmu_.starter = lambda tag, s_, meets, pause=0: ([{"race_id": "20260902R1C2", "reunion": 1, "race_no": 2}],
+                                                    [{"race_id": "20260902R1C2", "saddle_no": 1, "horse": "A"}])
+    pmu_.externe_laeufe = lambda *a_, **k_: []
+    pmu_.prognosen = lambda tag, s_, rennen, pause=0: {(r_, c_): pg[(1, 2)] for r_, c_ in rennen}
+    fg_.tracking_fuer_tag = lambda *a_, **k_: []
+    tp_.pdfs_auswerten = lambda *a_, **k_: {}
+    fg_.CodeStore = lambda base: type("S", (), {"gelernt": 0})()
+    with tempfile.TemporaryDirectory() as tmp:
+        tp_.tag_verarbeiten(date(2026, 9, 2), Path(tmp), Path(tmp) / "pdf", log=lambda *a_: None)
+        neu_ = pd.read_parquet(Path(tmp) / "parquet" / pb.TABELLE / "20260902.parquet")
+        pb.speichern(Path(tmp), date(2026, 9, 3), {(1, 3): pg[(1, 3)]})          # „Karte vom Morgen“
+        pmu_.meetings = lambda tag, s_, **k_: [{"reunion": 1, "hippodrome": "X", "pmu_code": "X",
+                                                "courses": [{"numOrdre": 3}]}]
+        tp_.tag_verarbeiten(date(2026, 9, 3), Path(tmp), Path(tmp) / "pdf", log=lambda *a_: None)
+        bleibt_ = pd.read_parquet(Path(tmp) / "parquet" / pb.TABELLE / "20260903.parquet")
+    (pmu_.meetings, pmu_.starter, pmu_.externe_laeufe, pmu_.prognosen, fg_.tracking_fuer_tag, tp_.pdfs_auswerten,
+     fg_.CodeStore) = alt_
+    pruefe(len(neu_) == 3 and set(neu_["race_id"]) == {"20260902R1C2"} and len(bleibt_) == 1,
+           "Pipeline: jeder neu verarbeitete Tag schreibt die PMU-Prognosen mit; eine vorhandene Datei (Karte) bleibt")
     # Prognose-Schicht findet eingebautes Signal (Modell kennt die Prognose nicht, die Prognose weiß etwas)
     rng = np.random.default_rng(3)
     n_r, f_ = 1500, 8

@@ -259,8 +259,8 @@ Trend und Klasse:
 ## PMU-Prognose (seit etwa Juli 2026 abrufbar)
 
 - `prognose_basis.py`: Tabelle `pmu_prognosen` je Tag und Starter (cote probable, Platz in der Auswahl, Tippgeber, die
-  das Pferd nennen). Einmalig nachholen mit `prognose_basis.nachholen_rueckwaerts(BASE)` (ab gestern zurück, bis 7 Renntage in Folge ohne Prognose); jede Karte schreibt ihren
-  Tag dazu. Die Prognose steht am Vortag/Morgen fest – Karte und Training sehen dieselbe.
+  das Pferd nennen). Einmalig nachholen mit `prognose_basis.nachholen_rueckwaerts(BASE)` (ab gestern zurück, bis 7 Renntage in Folge ohne Prognose); jede Karte und jeder neu
+  verarbeitete Tag der Pipeline schreiben ihren Tag dazu. Die Prognose steht am Vortag/Morgen fest – Karte und Training sehen dieselbe.
 - **Prognose-Schicht auf die faire Siegchance** (wie die Kommentar-Schicht): `pr_lp` = log Prognose-Chance (1/cote,
   je Rennen auf 1; nur bei vollständiger Auswahl) minus Ø im Rennen, `pr_tipp` = Anteil der Tippgeber, die das Pferd
   nennen. p ∝ p_fair × exp(b₁ × pr_lp + b₂ × pr_tipp), gelernt auf den älteren 60 % der Rennen mit Prognose, gepaarter
