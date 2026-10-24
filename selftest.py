@@ -1833,6 +1833,16 @@ def prognose_pruefen() -> None:
     p0_ = pm._softmax_im_rennen(np.zeros(n_r * f_), r_k)
     F_ = np.c_[prono, np.full(n_r * f_, np.nan)]
     ps_ = pm.kommentar_schicht(p0_, F_, r_k, w_k, t_k, namen=pm.PROGNOSE_NAMEN, l2=pm.PROGNOSE_L2)
+    # rollierend ohne Blick in die Zukunft: ein Merkmal, das erst ab der letzten Woche den Sieger verrät, bringt bei der
+    # Prüfung dieser Woche nichts (die Gewichte stammen nur aus den Wochen davor, dort war es 0)
+    wk_ = pd.Series(t_k).dt.to_period("W")
+    spaet_ = (wk_ == wk_.max()).to_numpy()                   # nur die letzte Kalenderwoche
+    F_c = np.c_[np.where(spaet_, w_k, 0.0), np.full(n_r * f_, np.nan)]
+    pc_ = pm.kommentar_schicht(p0_, F_c, r_k, w_k, t_k, namen=pm.PROGNOSE_NAMEN, l2=pm.PROGNOSE_L2)
+    pruefe(not pc_["uebernommen"] and abs(pc_["pruef_differenz"]) < 1e-6 and pc_["wochen_geprueft"] >= 10,
+           f"Schicht rollierend geprüft ({pc_['wochen_geprueft']} Wochen, {pc_['rennen_pruefen']} Prüfrennen): jede Woche "
+           "nur mit Gewichten aus den Wochen davor – ein Merkmal, das erst ab der letzten Woche den Sieger verrät, hilft "
+           "dort nicht")
     pruefe(ps_["uebernommen"] and ps_["gewichte"]["pr_lp"] > 0.2 and ps_["pruef_z"] < -2,
            f"Prognose-Schicht: findet eine eingebaute Prognose-Information (Gewicht {ps_['gewichte']['pr_lp']}, "
            f"Prüfteil z {ps_['pruef_z']}); übernommen nur nach gepaartem Test")
