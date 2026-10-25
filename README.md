@@ -656,7 +656,7 @@ vergleicht beide Rechnungen über Node.
   - `parquet/pmu_races/YYYYMMDD.parquet` mit dem Einlauf
 - Tage ohne Einlauf bleiben offen und werden in der Kopfzeile genannt.
 - **Pool:** alle Starter mit Festkurs Sieg und Wert ≥ 0.
-- **Filter:** Mindest-Wert, Gold ab 0,2, genau ein Modus (`max`/`rank`/`rel`/`none`), Top-Wert, Tag (einzeln ab 1000 €) und Pferdesuche.
+- **Filter:** Mindest-Wert, genau ein Modus (`max`/`rank`/`rel`/`none`), Top-Wert, Tag (einzeln ab 1000 €) und Pferdesuche.
 - **Einsatz:** Kelly 1/8 bis 1/1, 10 € fest oder 1 % der Bank.
   - Grundlage ist immer die Bank zu Tagesbeginn.
   - Sieg- und Platzbein bekommen denselben Einsatz.
@@ -673,13 +673,18 @@ vergleicht beide Rechnungen über Node.
 - **Modell → Toto (bereinigt):** „Kurs ±“ enthält einen Auswahleffekt – wir bevorzugen hohe Festkurse, also auch Fälle,
   in denen der Buchmacher danebenlag. Die Kachel „Modell → Toto“ prüft deshalb per Regression über die Picks des
   Filters (unabhängig vom Einsatz): log(Toto-End) = a + b1·log(Festkurs) + b2·log(Power-Chance), mit Power allein
-  (`sieg_blind`, ohne Morgenquote) und robustem t (HC1); zweite Variante zusätzlich mit der Presse-Quote. t ≤ −2:
+  (`sieg_blind`, Power-Mischung vor Value) und robustem t (HC1); zweite Variante zusätzlich mit der Presse-Quote. t ≤ −2:
   Pferde, die das Modell bei gleichem Festkurs höher einschätzt, enden kürzer im Toto (`vb.modell_toto`). Das
   Diagramm „Modell → Toto im Verlauf“ zeigt den t-Wert je Renntag kumuliert, ab 20 Picks.
-- **Faire Quote:** wie auf der Karte (Vorgabe) oder ohne Value (`sieg_blind`; ältere Karten: ohne Morgenquote) – bestimmt faire Quote, Wert, Rang, Top-Wert,
-  Platzchance und Kelly (`vb.FilterConfig(chance="power")`; Spalten `…_pw` im Pool). Auf der Karte gibt es denselben
-  Umschalter neben „Sortieren“; die Sortierung „Faire Quote“ und der Rang „#n“ im Kästchen folgen ihm, „Power“
-  sortiert weiter nach der Stärke ohne Markt.
+- **Faire Quote:** nur noch eine, die der Karte (Power-Mischung, mit Value, sobald übernommen) – sie bestimmt Wert,
+  Rang, Top-Wert, Platzchance und Kelly. Karten vom 21.–23.10.2026 mischten noch die Morgenquote ein
+  (`sieg_quelle` „morgen“/„mischung“): für sie rechnet das Dashboard mit `sieg_blind` (Power bzw. Power-Mischung
+  ohne Morgenquote), damit die Historie durchgehend ohne Morgenquote bleibt. Gold-Filter und Umschalter gibt es
+  nicht mehr.
+- **Faire Quote: Berechnung im Verlauf:** Liste über den Kennzahlen und ◆-Marken im Bank-Diagramm (Tooltip) an jedem
+  Renntag, an dem sich das Verfahren (z. B. Power → Power × Power-sieg → … × Value) oder der Trainingsstand von
+  Power/Value geändert hat (`vb.aenderungen`). Neuere Karten schreiben dazu `modelle.faire_quote` (Quellen der
+  Mischung, Schichten, κ, Trainingszeitpunkte); bei älteren wird das Verfahren aus den Starterdaten erschlossen.
 - **Wettart:** Each-Way (Vorgabe: Sieg- und Platzbein mit gleichem Einsatz) oder nur Sieg (kein Platzbein), im
   Dashboard als Auswahl, in Python `vb.StakingConfig("kelly4", wettart="sieg")`.
 - **Platzbein:** zum Festkurs Platz aus der Karten-JSON (`fk.platz`).

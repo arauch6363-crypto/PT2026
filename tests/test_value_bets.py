@@ -23,9 +23,9 @@ TAGE = ("20261018", "20261019", "20261020")
 
 # ------------------------------------------------------------ synthetisch
 
-def _runner(no, sieg, fk=None, platz=None, gold=None, wert=None, cote=None, nr=False, blind=None):
+def _runner(no, sieg, fk=None, platz=None, gold=None, wert=None, cote=None, nr=False, blind=None, **power):
     return {"no": no, "horse": f"H{no}", "nr": nr,
-            "power": None if sieg is None else {"sieg": sieg, "gold": gold, "wert": wert, "sieg_blind": blind},
+            "power": None if sieg is None else {"sieg": sieg, "gold": gold, "wert": wert, "sieg_blind": blind, **power},
             "fk": None if fk is None else {"sieg": fk, "platz": platz},
             "prono": {"sel": {"cote_dec": cote}}}
 
@@ -70,7 +70,6 @@ def test_abgeleitete_werte(tmp_path):
     assert pool.loc[1, "rank_fq"] == 1 and pool.loc[2, "rank_fq"] == 2
     assert pool.loc[2, "rank_pct"] == pytest.approx(0.5)
     assert pool.loc[1, "rel"] == pytest.approx(1.5)
-    assert bool(pool.loc[1, "gold"]) and not bool(pool.loc[2, "gold"])  # Presse 12 > 10
     assert pool.loc[1, "paid_places"] == 2
     assert pool.loc[1, "fair_platz"] == pytest.approx(1 / pool.loc[1, "p_platz"])
     assert pool.loc[2, "won"] and pool.loc[1, "placed"] and not pool.loc[1, "won"]
@@ -244,10 +243,8 @@ def test_html_simulation_gleich_python(tmp_path):
         faelle.append((vb.FilterConfig(), v))
     for mode, x in (("none", 0), ("rank", 0.5), ("rel", 1.2), ("max", 25)):
         for top in vb.TOP_WAHL:
-            faelle.append((vb.FilterConfig(minw=0.3, gold_on=top != "ja", mode=mode, mode_value=x, top=top), "kelly2"))
+            faelle.append((vb.FilterConfig(minw=0.3, mode=mode, mode_value=x, top=top), "kelly2"))
     faelle += [(vb.FilterConfig(), "kelly4", "sieg"), (vb.FilterConfig(minw=0.2, mode="none"), "level10", "sieg")]
-    faelle += [(vb.FilterConfig(chance="power"), "kelly4"), (vb.FilterConfig(chance="power", mode="none", minw=0.2), "level10"),
-               (vb.FilterConfig(chance="power", mode="rank", mode_value=0.5, top="ja"), "kelly2")]
     faelle = [(x[0], x[1], x[2] if len(x) > 2 else "ew") for x in faelle]
     js = _node_sim(pool, [[vars(f), v, w] for f, v, w in faelle])
     for (f, v, w), j in zip(faelle, js):
@@ -267,7 +264,7 @@ def test_html_simulation_gleich_python(tmp_path):
     # Kursvorteil im Verlauf: JS gleich Python
     for (f, v, w), j in zip(faelle, js):
         py = vb.simulate(pool, f, vb.StakingConfig(v, wettart=w))
-        pc = vb.chance_waehlen(pool, f.chance)
+        pc = vb.mit_wert(pool)
         kv = vb.kurs_verlauf(py.bets_df, pc[pc["date"].isin(py.days_df["date"])])
         assert len(j["kurs"]) == len(kv)
         for spalte in ("lauf", "lauf_lo", "lauf_hi", "pool_lauf"):
@@ -338,7 +335,7 @@ def test_kursbewegung(tmp_path):
     lv = np.log([3.0 / 2.0, 5.0 / 5.0, 6.0 / 9.0])
     assert pool.loc[1, "toto_end"] == 2.0 and pool.loc[1, "fk_toto"] == pytest.approx(1.5)
     assert pool.loc[1, "kurs_rel"] == pytest.approx(lv[0] - lv.mean())
-    res = vb.simulate(pool.reset_index(), vb.FilterConfig(mode="none", minw=0.0, gold_on=False))
+    res = vb.simulate(pool.reset_index(), vb.FilterConfig(mode="none", minw=0.0))
     k = res.kpi_dict
     assert k["kurs_n"] == k["bets"] and 0 <= k["kurs_gefallen"] <= 1
     b = res.bets_df
@@ -420,20 +417,37 @@ def test_nur_sieg(tmp_path):
         vb.StakingConfig(wettart="platz")
 
 
-def test_chance_umschalten(tmp_path):
-    # Nr 1: gemischt 0.5 (Wert 0.5), Power allein 0.2 (Wert −0.4); Nr 2 umgekehrt
-    r = _rennen("20250910R1C1", [_runner(1, 0.5, fk=3.0, platz=1.5, blind=0.2), _runner(2, 0.3, fk=3.0, platz=2.0, blind=0.6),
-                                 _runner(3, 0.2, fk=6.0, platz=2.5, blind=0.2)])
+def test_morgenquote_raus_und_aenderungen(tmp_path):
+    # Karte mit Morgenquote (sieg_quelle „morgen“): faire Quote aus sieg_blind (Power-Mischung ohne Morgenquote)
+    r = _rennen("20250910R1C1", [_runner(1, 0.5, fk=3.0, platz=1.5, blind=0.2, sieg_quelle="morgen"),
+                                 _runner(2, 0.3, fk=3.0, platz=2.0, blind=0.6, sieg_quelle="morgen"),
+                                 _runner(3, 0.2, fk=6.0, platz=2.5, blind=0.2, sieg_quelle="morgen")])
     j, pq = _tag(tmp_path, "20250910", [r], {"20250910R1C1": "2 - 1 - 3"})
     pool = vb.load_day(j, pq).set_index("no")
-    assert pool.loc[1, "p"] == pytest.approx(0.5) and pool.loc[1, "p_pw"] == pytest.approx(0.2)
-    assert pool.loc[2, "wert_pw"] == pytest.approx(3 * 0.6 - 1) and pool.loc[2, "is_top_pw"] == 1
-    assert pool.loc[2, "wert"] == pytest.approx(3 * 0.3 - 1)                  # gemischt < 0, trotzdem im Pool
-    pool = pool.reset_index()
-    mix = vb.simulate(pool, vb.FilterConfig(mode="none", minw=0.4))
-    pw = vb.simulate(pool, vb.FilterConfig(mode="none", minw=0.4, chance="power"))
-    assert list(mix.bets_df["no"]) == [1] and list(pw.bets_df["no"]) == [2]
-    assert pw.bets_df.iloc[0]["fair"] == pytest.approx(1 / 0.6) and pw.bets_df.iloc[0]["p"] == pytest.approx(0.6)
-    assert set(vb.chance_waehlen(pool, "power")["no"]) == {2, 3}                # Wert ≥ 0 unter Power allein
-    with pytest.raises(ValueError):
-        vb.FilterConfig(chance="markt")
+    assert pool.loc[2, "p"] == pytest.approx(0.6) and pool.loc[2, "wert"] == pytest.approx(3 * 0.6 - 1)
+    assert 1 not in pool.index and pool["ohne_morgenquote"].all()               # Nr 1: Wert 3·0,2−1 < 0
+    assert pool["verfahren"].iloc[0].startswith("Power (Karte mit Morgenquote")
+    assert list(vb.simulate(pool.reset_index(), vb.FilterConfig(mode="none", minw=0.4)).bets_df["no"]) == [2]
+    # spätere Karten: Power-Mischung (Treiber in Power-Punkten), dann mit Value, dann neu trainiert
+    for d, pw in (("20250911", {"treiber_einheit": "power"}), ("20250912", {"treiber_einheit": "power", "value_pct": 3.0}),
+                  ("20250913", {"treiber_einheit": "power", "value_pct": 3.0})):
+        rid = f"{d}R1C1"
+        _tag(tmp_path, d, [_rennen(rid, [_runner(1, 0.6, fk=3.0, platz=1.5, blind=0.5, sieg_quelle="power", **pw),
+                                         _runner(2, 0.4, fk=3.0, platz=2.0, blind=0.5, sieg_quelle="power", **pw)])],
+             {rid: "1 - 2"})
+    daten = json.loads((tmp_path / "racecard_20250913_daten.json").read_text())
+    daten["modelle"] = {"faire_quote": {"quellen": ["Power", "Power-sieg"], "power_trainiert": "2025-09-12 20:00",
+                                        "value_kappa": 0.4}}
+    (tmp_path / "racecard_20250913_daten.json").write_text(json.dumps(daten))
+    tag12 = json.loads((tmp_path / "racecard_20250912_daten.json").read_text())
+    tag12["modelle"] = {"faire_quote": {"quellen": ["Power", "Power-sieg"], "power_trainiert": "2025-09-01 10:00"}}
+    (tmp_path / "racecard_20250912_daten.json").write_text(json.dumps(tag12))
+    alle = vb.load_folder(tmp_path, ab=None)
+    ae = vb.aenderungen(alle)
+    assert [a["date"] for a in ae] == ["20250910", "20250911", "20250912", "20250913"]
+    assert ae[1]["text"].endswith("→ Power × Power-sieg") and ae[2]["text"].endswith("Power × Power-sieg × Value")
+    assert ae[3]["text"] == "Power neu trainiert (2025-09-12 20:00)"
+    assert vb.dashboard_daten(alle)["aenderungen"] == ae
+    assert "gold" not in vb.dashboard_daten(alle)["spalten"]
+    with pytest.raises(TypeError):
+        vb.FilterConfig(chance="power")
