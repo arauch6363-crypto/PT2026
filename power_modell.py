@@ -2770,6 +2770,22 @@ def rennart(typ, alter_klasse=None, alter=None) -> tuple[str | None, str | None]
     return renntyp3(typ), altersgruppe(alter_klasse, min(a) if a else np.nan, max(a) if a else np.nan)
 
 
+def faire_quote_stand(modell: dict | None) -> dict | None:
+    """Womit die faire Quote der Karte gerechnet ist (für die Änderungs-Marken im Value-Dashboard): Trainingsstand von
+    Power und Value, Quellen der Power-Mischung, übernommene Schichten, κ des Value."""
+    if not modell:
+        return None
+    meta = modell.get("meta") or {}
+    pmx = meta.get("power_mix") or {}
+    quellen = ["Power"] + [n_ for k_, n_ in (("sieg", "Power-sieg"), ("cat", "CatBoost")) if pmx.get(k_)]
+    wm = (modell.get("wert") or {}).get("meta") or {}
+    kap = wm.get("fair_kappa") if wm.get("fair_basis") == "power" else None
+    return {"power_trainiert": meta.get("trainiert"), "wert_trainiert": wm.get("trainiert"),
+            "quellen": quellen if pmx else ["Power"], "power_mix": pmx or None,
+            "kommentar_schicht": bool(meta.get("kommentar_schicht")),
+            "prognose_schicht": bool(meta.get("prognose_schicht")), "value_kappa": kap}
+
+
 def modell_info(modell: dict | None, vorwaerts: list | None = None) -> dict | None:
     """Kurzfassung der Prüfung beider Modelle mit Einordnung im Klartext – für Claude (Skill rennkarten-durchgang).
     power: Stärke-Einschätzung (blind nutzbar); value: Abweichung vom Markt (nur Marktteil); vorwaerts: laufender
@@ -2819,6 +2835,7 @@ def modell_info(modell: dict | None, vorwaerts: list | None = None) -> dict | No
                              "ausgeglichen, darüber klar verlustreich (Außenseiter überwettet) – am ehesten zum Festkurs. "
                              "Nie alleinige Begründung für einen Angle.")}
         out["value"]["je_rennart"] = _je_rennart_value(bw.get("je_rennart") or {})
+    out["faire_quote"] = faire_quote_stand(modell)
     if vorwaerts:
         out["vorwaerts_test"] = vorwaerts
     return out
