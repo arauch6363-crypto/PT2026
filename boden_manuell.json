@@ -15,7 +15,7 @@
     "SLOW": ["Souple", "Très souple"],
     "VERY SLOW": ["Collant", "Lourd", "Très lourd"]
   },
-  "datum": "2026-10-22",
+  "datum": "2026-10-26",
   "bahnen": {
     "AGEN": "Bon",
     "AMIENS": "Bon",
@@ -24,7 +24,7 @@
     "BEAUMONT DE LOMAGNE": "Bon",
     "BORDEAUX LE BOUSCAT": "Souple",
     "CAGNES SUR MER": "Bon",
-    "CHANTILLY": "Bon souple",
+    "CHANTILLY": "Très souple",
     "CHATEAUBRIANT": "Bon",
     "CHOLET": "Bon",
     "CLAIREFONTAINE": "Très souple",
@@ -46,7 +46,7 @@
     "LYON PARILLY": "Souple",
     "MACHECOUL": "Bon",
     "MAISONS LAFFITTE": "Bon",
-    "MARSEILLE BORELY": "Souple",
+    "MARSEILLE BORELY": "Collant",
     "MARSEILLE VIVAUX": "Bon",
     "MONT DE MARSAN": "Bon",
     "MOULINS": "Bon",
