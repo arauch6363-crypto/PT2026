@@ -92,7 +92,8 @@ tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 4%, transp
   <label id="r_rel">Rel ≥ <input type="range" id="v_rel" min="0" max="4" step="0.1" value="1"><output id="v_rel_o"></output></label>
   <label>Top <select id="top"><option value="beides" selected>beides</option>
     <option value="ja">nur Top-Wert</option><option value="nein">ohne Top-Wert</option></select></label>
-  <label title="so viele Starter je Veranstaltung mit dem höchsten Kelly-Anteil (0 = alle)">Top je Veranstaltung <input type="number" id="jv" min="0" max="30" step="1" value="4" style="width:56px"></label>
+  <label title="nur Starter mit Kelly-Anteil Wert ÷ (Festkurs − 1) mindestens so hoch (0 = ohne Schwelle); bei ⅛ Kelly ist der Einsatz dann mindestens ⅛ davon von der Bank">Min. Kelly-Anteil <input type="number" id="mk" min="0" max="50" step="0.5" value="5" style="width:56px"> %</label>
+  <label title="höchstens so viele Starter je Veranstaltung, die mit dem höchsten Kelly-Anteil (0 = alle)">max. je Veranstaltung <input type="number" id="jv" min="0" max="30" step="1" value="7" style="width:56px"></label>
   <label title="vor der Auswahl je Veranstaltung nur der Starter mit dem höchsten Kelly-Anteil je Rennen"><input type="checkbox" id="ejr" checked> max. 1 je Rennen</label>
   <label>Tag <select id="tag"><option value="alle">alle</option></select></label>
   <label>Pferd <input type="text" id="suche" placeholder="Suche …" size="12"></label>
@@ -170,6 +171,7 @@ function auswahl(pool, f) {
     if (f.mode === 'rel' && !(r.rel >= x - TOL)) return false;
     if (f.top === 'ja' && r.is_top !== 1) return false;
     if (f.top === 'nein' && r.is_top !== 0) return false;
+    if (f.min_kelly && !(r.wert / (r.fk_sieg - 1) >= f.min_kelly - TOL)) return false;
     return true;
   }), f.je_veranstaltung || 0, !!f.eins_je_rennen);
 }
@@ -619,7 +621,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
     $('v_max_o').textContent = $('v_max').value;
     $('v_rank_o').textContent = nf(+$('v_rank').value, 2);
     $('v_rel_o').textContent = nf(+$('v_rel').value, 1);
-    const f = {minw: +$('minw').value, mode: modus, je_veranstaltung: Math.max(0, Math.floor(+$('jv').value || 0)), eins_je_rennen: $('ejr').checked,
+    const f = {minw: +$('minw').value, mode: modus, min_kelly: Math.max(0, +$('mk').value || 0) / 100, je_veranstaltung: Math.max(0, Math.floor(+$('jv').value || 0)), eins_je_rennen: $('ejr').checked,
                mode_value: modus === 'none' ? 0 : +$('v_' + modus).value, top: $('top').value};
     const p = $('tag').value === 'alle' ? pool : pool.filter(r => r.date === $('tag').value);
     const res = simulieren(p, f, $('st').value, 1000, $('wa').value);
@@ -660,7 +662,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
     }
     tabelle(b);
   }
-  for (const id of ['st', 'wa', 'minw', 'jv', 'ejr', 'modus', 'v_max', 'v_rank', 'v_rel', 'top', 'tag'])
+  for (const id of ['st', 'wa', 'minw', 'mk', 'jv', 'ejr', 'modus', 'v_max', 'v_rank', 'v_rel', 'top', 'tag'])
     $(id).addEventListener('input', neu);
   $('suche').addEventListener('input', () => tabelle(letzte));
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', neu);

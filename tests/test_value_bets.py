@@ -245,7 +245,9 @@ def test_html_simulation_gleich_python(tmp_path):
         for top in vb.TOP_WAHL:
             faelle.append((vb.FilterConfig(minw=0.3, mode=mode, mode_value=x, top=top), "kelly2"))
     faelle += [(vb.FilterConfig(), "kelly4", "sieg"), (vb.FilterConfig(minw=0.2, mode="none"), "level10", "sieg")]
-    faelle += [(vb.FilterConfig(minw=0.2, mode="none", je_veranstaltung=4, eins_je_rennen=True), "kelly8", "sieg"),
+    faelle += [(vb.FilterConfig(minw=0.2, mode="none", min_kelly=0.05, je_veranstaltung=6, eins_je_rennen=True), "kelly8", "sieg"),
+               (vb.FilterConfig(minw=0.0, mode="none", min_kelly=0.02), "level10", "ew"),
+               (vb.FilterConfig(minw=0.2, mode="none", je_veranstaltung=4, eins_je_rennen=True), "kelly8", "sieg"),
                (vb.FilterConfig(minw=0.0, mode="none", je_veranstaltung=3), "level10", "sieg"),
                (vb.FilterConfig(minw=0.3, mode="max", mode_value=15, eins_je_rennen=True), "kelly4", "ew")]
     faelle = [(x[0], x[1], x[2] if len(x) > 2 else "ew") for x in faelle]
@@ -471,6 +473,9 @@ def test_beste_je_veranstaltung_und_tipps(tmp_path):
     eins = vb.beste_je_veranstaltung(pool, 2, eins_je_rennen=True)
     assert sorted(zip(eins["race"], eins["no"])) == [("R1C1", 1), ("R1C2", 1), ("R2C1", 1)]
     assert len(vb.beste_je_veranstaltung(pool, 0)) == len(pool)
+    # Schwelle: Kelly-Anteil ≥ 0,3 lässt nur R1C2 Nr 1 (0,5 ÷ 1,5) und R2C1 Nr 1 (0,4 ÷ 1) übrig
+    sk = vb.simulate(pool, vb.FilterConfig(mode="none", minw=0.0, min_kelly=0.3))
+    assert sorted(zip(sk.bets_df["race"], sk.bets_df["no"])) == [("R1C2", 1), ("R2C1", 1)]
     sim = vb.simulate(pool, vb.FilterConfig(mode="none", minw=0.0, je_veranstaltung=1))
     assert sorted(zip(sim.bets_df["race"], sim.bets_df["no"])) == [("R1C2", 1), ("R2C1", 1)]   # Kelly 0,33 > 0,25
     # Karte: Tipps mit Rang und Kelly-Anteil; Wert unter der Schwelle fällt weg

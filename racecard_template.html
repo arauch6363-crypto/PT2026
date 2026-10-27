@@ -40,8 +40,9 @@ button,select{font:inherit;color:inherit}
 .top h1{margin:0;font:700 34px/1 var(--f-display);letter-spacing:.01em;text-transform:uppercase}
 .top h1 span{color:var(--accent)}
 .top .meta{font-size:12px;color:var(--ink-2)}
+.tipp-ein{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline}
 .bank-in{font-size:12px;color:var(--ink-2);display:flex;gap:4px;align-items:baseline}
-.bank-in input#tipp-n{width:42px}
+.bank-in input#tipp-n,.bank-in input#tipp-k{width:46px}
 .bank-in input{width:80px;font:600 13px var(--f-mono);padding:2px 5px;border:1px solid var(--line);border-radius:3px;background:var(--surface);color:var(--ink)}
 .pmu-link{font-size:12px;color:var(--accent);text-decoration:none;white-space:nowrap}
 .pmu-link:hover{text-decoration:underline}
@@ -466,8 +467,11 @@ td.num,.adj,.ae{white-space:nowrap}
   <header class="top">
     <h1>Race Card <span id="hd-date"></span></h1>
     <div class="meta" id="hd-meta"></div>
-    <label class="bank-in" title="So viele Tipps je Veranstaltung (die mit dem höchsten Kelly-Anteil, höchstens einer je Rennen); wird in diesem Browser gemerkt">Tipps je Veranst. <input id="tipp-n" inputmode="numeric" size="2"></label>
-    <label class="bank-in" title="Wettbank vor diesem Renntag – daraus die Einsätze der Tipps (⅛ Kelly, volle Euro); wird je Renntag in diesem Browser gemerkt">Startbank <input id="tipp-bank" inputmode="decimal" size="7"> €</label>
+    <div class="tipp-ein">
+      <label class="bank-in" title="Tipps nur mit Kelly-Anteil Wert ÷ (Festkurs − 1) mindestens so hoch – bei ⅛ Kelly ist der Einsatz dann mindestens ⅛ davon von der Startbank; wird in diesem Browser gemerkt">Min. Kelly <input id="tipp-k" inputmode="decimal" size="3"> %</label>
+      <label class="bank-in" title="Höchstens so viele Tipps je Veranstaltung (die mit dem höchsten Kelly-Anteil, höchstens einer je Rennen); wird in diesem Browser gemerkt">max. je Veranst. <input id="tipp-n" inputmode="numeric" size="2"></label>
+      <label class="bank-in" title="Wettbank vor diesem Renntag – daraus die Einsätze der Tipps (⅛ Kelly, volle Euro); wird je Renntag in diesem Browser gemerkt">Startbank <input id="tipp-bank" inputmode="decimal" size="7"> €</label>
+    </div>
   </header>
   <nav class="nav" aria-label="Rennen">
     <div class="tabs" id="meetings" role="tablist"></div>
@@ -1027,11 +1031,13 @@ function pronoHTML(r){
 // Startbank je Renntag (vor dem Tag); ohne Eintrag für diesen Tag die zuletzt eingetragene, sonst 500 €
 function tippBank(){ const b = parseFloat(store.get("rc-bank-" + DATA.date) || store.get("rc-bank") || ""); return b > 0 ? b : 500; }
 function tippN(){ const n = parseInt(store.get("rc-tipp-n") || "", 10); return n > 0 ? n : ((DATA.tipp_regel && DATA.tipp_regel.je_veranstaltung) || 4); }
-function tippZeigen(x){ const T = x.power && !x.nr && x.power.tipp; return T && T.rang <= tippN() ? T : null; }
+function tippK(){ const k = parseFloat(store.get("rc-tipp-k") || ""); return k >= 0 ? k : 100 * ((DATA.tipp_regel && DATA.tipp_regel.min_kelly) ?? 0.05); }
+// Rang nach Kelly-Anteil: die Starter über der Schwelle stehen vorn, davon höchstens N je Veranstaltung
+function tippZeigen(x){ const T = x.power && !x.nr && x.power.tipp; return T && T.rang <= tippN() && T.kelly >= tippK() / 100 - 1e-6 ? T : null; }
 function tippEinsatz(T){ const k = (DATA.tipp_regel && DATA.tipp_regel.kelly) || 1 / 8; return Math.round(tippBank() * k * T.kelly); }
 function tippTip(T){
   const R = DATA.tipp_regel || {}, k = R.kelly || 1 / 8;
-  return `Tipp ${T.rang} von ${Math.min(T.von, tippN())} dieser Veranstaltung (Top ${tippN()} nach Kelly-Anteil, höchstens einer je Rennen, `
+  return `Tipp ${T.rang} dieser Veranstaltung (Kelly-Anteil ≥ ${fx(tippK(), 1)} %, höchstens ${tippN()} je Veranstaltung und einer je Rennen, `
     + `Wert ≥ ${fx(100 * (R.min_wert ?? 0.2), 0)} %)\nFestkurs ${fx(T.fk, 1)} · Wert +${fx(100 * T.wert, 0)} % · Kelly-Anteil ${fx(100 * T.kelly, 1)} % der Bank\n`
     + `Einsatz ${k === 1 / 8 ? "⅛" : fx(k, 3)} Kelly bei Startbank ${fx(tippBank(), 0)} €: ${tippEinsatz(T)} € auf Sieg`;
 }
@@ -1048,9 +1054,10 @@ function tippsHTML(r){
   zeilen.sort((a, b) => a[2].rang - b[2].rang);
   const mitFK = m.races.some(id => DATA.races[id].runners.some(x => x.fk && x.fk.sieg != null));
   const k = DATA.tipp_regel.kelly || 1 / 8;
-  const kopf = `<div class="tipps-kopf"><h3>Top ${tippN()} R${r.reunion} · ${esc(title(m.course))}</h3>`
-    + `<span class="fold-kurz">nur Sieg · Einsatz ${k === 1 / 8 ? "⅛" : fx(k, 3)} Kelly von ${fx(tippBank(), 0)} € Startbank (oben)</span></div>`;
-  if (!zeilen.length) return `<div class="tipps">${kopf}<div class="leer">${mitFK ? "Kein Starter mit Wert ≥ 20 % gegen den Festkurs."
+  const minE = Math.round(tippBank() * k * tippK() / 100);
+  const kopf = `<div class="tipps-kopf"><h3>Tipps R${r.reunion} · ${esc(title(m.course))}</h3>`
+    + `<span class="fold-kurz">nur Sieg · Kelly-Anteil ≥ ${fx(tippK(), 1)} % (Einsatz ≥ ${minE} €), max. ${tippN()} · Einsatz ${k === 1 / 8 ? "⅛" : fx(k, 3)} Kelly von ${fx(tippBank(), 0)} € Startbank (oben)</span></div>`;
+  if (!zeilen.length) return `<div class="tipps">${kopf}<div class="leer">${mitFK ? `Kein Starter über der Schwelle (Wert ≥ 20 % und Kelly-Anteil ≥ ${fx(tippK(), 1)} %) – hier nichts setzen.`
     : "Noch keine Festkurse für diese Veranstaltung – Tipps nach racecard.festkurse_aktualisieren."}</div></div>`;
   const z = zeilen.map(([rr, x, T]) => `<tr class="t-zeile${rr.race_id === r.race_id ? " hier" : ""}" data-r="${rr.race_id}" title="${esc(tippTip(T))}">`
     + `<td>${T.rang}</td><td class="l">C${rr.race_no} ${esc(rr.time || "")}</td><td>${x.no}</td><td class="l">${esc(x.horse)}</td>`
@@ -1070,6 +1077,11 @@ function bankBinden(){
   nn.value = tippN();
   nn.onchange = () => { const n = parseInt(nn.value, 10); if (n > 0) store.set("rc-tipp-n", String(n));
     nn.value = tippN(); renderRace(); };
+  const kk = $("#tipp-k");
+  if (!kk) return;
+  kk.value = fx(tippK(), 1);
+  kk.onchange = () => { const v = parseFloat(kk.value.replace(",", ".")); if (v >= 0) store.set("rc-tipp-k", String(v));
+    kk.value = fx(tippK(), 1); renderRace(); };
 }
 function tippsBinden(){
   document.querySelectorAll(".tipps tr.t-zeile").forEach(tr => tr.onclick = () => {
@@ -1849,7 +1861,7 @@ function renderLegend(){
     <div><b>Gegner</b>: für die letzten ${p.rivals_runs} Läufe die zwei Gegner direkt vor und die zwei direkt hinter dem Pferd, die seitdem wieder gelaufen sind – mit Platz im nächsten Start, Klasse dieses Rennens (€/L+, Val+) und ob der Platz besser oder schlechter war als der Rang ihrer Quote. Am Knopf (über das ganze Feld): besser / (besser + schlechter); grün, wenn mindestens die Hälfte der Gegner danach besser lief als ihre Quote (starkes Rennen). <b>⏸ Pause</b>: Zeile zwischen zwei früheren Läufen (bzw. über dem letzten Lauf bis heute), wenn dazwischen mindestens 8 Wochen (56 Tage) lagen. <b>Pos. vor Finish</b>: Fünftel des Pferdes 400 m vor dem Ziel, dazu als Punkte, wo der 1. (gold), 2. (silber) und 3. (bronze) lagen. <b>Heutige Gegner · frühere Duelle</b>: Rennen in der Datenbank, in denen das Pferd schon auf einen heutigen Gegner traf – Platz beider, Abstand, Gewichte damals und wie sich der Gewichtsunterschied bis heute verschoben hat (+ = trägt heute im Vergleich mehr). Je Duell „heute erwartet“ = Abstand damals − Verschiebung (1 kg = 1 Länge); am Knopf: vorne erwartet gegen x von y Gegnern (je Gegner das letzte Duell). <b>Duell</b> (Kachel) und <b>Duell-Rang</b> (Rennkopf): Rangfolge aus allen direkten und indirekten Duellen des heutigen Feldes – je Pferd ein Wert in Längen, sodass die Unterschiede möglichst gut alle heute erwarteten Abstände treffen (kleinste Quadrate; A schlägt B, B schlägt C -> A, B, C). Direkte Duelle zählen doppelt, ältere weniger (Halbwertszeit ${p.duel_halflife ?? 60} Tage), Abstände auf ±${p.duel_max_l ?? 5} L begrenzt; Kachel: Längen gegenüber dem Ø der Pferde mit Duellen und #Rang; Pferde ohne Verbindung untereinander bilden getrennte Gruppen (A, B …); blass bei wenig Gewicht. <b>Indirekte Duelle</b>: Vergleich mit heutigen Gegnern über gemeinsame frühere Gegner – Vergleichsrennen der letzten ${p.ind_days} Tage, ±${p.ind_dist} m, Boden innerhalb einer Stufe (PSF nur mit PSF), alle drei Pferde in der vorderen Feldhälfte. Leistung gegen den gemeinsamen Gegner = Längen × kg je Länge (Boden × Distanz) + Mehrgewicht; daraus der Unterschied zum heutigen Gegner, abzüglich des heutigen Mehrgewichts = heute erwartet (kg, in Längen mit kg je Länge von heute); mehrere Vergleiche gemittelt.</div>
     <div><b>Farben</b>: Rating, Tage, RTR, ARR und TR in der Übersicht nach dem Rang im heutigen Feld – grün oberes Drittel, rot unteres Drittel (bei Tagen umgekehrt: grün = frisch, rot = lange Pause). In den früheren Läufen Klasse (Val, €/L) im Vergleich zu allen früheren Läufen der heutigen Starter – grün = hoher Wert für dieses Rennen, rot = niedriger. <b>TR und ARR</b> der früheren Läufe in 7 Stufen nach ihrer Lage unter allen früheren Läufen der heutigen Starter: oberste 10 % kräftig grün hinterlegt, bis 25 % hellgrün fett, bis 40 % hellgrün, Mitte neutral, entsprechend rot nach unten. <b>±800</b> grün ab 3 gewonnenen, rot ab 3 verlorenen Plätzen; <b>Weg m</b> rot ab 7,5 m mehr (≈ 3 Längen, meist weit außen), grün ab 7,5 m weniger. <b>Rating</b>: Valeur bereinigt nach dem heutigen Gewicht wie RTR/ARR (Valeur − Gewicht + ${p.weight_ref}), klein die Valeur selbst; Farbe nach dem bereinigten Wert. Darunter die letzte Siegmarke (S) im Handicap, ohne Handicap-Sieg die letzte Platzmarke (P, 1.–3.), in Klammern heute im Vergleich.</div>
     <div><b>Festkurse</b> (Kasten „FK“ in der Kurzzeile, von Wettstar beim Erstellen der Karte): oben Festkurs Sieg, darunter der aktuelle Toto-Kurs; gibt es noch keinen Festkurs, steht nur der Toto-Kurs (Kasten „Toto“). Grün = Value gegen das Modell: Kurs × Modell-Siegchance mindestens 1,2 (Erwartungswert +20 % je 1 €), kräftig ab 1,5. Tooltip: Erwartungswert und der Name bei Wettstar. Zuordnung über Bahn, Rennnummer und Startnummer mit Namensprüfung (abweichende Schreibweisen), sonst über den ähnlichsten Namen im Rennen. Das Modell ordnet das Feld nicht besser als der Markt – Value hier heißt: Kurs über der Modell-Meinung, kein belegter Gewinn.</div>
-    <div><b>Tipps</b> (Kasten über dem Rennen, Abzeichen „Tipp n“ am Pferd): je Veranstaltung die ersten N Starter (N oben im Kopf, Vorgabe 4) mit dem höchsten Kelly-Anteil Wert ÷ (Festkurs − 1), höchstens einer je Rennen und nur mit Wert ≥ 20 % (Festkurs × Modell-Siegchance ≥ 1,2) – dieselbe Regel wie im Value-Dashboard. Einsatz nur auf Sieg: Startbank (oben im Kopf, vor dem Renntag eintragen; je Renntag im Browser gemerkt) × ⅛ × Kelly-Anteil, auf volle Euro gerundet. Neu gesetzt bei jedem Holen der Festkurse (racecard.run, racecard.festkurse_aktualisieren).</div>
+    <div><b>Tipps</b> (Kasten über dem Rennen, Abzeichen „Tipp n“ am Pferd): je Veranstaltung alle Starter mit Kelly-Anteil Wert ÷ (Festkurs − 1) über der Schwelle (oben im Kopf „Min. Kelly“, Vorgabe 5 %) und Wert ≥ 20 % (Festkurs × Modell-Siegchance ≥ 1,2), höchstens einer je Rennen und höchstens N je Veranstaltung (oben „max. je Veranst.“, Vorgabe 7) – so gibt es mehr Tipps, wo mehr Value ist, und keine, wo keiner ist – dieselbe Regel wie im Value-Dashboard. Einsatz nur auf Sieg: Startbank (oben im Kopf, vor dem Renntag eintragen; je Renntag im Browser gemerkt) × ⅛ × Kelly-Anteil, auf volle Euro gerundet. Neu gesetzt bei jedem Holen der Festkurse (racecard.run, racecard.festkurse_aktualisieren).</div>
     <div><b>PMU-Prognose</b> (vor dem Rennen): Kommentar der PMU-Redaktion zum Rennen, Auswahl mit <b>cote probable</b> (geschätzte Quote, z. B. 4/1 = 4,0) und Konsens der Tippgeber (Punkte je Liste nach Position, Borda). Am Pferd: <b>P1</b> … Rang in der PMU-Auswahl, <b>T5</b> = in 5 Tipp-Listen, ohne PMU-Auswahl; im Prognose-Kasten rechts die cote probable und <b>Tipp</b> = Platz im Konsens der Tippgeber (z. B. 2./9 = Zweiter von 9 getippten Pferden), ganz unten in der Starterzeile der Kurzkommentar der PMU (kursiv, farbig hinterlegt). Texte auf Deutsch, wo möglich.</div>
     <div><b>Kommentar</b> unter dem Lauf: Kommentar von PMU zum Pferd – auf Deutsch übersetzt (Original im Tooltip), sonst französisch mit <b>FR</b>.</div>
     <div><b>Aufgeklapptes Pferd</b>: sobald sein Name beim Scrollen unter der Navigation verschwindet, bleiben Nummer, Trikot, Name und Prognose oben stehen, bis das Pferd zu Ende ist; ein Klick darauf springt zurück zur Zeile des Pferdes. <b>Startbox</b> (unter der Nummer): Box in Klammern, darunter die Abweichung der Ø relativen Platzierung (Starter − Platz) / (Starter − 1) aller früheren Läufe aus dieser Box auf derselben Konfiguration (Bahn | Distanz | Piste | Parcours | Corde) vom Durchschnitt 0,5; farbig nur, wenn auffällig: mindestens 0,05 entfernt und signifikant (≥ 2 Standardfehler, SE = 0,29 ÷ √Läufe). In den früheren Läufen „Box 3 ▲/▼“ für auffällig gute bzw. schlechte Boxen dieses Rennens. <b>gegen V.</b> beim Platz: Das Pferd lief gegen den Rennverlauf (von hinten in einem Rennen, das vorne gewonnen wurde, oder umgekehrt; Ø frühe Position der ersten drei gegen das Feld, verglichen mit der Norm der Bahn/Distanz, die extremsten 25 %) und landete trotzdem vorne (Platz 1–3 oder vordere 40 %); grau umrandet „gegen V.“ ohne vordere Platzierung und „mit V.“ (Position passte zum Verlauf) – beides im Backtest ohne Effekt, nur zur Einordnung. <b>Scheuklappen</b>: Auge mit geschlossener Klappe = klassisch, mit gestrichelter Fellklappe = australisch – in der Übersicht und je früherem Lauf. <b>Prognose</b> (Kasten rechts): cote probable der PMU-Prognose, darunter dezimal; Morgen- und Totokurs werden nicht angezeigt. <b>B</b> Besitzer mit A/E 365 Tage.</div>
