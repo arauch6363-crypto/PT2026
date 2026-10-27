@@ -78,20 +78,22 @@ tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 4%, transp
 <div class="stand" id="stand"></div>
 <div class="filter">
   <label>Einsatz <select id="st">
-    <option value="kelly8">⅛ Kelly</option><option value="kelly4" selected>¼ Kelly</option>
+    <option value="kelly8" selected>⅛ Kelly</option><option value="kelly4">¼ Kelly</option>
     <option value="kelly2">½ Kelly</option><option value="kelly1">1/1 Kelly</option>
     <option value="level10">10 € fest</option><option value="level1p">1 % der Bank</option></select></label>
-  <label>Wettart <select id="wa"><option value="ew" selected>Each-Way (Sieg + Platz)</option>
-    <option value="sieg">nur Sieg</option></select></label>
-  <label>Min. Wert <input type="range" id="minw" min="0" max="1.5" step="0.1" value="0.5"><output id="minw_o"></output></label>
+  <label>Wettart <select id="wa"><option value="ew">Each-Way (Sieg + Platz)</option>
+    <option value="sieg" selected>nur Sieg</option></select></label>
+  <label>Min. Wert <input type="range" id="minw" min="0" max="1.5" step="0.1" value="0.2"><output id="minw_o"></output></label>
   <label>Modus <select id="modus">
-    <option value="max" selected>Fair &lt; X</option><option value="rank">Rang% ≥ X</option>
-    <option value="rel">Rel ≥ X</option><option value="none">ohne</option></select></label>
+    <option value="max">Fair &lt; X</option><option value="rank">Rang% ≥ X</option>
+    <option value="rel">Rel ≥ X</option><option value="none" selected>ohne</option></select></label>
   <label id="r_max">Fair &lt; <input type="range" id="v_max" min="5" max="100" step="5" value="10"><output id="v_max_o"></output></label>
   <label id="r_rank">Rang% ≥ <input type="range" id="v_rank" min="0" max="1" step="0.05" value="0.5"><output id="v_rank_o"></output></label>
   <label id="r_rel">Rel ≥ <input type="range" id="v_rel" min="0" max="4" step="0.1" value="1"><output id="v_rel_o"></output></label>
   <label>Top <select id="top"><option value="beides" selected>beides</option>
     <option value="ja">nur Top-Wert</option><option value="nein">ohne Top-Wert</option></select></label>
+  <label title="so viele Starter je Veranstaltung mit dem höchsten Kelly-Anteil (0 = alle)">Top je Veranstaltung <input type="number" id="jv" min="0" max="30" step="1" value="4" style="width:56px"></label>
+  <label title="vor der Auswahl je Veranstaltung nur der Starter mit dem höchsten Kelly-Anteil je Rennen"><input type="checkbox" id="ejr" checked> max. 1 je Rennen</label>
   <label>Tag <select id="tag"><option value="alle">alle</option></select></label>
   <label>Pferd <input type="text" id="suche" placeholder="Suche …" size="12"></label>
 </div>
@@ -148,9 +150,19 @@ function zeilen(daten) {
   return daten.zeilen.map(z => Object.fromEntries(sp.map((k, i) => [k, z[i]])));
 }
 
+function besteJeVeranstaltung(rows, n, eins) {   // wie value_bets.beste_je_veranstaltung
+  if (!n && !eins) return rows;
+  const k = r => r.wert / (r.fk_sieg - 1), v = r => r.date + ((String(r.race).match(/^R\d+/) || [''])[0]);
+  let p = rows.map((r, i) => [r, k(r), i]).sort((a, b) => (b[1] - a[1]) || (a[0].race_id < b[0].race_id ? -1
+    : a[0].race_id > b[0].race_id ? 1 : 0) || (a[0].no - b[0].no) || (a[2] - b[2])).map(z => z[0]);
+  if (eins) { const ges = new Set(); p = p.filter(r => !ges.has(r.race_id) && ges.add(r.race_id)); }
+  if (n) { const z = {}; p = p.filter(r => (z[v(r)] = (z[v(r)] || 0) + 1) <= n); }
+  return p;
+}
+
 function auswahl(pool, f) {
   const x = f.mode_value;
-  return pool.filter(r => {
+  return besteJeVeranstaltung(pool.filter(r => {
     const w = r.wert;
     if (!(w > TOL && w >= f.minw - TOL)) return false;
     if (f.mode === 'max' && !(r.fair < x - TOL)) return false;
@@ -159,7 +171,7 @@ function auswahl(pool, f) {
     if (f.top === 'ja' && r.is_top !== 1) return false;
     if (f.top === 'nein' && r.is_top !== 0) return false;
     return true;
-  });
+  }), f.je_veranstaltung || 0, !!f.eins_je_rennen);
 }
 
 function einsatz(bank, p, fk, v) {
@@ -607,7 +619,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
     $('v_max_o').textContent = $('v_max').value;
     $('v_rank_o').textContent = nf(+$('v_rank').value, 2);
     $('v_rel_o').textContent = nf(+$('v_rel').value, 1);
-    const f = {minw: +$('minw').value, mode: modus,
+    const f = {minw: +$('minw').value, mode: modus, je_veranstaltung: Math.max(0, Math.floor(+$('jv').value || 0)), eins_je_rennen: $('ejr').checked,
                mode_value: modus === 'none' ? 0 : +$('v_' + modus).value, top: $('top').value};
     const p = $('tag').value === 'alle' ? pool : pool.filter(r => r.date === $('tag').value);
     const res = simulieren(p, f, $('st').value, 1000, $('wa').value);
@@ -648,7 +660,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
     }
     tabelle(b);
   }
-  for (const id of ['st', 'wa', 'minw', 'modus', 'v_max', 'v_rank', 'v_rel', 'top', 'tag'])
+  for (const id of ['st', 'wa', 'minw', 'jv', 'ejr', 'modus', 'v_max', 'v_rank', 'v_rel', 'top', 'tag'])
     $(id).addEventListener('input', neu);
   $('suche').addEventListener('input', () => tabelle(letzte));
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', neu);

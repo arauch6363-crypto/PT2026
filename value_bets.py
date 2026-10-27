@@ -33,6 +33,10 @@ TOP_TOL = 1e-9          # Toleranz für „höchster Wert im Rennen“
 START_BANK = 1000.0
 STEUER = 0.05           # Steuer je Wett-Bein (Anteil am Einsatz)
 HARVILLE_L2, HARVILLE_L3 = 0.8, 0.65   # wie racecard.py
+# Tipps je Veranstaltung (Karte; im Dashboard als Filter „je Veranstaltung“): die TIPP_N Starter mit dem höchsten
+# Kelly-Anteil Wert ÷ (Festkurs − 1), höchstens einer je Rennen, Wert ≥ TIPP_MIN_WERT; Einsatz TIPP_KELLY Kelly
+# der Startbank des Tages (auf der Karte einzutragen)
+TIPP_N, TIPP_MIN_WERT, TIPP_KELLY = 4, 0.2, 1 / 8
 START_DATUM = "20261018"   # ab hier liegen Karten mit Festkursen vor
 BASE_DRIVE = "/content/drive/MyDrive/PT_tracking"
 HINWEIS_LEER = "keine Wette bei diesem Filter"
@@ -424,13 +428,17 @@ class FilterConfig:
     """Auswahl der Wetten.
 
     minw: Mindest-Wert (0–1,5); mode: genau einer von "max" (faire Quote < X), "rank" (rank_pct ≥ X),
-    "rel" (rel ≥ X) oder "none"; top: "beides", "ja" (nur Top-Wert) oder "nein".
+    "rel" (rel ≥ X) oder "none"; top: "beides", "ja" (nur Top-Wert) oder "nein";
+    je_veranstaltung: danach nur die so vielen Starter je Veranstaltung (Tag + Reunion) mit dem höchsten
+    Kelly-Anteil Wert ÷ (Festkurs − 1) (0 = alle); eins_je_rennen: davor nur der beste je Rennen.
     Faire Quote = die der Karte (Power-Mischung; Karten mit Morgenquote: Power-Mischung ohne sie, sieg_blind).
     """
     minw: float = 0.5
     mode: str = "max"
     mode_value: float = 10.0
     top: str = "beides"
+    je_veranstaltung: int = 0
+    eins_je_rennen: bool = False
 
     def __post_init__(self) -> None:
         if self.mode not in MODI:
@@ -480,7 +488,61 @@ def auswahl(pool: pd.DataFrame, f: FilterConfig) -> pd.DataFrame:
         ok &= pool["is_top"] == 1
     elif f.top == "nein":
         ok &= pool["is_top"] == 0
-    return pool[ok].copy()
+    return beste_je_veranstaltung(pool[ok], f.je_veranstaltung, f.eins_je_rennen)
+
+
+def kelly_anteil(pool: pd.DataFrame) -> pd.Series:
+    """Kelly-Anteil der Siegwette: Wert ÷ (Festkurs − 1) = (p · FK − 1) ÷ (FK − 1)."""
+    return pool["wert"].astype(float) / (pool["fk_sieg"].astype(float) - 1)
+
+
+def beste_je_veranstaltung(pool: pd.DataFrame, n: int, eins_je_rennen: bool = False) -> pd.DataFrame:
+    """Je Veranstaltung (Tag + Reunion) die n Starter mit dem höchsten Kelly-Anteil (Gleichstand: Rennen, Nummer);
+    mit eins_je_rennen davor nur der beste je Rennen. n = 0 und ohne eins_je_rennen: unverändert."""
+    if pool.empty or (not n and not eins_je_rennen):
+        return pool.copy()
+    p = pool.assign(_k=kelly_anteil(pool), _v=pool["date"].astype(str) + pool["race"].astype(str).str.extract(
+        r"^(R\d+)", expand=False).fillna(""))
+    p = p.sort_values(["_k", "race_id", "no"], ascending=[False, True, True], kind="stable")
+    if eins_je_rennen:
+        p = p.drop_duplicates("race_id", keep="first")
+    if n:
+        p = p.groupby("_v", sort=False).head(int(n))
+    return p.drop(columns=["_k", "_v"])
+
+
+def tipps_setzen(daten: dict, n: int | None = None, min_wert: float = TIPP_MIN_WERT) -> int:
+    """Tipps der Karte: je Veranstaltung die Starter nach Kelly-Anteil geordnet (höchstens einer je Rennen,
+    Wert ≥ min_wert, mit Festkurs Sieg) – gleiche Rechnung wie das Dashboard. Schreibt je Starter power.tipp =
+    {rang, von, kelly, wert, fk} (alte Tipps werden entfernt) und daten.tipp_regel. n = None: alle Kandidaten mit Rang
+    (die Karte zeigt die ersten N, N im Kopf wählbar, Vorgabe TIPP_N); sonst nur die ersten n. Rückgabe: Zahl."""
+    datum = str(daten.get("date") or "").replace("-", "")
+    rennen = daten.get("races") or {}
+    rennen = list(rennen.values()) if isinstance(rennen, dict) else list(rennen)
+    zeilen = []
+    for rn in rennen:
+        for x in rn.get("runners") or []:
+            (x.get("power") or {}).pop("tipp", None)
+        zeilen.extend(_pferde_rennen(rn, datum))
+    daten["tipp_regel"] = {"je_veranstaltung": n or TIPP_N, "min_wert": min_wert, "kelly": TIPP_KELLY, "eins_je_rennen": True}
+    pool = pd.DataFrame(zeilen)
+    if pool.empty:
+        return 0
+    pool = pool[pool["fk_sieg"].notna() & (pool["wert"] >= min_wert - TOL)]
+    beste = beste_je_veranstaltung(pool, n or 0, True)
+    if beste.empty:
+        return 0
+    beste = beste.assign(reunion=beste["race"].str.extract(r"^(R\d+)", expand=False), kelly=kelly_anteil(beste))
+    beste["rang"] = beste.groupby("reunion").cumcount() + 1
+    beste["von"] = beste.groupby("reunion")["no"].transform("size")
+    je = {(str(z.race_id), int(z.no)): z for z in beste.itertuples()}
+    for rn in rennen:
+        for x in rn.get("runners") or []:
+            z = je.get((str(rn.get("race_id")), int(x["no"]))) if x.get("no") is not None else None
+            if z is not None:
+                x["power"]["tipp"] = {"rang": int(z.rang), "von": int(z.von), "kelly": round(float(z.kelly), 5),
+                                      "wert": round(float(z.wert), 4), "fk": float(z.fk_sieg)}
+    return len(beste)
 
 
 def einsatz(bank_start: float, p: float, fk: float, s: StakingConfig) -> float:
