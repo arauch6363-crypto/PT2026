@@ -245,6 +245,9 @@ def test_html_simulation_gleich_python(tmp_path):
         for top in vb.TOP_WAHL:
             faelle.append((vb.FilterConfig(minw=0.3, mode=mode, mode_value=x, top=top), "kelly2"))
     faelle += [(vb.FilterConfig(), "kelly4", "sieg"), (vb.FilterConfig(minw=0.2, mode="none"), "level10", "sieg")]
+    faelle += [(vb.FilterConfig(minw=0.2, mode="none", je_veranstaltung=4, eins_je_rennen=True), "kelly8", "sieg"),
+               (vb.FilterConfig(minw=0.0, mode="none", je_veranstaltung=3), "level10", "sieg"),
+               (vb.FilterConfig(minw=0.3, mode="max", mode_value=15, eins_je_rennen=True), "kelly4", "ew")]
     faelle = [(x[0], x[1], x[2] if len(x) > 2 else "ew") for x in faelle]
     js = _node_sim(pool, [[vars(f), v, w] for f, v, w in faelle])
     for (f, v, w), j in zip(faelle, js):
@@ -451,3 +454,38 @@ def test_morgenquote_raus_und_aenderungen(tmp_path):
     assert "gold" not in vb.dashboard_daten(alle)["spalten"]
     with pytest.raises(TypeError):
         vb.FilterConfig(chance="power")
+
+
+def test_beste_je_veranstaltung_und_tipps(tmp_path):
+    # R1: zwei Rennen, R2: ein Rennen; Kelly-Anteil = Wert ÷ (FK − 1)
+    r11 = _rennen("20250920R1C1", [_runner(1, 0.5, fk=3.0), _runner(2, 0.3, fk=5.0), _runner(3, 0.2, fk=4.0)])
+    r12 = _rennen("20250920R1C2", [_runner(1, 0.6, fk=2.5), _runner(2, 0.4, fk=3.0)])
+    r21 = {**_rennen("20250920R2C1", [_runner(1, 0.7, fk=2.0), _runner(2, 0.3, fk=4.0)]), "reunion": 2}
+    j, pq = _tag(tmp_path, "20250920", [r11, r12, r21], {"20250920R1C1": "1 - 2", "20250920R1C2": "2 - 1",
+                                                           "20250920R2C1": "1 - 2"})
+    pool = vb.load_day(j, pq)
+    k = dict(zip(zip(pool["race"], pool["no"]), vb.kelly_anteil(pool)))
+    assert k[("R1C1", 1)] == pytest.approx(0.5 / 2) and k[("R1C1", 2)] == pytest.approx(0.5 / 4)
+    zwei = vb.beste_je_veranstaltung(pool, 2)
+    assert sorted(zip(zwei["race"], zwei["no"])) == [("R1C1", 1), ("R1C2", 1), ("R2C1", 1), ("R2C1", 2)]
+    eins = vb.beste_je_veranstaltung(pool, 2, eins_je_rennen=True)
+    assert sorted(zip(eins["race"], eins["no"])) == [("R1C1", 1), ("R1C2", 1), ("R2C1", 1)]
+    assert len(vb.beste_je_veranstaltung(pool, 0)) == len(pool)
+    sim = vb.simulate(pool, vb.FilterConfig(mode="none", minw=0.0, je_veranstaltung=1))
+    assert sorted(zip(sim.bets_df["race"], sim.bets_df["no"])) == [("R1C2", 1), ("R2C1", 1)]   # Kelly 0,33 > 0,25
+    # Karte: Tipps mit Rang und Kelly-Anteil; Wert unter der Schwelle fällt weg
+    daten = json.loads(j.read_text())
+    n = vb.tipps_setzen(daten, n=4, min_wert=0.2)
+    tipps = {(rid, x["no"]): x["power"]["tipp"] for rid, r in daten["races"].items() for x in r["runners"]
+             if (x.get("power") or {}).get("tipp")}
+    assert n == 3 and set(tipps) == {("20250920R1C1", 1), ("20250920R1C2", 1), ("20250920R2C1", 1)}
+    t = tipps[("20250920R1C1", 1)]
+    assert t["rang"] == 2 and t["von"] == 2 and t["kelly"] == pytest.approx(0.25) and t["fk"] == 3.0
+    assert tipps[("20250920R1C2", 1)]["rang"] == 1                     # Kelly 0,5 ÷ 1,5 > 0,5 ÷ 2
+    assert daten["tipp_regel"]["je_veranstaltung"] == 4
+    # erneut mit höherer Schwelle: alte Tipps werden entfernt
+    assert vb.tipps_setzen(daten, n=4, min_wert=0.45) == 2
+    assert not daten["races"]["20250920R2C1"]["runners"][0]["power"].get("tipp")  # Wert 0,4 < 0,45
+    # Vorgabe (Karte): alle Kandidaten mit Rang, die Karte zeigt die ersten N; n = 1: nur der erste je Veranstaltung
+    assert vb.tipps_setzen(daten) == 3 and daten["tipp_regel"]["je_veranstaltung"] == vb.TIPP_N
+    assert vb.tipps_setzen(daten, n=1) == 2

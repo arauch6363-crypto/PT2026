@@ -656,7 +656,22 @@ vergleicht beide Rechnungen über Node.
   - `parquet/pmu_races/YYYYMMDD.parquet` mit dem Einlauf
 - Tage ohne Einlauf bleiben offen und werden in der Kopfzeile genannt.
 - **Pool:** alle Starter mit Festkurs Sieg und Wert ≥ 0.
-- **Filter:** Mindest-Wert, genau ein Modus (`max`/`rank`/`rel`/`none`), Top-Wert, Tag (einzeln ab 1000 €) und Pferdesuche.
+- **Filter:** Mindest-Wert, genau ein Modus (`max`/`rank`/`rel`/`none`), Top-Wert, Top N je Veranstaltung (frei, 0 = alle), Tag (einzeln
+  ab 1000 €) und Pferdesuche. Vorgabe ist die Tipp-Strategie: ⅛ Kelly, nur Sieg, Wert ≥ 0,2, ohne Modus, Top 4 je
+  Veranstaltung, höchstens 1 je Rennen.
+- **Je Veranstaltung (Tipps):** nach den übrigen Filtern nur die N Starter je Veranstaltung (Tag + Reunion) mit dem
+  höchsten Kelly-Anteil Wert ÷ (Festkurs − 1); mit „max. 1 je Rennen“ davor nur der beste je Rennen
+  (`vb.FilterConfig(je_veranstaltung=4, eins_je_rennen=True)`, `vb.beste_je_veranstaltung`). Der Kelly-Anteil
+  bevorzugt Value bei kürzeren Kursen – dort bestätigt die Kursbewegung bis zum Start das Modell am deutlichsten.
+- **Tipps auf der Karte:** `racecard.run` und `racecard.festkurse_aktualisieren` ordnen je Veranstaltung alle
+  Kandidaten nach derselben Regel (`vb.tipps_setzen`, Wert ≥ 0,2, höchstens 1 je Rennen; Starter: `power.tipp` mit Rang,
+  Kelly-Anteil, Wert und Festkurs). Oben im Kartenkopf wählt man **Tipps je Veranstaltung** (N, Vorgabe 4, im
+  Browser gemerkt) und trägt die **Startbank vor dem Renntag** ein (je Renntag
+  im Browser gemerkt; ohne Eintrag gilt die zuletzt eingetragene). Über jedem Rennen steht der Kasten „Tipps R…“ mit
+  den ersten N: Rennen, Pferd, Festkurs, Wert und Einsatz = Startbank × ⅛ × Kelly-Anteil in vollen Euro; am Pferd das Abzeichen
+  „Tipp n“. Klick auf eine Zeile springt ins Rennen. Qualifizieren sich mehrere Pferde eines Rennens, zählt nur das
+  mit dem höchsten Kelly-Anteil; der Platz geht an das nächstbeste Pferd eines anderen Rennens (zwei Wetten im selben
+  Rennen würden mit Kelly je Wette zu viel setzen).
 - **Einsatz:** Kelly 1/8 bis 1/1, 10 € fest oder 1 % der Bank.
   - Grundlage ist immer die Bank zu Tagesbeginn.
   - Sieg- und Platzbein bekommen denselben Einsatz.

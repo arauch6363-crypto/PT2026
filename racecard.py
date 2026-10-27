@@ -2942,6 +2942,7 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
         import wettstar
         if wettstar.anhaengen(daten, None if festkurse is True else festkurse, tag=tag):
             wettstar.stand_merken(daten, datetime.now(pmu.PARIS).strftime("%H:%M"))
+    tipps_setzen(daten)
     if pmod and pmod.get("wert"):                         # Vorwärts-Test: Value-Faktoren der Karte protokollieren
         try:
             print(f"Value-Protokoll: {power_modell.protokollieren(daten, base)}")
@@ -2960,6 +2961,17 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     print(f"Kartendaten gespeichert (für festkurse_aktualisieren): {sp}  ({sp.stat().st_size / 1e6:.1f} MB)")
     _ausgeben(daten, out, claude)
     return out
+
+
+def tipps_setzen(daten: dict) -> None:
+    """Tipps je Veranstaltung (value_bets.tipps_setzen: Top 4 nach Kelly-Anteil, höchstens einer je Rennen) –
+    nach jedem Holen der Festkurse neu, weil sie vom Festkurs abhängen."""
+    try:
+        import value_bets
+        n = value_bets.tipps_setzen(daten)
+        print(f"Tipps je Veranstaltung: {n}")
+    except Exception as e:                                 # Tipps dürfen die Karte nie verhindern
+        print(f"Tipps nicht gesetzt: {e}")
 
 
 def daten_pfad(out: Path) -> Path:
@@ -3054,6 +3066,7 @@ def festkurse_aktualisieren(base: Path, tag=None, out: Path | None = None, *, fe
             for k in wettstar.rennen_mit_festkurs(daten) - vorher:   # Bahnen mit neuen Kursen: Zeit dieses Laufs
                 st.pop(races[k].get("course"), None)
             wettstar.stand_merken(daten, jetzt)
+    tipps_setzen(daten)
     if any((x.get("power") or {}).get("wert") is not None for r in daten["races"].values() for x in r["runners"]):
         try:
             import power_modell
