@@ -33,10 +33,11 @@ TOP_TOL = 1e-9          # Toleranz für „höchster Wert im Rennen“
 START_BANK = 1000.0
 STEUER = 0.05           # Steuer je Wett-Bein (Anteil am Einsatz)
 HARVILLE_L2, HARVILLE_L3 = 0.8, 0.65   # wie racecard.py
-# Tipps je Veranstaltung (Karte; im Dashboard als Filter „je Veranstaltung“): die TIPP_N Starter mit dem höchsten
-# Kelly-Anteil Wert ÷ (Festkurs − 1), höchstens einer je Rennen, Wert ≥ TIPP_MIN_WERT; Einsatz TIPP_KELLY Kelly
-# der Startbank des Tages (auf der Karte einzutragen)
-TIPP_N, TIPP_MIN_WERT, TIPP_KELLY = 4, 0.2, 1 / 8
+# Tipps je Veranstaltung (Karte; im Dashboard als Filter): alle Starter mit Kelly-Anteil Wert ÷ (Festkurs − 1) ≥
+# TIPP_MIN_KELLY, höchstens einer je Rennen und höchstens TIPP_N je Veranstaltung (die mit dem höchsten Kelly-Anteil),
+# Wert ≥ TIPP_MIN_WERT; Einsatz TIPP_KELLY Kelly der Startbank des Tages (auf der Karte einzutragen). So hängt die Zahl
+# der Tipps davon ab, wie viel Value eine Veranstaltung bietet; Schwelle und Höchstzahl sind auf der Karte wählbar.
+TIPP_N, TIPP_MIN_WERT, TIPP_MIN_KELLY, TIPP_KELLY = 7, 0.2, 0.05, 1 / 8
 START_DATUM = "20261018"   # ab hier liegen Karten mit Festkursen vor
 BASE_DRIVE = "/content/drive/MyDrive/PT_tracking"
 HINWEIS_LEER = "keine Wette bei diesem Filter"
@@ -429,8 +430,9 @@ class FilterConfig:
 
     minw: Mindest-Wert (0–1,5); mode: genau einer von "max" (faire Quote < X), "rank" (rank_pct ≥ X),
     "rel" (rel ≥ X) oder "none"; top: "beides", "ja" (nur Top-Wert) oder "nein";
+    min_kelly: nur Starter mit Kelly-Anteil Wert ÷ (Festkurs − 1) ≥ min_kelly (0 = ohne Schwelle);
     je_veranstaltung: danach nur die so vielen Starter je Veranstaltung (Tag + Reunion) mit dem höchsten
-    Kelly-Anteil Wert ÷ (Festkurs − 1) (0 = alle); eins_je_rennen: davor nur der beste je Rennen.
+    Kelly-Anteil (0 = alle); eins_je_rennen: davor nur der beste je Rennen.
     Faire Quote = die der Karte (Power-Mischung; Karten mit Morgenquote: Power-Mischung ohne sie, sieg_blind).
     """
     minw: float = 0.5
@@ -439,6 +441,7 @@ class FilterConfig:
     top: str = "beides"
     je_veranstaltung: int = 0
     eins_je_rennen: bool = False
+    min_kelly: float = 0.0
 
     def __post_init__(self) -> None:
         if self.mode not in MODI:
@@ -488,6 +491,8 @@ def auswahl(pool: pd.DataFrame, f: FilterConfig) -> pd.DataFrame:
         ok &= pool["is_top"] == 1
     elif f.top == "nein":
         ok &= pool["is_top"] == 0
+    if f.min_kelly:
+        ok &= kelly_anteil(pool) >= f.min_kelly - TOL
     return beste_je_veranstaltung(pool[ok], f.je_veranstaltung, f.eins_je_rennen)
 
 
@@ -515,7 +520,8 @@ def tipps_setzen(daten: dict, n: int | None = None, min_wert: float = TIPP_MIN_W
     """Tipps der Karte: je Veranstaltung die Starter nach Kelly-Anteil geordnet (höchstens einer je Rennen,
     Wert ≥ min_wert, mit Festkurs Sieg) – gleiche Rechnung wie das Dashboard. Schreibt je Starter power.tipp =
     {rang, von, kelly, wert, fk} (alte Tipps werden entfernt) und daten.tipp_regel. n = None: alle Kandidaten mit Rang
-    (die Karte zeigt die ersten N, N im Kopf wählbar, Vorgabe TIPP_N); sonst nur die ersten n. Rückgabe: Zahl."""
+    (die Karte zeigt die mit Kelly-Anteil ≥ Schwelle, höchstens N je Veranstaltung – beides im Kopf wählbar, Vorgabe
+    TIPP_MIN_KELLY und TIPP_N); sonst nur die ersten n. Rückgabe: Zahl."""
     datum = str(daten.get("date") or "").replace("-", "")
     rennen = daten.get("races") or {}
     rennen = list(rennen.values()) if isinstance(rennen, dict) else list(rennen)
@@ -524,7 +530,7 @@ def tipps_setzen(daten: dict, n: int | None = None, min_wert: float = TIPP_MIN_W
         for x in rn.get("runners") or []:
             (x.get("power") or {}).pop("tipp", None)
         zeilen.extend(_pferde_rennen(rn, datum))
-    daten["tipp_regel"] = {"je_veranstaltung": n or TIPP_N, "min_wert": min_wert, "kelly": TIPP_KELLY, "eins_je_rennen": True}
+    daten["tipp_regel"] = {"je_veranstaltung": n or TIPP_N, "min_kelly": TIPP_MIN_KELLY, "min_wert": min_wert, "kelly": TIPP_KELLY, "eins_je_rennen": True}
     pool = pd.DataFrame(zeilen)
     if pool.empty:
         return 0
