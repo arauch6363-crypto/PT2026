@@ -9,9 +9,12 @@ Morgenquote: sieg_blind), die Toto-Endquote aus pmu_runners (Sicht des Publikums
 pmu_dividends. Gewonnen hat eine Kombination, wenn die PMU sie in den Dividenden listet (Zeilen „NP“ und
 Rückzahlungen bleiben weg). Gezogene Einläufe: Modell mit den Modell-λ, Publikum mit den Markt-λ.
 
-Paarwetten (Couplé Placé: beide unter den ersten 3; 2sur4: beide unter den ersten 4): erwartete Dividende ≈
-c ÷ P_Publikum(Paar), c = Auszahlungsfaktor der Wettart (aus den Gewinnpaaren geschätzt, ≈ 1 − Abzug); Erwartungswert
-je 1 € = P_Modell × c ÷ P_Publikum − 1. Gewettet wird je Paar mit Erwartungswert ≥ Schwelle, 1 € je Ticket.
+Paarwetten (Couplé Placé: beide unter den ersten 3; 2sur4: beide unter den ersten 4). Couplé Placé: jedes Gewinnpaar
+hat ein eigenes Drittel des Pools, Dividende ≈ c ÷ P_Publikum(Paar), Erwartungswert = P_Modell × c ÷ P_Publikum − 1.
+2sur4: die 6 Gewinnpaare teilen sich einen Topf, Dividende ≈ c × 6 ÷ S mit S = Σ P_Publikum der 6 Gewinnpaare –
+ein Außenseiter-Paar zahlt wenig, wenn es mit Favoriten-Paaren gewinnt; Erwartungswert = c × 6 × E[1/S; Paar gewinnt]
+− 1 über die gezogenen Einläufe des Modells. c = Auszahlungsfaktor (≈ 1 − Abzug), aus den echten Gewinnpaaren
+geschätzt. Gewettet wird je Paar mit Erwartungswert ≥ Schwelle, 1 € je Ticket.
 Quinté+: ein Ticket aus 5 Pferden je Quinté-Rennen – die 5 mit der höchsten Modellchance (zum Vergleich: die 5
 Markt-Favoriten); gezahlt wird die höchste Stufe (Ordre, Désordre, Bonus 4sur5, Bonus 3).
 """
@@ -27,7 +30,9 @@ import pandas as pd
 import einlauf
 
 START_DATUM = "20261018"
-PAARE = {"couple_place": ("COUPLE_PLACE", 3), "2sur4": ("DEUX_SUR_QUATRE", 4)}   # Wettart: (PMU-Code, Plätze)
+# Wettart: (PMU-Code, Plätze, Pool) – Couplé Placé: jedes der 3 Gewinnpaare bekommt ein eigenes Drittel des Pools;
+# 2sur4: alle 6 Gewinnpaare teilen sich einen Topf und zahlen dieselbe Dividende
+PAARE = {"couple_place": ("COUPLE_PLACE", 3, "einzeln"), "2sur4": ("DEUX_SUR_QUATRE", 4, "gemeinsam")}
 QUINTE = "QUINTE_PLUS"
 QUINTE_STUFEN = ("ordre", "desordre", "bonus4sur5", "bonus3")
 N_SIM = 20000
@@ -97,14 +102,26 @@ def paar_chancen(p, plaetze: int, lam, n_sim: int = N_SIM, rng=None) -> np.ndarr
 
 
 def _paare_rennen(g: pd.DataFrame, plaetze: int, lam_m, lam_p, n_sim, rng) -> pd.DataFrame:
-    """Alle Paare eines Rennens mit P_Modell und P_Publikum (aus der Toto-Endquote; ohne Quote: NaN)."""
-    nos = g["no"].to_numpy()
-    Pm = paar_chancen(g["p"].to_numpy(), plaetze, lam_m, n_sim, rng)
+    """Alle Paare eines Rennens mit P_Modell, P_Publikum (aus der Toto-Endquote; ohne Quote: NaN) und kehr_s =
+    E[1/S; Paar gewinnt] über die Einläufe des Modells (S = Σ P_Publikum aller Gewinnpaare des Einlaufs; für 2sur4)."""
+    nos, n = g["no"].to_numpy(), len(g)
+    E = einlauf.einlaeufe(g["p"].to_numpy(), plaetze, lam_m, n_sim, rng)
+    M = np.zeros((n_sim, n), float)
+    np.put_along_axis(M, E, 1.0, axis=1)
+    Pm = M.T @ M / n_sim
     q = g["odds"].to_numpy(float)
-    Pp = paar_chancen((1 / q) / np.nansum(1 / q), plaetze, lam_p, n_sim, rng) if np.all(q > 1) else np.full_like(Pm, np.nan)
-    i, j = np.triu_indices(len(nos), 1)
+    Pp = paar_chancen((1 / q) / np.nansum(1 / q), plaetze, lam_p, n_sim, rng) if np.all(q > 1) else np.full((n, n), np.nan)
+    a_, b_ = np.triu_indices(E.shape[1], 1)
+    S = Pp[E[:, a_], E[:, b_]].sum(axis=1)                  # je gezogenem Einlauf: Σ P_Publikum der Gewinnpaare
+    K = (M / np.where(S > 0, S, np.nan)[:, None]).T @ M / n_sim if np.all(np.isfinite(S)) else np.full((n, n), np.nan)
+    i, j = np.triu_indices(n, 1)
     return pd.DataFrame({"race_id": g["race_id"].iloc[0], "date": g["date"].iloc[0], "a": nos[i], "b": nos[j],
-                         "p_modell": Pm[i, j], "p_publikum": Pp[i, j]})
+                         "p_modell": Pm[i, j], "p_publikum": Pp[i, j], "kehr_s": K[i, j]})
+
+
+def a_paare(plaetze: int) -> list[tuple[int, int]]:
+    """Gewinnpaare eines Einlaufs: alle Paare unter den ersten `plaetze` (3 → 3 Paare, 4 → 6 Paare)."""
+    return [(a, b) for a in range(plaetze) for b in range(a + 1, plaetze)]
 
 
 def _paar_key(a, b) -> str:
@@ -135,7 +152,7 @@ def _auswertung(t: pd.DataFrame) -> dict:
 
 def paarwetten(daten: dict, art: str, schwellen=(0.0, 0.2, 0.5), lam=None, n_sim: int = N_SIM, seed: int = 0) -> dict:
     """Rückrechnung einer Paarwette (couple_place, 2sur4) über alle Rennen, in denen die PMU sie anbot."""
-    code, plaetze = PAARE[art]
+    code, plaetze, pool = PAARE[art]
     lam = lam or {"modell": einlauf.VORGABE, "markt": einlauf.VORGABE}
     dv = daten["dividenden"]
     dv = dv[dv["bet_type"].eq(code)] if len(dv) else dv
@@ -154,12 +171,17 @@ def paarwetten(daten: dict, art: str, schwellen=(0.0, 0.2, 0.5), lam=None, n_sim
     P["div"] = [x[0] if x else 0.0 for x in k]
     P["einsatz_kombi"] = [x[1] if x else np.nan for x in k]
     P = P[P["p_publikum"].notna()]
-    # Auszahlungsfaktor c: Dividende × P_Publikum der Gewinnpaare (Median) – ≈ 1 − Abzug
+    # Auszahlungsfaktor c (≈ 1 − Abzug, Median über die Gewinnpaare bzw. -rennen)
     w = P[P["treffer"] & (P["div"] > 0)]
-    c = float(np.median(w["div"] * w["p_publikum"])) if len(w) else np.nan
-    P["ew"] = P["p_modell"] * c / P["p_publikum"] - 1
+    if pool == "einzeln":                                  # Dividende = c / P_Publikum des Paars
+        c = float(np.median(w["div"] * w["p_publikum"])) if len(w) else np.nan
+        P["ew"] = P["p_modell"] * c / P["p_publikum"] - 1
+    else:                                                  # Dividende = c × m / S, S = Σ P_Publikum der m Gewinnpaare
+        je = w.groupby("race_id").agg(d=("div", "first"), s=("p_publikum", "sum"), m=("div", "size"))
+        c = float(np.median(je["d"] * je["s"] / je["m"])) if len(je) else np.nan
+        P["ew"] = c * len(a_paare(plaetze)) * P["kehr_s"] - 1
     P["einsatz"], P["rueck"] = 1.0, P["div"]
-    out = {"art": art, "pmu_code": code, "plaetze": plaetze, "rennen": int(P["race_id"].nunique()),
+    out = {"art": art, "pmu_code": code, "plaetze": plaetze, "pool": pool, "rennen": int(P["race_id"].nunique()),
            "paare": int(len(P)), "auszahlungsfaktor_c": round(c, 3),
            "einsatz_auf_gewinnkombi_median": round(float(np.nanmedian(w["einsatz_kombi"])), 0) if len(w) else None,
            "eichung": eichung(P), "alle_paare": _auswertung(P)}
@@ -247,7 +269,7 @@ def rueckrechnung(base: Path, ab: str | None = START_DATUM, bis: str | None = No
         if not r.get("rennen"):
             log(f"\n{art}: {r.get('grund')}")
             continue
-        log(f"\n{art} ({r['pmu_code']}, beide unter den ersten {r['plaetze']}): {r['rennen']} Rennen, {r['paare']} Paare, "
+        log(f"\n{art} ({r['pmu_code']}, beide unter den ersten {r['plaetze']}, Pool {r['pool']}): {r['rennen']} Rennen, {r['paare']} Paare, "
             f"Auszahlungsfaktor c ≈ {r['auszahlungsfaktor_c']}, Ø Einsatz auf der Gewinnkombination (Median) "
             f"{r['einsatz_auf_gewinnkombi_median']} €")
         log("  Eichung (Treffer gegen erwartet):")
