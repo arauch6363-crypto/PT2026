@@ -242,7 +242,9 @@ Zählung neu, 0 = keine solche Pause in der bekannten Historie, leer bei Debüta
   `pm.trainieren`, dann `pm.trainieren_wert`; `speichern=False` zum Prüfen.
 - **PMU-Prognosen:** `prognose_basis.nachholen_rueckwaerts(BASE)` holt (ab gestern zurück, bis 7 Renntage in Folge ohne Prognose); jeder neu verarbeitete Tag der Pipeline (`pipeline.run`) und jede Karte schreiben ihren Tag mit die Prognosen (cote probable, Tipps) in die
   Tabelle `pmu_prognosen`; jede Karte ergänzt ihren Tag. Die Prognose-Schicht korrigiert die faire Siegchance, sobald
-  der gepaarte Test sie belegt (Bericht `prognose_schicht (…)`).
+  der gepaarte Test sie belegt (Bericht `prognose_schicht (…)`). Bis dahin läuft sie als **Schattenversion** mit: die
+  Karte speichert die faire Siegchance mit Prognose-Schicht (`power.sieg_schatten`, nicht angezeigt), das
+  Value-Dashboard vergleicht sie im Vorwärtstest („Faire Quote“: Karte / Karte nur an Tagen mit Schatten / Schatten).
 - **Kommentare:** `kommentare.py` ordnet den PMU-Kommentar nach dem Rennen 16 Kategorien zu; die Kategorien zum
   letzten Lauf korrigieren die faire Siegchance (Korrekturschicht), sobald der gepaarte Test sie belegt
   (Bericht: `kommentar_schicht (…)`).

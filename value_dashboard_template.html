@@ -81,6 +81,9 @@ tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 4%, transp
     <option value="kelly8" selected>⅛ Kelly</option><option value="kelly4">¼ Kelly</option>
     <option value="kelly2">½ Kelly</option><option value="kelly1">1/1 Kelly</option>
     <option value="level10">10 € fest</option><option value="level1p">1 % der Bank</option></select></label>
+  <label title="faire Quote: die der Karte oder die Schattenversion mit PMU-Prognose-Schicht (Vorwärtstest, nicht auf der Karte angezeigt); zum Vergleich „Karte (nur Tage mit Schatten)“ über dieselben Tage">Faire Quote <select id="chance">
+    <option value="karte" selected>Karte</option><option value="karte_schatten_tage">Karte (nur Tage mit Schatten)</option>
+    <option value="schatten">Schatten: mit Prognose-Schicht</option></select></label>
   <label>Wettart <select id="wa"><option value="ew">Each-Way (Sieg + Platz)</option>
     <option value="sieg" selected>nur Sieg</option></select></label>
   <label>Min. Wert <input type="range" id="minw" min="0" max="1.5" step="0.1" value="0.2"><output id="minw_o"></output></label>
@@ -381,12 +384,24 @@ function kpis(bets, days, start, pool, sel) {
   return k;
 }
 
+// faire Quote wie value_bets.chance_waehlen: "karte", "karte_schatten_tage" (nur Tage mit Schattenversion) oder
+// "schatten" (Werte der Schattenversion mit Prognose-Schicht, Spalten „_sh“)
+const CHANCE_SPALTEN = ['p', 'fair', 'rank_fq', 'rank_pct', 'rel', 'wert', 'p_model', 'p_platz', 'fair_platz', 'is_top'];
+const _da = v => v !== null && v !== undefined;
+function chanceWaehlen(pool, chance) {
+  if (!chance || chance === 'karte') return pool;
+  const tage = new Set(pool.filter(r => _da(r.p_sh)).map(r => r.date));
+  let p = pool.filter(r => tage.has(r.date));
+  if (chance === 'schatten') p = p.filter(r => _da(r.p_sh)).map(r => {
+    const z = {...r}; for (const c of CHANCE_SPALTEN) z[c] = r[c + '_sh']; return z; });
+  return p;
+}
 function mitWert(pool) {                // nur Starter mit Wert ≥ 0 gegen den Festkurs
   return pool.filter(r => r.wert !== null && r.wert !== undefined && r.wert >= -1e-9);
 }
 
 function simulieren(pool, f, variant, start = 1000, wettart = 'ew') {
-  pool = mitWert(pool);
+  pool = mitWert(chanceWaehlen(pool, f.chance));
   const cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
   const sel = auswahl(pool, f).filter(r => r.settled)
     .sort((a, b) => cmp(a.date, b.date) || cmp(a.race_id, b.race_id) || a.no - b.no);
@@ -667,7 +682,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
     $('v_max_o').textContent = $('v_max').value;
     $('v_rank_o').textContent = nf(+$('v_rank').value, 2);
     $('v_rel_o').textContent = nf(+$('v_rel').value, 1);
-    const f = {toto_abzug: Math.min(0.6, Math.max(0, (+$('abzug').value || 23) / 100)), minw: +$('minw').value, mode: modus, min_kelly: Math.max(0, +$('mk').value || 0) / 100, je_veranstaltung: Math.max(0, Math.floor(+$('jv').value || 0)), eins_je_rennen: $('ejr').checked,
+    const f = {chance: $('chance').value, toto_abzug: Math.min(0.6, Math.max(0, (+$('abzug').value || 23) / 100)), minw: +$('minw').value, mode: modus, min_kelly: Math.max(0, +$('mk').value || 0) / 100, je_veranstaltung: Math.max(0, Math.floor(+$('jv').value || 0)), eins_je_rennen: $('ejr').checked,
                mode_value: modus === 'none' ? 0 : +$('v_' + modus).value, top: $('top').value};
     const p = $('tag').value === 'alle' ? pool : pool.filter(r => r.date === $('tag').value);
     const res = simulieren(p, f, $('st').value, 1000, $('wa').value);
@@ -735,7 +750,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
       + `<tr><td class="l" colspan="7" style="white-space:normal;color:var(--muted)">Schwelle FK/Toto ${nf(W.schwelle, 3)} bei ${nf(100 * W.abzug, 1)} % Toto-Abzug und 5 % Steuer · `
       + `grün: FK/Toto über der Schwelle, Sieger über der Toto-Erwartung, Modell → Toto ≤ −2 · Modell → Toto je Woche erst ab ${MT_MIN_N} Picks</td></tr></tbody>`;
   }
-  for (const id of ['abzug', 'st', 'wa', 'minw', 'mk', 'jv', 'ejr', 'modus', 'v_max', 'v_rank', 'v_rel', 'top', 'tag'])
+  for (const id of ['chance', 'abzug', 'st', 'wa', 'minw', 'mk', 'jv', 'ejr', 'modus', 'v_max', 'v_rank', 'v_rel', 'top', 'tag'])
     $(id).addEventListener('input', neu);
   $('suche').addEventListener('input', () => tabelle(letzte));
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', neu);

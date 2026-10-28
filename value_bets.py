@@ -144,9 +144,13 @@ def _pferde_rennen(rennen: dict, datum: str) -> list[dict]:
         f_ = _zahl((r.get("fk") or {}).get("sieg"))
         fks.append(f_ if f_ is not None and f_ > 1 else None)
     werte = _chance_werte(p, fks, n, plaetze)
+    # Schattenversion (faire Quote mit Prognose-Schicht, power.sieg_schatten) – nur wenn alle Starter sie haben
+    ss = [_zahl(pw.get("sieg_schatten")) for _, pw, _ in starter]
+    schatten = (_chance_werte(np.array(ss) / sum(ss), fks, n, plaetze) if all(x is not None and x > 0 for x in ss)
+                else [dict.fromkeys(CHANCE_SPALTEN) for _ in starter])
 
     zeilen = []
-    for (r, pw, _), pbl, fk_sieg, g_ in zip(starter, p_blind, fks, werte):
+    for (r, pw, _), pbl, fk_sieg, g_, sh_ in zip(starter, p_blind, fks, werte, schatten):
         fk = r.get("fk") or {}
         fk_platz = _zahl(fk.get("platz"))
         if fk_platz is not None and fk_platz <= 1:
@@ -161,6 +165,7 @@ def _pferde_rennen(rennen: dict, datum: str) -> list[dict]:
             "horse": r.get("horse"),
             "n": n,
             **g_,
+            **{f"{k}_sh": sh_[k] for k in CHANCE_SPALTEN},
             "fk_sieg": fk_sieg,
             "fk_platz": fk_platz,
             "cote_dec": cote,
@@ -174,6 +179,11 @@ def _pferde_rennen(rennen: dict, datum: str) -> list[dict]:
 
 
 SIEG_MIT_MORGENQUOTE = ("morgen", "mischung")   # sieg_quelle älterer Karten (21.–23.10.2026): Morgenquote eingemischt
+# von der Siegchance abhängige Spalten; mit „_sh“ dieselben aus der Schattenversion (faire Quote mit Prognose-Schicht)
+CHANCE_SPALTEN = ["p", "fair", "rank_fq", "rank_pct", "rel", "wert", "p_model", "p_platz", "fair_platz", "is_top"]
+# faire Quote im Dashboard: die der Karte, die der Karte nur an Tagen mit Schattenversion (fairer Vergleich) oder die
+# Schattenversion
+CHANCEN = ("karte", "karte_schatten_tage", "schatten")
 
 
 def _chance_werte(p: np.ndarray, fks: list, n: int, plaetze: int) -> list[dict]:
@@ -201,6 +211,24 @@ def mit_wert(pool: pd.DataFrame) -> pd.DataFrame:
     if pool.empty:
         return pool
     return pool[pd.to_numeric(pool["wert"], errors="coerce") >= -TOP_TOL]
+
+
+def chance_waehlen(pool: pd.DataFrame, chance: str = "karte") -> pd.DataFrame:
+    """Pool mit der gewählten fairen Quote: "karte" (unverändert), "karte_schatten_tage" (nur Tage, an denen die Karte
+    eine Schattenversion hat – für den Vergleich über dieselben Tage) oder "schatten" (Werte der Schattenversion,
+    Spalten „_sh“; nur diese Tage)."""
+    if chance not in CHANCEN:
+        raise ValueError(f"chance muss einer von {CHANCEN} sein")
+    if chance == "karte" or pool.empty:
+        return pool
+    hat = pool["p_sh"].notna() if "p_sh" in pool else pd.Series(False, index=pool.index)
+    tage = set(pool.loc[hat, "date"])
+    p = pool[pool["date"].isin(tage)].copy()
+    if chance == "schatten":
+        p = p[p["p_sh"].notna()]
+        for c in CHANCE_SPALTEN:
+            p[c] = p[f"{c}_sh"]
+    return p
 
 
 def verfahren(daten: dict, zeilen: list[dict]) -> dict:
@@ -312,7 +340,8 @@ def load_day(json_path: str | Path, parquet_path: str | Path | None,
     lv = np.log(pool["fk_sieg"].astype(float) / pool["toto_end"])
     pool["fk_toto"] = np.exp(lv)
     pool["kurs_rel"] = lv - lv.groupby(pool["race_id"]).transform("mean")       # alle Starter des Rennens
-    pool = pool[pool["fk_sieg"].notna() & (pool["wert"] >= -TOP_TOL)].copy()
+    pool = pool[pool["fk_sieg"].notna() & ((pool["wert"] >= -TOP_TOL)
+                                           | (pd.to_numeric(pool["wert_sh"], errors="coerce") >= -TOP_TOL))].copy()
 
     einlauf: dict[str, list[int]] = {}
     if parquet_path is not None and Path(parquet_path).exists():
@@ -341,7 +370,7 @@ def _leerer_pool() -> pd.DataFrame:
         "rank_pct", "rel", "fk_sieg", "fk_platz", "cote_dec", "wert", "ohne_morgenquote", "p_fk",
         "p_model", "p_blind", "p_pq", "p_platz", "fair_platz", "paid_places", "is_top", "festkurse_stand",
         "verfahren", "power_trainiert", "wert_trainiert", "toto_end", "fk_toto", "kurs_rel", "settled", "pos", "won",
-        "placed"])
+        "placed", *[f"{c}_sh" for c in CHANCE_SPALTEN]])
 
 
 def _hat_endquote(pfad: Path) -> bool:
@@ -432,7 +461,9 @@ class FilterConfig:
     "rel" (rel ≥ X) oder "none"; top: "beides", "ja" (nur Top-Wert) oder "nein";
     min_kelly: nur Starter mit Kelly-Anteil Wert ÷ (Festkurs − 1) ≥ min_kelly (0 = ohne Schwelle);
     je_veranstaltung: danach nur die so vielen Starter je Veranstaltung (Tag + Reunion) mit dem höchsten
-    Kelly-Anteil (0 = alle); eins_je_rennen: davor nur der beste je Rennen.
+    Kelly-Anteil (0 = alle); eins_je_rennen: davor nur der beste je Rennen;
+    chance: "karte" (faire Quote der Karte), "karte_schatten_tage" (dieselbe, nur Tage mit Schattenversion) oder
+    "schatten" (Schattenversion: faire Quote mit Prognose-Schicht).
     Faire Quote = die der Karte (Power-Mischung; Karten mit Morgenquote: Power-Mischung ohne sie, sieg_blind).
     """
     minw: float = 0.5
@@ -442,8 +473,11 @@ class FilterConfig:
     je_veranstaltung: int = 0
     eins_je_rennen: bool = False
     min_kelly: float = 0.0
+    chance: str = "karte"
 
     def __post_init__(self) -> None:
+        if self.chance not in CHANCEN:
+            raise ValueError(f"chance muss einer von {CHANCEN} sein")
         if self.mode not in MODI:
             raise ValueError(f"mode muss einer von {MODI} sein")
         if self.top not in TOP_WAHL:
@@ -577,7 +611,7 @@ def simulate(pool: pd.DataFrame, filters: FilterConfig = None,
     """Wetten chronologisch durchspielen; Einsätze aus der Bank zu Tagesbeginn."""
     filters = filters or FilterConfig()
     staking = staking or StakingConfig()
-    pool = mit_wert(pool)
+    pool = mit_wert(chance_waehlen(pool, filters.chance))
     sel = auswahl(pool, filters)
     sel = sel[sel["settled"].astype(bool)] if not sel.empty else sel
     sel = sel.sort_values(["date", "race_id", "no"]) if not sel.empty else sel
@@ -876,7 +910,8 @@ DASHBOARD_DATEI = "value_dashboard.html"
 _HTML_SPALTEN = [
     "date", "race_id", "race", "course", "no", "horse", "n", "p", "fair", "rank_fq", "rank_pct",
     "rel", "fk_sieg", "fk_platz", "cote_dec", "wert", "is_top", "p_fk", "p_model", "p_pq",
-    "p_platz", "fair_platz", "toto_end", "fk_toto", "kurs_rel", "p_blind", "settled", "pos", "won", "placed"]
+    "p_platz", "fair_platz", "toto_end", "fk_toto", "kurs_rel", "p_blind", "settled", "pos", "won", "placed",
+    *[f"{c}_sh" for c in CHANCE_SPALTEN]]
 
 
 def _json_wert(v: Any) -> Any:

@@ -3013,6 +3013,10 @@ def nichtstarter_nachtragen(daten: dict, runners_heute: pd.DataFrame) -> list[st
             summe = sum(x["power"]["sieg"] for x in bleiben)
             for x in bleiben:
                 x["power"]["sieg"] = round(x["power"]["sieg"] / summe, 3) if summe else x["power"]["sieg"]
+            sch = [x for x in bleiben if x["power"].get("sieg_schatten") is not None]
+            s_sch = sum(x["power"]["sieg_schatten"] for x in sch)
+            for x in sch:                                  # Schattenversion (Prognose-Schicht) ebenso
+                x["power"]["sieg_schatten"] = round(x["power"]["sieg_schatten"] / s_sch, 4) if s_sch else None
     return neu
 
 

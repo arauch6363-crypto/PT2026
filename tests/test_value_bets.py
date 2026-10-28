@@ -203,7 +203,8 @@ def _zufallspool(tmp_path, tage=4, seed=7):
                                platz=rnd.choice([None, 1.1, 1.6, 2.4, 3.5, 6.0]),
                                gold=rnd.choice([True, False, None]), wert=round(rnd.uniform(0.6, 1.6), 2),
                                cote=rnd.choice([None, 4.0, 9.0, 15.0]),
-                               blind=round(s * rnd.uniform(0.5, 1.8), 3))
+                               blind=round(s * rnd.uniform(0.5, 1.8), 3),
+                               sieg_schatten=round(s * rnd.uniform(0.6, 1.6), 4) if t % 2 else None)
                        for i, s in enumerate(sieg)]
             rid = f"{d}R1C{c}"
             rennen.append(_rennen(rid, runners))
@@ -245,6 +246,10 @@ def test_html_simulation_gleich_python(tmp_path):
         for top in vb.TOP_WAHL:
             faelle.append((vb.FilterConfig(minw=0.3, mode=mode, mode_value=x, top=top), "kelly2"))
     faelle += [(vb.FilterConfig(), "kelly4", "sieg"), (vb.FilterConfig(minw=0.2, mode="none"), "level10", "sieg")]
+    faelle += [(vb.FilterConfig(chance="schatten"), "kelly4", "sieg"),
+               (vb.FilterConfig(chance="karte_schatten_tage", minw=0.2, mode="none"), "level10", "ew"),
+               (vb.FilterConfig(chance="schatten", minw=0.2, mode="none", min_kelly=0.05, je_veranstaltung=7,
+                                eins_je_rennen=True), "kelly8", "sieg")]
     faelle += [(vb.FilterConfig(minw=0.2, mode="none", min_kelly=0.05, je_veranstaltung=6, eins_je_rennen=True), "kelly8", "sieg"),
                (vb.FilterConfig(minw=0.0, mode="none", min_kelly=0.02), "level10", "ew"),
                (vb.FilterConfig(minw=0.2, mode="none", je_veranstaltung=4, eins_je_rennen=True), "kelly8", "sieg"),
@@ -269,7 +274,7 @@ def test_html_simulation_gleich_python(tmp_path):
     # Kursvorteil im Verlauf: JS gleich Python
     for (f, v, w), j in zip(faelle, js):
         py = vb.simulate(pool, f, vb.StakingConfig(v, wettart=w))
-        pc = vb.mit_wert(pool)
+        pc = vb.mit_wert(vb.chance_waehlen(pool, f.chance))
         kv = vb.kurs_verlauf(py.bets_df, pc[pc["date"].isin(py.days_df["date"])])
         assert len(j["kurs"]) == len(kv)
         for spalte in ("lauf", "lauf_lo", "lauf_hi", "pool_lauf"):
@@ -454,8 +459,8 @@ def test_morgenquote_raus_und_aenderungen(tmp_path):
     assert ae[3]["text"] == "Power neu trainiert (2025-09-12 20:00)"
     assert vb.dashboard_daten(alle)["aenderungen"] == ae
     assert "gold" not in vb.dashboard_daten(alle)["spalten"]
-    with pytest.raises(TypeError):
-        vb.FilterConfig(chance="power")
+    with pytest.raises(ValueError):
+        vb.FilterConfig(chance="power")                                  # alter Umschalter (ohne Value) gibt es nicht mehr
 
 
 def test_beste_je_veranstaltung_und_tipps(tmp_path):
@@ -532,3 +537,26 @@ def test_wochenblick_js(tmp_path):
     alle = sel[(sel["fk_toto"] > 0) & (sel["toto_end"] > 0)]
     assert w["wochen"][-1]["kum"]["n"] == len(alle)
     assert w["wochen"][-1]["kum"]["fk_toto"] == pytest.approx(float(np.exp(np.log(alle["fk_toto"]).mean())))
+
+
+def test_schattenversion(tmp_path):
+    # Tag 1 mit Schattenversion (Nr 2 dort stärker), Tag 2 ohne
+    r1 = _rennen("20250930R1C1", [_runner(1, 0.5, fk=3.0, platz=1.5, sieg_schatten=0.4),
+                                  _runner(2, 0.3, fk=3.0, platz=2.0, sieg_schatten=0.5),
+                                  _runner(3, 0.2, fk=6.0, platz=2.5, sieg_schatten=0.1)])
+    r2 = _rennen("20251001R1C1", [_runner(1, 0.6, fk=2.0, platz=1.2), _runner(2, 0.4, fk=4.0, platz=1.8)])
+    _tag(tmp_path, "20250930", [r1], {"20250930R1C1": "2 - 1 - 3"})
+    _tag(tmp_path, "20251001", [r2], {"20251001R1C1": "1 - 2"})
+    pool = vb.load_folder(tmp_path, ab=None)
+    t1 = pool[pool["date"] == "20250930"].set_index("no")
+    assert t1.loc[2, "p_sh"] == pytest.approx(0.5) and t1.loc[2, "wert_sh"] == pytest.approx(0.5)
+    assert t1.loc[2, "wert"] == pytest.approx(3 * 0.3 - 1)                # unter der Karte < 0, im Pool wegen Schatten
+    assert pool.loc[pool["date"] == "20251001", "p_sh"].isna().all()
+    k = vb.chance_waehlen(pool, "karte_schatten_tage")
+    s = vb.chance_waehlen(pool, "schatten")
+    assert set(k["date"]) == set(s["date"]) == {"20250930"} and len(vb.chance_waehlen(pool, "karte")) == len(pool)
+    assert s.set_index("no").loc[2, "wert"] == pytest.approx(0.5)
+    f = dict(mode="none", minw=0.3)
+    assert list(vb.simulate(pool, vb.FilterConfig(**f)).bets_df["no"]) == [1, 2]          # Karte: Tag 2 Nr 2 (Wert 0,6)
+    assert list(vb.simulate(pool, vb.FilterConfig(chance="schatten", **f)).bets_df["no"]) == [2]
+    assert list(vb.simulate(pool, vb.FilterConfig(chance="karte_schatten_tage", **f)).bets_df["no"]) == [1]

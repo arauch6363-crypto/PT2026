@@ -266,6 +266,10 @@ Trend und Klasse:
   je Rennen auf 1; nur bei vollständiger Auswahl) minus Ø im Rennen, `pr_tipp` = Anteil der Tippgeber, die das Pferd
   nennen. p ∝ p_fair × exp(b₁ × pr_lp + b₂ × pr_tipp), rollierend geprüft wie die Kommentar-Schicht, übernommen bei
   z ≤ −1,645 (Bericht `prognose_schicht (…)`).
+- **Schattenversion (Vorwärtstest):** Ist die Prognose-Schicht nicht übernommen, rechnet jede Karte die faire Quote
+  zusätzlich mit ihr (Gewichte `gewichte_alle` aus allen Rennen des Trainings, Value danach wie bei der fairen Quote) und
+  speichert sie als `power.sieg_schatten` – nicht angezeigt, die Tipps bleiben bei der Karte. Im Value-Dashboard
+  wählbar („Faire Quote: Schatten“), zum Vergleich über dieselben Tage „Karte (nur Tage mit Schatten)“.
 
 ## Training: Lern-Ziel „sieg“ und gepaarter Vergleich
 

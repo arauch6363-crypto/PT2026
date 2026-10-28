@@ -1145,6 +1145,26 @@ def power_modell_pruefen() -> None:
            f"Value in der fairen Quote: p_fair · exp(κ · Value), κ {fm_.get('kappa')} auf der Validierung, χ² "
            f"{fm_.get('lr_chi2')}, gepaarter Test; übernommen ändert es die faire Siegchance auf der Karte; "
            "„davon Value“ = Änderung der Siegchance in %; trainieren_wert(speichern=False) speichert nichts")
+    # Schattenversion: Prognose-Schicht nicht übernommen -> Karte rechnet sie trotzdem mit (Gewichte aus dem Bericht)
+    mod_v["wert"]["meta"]["fair_kappa"] = kap_v
+    mod_v["meta"]["prognose_schicht"] = None
+    mod_v["meta"].setdefault("bericht", {})["prognose_schicht (faire Siegchance × PMU-Prognose)"] = {
+        "uebernommen": False, "gewichte_alle": {"pr_lp": 0.8, "pr_tipp": 0.0}}
+    hz_s = hz_v.assign(race_id="20260604R1C1", date=pd.Timestamp("2026-06-04"))
+    hz_s["prono_cote"] = np.linspace(2.0, 30.0, len(hz_s))              # Nr. mit kleiner Cote = Favorit der Prognose
+    with contextlib.redirect_stdout(io.StringIO()):
+        v_s = pm.vorhersage(hw, hz_s, mod_v, log=print)
+        st_ = pm.faire_quote_stand(mod_v)
+    cote_ = dict(zip(hz_s["saddle_no"].astype(int), hz_s["prono_cote"]))
+    ks = sorted(v_s, key=lambda k_: cote_[k_[1]])                         # nach Prognose-Cote aufsteigend
+    sh, sg = np.array([v_s[k]["sieg_schatten"] for k in ks]), np.array([v_s[k]["sieg"] for k in ks])
+    rel = sh / np.maximum(sg, 1e-3)
+    rk = pd.Series(rel).rank().corr(pd.Series(np.arange(len(rel))), method="spearman")
+    pruefe(abs(sh.sum() - 1) < 0.01 and rk < -0.9 and rel[0] > 1 > rel[-1]
+           and st_["schatten"] == {"prognose": {"pr_lp": 0.8, "pr_tipp": 0.0}},
+           "Schattenversion: faire Quote zusätzlich mit nicht übernommener Prognose-Schicht (power.sieg_schatten, "
+           "Value eingerechnet) – kleine Prognose-Cote hebt, große senkt; die Karte selbst bleibt unverändert"
+           f" (Σ {sh.sum():.3f}, Rangkorrelation {rk:.2f}, Faktor {rel[0]:.2f} … {rel[-1]:.2f}, Stand {st_.get('schatten')})")
     # Segment-Modelle je Renntyp (Schwellen für die kleine Historie gesenkt, damit sie behalten werden)
     alt = (pm.SEG_MIN_STARTER, pm.SEG_MIN_GEWINN, pm.SEG_MIN_VERLUST, pm.SEG_PARAMS)
     pm.SEG_MIN_STARTER, pm.SEG_MIN_GEWINN, pm.SEG_MIN_VERLUST = 50, -1.0, -1.0
