@@ -81,6 +81,9 @@ tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 4%, transp
     <option value="kelly8" selected>⅛ Kelly</option><option value="kelly4">¼ Kelly</option>
     <option value="kelly2">½ Kelly</option><option value="kelly1">1/1 Kelly</option>
     <option value="level10">10 € fest</option><option value="level1p">1 % der Bank</option></select></label>
+  <label title="faire Quote: die der Karte oder die Schattenversion mit PMU-Prognose-Schicht (Vorwärtstest, nicht auf der Karte angezeigt); zum Vergleich „Karte (nur Tage mit Schatten)“ über dieselben Tage">Faire Quote <select id="chance">
+    <option value="karte" selected>Karte</option><option value="karte_schatten_tage">Karte (nur Tage mit Schatten)</option>
+    <option value="schatten">Schatten: mit Prognose-Schicht</option></select></label>
   <label>Wettart <select id="wa"><option value="ew">Each-Way (Sieg + Platz)</option>
     <option value="sieg" selected>nur Sieg</option></select></label>
   <label>Min. Wert <input type="range" id="minw" min="0" max="1.5" step="0.1" value="0.2"><output id="minw_o"></output></label>
@@ -102,6 +105,16 @@ tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 4%, transp
 <div class="kpis" id="kpis"></div>
 <div class="hinweis" id="hinweis"></div>
 <div class="charts">
+  <div class="chart breit"><h2>Wochenblick</h2>
+    <div class="sub">Die zwei Zahlen, die zählen – nicht die Bank, die bei dieser Varianz Märchen erzählt.
+      <b>FK/Toto</b>: wie viel mehr der Festkurs zahlt als die Toto-Endquote (geometrisches Mittel der Picks); die
+      Schwelle (gestrichelt) = (1 + 5 % Steuer) ÷ (1 − Toto-Abzug) ist die Gewinnschwelle, falls die Toto-Endquote die
+      wahre Chance wäre. <b>Modell → Toto</b>: t-Wert wie in der Kachel (unter −2 = das Modell weiß mehr als der
+      Festkurs). <b>Sieger gegen Toto</b>: gewinnen die Picks öfter, als selbst die Toto-Endquote erwartet? Nur dann
+      ist die Edge größer als FK/Toto allein zeigt.
+      <label style="display:inline-flex;gap:4px;align-items:baseline;margin-left:6px">Toto-Abzug
+        <input type="number" id="abzug" min="5" max="40" step="0.5" value="23" style="width:56px"> %</label></div>
+    <div id="c_woche"></div><div class="tabelle" style="max-height:none;margin-top:6px"><table id="t_woche"></table></div></div>
   <div class="chart"><h2>Bank</h2><div id="c_bank"></div></div>
   <div class="chart"><h2>Gewinn je Tag</h2><div id="c_tag"></div></div>
   <div class="chart"><h2>Sieger kumuliert</h2><div id="c_sieg"></div></div>
@@ -304,6 +317,42 @@ function modellTotoVerlauf(sel) {      // je Renntag kumuliert (wachsendes Fenst
   }
   return out;
 }
+// Wochenblick: je Kalenderwoche (ISO) und laufend – realisiertes FK/Toto (geometrisches Mittel) gegen die Schwelle
+// (1 + Steuer) / (1 − Toto-Abzug), Sieger gegen die Erwartung aus der Toto-Endquote ((1 − Abzug) / Toto) und
+// Modell → Toto (t, ab MT_MIN_N Picks)
+const TOTO_ABZUG = 0.23;
+function isoWoche(d) {
+  const t = Date.UTC(+d.slice(0, 4), +d.slice(4, 6) - 1, +d.slice(6, 8)), T = 864e5;
+  const mo = t - ((new Date(t).getUTCDay() + 6) % 7) * T, j = new Date(mo + 3 * T).getUTCFullYear();
+  const j4 = Date.UTC(j, 0, 4), j4mo = j4 - ((new Date(j4).getUTCDay() + 6) % 7) * T;
+  const kw = 1 + Math.round((mo - j4mo) / (7 * T)), iso = x => new Date(x).toISOString().slice(0, 10).replace(/-/g, '');
+  return {key: `${j}-W${String(kw).padStart(2, '0')}`, kw, von: iso(mo), bis: iso(mo + 6 * T)};
+}
+function _wocheWerte(rows, abzug) {
+  const r = rows.filter(x => x.fk_toto > 0 && x.toto_end > 0);
+  const o = {n: r.length, fk_toto: null, edge_toto: null, sieger: 0, erw_toto: 0, z_toto: null,
+             mt_t: modellToto(rows).mt_t};
+  if (!r.length) return o;
+  o.fk_toto = Math.exp(_summe(r.map(x => Math.log(x.fk_toto))) / r.length);
+  o.edge_toto = o.fk_toto * (1 - abzug) - 1 - STEUER;
+  const p = r.map(x => (1 - abzug) / x.toto_end), v = _summe(p.map(q => q * (1 - q)));
+  o.sieger = r.filter(x => x.won).length; o.erw_toto = _summe(p);
+  o.z_toto = v > 0 ? (o.sieger - o.erw_toto) / Math.sqrt(v) : null;
+  return o;
+}
+function wochenBlick(sel, abzug = TOTO_ABZUG) {
+  const rows = (sel || []).filter(r => r.settled), wo = {};
+  for (const r of rows) (wo[isoWoche(r.date).key] = wo[isoWoche(r.date).key] || []).push(r);
+  const out = [], bisher = [];
+  for (const k of Object.keys(wo).sort()) {
+    bisher.push(...wo[k]);
+    const w = isoWoche(wo[k][0].date);
+    out.push({woche: k, kw: w.kw, von: w.von, bis: w.bis, ..._wocheWerte(wo[k], abzug),
+              kum: _wocheWerte(bisher, abzug)});
+  }
+  return {schwelle: (1 + STEUER) / (1 - abzug), abzug, wochen: out};
+}
+
 function _mtKpis(sel) {
   return {...modellToto(sel || []), toto_fehlt: (sel || []).filter(r => r.toto_end === null || r.toto_end === undefined).length};
 }
@@ -335,12 +384,24 @@ function kpis(bets, days, start, pool, sel) {
   return k;
 }
 
+// faire Quote wie value_bets.chance_waehlen: "karte", "karte_schatten_tage" (nur Tage mit Schattenversion) oder
+// "schatten" (Werte der Schattenversion mit Prognose-Schicht, Spalten „_sh“)
+const CHANCE_SPALTEN = ['p', 'fair', 'rank_fq', 'rank_pct', 'rel', 'wert', 'p_model', 'p_platz', 'fair_platz', 'is_top'];
+const _da = v => v !== null && v !== undefined;
+function chanceWaehlen(pool, chance) {
+  if (!chance || chance === 'karte') return pool;
+  const tage = new Set(pool.filter(r => _da(r.p_sh)).map(r => r.date));
+  let p = pool.filter(r => tage.has(r.date));
+  if (chance === 'schatten') p = p.filter(r => _da(r.p_sh)).map(r => {
+    const z = {...r}; for (const c of CHANCE_SPALTEN) z[c] = r[c + '_sh']; return z; });
+  return p;
+}
 function mitWert(pool) {                // nur Starter mit Wert ≥ 0 gegen den Festkurs
   return pool.filter(r => r.wert !== null && r.wert !== undefined && r.wert >= -1e-9);
 }
 
 function simulieren(pool, f, variant, start = 1000, wettart = 'ew') {
-  pool = mitWert(pool);
+  pool = mitWert(chanceWaehlen(pool, f.chance));
   const cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
   const sel = auswahl(pool, f).filter(r => r.settled)
     .sort((a, b) => cmp(a.date, b.date) || cmp(a.race_id, b.race_id) || a.no - b.no);
@@ -368,11 +429,11 @@ function simulieren(pool, f, variant, start = 1000, wettart = 'ew') {
   }
   const pSim = pool.filter(r => tage.includes(r.date));          // Pool der simulierten Tage
   return {bets, days, kpi: kpis(bets, days, start, pSim, sel), kurs: kursVerlauf(bets, pSim),
-          mt: modellTotoVerlauf(sel)};
+          mt: modellTotoVerlauf(sel), woche: wochenBlick(sel, f.toto_abzug ?? TOTO_ABZUG)};
 }
 // SIM-END
 
-if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
+if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlick, isoWoche};
 </script>
 <script>
 (function () {
@@ -621,7 +682,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
     $('v_max_o').textContent = $('v_max').value;
     $('v_rank_o').textContent = nf(+$('v_rank').value, 2);
     $('v_rel_o').textContent = nf(+$('v_rel').value, 1);
-    const f = {minw: +$('minw').value, mode: modus, min_kelly: Math.max(0, +$('mk').value || 0) / 100, je_veranstaltung: Math.max(0, Math.floor(+$('jv').value || 0)), eins_je_rennen: $('ejr').checked,
+    const f = {chance: $('chance').value, toto_abzug: Math.min(0.6, Math.max(0, (+$('abzug').value || 23) / 100)), minw: +$('minw').value, mode: modus, min_kelly: Math.max(0, +$('mk').value || 0) / 100, je_veranstaltung: Math.max(0, Math.floor(+$('jv').value || 0)), eins_je_rennen: $('ejr').checked,
                mode_value: modus === 'none' ? 0 : +$('v_' + modus).value, top: $('top').value};
     const p = $('tag').value === 'alle' ? pool : pool.filter(r => r.date === $('tag').value);
     const res = simulieren(p, f, $('st').value, 1000, $('wa').value);
@@ -660,9 +721,36 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu};
           + `${mt[i].t_presse !== null ? nf(mt[i].t_presse, 1) : '–'}\nn kumuliert ${mt[i].n} · an diesem Tag ${mt[i].n_tag}`,
         [-2, 0]);
     }
+    wochenAnzeige(res.woche, c1, c2);
     tabelle(b);
   }
-  for (const id of ['st', 'wa', 'minw', 'mk', 'jv', 'ejr', 'modus', 'v_max', 'v_rank', 'v_rel', 'top', 'tag'])
+  function wochenAnzeige(W, c1, c2) {
+    const w = W.wochen, el = $('c_woche'), sg = v => (v > 0 ? '+' : '') + nf(v, 1);
+    const wt = x => `KW ${x.kw} (${fdk(x.von)}–${fdk(x.bis)})`;
+    if (!w.length) { el.innerHTML = '<p class="fuss">keine abgerechneten Picks bei diesem Filter</p>'; $('t_woche').innerHTML = ''; return; }
+    const mit = w.filter(x => x.fk_toto !== null);
+    if (mit.length) linien(el, [{name: 'FK/Toto je Woche', farbe: c1, werte: mit.map(x => x.fk_toto)},
+                                {name: 'FK/Toto laufend', farbe: c2, werte: mit.map(x => x.kum.fk_toto), dash: 1}],
+      i => 'KW ' + mit[i].kw,
+      i => `${wt(mit[i])}\nFK/Toto ${nf(mit[i].fk_toto, 3)} (laufend ${nf(mit[i].kum.fk_toto, 3)}) · Schwelle ${nf(W.schwelle, 3)}\n`
+        + `Edge, falls Toto-Endquote = wahre Chance: ${sg(100 * mit[i].edge_toto)} % (nach Steuer)\n${mit[i].n} Picks mit Toto-Endquote`,
+      [W.schwelle, 1]);
+    else el.innerHTML = '<p class="fuss">keine Toto-Endquoten (pmu_runners)</p>';
+    const z = (o, k) => o[k] === null || o[k] === undefined ? '–' : nf(o[k], k === 'fk_toto' ? 3 : 1);
+    const kl = (v, gut) => v === null || v === undefined ? '' : (gut(v) ? 'pos' : 'neg');
+    const zeile = (t, o) => `<tr><td class="l">${t}</td><td>${o.n}</td>`
+      + `<td class="${kl(o.fk_toto, v => v >= W.schwelle)}">${z(o, 'fk_toto')}</td>`
+      + `<td class="${kl(o.edge_toto, v => v >= 0)}">${o.edge_toto === null ? '–' : sg(100 * o.edge_toto) + ' %'}</td>`
+      + `<td>${o.sieger} / ${nf(o.erw_toto, 1)}</td><td class="${kl(o.z_toto, v => v > 0)}">${z(o, 'z_toto')}</td>`
+      + `<td class="${kl(o.mt_t, v => v <= -2)}">${z(o, 'mt_t')}</td></tr>`;
+    const letzte = w[w.length - 1].kum;
+    $('t_woche').innerHTML = '<thead><tr><th class="l">Woche</th><th>Picks</th><th>FK/Toto</th><th>Edge bei Toto-Wahrheit</th>'
+      + '<th>Sieger / erw. Toto</th><th>z Sieger</th><th>Modell → Toto t</th></tr></thead><tbody>'
+      + w.map(x => zeile(wt(x), x)).join('') + zeile('<b>gesamt</b>', letzte)
+      + `<tr><td class="l" colspan="7" style="white-space:normal;color:var(--muted)">Schwelle FK/Toto ${nf(W.schwelle, 3)} bei ${nf(100 * W.abzug, 1)} % Toto-Abzug und 5 % Steuer · `
+      + `grün: FK/Toto über der Schwelle, Sieger über der Toto-Erwartung, Modell → Toto ≤ −2 · Modell → Toto je Woche erst ab ${MT_MIN_N} Picks</td></tr></tbody>`;
+  }
+  for (const id of ['chance', 'abzug', 'st', 'wa', 'minw', 'mk', 'jv', 'ejr', 'modus', 'v_max', 'v_rank', 'v_rel', 'top', 'tag'])
     $(id).addEventListener('input', neu);
   $('suche').addEventListener('input', () => tabelle(letzte));
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', neu);

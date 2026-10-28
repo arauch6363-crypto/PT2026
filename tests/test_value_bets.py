@@ -203,7 +203,8 @@ def _zufallspool(tmp_path, tage=4, seed=7):
                                platz=rnd.choice([None, 1.1, 1.6, 2.4, 3.5, 6.0]),
                                gold=rnd.choice([True, False, None]), wert=round(rnd.uniform(0.6, 1.6), 2),
                                cote=rnd.choice([None, 4.0, 9.0, 15.0]),
-                               blind=round(s * rnd.uniform(0.5, 1.8), 3))
+                               blind=round(s * rnd.uniform(0.5, 1.8), 3),
+                               sieg_schatten=round(s * rnd.uniform(0.6, 1.6), 4) if t % 2 else None)
                        for i, s in enumerate(sieg)]
             rid = f"{d}R1C{c}"
             rennen.append(_rennen(rid, runners))
@@ -245,6 +246,10 @@ def test_html_simulation_gleich_python(tmp_path):
         for top in vb.TOP_WAHL:
             faelle.append((vb.FilterConfig(minw=0.3, mode=mode, mode_value=x, top=top), "kelly2"))
     faelle += [(vb.FilterConfig(), "kelly4", "sieg"), (vb.FilterConfig(minw=0.2, mode="none"), "level10", "sieg")]
+    faelle += [(vb.FilterConfig(chance="schatten"), "kelly4", "sieg"),
+               (vb.FilterConfig(chance="karte_schatten_tage", minw=0.2, mode="none"), "level10", "ew"),
+               (vb.FilterConfig(chance="schatten", minw=0.2, mode="none", min_kelly=0.05, je_veranstaltung=7,
+                                eins_je_rennen=True), "kelly8", "sieg")]
     faelle += [(vb.FilterConfig(minw=0.2, mode="none", min_kelly=0.05, je_veranstaltung=6, eins_je_rennen=True), "kelly8", "sieg"),
                (vb.FilterConfig(minw=0.0, mode="none", min_kelly=0.02), "level10", "ew"),
                (vb.FilterConfig(minw=0.2, mode="none", je_veranstaltung=4, eins_je_rennen=True), "kelly8", "sieg"),
@@ -269,7 +274,7 @@ def test_html_simulation_gleich_python(tmp_path):
     # Kursvorteil im Verlauf: JS gleich Python
     for (f, v, w), j in zip(faelle, js):
         py = vb.simulate(pool, f, vb.StakingConfig(v, wettart=w))
-        pc = vb.mit_wert(pool)
+        pc = vb.mit_wert(vb.chance_waehlen(pool, f.chance))
         kv = vb.kurs_verlauf(py.bets_df, pc[pc["date"].isin(py.days_df["date"])])
         assert len(j["kurs"]) == len(kv)
         for spalte in ("lauf", "lauf_lo", "lauf_hi", "pool_lauf"):
@@ -454,8 +459,8 @@ def test_morgenquote_raus_und_aenderungen(tmp_path):
     assert ae[3]["text"] == "Power neu trainiert (2025-09-12 20:00)"
     assert vb.dashboard_daten(alle)["aenderungen"] == ae
     assert "gold" not in vb.dashboard_daten(alle)["spalten"]
-    with pytest.raises(TypeError):
-        vb.FilterConfig(chance="power")
+    with pytest.raises(ValueError):
+        vb.FilterConfig(chance="power")                                  # alter Umschalter (ohne Value) gibt es nicht mehr
 
 
 def test_beste_je_veranstaltung_und_tipps(tmp_path):
@@ -494,3 +499,64 @@ def test_beste_je_veranstaltung_und_tipps(tmp_path):
     # Vorgabe (Karte): alle Kandidaten mit Rang, die Karte zeigt die ersten N; n = 1: nur der erste je Veranstaltung
     assert vb.tipps_setzen(daten) == 3 and daten["tipp_regel"]["je_veranstaltung"] == vb.TIPP_N
     assert vb.tipps_setzen(daten, n=1) == 2
+
+
+def test_wochenblick_js(tmp_path):
+    import shutil
+    import subprocess
+    if not shutil.which("node"):
+        pytest.skip("node fehlt")
+    pool = _zufallspool(tmp_path)
+    # Toto-Endquoten ergänzen (der Zufallspool hat keine): je Pick ein Kurs um den Festkurs
+    rnd = np.random.default_rng(3)
+    pool = pool.copy()
+    pool["toto_end"] = np.where(pool["fk_sieg"].notna(), pool["fk_sieg"] * rnd.uniform(0.6, 1.3, len(pool)), np.nan)
+    pool["fk_toto"] = pool["fk_sieg"] / pool["toto_end"]
+    f = vb.FilterConfig(minw=0.2, mode="none")
+    t = vb.TEMPLATE.read_text(encoding="utf-8")
+    sim = t[t.index("// SIM-START"):t.index("// SIM-END")]
+    daten = json.dumps(vb.dashboard_daten(pool))
+    js = (sim + f"\nconst pool = zeilen({daten});\nconst r = simulieren(pool, {json.dumps(vars(f))}, 'level10', 1000, 'sieg');\n"
+          "console.log(JSON.stringify([r.woche, isoWoche('20261026'), isoWoche('20210103'), isoWoche('20241230')]));")
+    w, kw1, kw2, kw3 = json.loads(subprocess.run(["node", "-e", js], capture_output=True, text=True, check=True).stdout)
+    assert kw1["key"] == "2026-W44" and kw1["von"] == "20261026" and kw1["bis"] == "20261101"
+    assert kw2["key"] == "2020-W53" and kw3["key"] == "2025-W01"                 # Jahreswechsel nach ISO 8601
+    assert w["schwelle"] == pytest.approx(1.05 / 0.77)
+    sel = vb.auswahl(vb.mit_wert(pool), f)
+    sel = sel[sel["settled"].astype(bool)].copy()
+    sel["kw"] = pd.to_datetime(sel["date"]).dt.isocalendar().week
+    assert [x["kw"] for x in w["wochen"]] == sorted(sel["kw"].unique())
+    for x in w["wochen"]:
+        s = sel[sel["kw"] == x["kw"]]
+        s = s[(s["fk_toto"] > 0) & (s["toto_end"] > 0)]
+        g = float(np.exp(np.log(s["fk_toto"]).mean()))
+        p = 0.77 / s["toto_end"]
+        assert x["n"] == len(s) and x["fk_toto"] == pytest.approx(g) and x["edge_toto"] == pytest.approx(g * 0.77 - 1.05)
+        assert x["sieger"] == int(s["won"].sum()) and x["erw_toto"] == pytest.approx(p.sum())
+        assert x["z_toto"] == pytest.approx((s["won"].sum() - p.sum()) / np.sqrt((p * (1 - p)).sum()))
+    alle = sel[(sel["fk_toto"] > 0) & (sel["toto_end"] > 0)]
+    assert w["wochen"][-1]["kum"]["n"] == len(alle)
+    assert w["wochen"][-1]["kum"]["fk_toto"] == pytest.approx(float(np.exp(np.log(alle["fk_toto"]).mean())))
+
+
+def test_schattenversion(tmp_path):
+    # Tag 1 mit Schattenversion (Nr 2 dort stärker), Tag 2 ohne
+    r1 = _rennen("20250930R1C1", [_runner(1, 0.5, fk=3.0, platz=1.5, sieg_schatten=0.4),
+                                  _runner(2, 0.3, fk=3.0, platz=2.0, sieg_schatten=0.5),
+                                  _runner(3, 0.2, fk=6.0, platz=2.5, sieg_schatten=0.1)])
+    r2 = _rennen("20251001R1C1", [_runner(1, 0.6, fk=2.0, platz=1.2), _runner(2, 0.4, fk=4.0, platz=1.8)])
+    _tag(tmp_path, "20250930", [r1], {"20250930R1C1": "2 - 1 - 3"})
+    _tag(tmp_path, "20251001", [r2], {"20251001R1C1": "1 - 2"})
+    pool = vb.load_folder(tmp_path, ab=None)
+    t1 = pool[pool["date"] == "20250930"].set_index("no")
+    assert t1.loc[2, "p_sh"] == pytest.approx(0.5) and t1.loc[2, "wert_sh"] == pytest.approx(0.5)
+    assert t1.loc[2, "wert"] == pytest.approx(3 * 0.3 - 1)                # unter der Karte < 0, im Pool wegen Schatten
+    assert pool.loc[pool["date"] == "20251001", "p_sh"].isna().all()
+    k = vb.chance_waehlen(pool, "karte_schatten_tage")
+    s = vb.chance_waehlen(pool, "schatten")
+    assert set(k["date"]) == set(s["date"]) == {"20250930"} and len(vb.chance_waehlen(pool, "karte")) == len(pool)
+    assert s.set_index("no").loc[2, "wert"] == pytest.approx(0.5)
+    f = dict(mode="none", minw=0.3)
+    assert list(vb.simulate(pool, vb.FilterConfig(**f)).bets_df["no"]) == [1, 2]          # Karte: Tag 2 Nr 2 (Wert 0,6)
+    assert list(vb.simulate(pool, vb.FilterConfig(chance="schatten", **f)).bets_df["no"]) == [2]
+    assert list(vb.simulate(pool, vb.FilterConfig(chance="karte_schatten_tage", **f)).bets_df["no"]) == [1]

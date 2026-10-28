@@ -242,7 +242,9 @@ Zählung neu, 0 = keine solche Pause in der bekannten Historie, leer bei Debüta
   `pm.trainieren`, dann `pm.trainieren_wert`; `speichern=False` zum Prüfen.
 - **PMU-Prognosen:** `prognose_basis.nachholen_rueckwaerts(BASE)` holt (ab gestern zurück, bis 7 Renntage in Folge ohne Prognose); jeder neu verarbeitete Tag der Pipeline (`pipeline.run`) und jede Karte schreiben ihren Tag mit die Prognosen (cote probable, Tipps) in die
   Tabelle `pmu_prognosen`; jede Karte ergänzt ihren Tag. Die Prognose-Schicht korrigiert die faire Siegchance, sobald
-  der gepaarte Test sie belegt (Bericht `prognose_schicht (…)`).
+  der gepaarte Test sie belegt (Bericht `prognose_schicht (…)`). Bis dahin läuft sie als **Schattenversion** mit: die
+  Karte speichert die faire Siegchance mit Prognose-Schicht (`power.sieg_schatten`, nicht angezeigt), das
+  Value-Dashboard vergleicht sie im Vorwärtstest („Faire Quote“: Karte / Karte nur an Tagen mit Schatten / Schatten).
 - **Kommentare:** `kommentare.py` ordnet den PMU-Kommentar nach dem Rennen 16 Kategorien zu; die Kategorien zum
   letzten Lauf korrigieren die faire Siegchance (Korrekturschicht), sobald der gepaarte Test sie belegt
   (Bericht: `kommentar_schicht (…)`).
@@ -698,6 +700,12 @@ vergleicht beide Rechnungen über Node.
   (`sieg_quelle` „morgen“/„mischung“): für sie rechnet das Dashboard mit `sieg_blind` (Power bzw. Power-Mischung
   ohne Morgenquote), damit die Historie durchgehend ohne Morgenquote bleibt. Gold-Filter und Umschalter gibt es
   nicht mehr.
+- **Wochenblick** (oben, für die Picks des Filters, je ISO-Kalenderwoche und gesamt): realisiertes **FK/Toto**
+  (geometrisches Mittel Festkurs ÷ Toto-Endquote) gegen die Schwelle (1 + 5 % Steuer) ÷ (1 − Toto-Abzug) – die
+  Gewinnschwelle, falls die Toto-Endquote die wahre Chance wäre; den Abzug trägt man ein (Vorgabe 23 %) –, daraus die
+  „Edge bei Toto-Wahrheit“; **Sieger gegen die Toto-Erwartung** (Σ (1 − Abzug) ÷ Toto-Endquote, mit z) – liegt sie
+  deutlich darüber, weiß das Modell mehr als selbst die Endquote; und **Modell → Toto** (t, je Woche ab 20 Picks).
+  Diese Zahlen statt der Bank verfolgen: bei der Varianz einzelner Treffer sagt die Bank wenig.
 - **Faire Quote: Berechnung im Verlauf:** Liste über den Kennzahlen und ◆-Marken im Bank-Diagramm (Tooltip) an jedem
   Renntag, an dem sich das Verfahren (z. B. Power → Power × Power-sieg → … × Value) oder der Trainingsstand von
   Power/Value geändert hat (`vb.aenderungen`). Neuere Karten schreiben dazu `modelle.faire_quote` (Quellen der

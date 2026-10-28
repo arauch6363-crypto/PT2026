@@ -2602,8 +2602,13 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
     if ks:                                               # Korrektur aus dem Kommentar zum letzten Lauf
         df["sieg"] = kommentar_anwenden(df["sieg"], km.vorlauf_merkmale(hist, hz).to_numpy(), rid_, ks)
     ps_ = meta.get("prognose_schicht")
+    P_ = pb_prog.merkmale(hz).to_numpy()
     if ps_:                                              # Korrektur aus der PMU-Prognose (cote probable, Tipps)
-        df["sieg"] = kommentar_anwenden(df["sieg"], pb_prog.merkmale(hz).to_numpy(), rid_, ps_, PROGNOSE_NAMEN)
+        df["sieg"] = kommentar_anwenden(df["sieg"], P_, rid_, ps_, PROGNOSE_NAMEN)
+    # Schattenversion für den Vorwärtstest: mit Prognose-Schicht, auch wenn sie nicht übernommen ist (Gewichte aus
+    # allen Rennen des Trainings); Value danach wie bei der fairen Quote. Nicht auf der Karte angezeigt.
+    sch_ = ps_ or prognose_schatten(meta)
+    df["sieg_sh"] = kommentar_anwenden(df["sieg"], P_, rid_, sch_, PROGNOSE_NAMEN) if sch_ and not ps_ else df["sieg"]
     df["wert"], df["gold"], df["warn"], df["value_pct"] = np.nan, False, False, np.nan
     if modell.get("wert"):                      # Value-Faktor ≈ erwartete A/E Platz gegen den Markt (exp der Abweichung)
         wm = modell["wert"]["meta"]
@@ -2618,6 +2623,8 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
         kap = wm.get("fair_kappa") if wm.get("fair_basis") == "power" else None   # κ nur zur heutigen fairen Quote
         mm_ = np.ones(len(df), bool)
         if kap:                            # Value in der fairen Quote: p ∝ p_fair · exp(κ · Value)
+            df["sieg_sh"] = _softmax_im_rennen(np.log(np.clip(df["sieg_sh"].to_numpy(float), 1e-9, 1))
+                                               + kap * np.asarray(fw), df["race_id"].to_numpy())
             vor_ = df.loc[mm_, "sieg"].to_numpy(float).copy()
             df.loc[mm_, "sieg"] = _softmax_im_rennen(np.log(np.clip(df.loc[mm_, "sieg"].to_numpy(float), 1e-9, 1))
                                                      + kap * np.asarray(fw)[mm_], df.loc[mm_, "race_id"].to_numpy())
@@ -2637,6 +2644,7 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
                                        "pred": round(float(z["pred"]), 3) if meta.get("art", "regression") == "regression" else None,
                                        "sieg": round(float(z["sieg"]), 3),
                                        "sieg_blind": round(float(z["sieg_blind"]), 3), "sieg_quelle": z["quelle"],
+                                       "sieg_schatten": round(float(z["sieg_sh"]), 4) if sch_ else None,
                                        "wert": round(float(z["wert"]), 2) if pd.notna(z["wert"]) else None,
                                        "gold": bool(z["gold"]), "warn": bool(z["warn"]),
                                        "value_pct": round(float(z["value_pct"]), 1) if pd.notna(z["value_pct"]) else None,
@@ -2770,6 +2778,15 @@ def rennart(typ, alter_klasse=None, alter=None) -> tuple[str | None, str | None]
     return renntyp3(typ), altersgruppe(alter_klasse, min(a) if a else np.nan, max(a) if a else np.nan)
 
 
+def prognose_schatten(meta: dict) -> dict | None:
+    """Gewichte der Prognose-Schicht für die Schattenversion: übernommen (prognose_schicht) oder – wenn der rollierende
+    Test sie nicht übernommen hat – die aus allen Rennen geschätzten (Bericht, gewichte_alle)."""
+    if meta.get("prognose_schicht"):
+        return meta["prognose_schicht"]
+    b = (meta.get("bericht") or {}).get("prognose_schicht (faire Siegchance × PMU-Prognose)") or {}
+    return b.get("gewichte_alle") or None
+
+
 def faire_quote_stand(modell: dict | None) -> dict | None:
     """Womit die faire Quote der Karte gerechnet ist (für die Änderungs-Marken im Value-Dashboard): Trainingsstand von
     Power und Value, Quellen der Power-Mischung, übernommene Schichten, κ des Value."""
@@ -2781,6 +2798,7 @@ def faire_quote_stand(modell: dict | None) -> dict | None:
     wm = (modell.get("wert") or {}).get("meta") or {}
     kap = wm.get("fair_kappa") if wm.get("fair_basis") == "power" else None
     return {"power_trainiert": meta.get("trainiert"), "wert_trainiert": wm.get("trainiert"),
+            "schatten": {"prognose": prognose_schatten(meta)} if not meta.get("prognose_schicht") else None,
             "quellen": quellen if pmx else ["Power"], "power_mix": pmx or None,
             "kommentar_schicht": bool(meta.get("kommentar_schicht")),
             "prognose_schicht": bool(meta.get("prognose_schicht")), "value_kappa": kap}
