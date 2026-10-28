@@ -128,6 +128,19 @@ tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 4%, transp
       jeweiligen Tag. Unter −2 = das Modell erklärt die Toto-Endquote über den Festkurs hinaus.</div>
     <div id="c_mt"></div></div>
 </div>
+<div class="chart breit" style="margin-top:12px" id="kombi_box"><h2>Kombiwetten (Vorwärtstest)</h2>
+  <div class="sub">Couplé Placé (beide unter den ersten 3) und 2sur4 (beide unter den ersten 4), 1 € je Paar mit
+    Erwartungswert über der Schwelle. Unsere Chance nur aus dem Modell (ohne Tagesquoten) bzw. der Schattenversion mit
+    Prognose-Schicht; Publikum = Festkurse der Karte (nur als Preis, nicht in unserer Chance); Auszahlungsfaktor je Tag
+    aus den früher abgerechneten Rennen; abgerechnet gegen die PMU-Dividenden.
+    <b>Abschlag</b> = Treffer ÷ erwartet (Modell) − 1: so viel überschätzt das Modell seine eigene Auswahl.
+    <b>Treffer gegen Publikum</b> &gt; erwartet: das Modell weiß mehr als der Toto. Noch kein Wettgeld.</div>
+  <div class="filter" style="margin:6px 0">
+    <label>Wettart <select id="k_art"><option value="couple_place" selected>Couplé Placé</option><option value="2sur4">2sur4</option></select></label>
+    <label>Chance <select id="k_quelle"><option value="modell" selected>Modell</option><option value="schatten">Schatten (Prognose-Schicht)</option></select></label>
+    <label>Erwartungswert ≥ <input type="number" id="k_ew" min="0" max="3" step="0.1" value="0.2" style="width:56px"></label>
+  </div>
+  <div class="tabelle" style="max-height:none"><table id="t_kombi"></table></div></div>
 <div class="tabelle"><table id="tab"></table></div>
 <div class="fuss">Kurse = Festkurse zum Stand der Karte (festkurse_stand), keine Endkurse ·
   unter etwa 30 Wetten kaum belastbar · Wert &gt; 3 (gelb) deutet oft auf einen Kursfehler hin ·
@@ -353,6 +366,22 @@ function wochenBlick(sel, abzug = TOTO_ABZUG) {
   return {schwelle: (1 + STEUER) / (1 - abzug), abzug, wochen: out};
 }
 
+// Kombiwetten-Vorwärtstest: je Woche und gesamt Tickets (1 € je Paar mit Erwartungswert ≥ Schwelle), Treffer gegen
+// die Erwartung von Modell und Publikum, Abschlag = Treffer ÷ erwartet Modell − 1, ROI
+function _kombiWerte(r) {
+  const n = r.length, t = r.filter(x => x.treffer).length, em = _summe(r.map(x => x.p_modell)),
+        ep = _summe(r.map(x => x.p_publikum)), rk = _summe(r.map(x => x.div || 0));
+  return {tickets: n, rennen: new Set(r.map(x => x.race_id)).size, treffer: t, erw_modell: em, erw_publikum: ep,
+          abschlag: em > 0 ? t / em - 1 : null, roi: n ? rk / n - 1 : null};
+}
+function kombiBlick(rows, art, quelle, schwelle) {
+  const r = (rows || []).filter(x => x.settled && x.art === art && x.quelle === quelle && x.ew >= schwelle - 1e-9);
+  const wo = {};
+  for (const x of r) (wo[isoWoche(x.date).key] = wo[isoWoche(x.date).key] || []).push(x);
+  const wochen = Object.keys(wo).sort().map(k => ({woche: k, ...isoWoche(wo[k][0].date), ..._kombiWerte(wo[k])}));
+  return {wochen, gesamt: _kombiWerte(r)};
+}
+
 function _mtKpis(sel) {
   return {...modellToto(sel || []), toto_fehlt: (sel || []).filter(r => r.toto_end === null || r.toto_end === undefined).length};
 }
@@ -433,7 +462,7 @@ function simulieren(pool, f, variant, start = 1000, wettart = 'ew') {
 }
 // SIM-END
 
-if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlick, isoWoche};
+if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlick, isoWoche, kombiBlick};
 </script>
 <script>
 (function () {
@@ -722,8 +751,25 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
         [-2, 0]);
     }
     wochenAnzeige(res.woche, c1, c2);
+    kombiAnzeige();
     tabelle(b);
   }
+  const KOMBI = DATA.kombi && DATA.kombi.zeilen && DATA.kombi.zeilen.length ? zeilen(DATA.kombi) : [];
+  function kombiAnzeige() {
+    if (!KOMBI.length) { $('kombi_box').style.display = 'none'; return; }
+    const K = kombiBlick(KOMBI, $('k_art').value, $('k_quelle').value, +$('k_ew').value || 0);
+    const pr = v => v === null || v === undefined ? '–' : (v > 0 ? '+' : '') + nf(100 * v, 0) + ' %';
+    const kl = v => v === null || v === undefined ? '' : v > 0 ? 'pos' : 'neg';
+    const zeile = (t, o) => `<tr><td class="l">${t}</td><td>${o.tickets}</td><td>${o.rennen}</td><td>${o.treffer}</td>`
+      + `<td>${nf(o.erw_modell, 1)}</td><td class="${kl(o.treffer - o.erw_publikum)}">${nf(o.erw_publikum, 1)}</td>`
+      + `<td class="${kl(o.abschlag)}">${pr(o.abschlag)}</td><td class="${kl(o.roi)}">${pr(o.roi)}</td></tr>`;
+    $('t_kombi').innerHTML = '<thead><tr><th class="l">Woche</th><th>Tickets</th><th>Rennen</th><th>Treffer</th>'
+      + '<th>erw. Modell</th><th>erw. Publikum</th><th>Abschlag</th><th>ROI</th></tr></thead><tbody>'
+      + (K.wochen.length ? K.wochen.map(x => zeile(`KW ${x.kw} (${fdk(x.von)}–${fdk(x.bis)})`, x)).join('') + zeile('<b>gesamt</b>', K.gesamt)
+         : `<tr><td class="l" colspan="8">keine abgerechneten Paare bei dieser Auswahl${$('k_quelle').value === 'schatten' ? ' (Schattenversion erst auf neuen Karten)' : ''}</td></tr>`)
+      + '</tbody>';
+  }
+  for (const id of ['k_art', 'k_quelle', 'k_ew']) $(id).addEventListener('input', kombiAnzeige);
   function wochenAnzeige(W, c1, c2) {
     const w = W.wochen, el = $('c_woche'), sg = v => (v > 0 ? '+' : '') + nf(v, 1);
     const wt = x => `KW ${x.kw} (${fdk(x.von)}–${fdk(x.bis)})`;

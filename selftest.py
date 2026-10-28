@@ -1877,7 +1877,19 @@ def einlauf_pruefen() -> None:
     with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
         kf.bauen(Path(tmp))
         r_ = kb.rueckrechnung(Path(tmp), n_sim=4000, log=print)
+        v_ = kb.vorwaertstest(Path(tmp), n_sim=2000, c_min_rennen=10, log=print)
+        vt_ = kb.vorwaertstest(Path(tmp), n_sim=1000, publikum="toto", log=print)
     cp, zv, qu = r_["couple_place"], r_["2sur4"], r_["quinte"]
+    sch_tage = set(v_.loc[v_["quelle"] == "schatten", "date"])
+    pruefe(len(v_) and v_["settled"].all() and (v_["ew"] >= 0).all() and set(v_["art"]) == {"couple_place", "2sur4"}
+           and sch_tage and sch_tage < set(v_["date"]) and v_.groupby(["race_id", "art", "quelle"])["treffer"].sum().max() <= 6
+           and v_["div"][~v_["treffer"]].eq(0).all() and len(vt_)
+           and v_.groupby("date")["c"].nunique().le(2).all()
+           and (v_.loc[v_["date"] == v_["date"].min(), "c"].isin(list(kb.KOMBI_C.values()))).all()
+           and not v_.loc[v_["date"] == v_["date"].max(), "c"].isin(list(kb.KOMBI_C.values())).all(),
+           f"Kombiwetten-Vorwärtstest: {len(v_)} Paare mit Erwartungswert ≥ 0 aus Modell und (nur an Tagen mit "
+           f"sieg_schatten) Schattenversion, Publikum aus den Festkursen der Karte (wahlweise Toto-Stand), c am ersten Tag "
+           f"die Vorgabe, danach aus den Vortagen; gegen die Dividenden abgerechnet")
     tc = cp["paare_tabelle"]
     pruefe(cp["rennen"] == 48 and tc.groupby("race_id")["treffer"].sum().eq(3).all()
            and zv["paare_tabelle"].groupby("race_id")["treffer"].sum().eq(6).all()

@@ -932,27 +932,36 @@ def _json_wert(v: Any) -> Any:
     return str(v)
 
 
-def dashboard_daten(pool: pd.DataFrame) -> dict:
-    """Pool kompakt (Spalten + Zeilen, volle Float-Genauigkeit) für die HTML-Seite."""
+def _tabelle_json(df: pd.DataFrame | None, spalten: list[str]) -> dict:
+    zeilen = ([[_json_wert(v) for v in r] for r in df.reindex(columns=spalten).itertuples(index=False)]
+              if df is not None and not df.empty else [])
+    return {"spalten": spalten, "zeilen": zeilen}
+
+
+def dashboard_daten(pool: pd.DataFrame, kombi: pd.DataFrame | None = None) -> dict:
+    """Pool kompakt (Spalten + Zeilen, volle Float-Genauigkeit) für die HTML-Seite; kombi: Paare des
+    Kombiwetten-Vorwärtstests (kombi.vorwaertstest)."""
     zeilen = [[_json_wert(v) for v in r] for r in pool.reindex(columns=_HTML_SPALTEN).itertuples(index=False)] \
         if not pool.empty else []
+    import kombi as kb
     return {"spalten": _HTML_SPALTEN, "zeilen": zeilen, "aenderungen": aenderungen(pool),
+            "kombi": _tabelle_json(kombi, kb.VORWAERTS_SPALTEN),
             "erstellt": pd.Timestamp.now(tz="Europe/Paris").strftime("%d.%m.%Y %H:%M")}
 
 
-def dashboard_html(pool: pd.DataFrame) -> str:
+def dashboard_html(pool: pd.DataFrame, kombi: pd.DataFrame | None = None) -> str:
     """Eigenständige HTML-Seite: Filter, Kennzahlen, Grafiken und Tabelle laufen im Browser
     (gleiche Regeln wie ``simulate``)."""
-    js = json.dumps(dashboard_daten(pool), ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    js = json.dumps(dashboard_daten(pool, kombi), ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
     seite = TEMPLATE.read_text(encoding="utf-8").replace("/*__DATA__*/null", js, 1)
     return f'<!doctype html>\n<html lang="de">\n{seite}\n</html>\n'
 
 
-def dashboard(pool: pd.DataFrame, pfad: str | Path) -> Path:
+def dashboard(pool: pd.DataFrame, pfad: str | Path, kombi: pd.DataFrame | None = None) -> Path:
     """Dashboard als HTML-Datei schreiben (überschreibt eine vorhandene)."""
     pfad = Path(pfad)
     pfad.parent.mkdir(parents=True, exist_ok=True)
-    pfad.write_text(dashboard_html(pool), encoding="utf-8")
+    pfad.write_text(dashboard_html(pool, kombi), encoding="utf-8")
     return pfad
 
 
@@ -969,7 +978,13 @@ def start(base: str | Path = BASE_DRIVE, ab: str | None = START_DATUM) -> Path:
           + (f" (geschätzt {lam['geschaetzt']})" if lam.get("geschaetzt") else " (Vorgabe – einlauf.aus_historie(BASE) schätzt sie)"))
     pool = load_folder(base / "racecards", base / "parquet" / "pmu_races", ab=ab,
                        starter_ordner=base / "parquet" / "pmu_runners", einlauf_lambda=lam["modell"])
-    pfad = dashboard(pool, base / "racecards" / DASHBOARD_DATEI)
+    try:                                                   # Kombiwetten-Vorwärtstest (Couplé Placé, 2sur4)
+        import kombi as kb
+        kombi = kb.vorwaertstest(base, ab)
+    except Exception as e:                                 # darf das Dashboard nie verhindern
+        print(f"Kombiwetten-Vorwärtstest nicht gerechnet: {e}")
+        kombi = None
+    pfad = dashboard(pool, base / "racecards" / DASHBOARD_DATEI, kombi)
     tage = pool.loc[pool["settled"].astype(bool), "date"].nunique() if not pool.empty else 0
     k = simulate(pool).kpi_dict
     print(f"Value-Dashboard: {tage} Renntage mit Ergebnis, Standard (¼ Kelly) "

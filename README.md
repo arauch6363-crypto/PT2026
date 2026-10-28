@@ -718,6 +718,15 @@ vergleicht beide Rechnungen über Node.
   der Gewinnkombination (Kapazität) und je Erwartungswert-Schwelle Tickets, Treffer, ROI mit 90-%-Intervall
   (Rennen als Cluster). Erwartungswert je Paar = P_Modell × c ÷ P_Publikum − 1; c wird aus denselben Rennen
   geschätzt – bei wenigen Tagen eine Rückrechnung, kein Beleg.
+- **Kombiwetten (Vorwärtstest):** `vb.start(BASE)` rechnet mit `kombi.vorwaertstest` je Karte Couplé Placé und 2sur4
+  so, wie man sie wetten würde: unsere Chance **nur aus dem Modell** (ohne Tagesquoten) bzw. aus der Schattenversion
+  mit Prognose-Schicht, Publikum aus den **Festkursen der Karte** (`publikum="fk"`, Vorgabe; wahlweise der Toto-Stand
+  der Karte, nie die Endquote) – nur als Preis, nicht als Teil unserer Chance –, Auszahlungsfaktor c je Tag als Median
+  aus allen früher abgerechneten Rennen (ab 30; davor `kombi.KOMBI_C`: Couplé Placé 0,77, 2sur4 0,66); abgerechnet
+  gegen die PMU-Dividenden. `kombi.rueckrechnung(BASE, publikum="fk")` rechnet die Rückrechnung ebenso. Panel „Kombiwetten
+  (Vorwärtstest)“: Wettart, Chance (Modell / Schatten) und Schwelle wählbar; je Woche Tickets, Treffer gegen
+  „erwartet Modell“ und „erwartet Publikum“, **Abschlag** (Treffer ÷ erwartet Modell − 1: wie stark das Modell seine
+  Auswahl überschätzt) und ROI bei 1 € je Paar. Noch kein Wettgeld.
 - **Wochenblick** (oben, für die Picks des Filters, je ISO-Kalenderwoche und gesamt): realisiertes **FK/Toto**
   (geometrisches Mittel Festkurs ÷ Toto-Endquote) gegen die Schwelle (1 + 5 % Steuer) ÷ (1 − Toto-Abzug) – die
   Gewinnschwelle, falls die Toto-Endquote die wahre Chance wäre; den Abzug trägt man ein (Vorgabe 23 %) –, daraus die
