@@ -708,6 +708,16 @@ vergleicht beide Rechnungen über Node.
   der Siegchance; gespeichert in `modelle/einlauf_lambda.json`. `vb.start(BASE)` rechnet die Platzchance aller Tage
   damit, jede neue Karte trägt die Werte in `params.einlauf`. Nach jedem `pm.trainieren` neu schätzen. Grundlage auch
   für die Kombiwetten (`einlauf.einlaeufe`: gezogene Einläufe für Couplé Placé, 2sur4, Quinté+).
+- **Kombiwetten (Rückrechnung):** `kombi.rueckrechnung(BASE)` liest alle gespeicherten Karten (ganzes Feld mit
+  Modellchance), die Toto-Endquoten (`pmu_runners`) und die PMU-Dividenden (`pmu_dividends`, NATIONAL-Pool, ohne NP
+  und Rückzahlungen) und rechnet aus gezogenen Einläufen (Einlauf-Modell: Modell-λ für unsere Chance, Markt-λ auf die
+  Toto-Endquote für die Sicht des Publikums) **Couplé Placé** (beide unter den ersten 3) und **2sur4** (beide unter
+  den ersten 4) je Paar sowie **Quinté+** (ein Ticket aus den 5 Pferden mit der höchsten Modellchance, zum Vergleich
+  die 5 Markt-Favoriten; gezahlt wird die höchste Stufe). Gewonnen hat eine Kombination, wenn die PMU sie listet.
+  Bericht: Eichung (Treffer gegen erwartet), Auszahlungsfaktor c (≈ 1 − Abzug, aus den Gewinnpaaren), Einsatz auf
+  der Gewinnkombination (Kapazität) und je Erwartungswert-Schwelle Tickets, Treffer, ROI mit 90-%-Intervall
+  (Rennen als Cluster). Erwartungswert je Paar = P_Modell × c ÷ P_Publikum − 1; c wird aus denselben Rennen
+  geschätzt – bei wenigen Tagen eine Rückrechnung, kein Beleg.
 - **Wochenblick** (oben, für die Picks des Filters, je ISO-Kalenderwoche und gesamt): realisiertes **FK/Toto**
   (geometrisches Mittel Festkurs ÷ Toto-Endquote) gegen die Schwelle (1 + 5 % Steuer) ÷ (1 − Toto-Abzug) – die
   Gewinnschwelle, falls die Toto-Endquote die wahre Chance wäre; den Abzug trägt man ein (Vorgabe 23 %) –, daraus die

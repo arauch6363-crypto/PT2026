@@ -1868,6 +1868,25 @@ def einlauf_pruefen() -> None:
     pruefe(np.allclose(a_["p"], b_["p"]) and not np.allclose(a_["p_platz"], b_["p_platz"])
            and a_.sort_values("p").iloc[-1]["p_platz"] > b_.sort_values("p").iloc[-1]["p_platz"],
            "Value-Dashboard: Platzchance mit den geschätzten λ (kleiner = Favorit seltener platziert), Siegchance gleich")
+    # Kombiwetten: Rückrechnung gegen Dividenden (simuliert: Treffer nur, wo die PMU die Kombination listet)
+    import importlib.util as _iu
+    import kombi as kb
+    sp_ = _iu.spec_from_file_location("kombi_fall", Path(__file__).with_name("tests") / "kombi_fall.py")
+    kf = _iu.module_from_spec(sp_)
+    sp_.loader.exec_module(kf)
+    with tempfile.TemporaryDirectory() as tmp, contextlib.redirect_stdout(io.StringIO()):
+        kf.bauen(Path(tmp))
+        r_ = kb.rueckrechnung(Path(tmp), n_sim=4000, log=print)
+    cp, zv, qu = r_["couple_place"], r_["2sur4"], r_["quinte"]
+    tc = cp["paare_tabelle"]
+    pruefe(cp["rennen"] == 48 and tc.groupby("race_id")["treffer"].sum().eq(3).all()
+           and zv["paare_tabelle"].groupby("race_id")["treffer"].sum().eq(6).all()
+           and abs(cp["auszahlungsfaktor_c"] - 0.75) < 0.05 and abs(zv["auszahlungsfaktor_c"] - 0.7) < 0.05
+           and abs(cp["alle_paare"]["treffer"] - cp["alle_paare"]["erwartet_modell"]) < 1
+           and qu["rennen"] == 6 and sum(qu["modell"]["stufen"].values()) == qu["modell"]["treffer"],
+           f"Kombiwetten: Couplé Placé {cp['rennen']} Rennen (3 Gewinnpaare je Rennen, NP-Zeilen ignoriert, c ≈ "
+           f"{cp['auszahlungsfaktor_c']}), 2sur4 (6 Gewinnpaare, c ≈ {zv['auszahlungsfaktor_c']}), Quinté+ "
+           f"{qu['rennen']} Rennen mit Stufen {qu['modell']['stufen']}")
 
 
 def prognose_pruefen() -> None:

@@ -318,3 +318,7 @@ Gesammelt, nicht dringend – beim nächsten ohnehin fälligen Neubau der Merkma
 6. **Weglass-Tests:** `pm.trainieren(…, ohne=[…], speichern=False)` – Merkmalsgruppen ohne Neubau weglassen (z. B.
    `formz_pos_vb`/`formz_pos_pmu`, `form5_`-Dubletten, Rating-Varianten); behalten, was den Test-Log-Loss nicht
    verschlechtert.
+7. **Platzerwartung der A/E-Werte mit den geschätzten Markt-λ** (`einlauf.laden(BASE)["markt"]` statt 0,8 / 0,65 in
+   `racecard.platz_erwartung`): die Vorgabe überschätzt die Platzerwartung von Außenseitern um etwa 6 % (Prüfung
+   Oktober 2026: 5.143 erwartet gegen 4.869 echt unter 10 % Siegchance; geschätzt 4.860), ihre Trainer, Jockeys und
+   Linien stehen dadurch zu schlecht da. Ändert alle A/E-Merkmale – deshalb erst mit dem Neubau.
