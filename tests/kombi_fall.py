@@ -17,7 +17,8 @@ def _zeile(rid, typ, label, comb, div, winners, base_stake):
 
 def bauen(base: Path, tage: int = 6, rennen: int = 8, seed: int = 0) -> None:
     """Je Tag eine Karte (racecard_JJJJMMTT_daten.json), pmu_runners (Toto-Endquote) und pmu_dividends: Einlauf aus
-    der wahren Chance, Dividende = Auszahlungsfaktor (Couplé Placé 0,75, 2sur4 0,70) ÷ Publikums-Chance des Paars;
+    der wahren Chance, Dividende Couplé Placé = 0,75 ÷ Publikums-Chance des Paars, 2sur4 = 0,70 × 6 ÷ Σ Publikums-
+    Chance der 6 Gewinnpaare (ein Topf);
     je Rennen eine NP-Zeile (muss ignoriert werden), Rennen 4 jedes Tages ist das Quinté-Rennen."""
     rng = np.random.default_rng(seed)
     lam = [1.0, 0.85, 0.8, 0.7, 0.67]
@@ -40,8 +41,9 @@ def bauen(base: Path, tage: int = 6, rennen: int = 8, seed: int = 0) -> None:
             Pp, Pq = kb.paar_chancen(publik, 3, lam, 4000, rng), kb.paar_chancen(publik, 4, lam, 4000, rng)
             dv += [_zeile(rid, "COUPLE_PLACE", "Couplé placé", f"{a}-{b}", round(0.75 / max(Pp[a - 1, b - 1], 1e-3), 1), 100.0, 200)
                    for a, b in itertools.combinations(E[:3], 2)]
-            dv += [_zeile(rid, "DEUX_SUR_QUATRE", "2sur4", f"{a}-{b}", round(0.7 / max(Pq[a - 1, b - 1], 1e-3), 1), 300.0, 300)
-                   for a, b in itertools.combinations(E[:4], 2)]
+            paare4 = list(itertools.combinations(E[:4], 2))       # 2sur4: ein Topf, gleiche Dividende für alle 6
+            d4 = round(0.7 * 6 / sum(Pq[a - 1, b - 1] for a, b in paare4), 1)
+            dv += [_zeile(rid, "DEUX_SUR_QUATRE", "2sur4", f"{a}-{b}", d4, 300.0, 300) for a, b in paare4]
             dv.append(_zeile(rid, "COUPLE_PLACE", "Couplé Placé 1 NP", "1-NP", 2.0, 1.0, 200))
             if c == 4:
                 arr = "-".join(map(str, E[:5]))
