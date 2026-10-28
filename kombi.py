@@ -36,6 +36,9 @@ PAARE = {"couple_place": ("COUPLE_PLACE", 3, "einzeln"), "2sur4": ("DEUX_SUR_QUA
 QUINTE = "QUINTE_PLUS"
 QUINTE_STUFEN = ("ordre", "desordre", "bonus4sur5", "bonus3")
 N_SIM = 20000
+# Auszahlungsfaktor c (≈ 1 − Abzug) für den Vorwärtstest, solange zu wenige frühere Rennen abgerechnet sind
+# (Rückrechnung Okt. 2026 gegen die Toto-Endquote, NATIONAL-Pool); danach laufend aus den Vortagen
+KOMBI_C = {"couple_place": 0.77, "2sur4": 0.66}
 
 
 def _karte_feld(pfad: Path) -> pd.DataFrame:
@@ -50,9 +53,13 @@ def _karte_feld(pfad: Path) -> pd.DataFrame:
             continue
         morgen = any(x["power"].get("sieg_quelle") in ("morgen", "mischung") for x in st)
         p = np.array([(x["power"].get("sieg_blind") if morgen else None) or x["power"]["sieg"] for x in st], float)
-        for x, pi in zip(st, p / p.sum()):
+        sh = np.array([x["power"].get("sieg_schatten") or np.nan for x in st], float)   # Schattenversion (Prognose)
+        sh = sh / sh.sum() if np.all(sh > 0) else np.full(len(st), np.nan)
+        for x, pi, si in zip(st, p / p.sum(), sh):
             zeilen.append({"date": tag, "race_id": str(r.get("race_id")), "no": int(x["no"]), "horse": x.get("horse"),
-                           "p": float(pi)})
+                           "p": float(pi), "p_sh": float(si),
+                           "fk_karte": (x.get("fk") or {}).get("sieg"),     # Festkurs Sieg der Karte
+                           "toto_karte": (x.get("fk") or {}).get("toto")})   # Toto-Stand beim Holen der Festkurse
     return pd.DataFrame(zeilen)
 
 
@@ -254,12 +261,88 @@ def quinte(daten: dict, lam=None, n_sim: int = N_SIM, seed: int = 0) -> dict:
     return out
 
 
-def rueckrechnung(base: Path, ab: str | None = START_DATUM, bis: str | None = None, *, n_sim: int = N_SIM,
-                  schwellen=(0.0, 0.2, 0.5), log=print) -> dict:
-    """Alle Karten im Zeitraum: Couplé Placé, 2sur4 (Paare mit Erwartungswert ≥ Schwelle) und Quinté+ gegen die
-    echten Dividenden; Bericht mit Eichung, Auszahlungsfaktor, Kapazität und ROI mit 90-%-Intervall."""
+VORWAERTS_SPALTEN = ["date", "race_id", "art", "quelle", "a", "b", "p_modell", "p_publikum", "c", "ew", "settled",
+                     "treffer", "div"]
+C_MIN_RENNEN = 30          # ab so vielen früher abgerechneten Rennen wird c aus ihnen geschätzt
+
+
+def _c_probe(P: pd.DataFrame, pool: str) -> float | None:
+    """Auszahlungsfaktor eines abgerechneten Rennens: Couplé Placé Median Dividende × P_Publikum der Gewinnpaare,
+    2sur4 Dividende × S ÷ Zahl der Gewinnpaare (S = Σ P_Publikum der Gewinnpaare)."""
+    w = P[P["treffer"] & (P["div"] > 0)]
+    if w.empty:
+        return None
+    if pool == "einzeln":
+        return float(np.median(w["div"] * w["p_publikum"]))
+    return float(w["div"].iloc[0] * w["p_publikum"].sum() / len(w))
+
+
+def vorwaertstest(base: Path, ab: str | None = START_DATUM, bis: str | None = None, *, publikum: str = "fk",
+                  n_sim: int = 10000, ew_min: float = 0.0, c_min_rennen: int = C_MIN_RENNEN, seed: int = 0,
+                  log=print) -> pd.DataFrame:
+    """Kombiwetten wie beim Wetten: unsere Chance nur aus dem Modell (quelle "modell") bzw. der Schattenversion mit
+    Prognose-Schicht ("schatten", ab Karten mit sieg_schatten); Publikum = Preis, nicht Teil unserer Chance – Vorgabe
+    die Festkurse Sieg der Karte (publikum="fk"), sonst der Toto-Stand der Karte ("toto"), nie die Endquote.
+    Auszahlungsfaktor c je Tag als Median aus allen früher abgerechneten Rennen (mit derselben Publikumsquelle;
+    unter c_min_rennen die Vorgabe KOMBI_C) – kein Tag nutzt seine eigenen Ergebnisse. Je Paar mit Erwartungswert ≥
+    ew_min eine Zeile; abgerechnet gegen die PMU-Dividenden (settled = Wettart in diesem Rennen abgerechnet)."""
+    if publikum not in ("fk", "toto"):
+        raise ValueError("publikum: 'fk' oder 'toto'")
     lam = einlauf.laden(base)
     daten = daten_laden(base, ab, bis)
+    feld, dv = daten["feld"], daten["dividenden"]
+    sp_pub = "fk_karte" if publikum == "fk" else "toto_karte"
+    if feld.empty or sp_pub not in feld:
+        return pd.DataFrame(columns=VORWAERTS_SPALTEN)
+    feld = feld.assign(odds=pd.to_numeric(feld[sp_pub], errors="coerce"))
+    rng = np.random.default_rng(seed)
+    teile = []
+    for art, (code, plaetze, pool) in PAARE.items():
+        d_ = dv[dv["bet_type"].eq(code)] if len(dv) else dv
+        gew = ({(r, _paar_key(*c.split("-"))): d for r, c, d in zip(d_["race_id"], d_["combination"], d_["div"])}
+               if len(d_) else {})
+        abgerechnet = set(d_["race_id"]) if len(d_) else set()
+        proben: list[tuple[str, float]] = []                 # (Tag, c) der abgerechneten Rennen
+        for tag, ft in feld.groupby("date", sort=True):
+            frueher = [c_ for t_, c_ in proben if t_ < tag]
+            c = float(np.median(frueher)) if len(frueher) >= c_min_rennen else KOMBI_C[art]
+            for rid, g in ft.groupby("race_id", sort=False):
+                if len(g) <= plaetze or not np.all(g["odds"] > 1):
+                    continue
+                for quelle, sp in (("modell", "p"), ("schatten", "p_sh")):
+                    if not np.all(g[sp] > 0):
+                        continue
+                    P = _paare_rennen(g.assign(p=g[sp]), plaetze, lam["modell"], lam["markt"], n_sim, rng)
+                    k = [gew.get((rid, _paar_key(a, b))) for a, b in zip(P["a"], P["b"])]
+                    P = P.assign(art=art, quelle=quelle, settled=rid in abgerechnet, c=c,
+                                 treffer=[x is not None for x in k], div=[x if x is not None else 0.0 for x in k])
+                    if quelle == "modell" and rid in abgerechnet:
+                        probe = _c_probe(P, pool)
+                        if probe is not None:
+                            proben.append((tag, probe))
+                    P["ew"] = (P["p_modell"] * c / P["p_publikum"] - 1 if pool == "einzeln"
+                               else c * len(a_paare(plaetze)) * P["kehr_s"] - 1)
+                    P = P[P["ew"] >= ew_min]
+                    if len(P):
+                        teile.append(P)
+    out = pd.concat(teile, ignore_index=True)[VORWAERTS_SPALTEN] if teile else pd.DataFrame(columns=VORWAERTS_SPALTEN)
+    n_ab = out.loc[out["settled"], "race_id"].nunique() if len(out) else 0
+    log(f"Kombiwetten (Vorwärtstest, Publikum = {'Festkurse' if publikum == 'fk' else 'Toto-Stand'} der Karte): "
+        f"{len(out)} Paare mit Erwartungswert ≥ {ew_min:g}, {n_ab} Rennen abgerechnet")
+    return out
+
+
+def rueckrechnung(base: Path, ab: str | None = START_DATUM, bis: str | None = None, *, n_sim: int = N_SIM,
+                  schwellen=(0.0, 0.2, 0.5), publikum: str = "endquote", log=print) -> dict:
+    """Alle Karten im Zeitraum: Couplé Placé, 2sur4 (Paare mit Erwartungswert ≥ Schwelle) und Quinté+ gegen die
+    echten Dividenden; Bericht mit Eichung, Auszahlungsfaktor, Kapazität und ROI mit 90-%-Intervall. publikum:
+    Sicht des Publikums aus der Toto-Endquote ("endquote"), den Festkursen der Karte ("fk") oder dem Toto-Stand der
+    Karte ("toto")."""
+    lam = einlauf.laden(base)
+    daten = daten_laden(base, ab, bis)
+    if publikum in ("fk", "toto") and len(daten["feld"]):
+        daten["feld"]["odds"] = pd.to_numeric(daten["feld"]["fk_karte" if publikum == "fk" else "toto_karte"], errors="coerce")
+    log(f"Publikum aus: {dict(endquote='Toto-Endquote', fk='Festkursen der Karte', toto='Toto-Stand der Karte')[publikum]}")
     log(f"Karten: {len(daten['tage'])} Tage, {daten['feld']['race_id'].nunique() if len(daten['feld']) else 0} Rennen; "
         f"λ Modell {lam['modell'][1:]}, Markt {lam['markt'][1:]}")
     out = {}

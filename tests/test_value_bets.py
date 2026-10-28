@@ -560,3 +560,34 @@ def test_schattenversion(tmp_path):
     assert list(vb.simulate(pool, vb.FilterConfig(**f)).bets_df["no"]) == [1, 2]          # Karte: Tag 2 Nr 2 (Wert 0,6)
     assert list(vb.simulate(pool, vb.FilterConfig(chance="schatten", **f)).bets_df["no"]) == [2]
     assert list(vb.simulate(pool, vb.FilterConfig(chance="karte_schatten_tage", **f)).bets_df["no"]) == [1]
+
+
+def test_kombiblick_js(tmp_path):
+    import shutil
+    import subprocess
+    import sys
+    if not shutil.which("node"):
+        pytest.skip("node fehlt")
+    sys.path.insert(0, str(Path(__file__).parent))
+    import kombi
+    import kombi_fall
+    kombi_fall.bauen(tmp_path, tage=8)
+    v = kombi.vorwaertstest(tmp_path, n_sim=2000, log=lambda *a: None)
+    daten = vb.dashboard_daten(pd.DataFrame(), v)
+    assert daten["kombi"]["spalten"] == kombi.VORWAERTS_SPALTEN and len(daten["kombi"]["zeilen"]) == len(v)
+    t = vb.TEMPLATE.read_text(encoding="utf-8")
+    sim = t[t.index("// SIM-START"):t.index("// SIM-END")]
+    js = (sim + f"\nconst rows = zeilen({json.dumps(daten['kombi'])});\n"
+          "console.log(JSON.stringify(['couple_place', '2sur4'].flatMap(a => ['modell', 'schatten'].map(q => kombiBlick(rows, a, q, 0.2)))));")
+    (tmp_path / "kombi.js").write_text(js, encoding="utf-8")
+    ergebnisse = json.loads(subprocess.run(["node", str(tmp_path / "kombi.js")], capture_output=True, text=True,
+                                           check=True).stdout)
+    for (art, quelle), k in zip([(a, q) for a in ("couple_place", "2sur4") for q in ("modell", "schatten")], ergebnisse):
+        s = v[v["settled"] & (v["art"] == art) & (v["quelle"] == quelle) & (v["ew"] >= 0.2 - 1e-9)]
+        g = k["gesamt"]
+        assert g["tickets"] == len(s) and g["treffer"] == int(s["treffer"].sum())
+        assert g["erw_modell"] == pytest.approx(s["p_modell"].sum()) and g["erw_publikum"] == pytest.approx(s["p_publikum"].sum())
+        if len(s):
+            assert g["roi"] == pytest.approx(s["div"].sum() / len(s) - 1)
+            assert g["abschlag"] == pytest.approx(s["treffer"].sum() / s["p_modell"].sum() - 1)
+            assert sum(w["tickets"] for w in k["wochen"]) == len(s)

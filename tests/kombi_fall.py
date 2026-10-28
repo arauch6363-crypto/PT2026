@@ -34,8 +34,14 @@ def bauen(base: Path, tage: int = 6, rennen: int = 8, seed: int = 0) -> None:
             modell = wahr ** 0.9 / (wahr ** 0.9).sum()
             publik = wahr * np.exp(rng.normal(0, 0.35, n))
             publik /= publik.sum()
+            karte = publik * np.exp(rng.normal(0, 0.1, n))      # Toto-Stand der Karte: etwas neben der Endquote
+            sh = modell * np.exp(rng.normal(0, 0.1, n)) if d % 2 else [None] * n   # Schattenversion jeden zweiten Tag
             races[rid] = {"race_id": rid, "reunion": 1, "race_no": c, "runners": [
-                {"no": i + 1, "horse": f"H{i}", "nr": False, "power": {"sieg": float(m)}} for i, m in enumerate(modell)]}
+                {"no": i + 1, "horse": f"H{i}", "nr": False,
+                 "power": {"sieg": float(m), "sieg_schatten": None if s_ is None else float(s_)},
+                 "fk": {"toto": round(float(0.85 / karte[i] * karte.sum()), 2),
+                        "sieg": round(float(0.8 / (publik[i] * np.exp(rng.normal(0, 0.15)))), 1)}}
+                for i, (m, s_) in enumerate(zip(modell, sh))]}
             ru += [{"race_id": rid, "saddle_no": i + 1, "odds_final": float(0.85 / publik[i])} for i in range(n)]
             E = el.einlaeufe(wahr, 5, lam, 1, rng)[0] + 1
             Pp, Pq = kb.paar_chancen(publik, 3, lam, 4000, rng), kb.paar_chancen(publik, 4, lam, 4000, rng)
