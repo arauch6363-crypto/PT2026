@@ -700,6 +700,14 @@ vergleicht beide Rechnungen über Node.
   (`sieg_quelle` „morgen“/„mischung“): für sie rechnet das Dashboard mit `sieg_blind` (Power bzw. Power-Mischung
   ohne Morgenquote), damit die Historie durchgehend ohne Morgenquote bleibt. Gold-Filter und Umschalter gibt es
   nicht mehr.
+- **Platzchance (Einlauf-Modell):** `einlauf.aus_historie(BASE)` schätzt die Exponenten λ₂ … λ₅ des Einlauf-Modells
+  (Platz k: Chance ∝ p^λₖ unter den übrigen Pferden; λ = 1 wäre reines Harville, das Favoriten auf den hinteren
+  Plätzen überschätzt) aus echten Einläufen: für die Modellchancen aus `power_oos.parquet` (gelernt auf der
+  Validierung, geprüft auf dem Test), für den Markt aus den Endquoten (geprüft auf dem letzten Jahr). Bericht: λ je
+  Platz, Log-Loss gegen Harville und die bisherige Vorgabe (0,8 / 0,65) sowie „Plätze erwartet gegen echt“ je Gruppe
+  der Siegchance; gespeichert in `modelle/einlauf_lambda.json`. `vb.start(BASE)` rechnet die Platzchance aller Tage
+  damit, jede neue Karte trägt die Werte in `params.einlauf`. Nach jedem `pm.trainieren` neu schätzen. Grundlage auch
+  für die Kombiwetten (`einlauf.einlaeufe`: gezogene Einläufe für Couplé Placé, 2sur4, Quinté+).
 - **Wochenblick** (oben, für die Picks des Filters, je ISO-Kalenderwoche und gesamt): realisiertes **FK/Toto**
   (geometrisches Mittel Festkurs ÷ Toto-Endquote) gegen die Schwelle (1 + 5 % Steuer) ÷ (1 − Toto-Abzug) – die
   Gewinnschwelle, falls die Toto-Endquote die wahre Chance wäre; den Abzug trägt man ein (Vorgabe 23 %) –, daraus die

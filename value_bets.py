@@ -28,6 +28,8 @@ from typing import Any, Optional
 import numpy as np
 import pandas as pd
 
+import einlauf
+
 TOL = 1e-6              # Toleranz für Filtervergleiche
 TOP_TOL = 1e-9          # Toleranz für „höchster Wert im Rennen“
 START_BANK = 1000.0
@@ -118,8 +120,9 @@ def harville_platz(p, plaetze: int, l2: float = HARVILLE_L2, l3: float = HARVILL
     return np.clip(P, 0.0, 1.0)
 
 
-def _pferde_rennen(rennen: dict, datum: str) -> list[dict]:
-    """Abgeleitete Werte für alle Starter eines Rennens (ohne Ergebnis)."""
+def _pferde_rennen(rennen: dict, datum: str, lam=None) -> list[dict]:
+    """Abgeleitete Werte für alle Starter eines Rennens (ohne Ergebnis); lam: Exponenten des Einlauf-Modells für die
+    Platzchance (einlauf.laden(BASE)["modell"]; None = bisherige Vorgabe 0,8 / 0,65)."""
     starter = []
     for r in rennen.get("runners") or []:
         pw = r.get("power") or {}
@@ -143,10 +146,10 @@ def _pferde_rennen(rennen: dict, datum: str) -> list[dict]:
     for r, _, _ in starter:
         f_ = _zahl((r.get("fk") or {}).get("sieg"))
         fks.append(f_ if f_ is not None and f_ > 1 else None)
-    werte = _chance_werte(p, fks, n, plaetze)
+    werte = _chance_werte(p, fks, n, plaetze, lam)
     # Schattenversion (faire Quote mit Prognose-Schicht, power.sieg_schatten) – nur wenn alle Starter sie haben
     ss = [_zahl(pw.get("sieg_schatten")) for _, pw, _ in starter]
-    schatten = (_chance_werte(np.array(ss) / sum(ss), fks, n, plaetze) if all(x is not None and x > 0 for x in ss)
+    schatten = (_chance_werte(np.array(ss) / sum(ss), fks, n, plaetze, lam) if all(x is not None and x > 0 for x in ss)
                 else [dict.fromkeys(CHANCE_SPALTEN) for _ in starter])
 
     zeilen = []
@@ -186,13 +189,13 @@ CHANCE_SPALTEN = ["p", "fair", "rank_fq", "rank_pct", "rel", "wert", "p_model", 
 CHANCEN = ("karte", "karte_schatten_tage", "schatten")
 
 
-def _chance_werte(p: np.ndarray, fks: list, n: int, plaetze: int) -> list[dict]:
+def _chance_werte(p: np.ndarray, fks: list, n: int, plaetze: int, lam=None) -> list[dict]:
     """Je Starter die Werte aus einer Siegchance p (je Rennen auf 1): faire Quote, Wettkampf-Rang nach fairer Quote
     (1, 2, 2, 4 …), rank_pct, rel, Wert gegen den Festkurs, Platzchance (Harville) und Top-Wert des Rennens
     (vor jedem Filter, alle Gleichstände)."""
     fair = 1.0 / p
     rang = [1 + int(np.sum(fair < f - TOP_TOL)) for f in fair]
-    p_platz = harville_platz(p, plaetze)
+    p_platz = einlauf.platz_chance(p, plaetze, lam)
     out = []
     for pi, fi, rg, pp, fk in zip(p, fair, rang, p_platz, fks):
         out.append({"p": float(pi), "fair": float(fi), "rank_fq": rg,
@@ -304,7 +307,7 @@ def _endquoten(starter_path: str | Path | None) -> dict[tuple[str, int], float]:
 
 
 def load_day(json_path: str | Path, parquet_path: str | Path | None,
-             starter_path: str | Path | None = None) -> pd.DataFrame:
+             starter_path: str | Path | None = None, einlauf_lambda=None) -> pd.DataFrame:
     """Pool eines Renntags: alle Starter mit Festkurs und Wert ≥ 0, samt Ergebnis.
 
     ``json_path`` darf auch die HTML-Karte ``racecard_YYYYMMDD.html`` sein – sie
@@ -327,7 +330,7 @@ def load_day(json_path: str | Path, parquet_path: str | Path | None,
 
     zeilen: list[dict] = []
     for rn in rennen:
-        zeilen.extend(_pferde_rennen(rn, datum))
+        zeilen.extend(_pferde_rennen(rn, datum, einlauf_lambda))
     pool = pd.DataFrame(zeilen)
     if pool.empty:
         return _leerer_pool()
@@ -343,21 +346,21 @@ def load_day(json_path: str | Path, parquet_path: str | Path | None,
     pool = pool[pool["fk_sieg"].notna() & ((pool["wert"] >= -TOP_TOL)
                                            | (pd.to_numeric(pool["wert_sh"], errors="coerce") >= -TOP_TOL))].copy()
 
-    einlauf: dict[str, list[int]] = {}
+    einl: dict[str, list[int]] = {}
     if parquet_path is not None and Path(parquet_path).exists():
         erg = pd.read_parquet(parquet_path, columns=["race_id", "finish_order"])
         for rid, fo in zip(erg["race_id"], erg["finish_order"]):
             e = _einlauf(fo)
             if e:
-                einlauf[str(rid)] = e
+                einl[str(rid)] = e
 
     def platz(row) -> Optional[int]:
-        e = einlauf.get(str(row["race_id"]))
+        e = einl.get(str(row["race_id"]))
         if e is None:
             return None
         return e.index(row["no"]) + 1 if row["no"] in e else None
 
-    pool["settled"] = pool["race_id"].astype(str).isin(einlauf)
+    pool["settled"] = pool["race_id"].astype(str).isin(einl)
     pool["pos"] = pool.apply(platz, axis=1).astype("Int64")
     pool["won"] = pool["settled"] & (pool["pos"] == 1).fillna(False)
     pool["placed"] = pool["settled"] & (pool["pos"] <= pool["paid_places"]).fillna(False)
@@ -395,13 +398,16 @@ def _hat_einlauf(pfad: Path) -> bool:
 
 def load_folder(ordner: str | Path, ergebnis_ordner: str | Path | None = None,
                 cache: str | Path | None = None, ab: str | None = START_DATUM,
-                bis: str | None = None, starter_ordner: str | Path | None = None) -> pd.DataFrame:
+                bis: str | None = None, starter_ordner: str | Path | None = None,
+                einlauf_lambda=None) -> pd.DataFrame:
     """Alle Renntage eines Ordners laden (rekursiv), gepaart über das Datum.
 
     ``ergebnis_ordner``: wo die pmu_races-Parquets liegen (Vorgabe: ``ordner``).
     ``starter_ordner``: pmu_runners-Parquets mit der Toto-Endquote (Vorgabe: Nachbarordner ``pmu_runners`` des
     Ergebnisordners, sonst der Ergebnisordner selbst).
     ``ab``/``bis``: Zeitraum als YYYYMMDD (Vorgabe: ab ``START_DATUM``, ``None`` = alle).
+    ``einlauf_lambda``: Exponenten des Einlauf-Modells für die Platzchance aller Tage (einlauf.laden(BASE)["modell"]);
+    None = bisherige Vorgabe.
 
     Karte: ``racecard_YYYYMMDD_daten.json``, sonst ``racecard_YYYYMMDD.html``;
     Ergebnis: ``*YYYYMMDD*.parquet`` (bei mehreren gewinnt eines in einem Ordner
@@ -440,7 +446,7 @@ def load_folder(ordner: str | Path, ergebnis_ordner: str | Path | None = None,
     for d in sorted(jsons):
         if d not in parquets and d < heute:
             warnings.warn(f"{d}: kein Ergebnis-Parquet – Tag bleibt offen", stacklevel=2)
-        tag = load_day(jsons[d], parquets.get(d), starter.get(d))
+        tag = load_day(jsons[d], parquets.get(d), starter.get(d), einlauf_lambda=einlauf_lambda)
         if d in parquets and d < heute and not tag.empty and not tag["settled"].all():
             offen = tag.loc[~tag["settled"], "race"].unique()
             warnings.warn(f"{d}: kein Einlauf für {', '.join(offen)}", stacklevel=2)
@@ -563,7 +569,7 @@ def tipps_setzen(daten: dict, n: int | None = None, min_wert: float = TIPP_MIN_W
     for rn in rennen:
         for x in rn.get("runners") or []:
             (x.get("power") or {}).pop("tipp", None)
-        zeilen.extend(_pferde_rennen(rn, datum))
+        zeilen.extend(_pferde_rennen(rn, datum, ((daten.get("params") or {}).get("einlauf") or {}).get("modell")))
     daten["tipp_regel"] = {"je_veranstaltung": n or TIPP_N, "min_kelly": TIPP_MIN_KELLY, "min_wert": min_wert, "kelly": TIPP_KELLY, "eins_je_rennen": True}
     pool = pd.DataFrame(zeilen)
     if pool.empty:
@@ -958,8 +964,11 @@ def start(base: str | Path = BASE_DRIVE, ab: str | None = START_DATUM) -> Path:
     bei neuen Daten überschrieben). Tage ohne Einlauf bleiben offen.
     """
     base = Path(base)
+    lam = einlauf.laden(base)
+    print(f"Platzchance: Einlauf-Modell λ = {', '.join(f'{v:g}' for v in lam['modell'][1:4])}"
+          + (f" (geschätzt {lam['geschaetzt']})" if lam.get("geschaetzt") else " (Vorgabe – einlauf.aus_historie(BASE) schätzt sie)"))
     pool = load_folder(base / "racecards", base / "parquet" / "pmu_races", ab=ab,
-                       starter_ordner=base / "parquet" / "pmu_runners")
+                       starter_ordner=base / "parquet" / "pmu_runners", einlauf_lambda=lam["modell"])
     pfad = dashboard(pool, base / "racecards" / DASHBOARD_DATEI)
     tage = pool.loc[pool["settled"].astype(bool), "date"].nunique() if not pool.empty else 0
     k = simulate(pool).kpi_dict
