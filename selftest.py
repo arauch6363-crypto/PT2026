@@ -345,6 +345,8 @@ def main() -> int:
     kommentare_pruefen()
     print("\n16) PMU-Prognosen: Tabelle und Prognose-Schicht")
     prognose_pruefen()
+    print("\n17) Einlauf-Modell: Platz- und Kombichancen aus Siegchancen")
+    einlauf_pruefen()
 
     pt.read_pages = requests_session_orig
     print("\n" + ("Alle Prüfungen bestanden." if not fehler else f"{len(fehler)} Prüfung(en) fehlgeschlagen:"))
@@ -1800,6 +1802,72 @@ def kommentare_pruefen() -> None:
                                          {"k_pech": np.log(3)})[0] - .75) < 1e-9,
            f"Kommentar zum letzten Lauf (nur frühere Läufe, am selben Tag nicht; ohne Kommentar leer); Korrekturschicht "
            f"findet ein eingebautes Signal (Gewicht Pech {ks_['gewichte']['k_pech']}, Prüfteil z {ks_['pruef_z']})")
+
+
+def einlauf_pruefen() -> None:
+    import io, contextlib, tempfile
+    import numpy as np
+    import einlauf as el
+    import power_modell as pm
+    import racecard as rc
+    import value_bets as vb
+    rng = np.random.default_rng(4)
+    wahr = [1.0, 0.7, 0.55, 0.5, 0.45]
+
+    def rennen(i, n, lam):
+        p = rng.dirichlet(np.ones(n) * 0.8)
+        pos = np.empty(n)
+        pos[el.einlaeufe(p, n, lam, 1, rng)[0]] = np.arange(1, n + 1)
+        return pd.DataFrame({"race_id": f"r{i:04d}", "p": p, "pos": pos})
+    d = pd.concat([rennen(i, int(rng.integers(6, 14)), wahr) for i in range(2400)], ignore_index=True)
+    b = el.lambda_schaetzen(d[d["race_id"] < "r1600"], d[d["race_id"] >= "r1600"])
+    st = {z["platz"]: z for z in b["je_stufe"]}
+    pruefe(np.allclose(b["lambda"][1:], wahr[1:], atol=0.06)
+           and all(st[k]["logloss_geschaetzt"] < st[k]["logloss_harville"] for k in range(2, 6)),
+           f"Einlauf-Modell: λ aus simulierten Einläufen wiedergefunden ({b['lambda'][1:]} statt {wahr[1:]}), "
+           "auf dem Prüfteil besser als Harville")
+    e = {z["siegchance"]: z for z in b["platz_eichung"]}["alle"]
+    p_ = np.array([.4, .25, .15, .1, .06, .04])
+    sim = np.bincount(el.einlaeufe(p_, 3, wahr, 200000, 0).ravel(), minlength=6) / 200000
+    pruefe(np.allclose(el.platz_chance(p_, 3, wahr), sim, atol=0.006) and abs(el.platz_chance(p_, 3, wahr).sum() - 3) < 1e-9
+           and np.allclose(el.platz_chance(p_, 3), rc.harville_platz(p_, 3)) and np.allclose(el.platz_chance(p_, 2), rc.harville_platz(p_, 2))
+           and abs(e["erwartet_geschaetzt"] - e["plaetze_echt"]) <= abs(e["erwartet_harville"] - e["plaetze_echt"]) + 1,
+           "Platzchance exakt = Simulation, Summe = Zahl der Plätze; mit der Vorgabe wie bisher (racecard.harville_platz)")
+    # aus_historie: Modell aus power_oos (valid/test), Markt aus Endquoten; speichern und laden
+    with tempfile.TemporaryDirectory() as tmp:
+        zeilen, oos = [], []
+        for i in range(2400):
+            n = int(rng.integers(6, 13))
+            p = rng.dirichlet(np.ones(n) * 0.8)
+            pos = np.empty(n)
+            pos[el.einlaeufe(p, n, wahr, 1, rng)[0]] = np.arange(1, n + 1)
+            rid, tag_ = f"R{i:05d}", pd.Timestamp("2023-01-01") + pd.Timedelta(days=i // 2)
+            for j in range(n):
+                zeilen.append({"race_id": rid, "horse_id": f"h{i}_{j}", "finish_pos": pos[j], "date": tag_,
+                               "odds_final": 0.8 / p[j]})
+                oos.append({"race_id": rid, "horse_id": f"h{i}_{j}", "teil": "valid" if i < 1600 else "test", "p_fair": p[j]})
+        o_ = Path(tmp) / pm.MODELL_ORDNER
+        o_.mkdir()
+        pd.DataFrame(oos).to_parquet(o_ / pm.OOS_DATEI)
+        with contextlib.redirect_stdout(io.StringIO()):
+            r_ = el.aus_historie(Path(tmp), pd.DataFrame(zeilen), log=print)
+        l_ = el.laden(Path(tmp))
+        leer = el.laden(Path(tmp) / "nichts")
+    pruefe(np.allclose(r_["modell"][1:], wahr[1:], atol=0.1) and np.allclose(r_["markt"][1:], wahr[1:], atol=0.1)
+           and l_["modell"] == r_["modell"] and l_["geschaetzt"] and leer["modell"] == el.VORGABE,
+           f"einlauf.aus_historie: Modell-λ aus power_oos (Validierung → Test) {r_['modell'][1:]}, Markt-λ aus Endquoten "
+           f"{r_['markt'][1:]}; gespeichert (modelle/{el.DATEI}) und geladen, ohne Datei die Vorgabe")
+    # Dashboard: andere λ ändern die Platzchance, nicht die Siegchance
+    with tempfile.TemporaryDirectory() as tmp:
+        ru = [{"no": i + 1, "horse": f"H{i}", "nr": False, "power": {"sieg": s_}, "fk": {"sieg": 1 / s_ * 1.3, "platz": 1.5}}
+              for i, s_ in enumerate([.4, .25, .15, .1, .06, .04])]
+        j_ = Path(tmp) / "racecard_20251010_daten.json"
+        j_.write_text(json.dumps({"date": "20251010", "races": {"20251010R1C1": {
+            "race_id": "20251010R1C1", "reunion": 1, "race_no": 1, "course": "X", "runners": ru}}}))
+        a_, b_ = vb.load_day(j_, None), vb.load_day(j_, None, einlauf_lambda=[1, .5, .4, .4, .4])
+    pruefe(np.allclose(a_["p"], b_["p"]) and not np.allclose(a_["p_platz"], b_["p_platz"])
+           and a_.sort_values("p").iloc[-1]["p_platz"] > b_.sort_values("p").iloc[-1]["p_platz"],
+           "Value-Dashboard: Platzchance mit den geschätzten λ (kleiner = Favorit seltener platziert), Siegchance gleich")
 
 
 def prognose_pruefen() -> None:

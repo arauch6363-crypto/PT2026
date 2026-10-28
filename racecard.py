@@ -2938,6 +2938,8 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     pmod = power_modell.laden(base)
     print("Power-Modell geladen." if pmod else "Kein Power-Modell (power_modell.trainieren) – Power aus sechs Kennzahlen.")
     daten = baue_daten(hist, races_heute, runners_heute, tag, silks, prognosen, power=pmod)
+    import einlauf                                        # Exponenten des Einlauf-Modells (Platz-/Kombichancen)
+    daten.setdefault("params", {})["einlauf"] = einlauf.laden(base)
     if festkurse is not False:                            # Festkurse Sieg/Platz (Wettstar) je Starter: x["fk"]
         import wettstar
         if wettstar.anhaengen(daten, None if festkurse is True else festkurse, tag=tag):
