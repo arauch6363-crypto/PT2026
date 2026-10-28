@@ -494,3 +494,41 @@ def test_beste_je_veranstaltung_und_tipps(tmp_path):
     # Vorgabe (Karte): alle Kandidaten mit Rang, die Karte zeigt die ersten N; n = 1: nur der erste je Veranstaltung
     assert vb.tipps_setzen(daten) == 3 and daten["tipp_regel"]["je_veranstaltung"] == vb.TIPP_N
     assert vb.tipps_setzen(daten, n=1) == 2
+
+
+def test_wochenblick_js(tmp_path):
+    import shutil
+    import subprocess
+    if not shutil.which("node"):
+        pytest.skip("node fehlt")
+    pool = _zufallspool(tmp_path)
+    # Toto-Endquoten ergänzen (der Zufallspool hat keine): je Pick ein Kurs um den Festkurs
+    rnd = np.random.default_rng(3)
+    pool = pool.copy()
+    pool["toto_end"] = np.where(pool["fk_sieg"].notna(), pool["fk_sieg"] * rnd.uniform(0.6, 1.3, len(pool)), np.nan)
+    pool["fk_toto"] = pool["fk_sieg"] / pool["toto_end"]
+    f = vb.FilterConfig(minw=0.2, mode="none")
+    t = vb.TEMPLATE.read_text(encoding="utf-8")
+    sim = t[t.index("// SIM-START"):t.index("// SIM-END")]
+    daten = json.dumps(vb.dashboard_daten(pool))
+    js = (sim + f"\nconst pool = zeilen({daten});\nconst r = simulieren(pool, {json.dumps(vars(f))}, 'level10', 1000, 'sieg');\n"
+          "console.log(JSON.stringify([r.woche, isoWoche('20261026'), isoWoche('20210103'), isoWoche('20241230')]));")
+    w, kw1, kw2, kw3 = json.loads(subprocess.run(["node", "-e", js], capture_output=True, text=True, check=True).stdout)
+    assert kw1["key"] == "2026-W44" and kw1["von"] == "20261026" and kw1["bis"] == "20261101"
+    assert kw2["key"] == "2020-W53" and kw3["key"] == "2025-W01"                 # Jahreswechsel nach ISO 8601
+    assert w["schwelle"] == pytest.approx(1.05 / 0.77)
+    sel = vb.auswahl(vb.mit_wert(pool), f)
+    sel = sel[sel["settled"].astype(bool)].copy()
+    sel["kw"] = pd.to_datetime(sel["date"]).dt.isocalendar().week
+    assert [x["kw"] for x in w["wochen"]] == sorted(sel["kw"].unique())
+    for x in w["wochen"]:
+        s = sel[sel["kw"] == x["kw"]]
+        s = s[(s["fk_toto"] > 0) & (s["toto_end"] > 0)]
+        g = float(np.exp(np.log(s["fk_toto"]).mean()))
+        p = 0.77 / s["toto_end"]
+        assert x["n"] == len(s) and x["fk_toto"] == pytest.approx(g) and x["edge_toto"] == pytest.approx(g * 0.77 - 1.05)
+        assert x["sieger"] == int(s["won"].sum()) and x["erw_toto"] == pytest.approx(p.sum())
+        assert x["z_toto"] == pytest.approx((s["won"].sum() - p.sum()) / np.sqrt((p * (1 - p)).sum()))
+    alle = sel[(sel["fk_toto"] > 0) & (sel["toto_end"] > 0)]
+    assert w["wochen"][-1]["kum"]["n"] == len(alle)
+    assert w["wochen"][-1]["kum"]["fk_toto"] == pytest.approx(float(np.exp(np.log(alle["fk_toto"]).mean())))
