@@ -727,6 +727,11 @@ vergleicht beide Rechnungen über Node.
   (Vorwärtstest)“: Wettart, Chance (Modell / Schatten) und Schwelle wählbar; je Woche Tickets, Treffer gegen
   „erwartet Modell“ und „erwartet Publikum“, **Abschlag** (Treffer ÷ erwartet Modell − 1: wie stark das Modell seine
   Auswahl überschätzt) und ROI bei 1 € je Paar. Noch kein Wettgeld.
+- **Bahnprofil:** `bahn_profil.recherche(BASE)` (in Colab, braucht freies Internet) liest für alle Bahnen aus
+  `boden_manuell.json` die Bahnbeschreibungen bei Turfoo und Zeturf, zieht die Sätze mit Zahlen heraus und erkennt
+  Umfang, Zielgerade, Kurve, Profil und gerade Bahn → `BASE/bahn_profil_recherche.csv` zum Prüfen. Geprüfte Werte
+  kommen in `bahn_profil.PROFIL` (je Bahn, bei mehreren Pisten je Piste); `bahn_profil.profil(bahn, parcours)` liefert
+  sie mit Größenklasse. Für die Bahn-Merkmale in Version 20 (MERKMALE.md, Punkt 8).
 - **Wochenblick** (oben, für die Picks des Filters, je ISO-Kalenderwoche und gesamt): realisiertes **FK/Toto**
   (geometrisches Mittel Festkurs ÷ Toto-Endquote) gegen die Schwelle (1 + 5 % Steuer) ÷ (1 − Toto-Abzug) – die
   Gewinnschwelle, falls die Toto-Endquote die wahre Chance wäre; den Abzug trägt man ein (Vorgabe 23 %) –, daraus die
