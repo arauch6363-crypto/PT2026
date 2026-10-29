@@ -297,7 +297,6 @@ input{color:inherit}
                 <div style="display:flex;justify-content:space-between;gap:4px;font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#8C877C"><span>{{ k.k }}</span><span style="font-family:'Spline Sans Mono',monospace;letter-spacing:0;font-weight:500">{{ k.rk }}</span></div>
                 <div style="font-family:'Spline Sans Mono',monospace;font-size:15px;font-weight:600;margin-top:2px;color:{{ k.fg }};white-space:nowrap">{{ k.v }}</div>
                 <div style="font-family:'Spline Sans Mono',monospace;font-size:10px;color:#8C877C;white-space:{{ k.ws }};overflow:hidden;text-overflow:ellipsis">{{ k.sub }}</div>
-                <sc-if value="{{ k.sub2 }}" hint-placeholder-val="{{ false }}"><div style="font-family:'Spline Sans Mono',monospace;font-size:10px;color:#8C877C;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ k.sub2 }}</div></sc-if>
               </div>
             </sc-for>
           </div>
@@ -1293,9 +1292,7 @@ class Component extends DCLogic {
     const S = x.summary || {}, M = x.hcp_mark;
     const rk = (r, n) => r ? '#' + r + '/' + n : '';
     const metrics = [
-      { k: 'Festkurs', v: x.fk?.sieg != null ? fOdds(x.fk.sieg) : '–', ws: 'normal', sub2: x.prono?.sel?.cote ? 'Prog\u00a0' + x.prono.sel.cote + ' (R' + x.prono.sel.rank + ')' : '', sub: [x.fk?.toto != null ? 'Toto\u00a0' + fOdds(x.fk.toto) : '', x.fk?.platz != null ? 'Pl\u00a0' + fOdds(x.fk.platz) : ''].filter(Boolean).join(' · ') || 'noch kein FK', rk: x.fk?.sieg != null && win ? 'EV ' + sgn((x.fk.sieg * win - 1) * 100, 0) + '%' : '', fg: x.fk?.sieg != null && win ? (x.fk.sieg * win >= 1 + thr ? C.good : x.fk.sieg * win <= 1 / (1 + thr) ? C.bad : C.ink) : C.ink, tip: 'Wettstar Festkurs Sieg / Platz, Toto beim Erstellen der Karte' + (x.prono?.sel?.cote ? ' · PMU-Prognose ' + x.prono.sel.cote + ', Rang ' + x.prono.sel.rank + (x.prono.konsens ? ', Tipp-Konsens ' + x.prono.konsens.pos + '/' + x.prono.konsens.of + ' (' + x.prono.konsens.pts + ' P)' : '') : '') },
       { k: 'Valeur', v: kurz(x.rating_adj ?? x.rating), sub: (x.rating != null ? 'roh ' + kurz(x.rating) : '') + (M ? ' · ' + (M.kind === 'sieg' ? 'S ' : 'P ') + kurz(M.val) + (M.diff != null ? ' (' + sgn(M.diff, 1).replace(/,0$/, '') + ')' : '') : ''), rk: rk(x.rating_rank, x.rating_n), fg: rkTone(x.rating_rank, x.rating_n), tip: M ? 'Letzte ' + (M.kind === 'sieg' ? 'Siegmarke' : 'Platzmarke') + ' ' + dt(M.date) + ' ' + tc(M.course) : 'Valeur' },
-      { k: 'Tage', v: x.days ?? '–', sub: 'seit letztem Lauf', rk: '', fg: x.days > 60 ? C.bad : C.ink, tip: 'Tage seit dem letzten Lauf' },
       { k: 'RTR', v: fx(x.rtr?.adj), sub: 'roh ' + fx(x.rtr?.raw) + ' · ' + (x.rtr?.runs ?? 0) + ' L', rk: rk(x.rtr?.rank, x.rtr?.n), fg: rkTone(x.rtr?.rank, x.rtr?.n), tip: 'Rating-Leistung, aufs heutige Gewicht bereinigt' },
       { k: 'ARR', v: fx(x.arr?.adj), sub: 'Ø ' + fx(x.arr?.avg) + ' ±' + fx(x.arr?.sd) + ' · best ' + kurz(x.arr?.best), rk: rk(x.arr?.rank, x.arr?.n), fg: rkTone(x.arr?.rank, x.arr?.n), tip: 'ARR Ø letzte ' + (x.arr?.runs ?? 0) + ' Läufe, letzter ' + kurz(x.arr?.last) },
       { k: 'TR', v: x.tr?.heute ?? '–', sub: 'Ø ' + (x.tr?.avg ?? '–') + ' ±' + fx(x.tr?.sd) + ' · best ' + (x.tr?.best ?? '–'), rk: rk(x.tr?.rank, x.tr?.n), fg: rkTone(x.tr?.rank, x.tr?.n), tip: 'TR heute, letzter ' + (x.tr?.last ?? '–') },
@@ -1303,6 +1300,7 @@ class Component extends DCLogic {
       { k: 'ΔL600', v: sgn(S.dl600_a, 2), sub: '±' + fx(S.dl600_a_sd, 2) + ' · ' + (S.runs ?? 0) + ' L', rk: rk(S.dl600_a_rank, S.dl600_a_n), fg: rkTone(S.dl600_a_rank, S.dl600_a_n), tip: 'Tempo letzte 600 m gegen Erwartung (km/h)' },
       { k: 'ΔB200', v: sgn(S.db200_a, 2), sub: '±' + fx(S.db200_a_sd, 2) + ' · ' + (S.runs ?? 0) + ' L', rk: rk(S.db200_a_rank, S.db200_a_n), fg: rkTone(S.db200_a_rank, S.db200_a_n), tip: 'Schnellstes 200-m-Segment gegen Erwartung (km/h)' },
     ].map(m => ({ ws: 'nowrap', ...m }));
+    while (metrics.length % 3) metrics.push({ k: '', v: '', sub: '', rk: '', fg: C.ink, tip: '', ws: 'nowrap' });
     const drvMax = Math.max(3, ...(pw?.treiber || []).map(([, v]) => Math.abs(v)));
     const drv = (pw?.treiber || []).map(([n, v]) => { const w = Math.abs(v) / drvMax * 50; return { n, t: sgn(v), w, l: v >= 0 ? 50 : 50 - w, c: v >= 0 ? C.good : C.bad }; });
     Object.assign(out, { tags, hasTags: tags.length > 0, formSq, conn, metrics, drv, hasDrv: drv.length > 0,
