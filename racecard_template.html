@@ -366,9 +366,9 @@ input{color:inherit}
                     </div>
                     <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:#DCD8CE;border:1px solid #DCD8CE;border-radius:8px;overflow:hidden;margin-top:10px">
                       <sc-for list="{{ x.mR }}" as="mm" hint-placeholder-count="3">
-                        <div onClick="{{ mm.tap }}" title="{{ mm.tip }}" style="background:{{ mm.bg }};padding:7px 9px 8px;min-width:0;cursor:{{ mm.cur }}">
+                        <div onClick="{{ mm.tap }}" title="{{ mm.tip }}" style="background:{{ mm.bg }};padding:6px 8px 7px;min-width:0;cursor:{{ mm.cur }}">
                           <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8C877C;white-space:nowrap">{{ mm.k }}</div>
-                          <div style="font-family:'Spline Sans Mono',monospace;font-size:19px;font-weight:600;line-height:1.15;color:{{ mm.fg }};white-space:nowrap;text-decoration:{{ mm.ul }};text-underline-offset:3px;text-decoration-color:#CFCAC0">{{ mm.v }}</div>
+                          <div style="font-family:'Spline Sans Mono',monospace;font-size:16px;font-weight:600;line-height:1.2;color:{{ mm.fg }};white-space:nowrap;text-decoration:{{ mm.ul }};text-underline-offset:3px;text-decoration-color:#CFCAC0">{{ mm.v }}</div>
                           <div style="font-family:'Spline Sans Mono',monospace;font-size:10px;color:{{ mm.subFg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mm.sub }}</div>
                         </div>
                       </sc-for>
@@ -1409,7 +1409,6 @@ class Component extends DCLogic {
       }
       if (f.abst_pass && f.abst_pass.gesamt != null && Math.abs(f.abst_pass.gesamt) >= 15) flags.push({ t: 'Abst ' + arrow(f.abst_pass.gesamt) + ' ' + sgn(f.abst_pass.gesamt, 0), tip: 'Abstammungs-Passung dieses Laufs', bg: 'transparent', fg: pTone(f.abst_pass.gesamt), bd: C.line });
       if (same.includes('K')) flags.push({ t: 'gleicher Kurs', tip: 'Kurs wie heute (gleicher Belag)', bg: C.goldBg, fg: C.ink, bd: C.goldBg });
-      if (f.won_eur) flags.push({ t: 'gewonnen ' + eur(f.won_eur), tip: '', bg: 'transparent', fg: C.ink2, bd: C.line });
       const bln = blinkTxt(f.blinkers); if (bln) flags.push({ t: bln, tip: '', bg: 'transparent', fg: C.ink2, bd: C.line });
       if (f.sieger) flags.push({ t: 'Sieger ' + tc(f.sieger), tip: '', bg: 'transparent', fg: C.ink2, bd: C.line });
       const dd = (x.duels || []).filter(d => d.race_id ? d.race_id === f.race_id : d.date === f.date);
