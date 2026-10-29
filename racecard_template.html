@@ -1387,8 +1387,7 @@ class Component extends DCLogic {
         if (ps && zv != null) {           // Kategorie aus dem Abstand zum Schnitt aller Läufe der heutigen Starter (SD)
           const z = (zv - ps.m) / ps.sd, i = z >= 1.5 ? 4 : z >= 0.5 ? 3 : z > -0.5 ? 2 : z > -1.5 ? 1 : 0;
           const kat = (o.k === 'Pace' ? ['very slow', 'slow', 'normal', 'fast', 'very fast'] : ['very weak', 'weak', 'normal', 'strong', 'very strong'])[i];
-          const st = [['#B9533D', '#FFFFFF'], ['#EDC3B5', C.ink], null, ['#BFE0C9', C.ink], ['#2F8A55', '#FFFFFF']][i];
-          return { ...o, v: kat, vf: 'Archivo,sans-serif', bg: st ? st[0] : C.card, fg: st ? st[1] : o.fg, subFg: st && st[1] !== C.ink ? st[1] : o.subFg,
+          return { ...o, v: kat, vf: 'Archivo,sans-serif', bg: C.card, fg: [C.bad, C.bad, C.ink, C.good, C.good][i], subFg: C.ink3,
             sub: fx(zv, 1) + ' (' + sgn(zv - ps.m, 1) + ')' + (o.k === 'Fin-Idx' && f.fi_adj != null ? ' · ber. ' + sgn(f.fi_adj, 1) : ''),
             tip: o.tip + ' · ' + fx(zv, 1) + ', Ø der Läufe der heutigen Starter ' + fx(ps.m, 1) + ', ' + sgn(z, 1) + ' SD → ' + kat + ' (Grenzen ±0,5 / ±1,5 SD)',
             cur: 'default', ul: 'none' };
