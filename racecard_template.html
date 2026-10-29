@@ -349,7 +349,7 @@ input{color:inherit}
                   <div style="background:{{ x.cardBg }};border:1px solid #DCD8CE;border-radius:10px;padding:10px 12px;opacity:{{ x.op }}">
                     <div style="display:grid;grid-template-columns:44px minmax(0,1fr);gap:2px 10px">
                       <div style="grid-row:span 3;display:flex;flex-direction:column;align-items:center;gap:2px">
-                        <span style="width:44px;height:40px;border-radius:7px;display:grid;place-items:center;font-weight:800;font-stretch:62%;font-size:22px;background:{{ x.posBg }};color:{{ x.posFg }}">{{ x.pos }}</span>
+                        <span style="width:44px;height:40px;border-radius:7px;display:grid;place-items:center;font-weight:800;font-stretch:62%;font-size:22px;background:{{ x.posBg }};color:{{ x.posFg }};border:1px solid {{ x.posBd }}">{{ x.pos }}</span>
                         <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:700;color:#161512">/{{ x.ran }}</span>
                         <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:700;color:#161512;white-space:nowrap">{{ x.margin }}</span>
                       </div>
@@ -967,6 +967,9 @@ function bestKat(zeilen) {
   for (const z of ok) { const w = (z[3] + 5 * pl / ex) / (z[5] + 5); if (w > bw) { bw = w; best = z[0]; } }
   return best;
 }
+// Platz in der Formzeile: Sieg weiß auf Gold, 2. schwarz auf Silber, 3. weiß auf Bronze (in beiden Modi gleich)
+const MEDAILLE = { 1: { posBg: '#C9A227', posFg: '#FEFEFE', posBd: '#B08C1E' }, 2: { posBg: '#C4C7CC', posFg: '#000000', posBd: '#A9ADB3' },
+  3: { posBg: '#A86A3D', posFg: '#FEFEFE', posBd: '#8E5730' } };
 const RACE_H = 50, KOPF_H = 54;                            // Höhe der klebenden Renn- und Kopfleiste (px)
 const ROLLEN = { trainer: ['Trainer', 'trainer'], jockey: ['Jockey', 'jockey'], owner: ['Besitzer', 'owner'], breeder: ['Züchter', 'breeder'] };
 
@@ -1424,7 +1427,7 @@ class Component extends DCLogic {
       const sep = f.extra && !(fl[i - 1] || {}).extra ? 'Ältere Läufe – letzter Lauf mit gleichem ' + fl.slice(i).flatMap(r => r.extra || []).filter((v, j, a) => a.indexOf(v) === j).map(k => SAME[k]).join(' / ') : '';
       return { hasSep: !!sep, sep, pause, pauseFg: gap != null && gap > 60 ? C.bad : C.ink3, op: f.unreliable ? .6 : 1, cardBg: f.extra ? '#F1EEE7' : C.card,
         pos: posTxt, ran: f.ran ?? '–', margin: f.pos ? lengths(f.margin) : f.lb_min != null ? '≥ ' + lengths(f.lb_min) : '',
-        posBg: f.pos === 1 ? C.ink : f.pos && f.pos <= 3 ? C.mid : C.soft, posFg: f.pos === 1 ? C.paper : C.ink,
+        ...(MEDAILLE[f.pos] || { posBg: C.card, posFg: C.ink, posBd: C.line }),
         course: tc(f.course), date: dt(f.date), cond,
         line3: tc(f.jockey) + ' · ' + kurz(f.weight) + ' kg · Box ' + (f.draw ?? '–') + ' · Q ' + (f.odds != null ? fx(f.odds, 1) : '–') + (f.fav ? ' F' : '') + (f.odds_rank ? ' (' + f.odds_rank + '.)' : ''),
         mR: mm.slice(0, 3), mT: [...mm.slice(3).map(m => ({ vf: "'Spline Sans Mono',monospace", ...m })), ...Array((4 - (mm.length - 3) % 4) % 4).fill({ k: '', v: '', sub: '', bg: C.card, hasWag: false, wag: [], cur: 'default', ul: 'none' })], flags, hasFlags: flags.length > 0, note: f.comment_de || f.comment, hasNote: !!(f.comment_de || f.comment), btns, hasBtns: btns.length > 0, sub, hasSub: sub.length > 0 };
