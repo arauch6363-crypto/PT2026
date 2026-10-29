@@ -257,12 +257,13 @@ input{color:inherit}
           </div>
           <div style="display:grid;gap:0;margin-top:10px;border-top:1px solid #DCD8CE">
             <sc-for list="{{ r.conn }}" as="cn" hint-placeholder-count="4">
-              <div style="display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #EEEBE4;font-size:12.5px">
+              <div onClick="{{ cn.pick }}" style="display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #EEEBE4;font-size:12.5px;cursor:{{ cn.cur }}">
                 <b style="color:#8C877C;font-size:11px">{{ cn.role }}</b>
                 <span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ cn.name }} <span style="color:#8C877C;font-size:11.5px">{{ cn.extra }}</span></span>
                 <span style="display:flex;gap:4px;align-items:center;font-family:'Spline Sans Mono',monospace;font-size:11.5px">
                   <span style="color:{{ cn.trendFg }}">{{ cn.trend }}</span>
                   <span style="border-radius:4px;padding:1px 5px;background:{{ cn.bg }};color:{{ cn.fg }};font-weight:600">{{ cn.ae }}</span>
+                  <span style="color:#8C877C;font-size:13px">{{ cn.more }}</span>
                 </span>
               </div>
             </sc-for>
@@ -391,9 +392,9 @@ input{color:inherit}
             <div style="display:grid;gap:10px">
               <sc-for list="{{ r.aeCards }}" as="ac" hint-placeholder-count="4">
                 <div style="border:1px solid #DCD8CE;border-radius:10px;background:#FFFDF9;overflow:hidden">
-                  <div style="display:flex;justify-content:space-between;gap:8px;padding:8px 12px;border-bottom:1px solid #DCD8CE;align-items:baseline">
+                  <div onClick="{{ ac.pick }}" style="display:flex;justify-content:space-between;gap:8px;padding:8px 12px;border-bottom:1px solid #DCD8CE;align-items:baseline;cursor:pointer">
                     <span style="font-size:13px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><b style="color:#8C877C;font-size:10px;letter-spacing:.07em;text-transform:uppercase;margin-right:6px">{{ ac.role }}</b><b>{{ ac.name }}</b></span>
-                    <span style="font-size:11px;font-weight:700;color:{{ ac.trendFg }};flex:none">{{ ac.trend }}</span>
+                    <span style="font-size:11px;font-weight:700;color:{{ ac.trendFg }};flex:none">{{ ac.trend }} <span style="color:#8C877C;font-weight:600">Matrix ›</span></span>
                   </div>
                   <div style="display:grid;grid-template-columns:44px repeat(5,minmax(0,1fr));gap:4px;padding:6px 12px 4px;font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#8C877C">
                     <span></span><span style="text-align:right">S-P/L</span><span style="text-align:right">A/E</span><span style="text-align:right">A/E S</span><span style="text-align:right">Pos+</span><span style="text-align:right">€/L+</span>
@@ -420,7 +421,7 @@ input{color:inherit}
                 <div style="display:flex;justify-content:space-between;gap:8px;font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#8C877C;margin-bottom:6px"><span>{{ pg.title }}</span><span style="letter-spacing:0;text-transform:none;font-weight:500">{{ pg.note }}</span></div>
                 <div style="display:grid;gap:4px">
                   <sc-for list="{{ pg.rows }}" as="pr" hint-placeholder-count="3">
-                    <div title="{{ pr.tip }}" style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) 40px 58px;gap:8px;align-items:center;font-size:12px;background:{{ pr.bg }};border-radius:6px;padding:5px 6px">
+                    <div onClick="{{ pr.pick }}" title="{{ pr.tip }}" style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) 40px 58px;gap:8px;align-items:center;font-size:12px;background:{{ pr.bg }};border-radius:6px;padding:5px 6px;cursor:{{ pr.cur }}">
                       <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:{{ pr.fw }}">{{ pr.l }}</span>
                       <span style="position:relative;height:8px;background:#EEEBE4;border-radius:4px">
                         <span style="position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:#8C877C"></span>
@@ -472,6 +473,7 @@ input{color:inherit}
                   </div>
                   <sc-if value="{{ ab.hasOpen }}" hint-placeholder-val="{{ false }}">
                     <div style="margin-top:8px;font-size:11px;color:#57534B;line-height:1.4">{{ ab.openInfo }}</div>
+                    <sc-if value="{{ ab.hasPv }}" hint-placeholder-val="{{ false }}"><button onClick="{{ ab.pv }}" style="margin-top:6px;height:30px;padding:0 10px;border-radius:999px;border:1px solid #DCD8CE;background:#FFFDF9;font-size:11.5px;font-weight:600;cursor:pointer">Alle Gruppen dieser Linie ›</button></sc-if>
                     <div style="display:grid;grid-template-columns:minmax(0,1.3fr) repeat(6,minmax(0,1fr));gap:3px;margin-top:6px;font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#8C877C">
                       <span></span><span style="text-align:right">L</span><span style="text-align:right">S</span><span style="text-align:right">P</span><span style="text-align:right">Wert</span><span style="text-align:right">A/E+</span><span style="text-align:right">€/L+</span>
                     </div>
@@ -611,6 +613,82 @@ input{color:inherit}
   </div>
 </sc-if>
 
+<sc-if value="{{ aemOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeAem }}" style="position:absolute;inset:0;z-index:40;background:rgba(22,21,18,.35)"></div>
+  <div style="position:absolute;left:0;right:0;bottom:0;z-index:41;background:#F6F4EF;border-radius:18px 18px 0 0;max-height:90%;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.15)">
+    <div style="padding:10px 16px 8px;border-bottom:1px solid #DCD8CE">
+      <div style="width:40px;height:4px;border-radius:2px;background:#CFCAC0;margin:0 auto 12px"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div style="min-width:0">
+          <div style="font-weight:800;font-stretch:70%;font-size:20px;text-transform:uppercase">{{ aem.title }}</div>
+          <div style="font-size:11.5px;color:#57534B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ aem.sub }}</div>
+        </div>
+        <button onClick="{{ closeAem }}" style="flex:none;width:34px;height:34px;border-radius:50%;border:1px solid #DCD8CE;background:#FFFDF9;cursor:pointer;font-size:16px">×</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+        <div style="display:flex;background:#E9E5DC;border-radius:8px;padding:2px">
+          <sc-for list="{{ aem.roles }}" as="ar" hint-placeholder-count="4">
+            <button onClick="{{ ar.pick }}" style="height:30px;padding:0 9px;border:0;border-radius:6px;background:{{ ar.bg }};font-size:12px;font-weight:700;cursor:pointer">{{ ar.label }}</button>
+          </sc-for>
+        </div>
+        <div style="display:flex;background:#E9E5DC;border-radius:8px;padding:2px">
+          <sc-for list="{{ aem.wins }}" as="aw" hint-placeholder-count="3">
+            <button onClick="{{ aw.pick }}" style="height:30px;padding:0 9px;border:0;border-radius:6px;background:{{ aw.bg }};font-size:12px;font-weight:700;cursor:pointer">{{ aw.label }}</button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    <div style="overflow-y:auto;padding:8px 16px 24px">
+      <div html="{{ aem.svg }}"></div>
+      <div style="display:grid;margin-top:6px;border-top:1px solid #DCD8CE">
+        <sc-for list="{{ aem.rows }}" as="am" hint-placeholder-count="8">
+          <div title="{{ am.tip }}" style="display:grid;grid-template-columns:auto minmax(0,1fr) 44px 40px 44px;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid #EEEBE4;font-size:12px;background:{{ am.bg }};opacity:{{ am.op }}">
+            <span style="display:flex;gap:3px">
+              <sc-for list="{{ am.nos }}" as="an" hint-placeholder-count="1"><b style="min-width:20px;height:20px;border-radius:4px;background:#161512;color:#F6F4EF;font-weight:800;font-stretch:70%;font-size:12px;display:grid;place-items:center;padding:0 3px">{{ an }}</b></sc-for>
+            </span>
+            <span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:{{ am.fw }}">{{ am.name }}</span>
+            <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;text-align:right;font-weight:600;color:{{ am.aeFg }}">{{ am.ae }}</span>
+            <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;text-align:right;color:{{ am.posFg }}">{{ am.pos }}</span>
+            <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;text-align:right;color:{{ am.eprFg }}">{{ am.epr }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <p style="margin:10px 0 0;font-size:11px;color:#8C877C;line-height:1.45;text-wrap:pretty">x = A/E+ (100 × A/E Platz, 100 = so oft platziert wie der Markt erwartet) · y = Pos+ (Ø Platzierung als Index, 100 = Schnitt) · Fläche = €/L+ · Farbe: Veränderung gegenüber der Vorperiode (A/E+ und Pos+ zusammen), grün besser, rot schlechter, grau kaum verändert · blass gestrichelt: unter 5 Läufen · Gold: das gewählte Pferd. Liste rechts: A/E+, Pos+, €/L+.</p>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ pvOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closePv }}" style="position:absolute;inset:0;z-index:40;background:rgba(22,21,18,.35)"></div>
+  <div style="position:absolute;left:0;right:0;bottom:0;z-index:41;background:#F6F4EF;border-radius:18px 18px 0 0;max-height:86%;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.15)">
+    <div style="padding:10px 16px 8px;border-bottom:1px solid #DCD8CE">
+      <div style="width:40px;height:4px;border-radius:2px;background:#CFCAC0;margin:0 auto 12px"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div style="min-width:0">
+          <div style="font-weight:800;font-stretch:70%;font-size:20px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pv.title }}</div>
+          <div style="font-size:11.5px;color:#57534B">{{ pv.sub }}</div>
+        </div>
+        <button onClick="{{ closePv }}" style="flex:none;width:34px;height:34px;border-radius:50%;border:1px solid #DCD8CE;background:#FFFDF9;cursor:pointer;font-size:16px">×</button>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 36px 82px 30px 48px;gap:6px;margin-top:10px;font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#8C877C">
+        <span>{{ pv.col }}</span><span style="text-align:right">Läufe</span><span style="text-align:right">S-L</span><span style="text-align:right">Pl.</span><span style="text-align:right">A/E</span>
+      </div>
+    </div>
+    <div style="overflow-y:auto;padding:0 16px 24px">
+      <sc-for list="{{ pv.rows }}" as="pz" hint-placeholder-count="10">
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 36px 82px 30px 48px;gap:6px;align-items:center;padding:6px 4px;border-bottom:1px solid #EEEBE4;font-size:12px;background:{{ pz.bg }};font-weight:{{ pz.fw }}">
+          <span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pz.lab }}</span>
+          <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;text-align:right">{{ pz.runs }}</span>
+          <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;text-align:right;color:#57534B;white-space:nowrap">{{ pz.sl }}</span>
+          <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;text-align:right">{{ pz.pl }}</span>
+          <span style="text-align:right"><span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:600;border-radius:4px;padding:1px 4px;background:{{ pz.aeBg }};color:{{ pz.aeFg }};outline:{{ pz.best }};outline-offset:-1px">{{ pz.ae }}</span></span>
+        </div>
+      </sc-for>
+      <p style="margin:10px 0 0;font-size:11px;color:#8C877C;line-height:1.45;text-wrap:pretty">{{ pv.leg }}</p>
+    </div>
+  </div>
+</sc-if>
+
 <sc-if value="{{ legendOpen }}" hint-placeholder-val="{{ false }}">
   <div onClick="{{ toggleLegend }}" style="position:absolute;inset:0;z-index:40;background:rgba(22,21,18,.35)"></div>
   <div style="position:absolute;left:0;right:0;bottom:0;z-index:41;background:#F6F4EF;border-radius:18px 18px 0 0;max-height:82%;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.15)">
@@ -679,10 +757,11 @@ function knotenHTML(n, scope, H){
     return s;
   }
   if (tag === "sc-if") return wert((NUR.exec(n.getAttribute("value")) || [])[1] || "", scope) ? kinderHTML(n, scope, H) : "";
-  let a = "";
+  let a = "", roh = null;                                   // html="{{ x }}": fertiges HTML (z. B. SVG) als Inhalt
   for (const at of n.attributes) {
     const name = at.name;
     if (name.startsWith("hint-")) continue;
+    if (name === "html") { roh = wert((NUR.exec(at.value) || [])[1] || "", scope) || ""; continue; }
     if (name.startsWith("on")) {
       const f = wert((NUR.exec(at.value) || [])[1] || "", scope);
       if (typeof f === "function") { H.push(f); a += ` data-h-${name === "onclick" ? "click" : "input"}="${H.length - 1}"`; }
@@ -694,7 +773,7 @@ function knotenHTML(n, scope, H){
     if (name === "title" && !v) continue;
     a += ` ${name}="${escH(v)}"`;
   }
-  return `<${tag}${a}>` + (VOID.has(tag) ? "" : kinderHTML(n, scope, H) + `</${tag}>`);
+  return `<${tag}${a}>` + (VOID.has(tag) ? "" : (roh ?? kinderHTML(n, scope, H)) + `</${tag}>`);
 }
 
 function abgleichen(alt, neu){
@@ -825,7 +904,8 @@ const LEGEND = [
   ['Letzte Läufe', 'Pos. vor Finish: Position 400 m vor dem Ziel (früh → 400 m). Pace-Ratio: Tempo früh ÷ Tempo Schluss × 100. Finish-Idx: Endspeed (letzte 400 m) ÷ Tempo davor × 100. ±800: Plätze gutgemacht ab 800 m (grün ab +3). Weg m: Meter mehr/weniger als der Median (≥ 7,5 m auffällig). K/D/B = wie heute. Val klein: heutige − damalige Valeur.'],
   ['Gegner', 'Pro Lauf: wie die Gegner von damals im nächsten Start abgeschnitten haben, welche heutigen Gegner mitliefen und indirekte Vergleiche über gemeinsame Gegner.'],
   ['A/E', 'Actual vs. Expected: tatsächliche ÷ erwartete Plätze (A/E S: Siege) für Trainer, Jockey, Besitzer, Züchter in 30 / 90 / 365 Tagen. Pos+ und €/L+ als Index, 100 = Schnitt. ▲/▼ = Trend.'],
-  ['Vorlieben', 'Trainer und Jockey (2 Jahre), Jockey auf dem Pferd und Pferd nach Boden, Distanz, Bahn, Scheuklappen, Trainer (gesamte Historie).'],
+  ['Vorlieben', 'Trainer und Jockey (2 Jahre), Jockey auf dem Pferd und Pferd nach Boden, Distanz, Bahn, Scheuklappen, Trainer (gesamte Historie). Zeile von Trainer/Jockey antippen: alle Gruppen dieser Person (z. B. alle Bahnen des Trainers), beste mit goldenem Rand. Bei der Abstammung über „Alle Gruppen dieser Linie“.'],
+  ['A/E-Matrix', 'Jockey, Trainer, Besitzer antippen (oder „Matrix ›“ im Reiter A/E): alle Personen dieser Rolle im heutigen Feld. x = A/E+ (100 × A/E Platz), y = Pos+, Fläche = €/L+, Farbe = Veränderung zur Vorperiode. Rolle und Zeitraum oben umschaltbar.'],
   ['Abstammung', 'Vater, Muttervater, Cross: Pferde, A/E, Pos+, €/L+, max Val+ (höchste Valeur der 3-jährigen Nachkommen als Index). Passung je Skala Distanz/Boden/Belag/Alter.'],
   ['€/L', 'Gewinn je Lauf; Farbe im Verhältnis zum Median des heutigen Feldes (grün ab 1,25 ×, rot bis 0,8 ×).'],
   ['Form', 'Letzte Platzierungen, links die jüngste. Schwarz = Sieg, grau = Platz 2–3, 0 = außerhalb der ersten 9.'],
@@ -833,10 +913,26 @@ const LEGEND = [
   ['Starter in drei Stufen', 'Antippen öffnet Kennzahlen und Verbindungen, „Details“ zeigt Läufe, A/E, Vorlieben, Abstammung, Duelle, Info. Kopfzeile erneut antippen schließt.'],
 ];
 
+const PV_TITEL = { trainer_jockey: ['Trainer', 'alle Jockeys', 'jt'], trainer_course: ['Trainer', 'alle Bahnen', 'jt'],
+  trainer_type: ['Trainer', 'alle Renntypen', 'jt'], trainer_age: ['Trainer', 'alle Altersgruppen', 'jt'],
+  jockey_course: ['Jockey', 'alle Bahnen', 'jt'], jockey_trainer: ['Jockey', 'alle Trainer', 'jt'], jockey_horse: ['Jockey', 'alle Pferde', 'ges'],
+  sire_dist: ['Vater', 'alle Distanzen', 'ges'], sire_going: ['Vater', 'alle Böden', 'ges'], sire_age: ['Vater', 'alle Altersgruppen', 'ges'],
+  dam_sire_dist: ['Muttervater', 'alle Distanzen', 'ges'], dam_sire_going: ['Muttervater', 'alle Böden', 'ges'], dam_sire_age: ['Muttervater', 'alle Altersgruppen', 'ges'] };
+// Beste Kategorie: höchstes A/E Platz, zum Gesamt-A/E hin geschrumpft ((Plätze + 5 × A/E) / (erwartet + 5)), ab 5 Läufen
+function bestKat(zeilen) {
+  const ok = (zeilen || []).filter(z => z[1] >= 5 && z[5] > 0);
+  const pl = ok.reduce((s, z) => s + z[3], 0), ex = ok.reduce((s, z) => s + z[5], 0);
+  if (ok.length < 2 || !ex) return null;
+  let best = null, bw = -1;
+  for (const z of ok) { const w = (z[3] + 5 * pl / ex) / (z[5] + 5); if (w > bw) { bw = w; best = z[0]; } }
+  return best;
+}
+const ROLLEN = { trainer: ['Trainer', 'trainer'], jockey: ['Jockey', 'jockey'], owner: ['Besitzer', 'owner'], breeder: ['Züchter', 'breeder'] };
+
 class Component extends DCLogic {
   props = { valueThreshold: 20, defaultSort: 'fair' };
   state = { idx: null, races: {}, meeting: null, raceId: null, sort: null, fair: 'mix', mid: {}, open: {}, tab: 'form', toolsTop: null, tabsTop: null,
-    runX: {}, duelX: {}, abstX: {}, kpi: null, pronoOpen: false, paceOpen: false, tipsOpen: false, bank: null, legendOpen: false, legendQ: '', narrow: false };
+    runX: {}, duelX: {}, abstX: {}, kpi: null, aem: null, pv: null, pronoOpen: false, paceOpen: false, tipsOpen: false, bank: null, legendOpen: false, legendQ: '', narrow: false };
   scrollRef = React.createRef();
   stripRef = React.createRef();
   headRef = React.createRef();
@@ -868,7 +964,7 @@ class Component extends DCLogic {
   loadRace(id) {}
   pickRace(id) {
     store.set('rc-race', id);
-    this.setState({ raceId: id, mid: {}, open: {}, kpi: null });
+    this.setState({ raceId: id, mid: {}, open: {}, kpi: null, aem: null, pv: null });
     this.loadRace(id);
     if (this.scrollRef.current) this.scrollRef.current.scrollTop = 0;
   }
@@ -909,6 +1005,72 @@ class Component extends DCLogic {
       toggle: [['arr', 'ARR'], ['tr', 'TR']].map(([k, label]) => ({ label, bg: K.k === k ? C.card : 'transparent', pick: () => this.setState({ kpi: { ...K, k } }) })) };
   }
 
+  // Vorlieben – alle Gruppen: alle Kategorien dieser Person/Linie (DATA.pref_alle[Tabelle][Person], nach Läufen,
+  // höchstens 30 + heutige), heutige hervorgehoben, beste Kategorie mit goldenem Rand
+  buildPv() {
+    const V = this.state.pv; if (!V) return null;
+    const [tab, person, heute] = V.ref, zeilen = DATA.pref_alle?.[tab]?.[person];
+    if (!zeilen) return null;
+    const [wer, was, zeit] = PV_TITEL[tab] || [tab, '', 'ges'], bestLab = bestKat(zeilen);
+    const n = zeilen.reduce((a, z) => a + z[1], 0);
+    return { title: wer + ' ' + tc(person), col: was.replace(/^alle /, ''),
+      sub: was + ' · ' + (zeit === 'jt' ? 'letzte ' + (DATA.params.pref_jt_years || 2) + ' Jahre' : 'gesamte Historie') + ' · heute ' + (heute || '–'),
+      rows: zeilen.map(([lab, runs, wins, places, ae, exp]) => { const tn = aeTone(ae, runs);
+        return { lab, runs, sl: wins + '-' + runs + ' (' + (runs ? Math.round(100 * wins / runs) : 0) + '%)', pl: places, ae: ae == null ? '–' : fx(ae, 2),
+          aeFg: tn.fg, aeBg: tn.bg, best: lab === bestLab ? '2px solid ' + C.gold : 'none',
+          bg: lab === heute ? C.goldBg : 'transparent', fw: lab === heute ? 700 : 400 }; }),
+      leg: 'A/E Platz wie in den Vorlieben (blass unter 5 Läufen) · goldener Rand = beste Kategorie: höchstes A/E, zum Gesamt-A/E hin geschrumpft, ab 5 Läufen · '
+        + n + ' Läufe in ' + zeilen.length + ' Zeilen' + (zeilen.length >= 30 ? ' (die 30 mit den meisten Läufen + heutige)' : '') + '.' };
+  }
+
+  // A/E-Matrix: alle Personen einer Rolle im heutigen Feld; x = A/E+ (100 × A/E Platz), y = Pos+, Fläche = €/L+,
+  // Farbe = Veränderung gegenüber der Vorperiode (A/E+ und Pos+ zusammen)
+  buildAem(rd, idx) {
+    const A = this.state.aem; if (!A) return null;
+    const [rName, feld] = ROLLEN[A.rolle], gruppen = new Map();
+    for (const x of rd.runners.filter(x => !x.nr || x.no === A.no)) {
+      const name = tc(x[feld] || ''); if (!name) continue;
+      const g = gruppen.get(name) || { name, nos: [], s: x.ae?.[A.rolle]?.['d' + A.t] };
+      g.nos.push(x.no); if (x.no === A.no) g.ist = true; gruppen.set(name, g);
+    }
+    const alle = [...gruppen.values()].sort((a, b) => a.nos[0] - b.nos[0]);
+    const mit = alle.filter(g => g.s && g.s.ae != null && g.s.pos_idx != null);
+    const W = Math.max(300, Math.min(608, (this.scrollRef.current?.clientWidth || 390) - 32)), H = Math.round(W * 0.78);
+    const pl = 32, pr = 10, pt = 12, pb = 26;
+    const xs = mit.map(g => 100 * g.s.ae).concat(mit.filter(g => g.s.prev?.ae != null).map(g => 100 * g.s.prev.ae), [100]);
+    const ys = mit.map(g => g.s.pos_idx).concat(mit.filter(g => g.s.prev?.pos_idx != null).map(g => g.s.prev.pos_idx), [100]);
+    const ber = (v, lo0, hi0) => { const lo = Math.max(lo0, Math.min(...v)), hi = Math.min(hi0, Math.max(...v)), p = Math.max(10, (hi - lo) * 0.12); return [Math.floor((lo - p) / 10) * 10, Math.ceil((hi + p) / 10) * 10]; };
+    const [x0, x1] = ber(xs, 0, 300), [y0, y1] = ber(ys, 0, 200);
+    const sx = v => pl + (Math.max(x0, Math.min(x1, v)) - x0) / (x1 - x0) * (W - pl - pr);
+    const sy = v => H - pb - (Math.max(y0, Math.min(y1, v)) - y0) / (y1 - y0) * (H - pt - pb);
+    const tick = (lo, hi) => { const st = (hi - lo) > 160 ? 50 : (hi - lo) > 80 ? 20 : 10, out = []; for (let v = Math.ceil(lo / st) * st; v <= hi; v += st) out.push(v); return out; };
+    const rad = g => g.s.epr_idx == null ? 8 : Math.max(6, Math.min(26, 10 * Math.sqrt(Math.max(g.s.epr_idx, 1) / 100)));
+    const wandel = s => s.prev?.ae != null && s.prev?.pos_idx != null ? 100 * (s.ae - s.prev.ae) + (s.pos_idx - s.prev.pos_idx) : null;
+    const fuell = s => { const d = wandel(s); if (d == null || Math.abs(d) < 5) return ['var(--k8C877C)', 0.35]; return [d > 0 ? 'var(--k2F8A55)' : 'var(--kB9533D)', 0.3 + 0.6 * Math.min(1, (Math.abs(d) - 5) / 40)]; };
+    const T = 'font-family:Spline Sans Mono,monospace;font-size:9.5px;fill:var(--k8C877C)';
+    let svg = tick(x0, x1).map(v => `<line x1="${sx(v)}" x2="${sx(v)}" y1="${pt}" y2="${H - pb}" stroke="var(--kEEEBE4)"/><text x="${sx(v)}" y="${H - pb + 13}" text-anchor="middle" style="${T}">${v}</text>`).join('')
+      + tick(y0, y1).map(v => `<line x1="${pl}" x2="${W - pr}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--kEEEBE4)"/><text x="${pl - 4}" y="${sy(v) + 3}" text-anchor="end" style="${T}">${v}</text>`).join('')
+      + `<line x1="${sx(100)}" x2="${sx(100)}" y1="${pt}" y2="${H - pb}" stroke="var(--k8C877C)" stroke-dasharray="4 3"/><line x1="${pl}" x2="${W - pr}" y1="${sy(100)}" y2="${sy(100)}" stroke="var(--k8C877C)" stroke-dasharray="4 3"/>`
+      + `<text x="${W - pr}" y="${H - 2}" text-anchor="end" style="${T}">A/E+ →</text><text x="${pl + 4}" y="${pt + 9}" style="${T}">↑ Pos+</text>`;
+    svg += [...mit].sort((a, b) => (a.ist ? 1 : 0) - (b.ist ? 1 : 0) || rad(b) - rad(a)).map(g => {
+      const s = g.s, cx = sx(100 * s.ae), cy = sy(s.pos_idx), rr = rad(g), wenig = s.runs < 5, [farbe, deck] = fuell(s);
+      const hof = g.ist ? `<line x1="${cx}" x2="${cx}" y1="${cy}" y2="${H - pb}" stroke="var(--kD9A43A)" stroke-width="1.5" stroke-dasharray="3 3"/><line x1="${pl}" x2="${cx}" y1="${cy}" y2="${cy}" stroke="var(--kD9A43A)" stroke-width="1.5" stroke-dasharray="3 3"/><circle cx="${cx}" cy="${cy}" r="${rr + 6}" fill="var(--kD9A43A)" fill-opacity=".28" stroke="var(--kD9A43A)" stroke-width="2.5"/>` : '';
+      return `<g opacity="${wenig ? (g.ist ? 0.7 : 0.45) : 1}">${hof}<circle cx="${cx}" cy="${cy}" r="${rr}" fill="${farbe}" fill-opacity="${deck}" stroke="${g.ist ? 'var(--k161512)' : 'var(--k57534B)'}" stroke-width="${g.ist ? 2 : 1}"${wenig ? ' stroke-dasharray="3 2"' : ''}/>`
+        + `<text x="${cx}" y="${cy + 3.5}" text-anchor="middle" style="font-family:Archivo,sans-serif;font-weight:800;font-size:11px;fill:var(--k161512)">${escH(g.nos.join('·'))}</text></g>`;
+    }).join('');
+    const sel = alle.find(g => g.ist), w = idx.params.ae_windows || [30, 90, 365];
+    return { title: rName + ' · A/E-Matrix',
+      sub: (sel ? sel.name + ' (Nr. ' + sel.nos.join(', ') + ') · ' : '') + mit.length + ' im Feld mit Läufen in ' + A.t + ' Tagen',
+      svg: `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="A/E-Matrix ${rName}" style="display:block;max-width:100%">${svg}</svg>`,
+      roles: Object.entries(ROLLEN).map(([k, [label]]) => ({ label, bg: k === A.rolle ? C.card : 'transparent', pick: () => this.setState({ aem: { ...A, rolle: k } }) })),
+      wins: w.map(t => ({ label: t + ' T', bg: String(t) === A.t ? C.card : 'transparent', pick: () => this.setState({ aem: { ...A, t: String(t) } }) })),
+      rows: alle.map(g => { const s = g.s || {}, ok = mit.includes(g), d = ok ? wandel(s) : null;
+        return { nos: g.nos, name: g.name, fw: g.ist ? 700 : 400, bg: g.ist ? C.goldBg : 'transparent', op: ok ? 1 : 0.5,
+          ae: ok ? Math.round(100 * s.ae) : '–', aeFg: ok ? aeTone(s.ae, s.runs).fg : C.ink3, pos: s.pos_idx ?? '–', posFg: idxTone(s.pos_idx), epr: s.epr_idx ?? '–', eprFg: idxTone(s.epr_idx),
+          tip: ok ? A.t + ' Tage: ' + rec(s) + ' · A/E Platz ' + fx(s.ae, 2) + ' · Pos+ ' + s.pos_idx + ' · €/L+ ' + (s.epr_idx ?? '–') + (s.runs < 5 ? ' · nur ' + s.runs + ' Läufe' : '')
+            + (d == null ? ' · Vorperiode: keine Läufe' : ' · Vorperiode A/E+ ' + Math.round(100 * s.prev.ae) + ', Pos+ ' + s.prev.pos_idx + ' → zusammen ' + sgn(d, 0)) : 'Keine Läufe mit Quote in ' + A.t + ' Tagen' }; }) };
+  }
+
   renderVals() {
     const s = this.state, idx = s.idx, P = this.props;
     const thr = (P.valueThreshold ?? 20) / 100;
@@ -925,6 +1087,7 @@ class Component extends DCLogic {
       toggleLegend: () => this.setState(x => ({ legendOpen: !x.legendOpen })), legendOpen: s.legendOpen, legendQ: s.legendQ,
       onLegendQ: e => this.setState({ legendQ: e.target.value }), legend, legendEmpty: !legend.length,
       ticks: tickVals.map(v => ({ pos: pos(v), label: v })), tickPos: tickVals.map(pos), kpiOpen: false, closeKpi: () => this.setState({ kpi: null }),
+      aemOpen: false, closeAem: () => this.setState({ aem: null }), pvOpen: false, closePv: () => this.setState({ pv: null }),
     };
     if (!idx) return { ...base, dateLabel: s.leer ? 'Race Card' : '', tips: { chips: [], rows: [] }, loading: true, ready: false, meetings: [], raceChips: [], runners: [], sorts: [], tabs: [] };
     const race = idx.races[s.raceId], rd = s.races[s.raceId], prm = idx.params;
@@ -1010,7 +1173,8 @@ class Component extends DCLogic {
 
     const runners = rows.map(R => this.runnerVals(R, { thr, prm, idx, rd, race, medEpr, byNo, nField: field.length, pools, tipR: idx.tipp_regel, bank: s.bank || 500 }));
     const kpi = this.buildKpi(rd, idx);
-    return { ...common, runnersLoading: false, runners, kpiOpen: !!kpi, kpi: kpi || {} };
+    const aem = this.buildAem(rd, idx), pv = this.buildPv();
+    return { ...common, runnersLoading: false, runners, kpiOpen: !!kpi, kpi: kpi || {}, aemOpen: !!aem, aem: aem || {}, pvOpen: !!pv, pv: pv || {} };
   }
 
   runnerVals({ x, pw, win, fair, cote, coteFair, mkt, ratio, rank }, ctx) {
@@ -1069,10 +1233,12 @@ class Component extends DCLogic {
     const K = x.career?.all || {};
     const relFg = r => r == null ? C.ink : r >= 1.25 ? C.good : r <= 0.8 ? C.bad : C.ink;
     const trendOf = a => a?.trend === 'hot' ? { t: '▲', fg: C.good } : a?.trend === 'cold' ? { t: '▼', fg: C.bad } : { t: '', fg: C.ink3 };
-    const conn = [['J', x.jockey, x.ae?.jockey], ['T', x.trainer, x.ae?.trainer], ['B', x.owner, x.ae?.owner]].map(([role, name, a]) => {
+    const aemPick = rolle => e => { e.stopPropagation(); this.setState({ aem: { rolle, no, t: String((prm.ae_windows || [30, 90, 365]).slice(-1)[0]) } }); };
+    const conn = [['J', x.jockey, x.ae?.jockey, 'jockey'], ['T', x.trainer, x.ae?.trainer, 'trainer'], ['B', x.owner, x.ae?.owner, 'owner']].map(([role, name, a, rolle]) => {
       const o = a?.d365, tn = aeTone(o?.ae, o?.runs), tr = trendOf(a);
-      return { role, name: tc(name) || '–', extra: '', ae: o?.ae == null ? '–' : fx(o.ae, 2), fg: tn.fg, bg: tn.bg, trend: tr.t, trendFg: tr.fg }; });
-    conn.push({ role: 'v.', name: tc(x.sire) + ' – ' + tc(x.dam), extra: x.dam_sire ? '(v. ' + tc(x.dam_sire) + ')' : '', ae: '', fg: C.ink, bg: 'transparent', trend: '', trendFg: C.ink3 });
+      return { role, name: tc(name) || '–', extra: '', ae: o?.ae == null ? '–' : fx(o.ae, 2), fg: tn.fg, bg: tn.bg, trend: tr.t, trendFg: tr.fg,
+        pick: a ? aemPick(rolle) : undefined, cur: a ? 'pointer' : 'default', more: a ? '›' : '' }; });
+    conn.push({ role: 'v.', name: tc(x.sire) + ' – ' + tc(x.dam), extra: x.dam_sire ? '(v. ' + tc(x.dam_sire) + ')' : '', ae: '', fg: C.ink, bg: 'transparent', trend: '', trendFg: C.ink3, cur: 'default', more: '' });
     const S = x.summary || {}, M = x.hcp_mark;
     const rk = (r, n) => r ? '#' + r + '/' + n : '';
     const ds = x.draw_stat;
@@ -1209,9 +1375,9 @@ class Component extends DCLogic {
 
     // ---- A/E
     const w = prm.ae_windows || [30, 90, 365];
-    const aeCards = [['Trainer', x.trainer, x.ae?.trainer], ['Jockey', x.jockey, x.ae?.jockey], ['Besitzer', x.owner, x.ae?.owner], ['Züchter', x.breeder, x.ae?.breeder]].filter(r => r[2]).map(([role, name, a]) => {
+    const aeCards = [['Trainer', x.trainer, x.ae?.trainer, 'trainer'], ['Jockey', x.jockey, x.ae?.jockey, 'jockey'], ['Besitzer', x.owner, x.ae?.owner, 'owner'], ['Züchter', x.breeder, x.ae?.breeder, 'breeder']].filter(r => r[2]).map(([role, name, a, rolle]) => {
       const tr = trendOf(a);
-      return { role, name: tc(name) || '–', trend: tr.t ? (tr.t === '▲' ? '▲ heiß' : '▼ kalt') : '', trendFg: tr.fg,
+      return { role, name: tc(name) || '–', trend: tr.t ? (tr.t === '▲' ? '▲ heiß' : '▼ kalt') : '', trendFg: tr.fg, pick: aemPick(rolle),
         rows: w.map(t => { const o = a['d' + t] || {}, tn = aeTone(o.ae, o.runs), dlt = o.prev?.ae != null && o.ae != null ? o.ae - o.prev.ae : null;
           return { w: t + ' T', rec: rec(o), ae: o.ae == null ? '–' : fx(o.ae, 2) + (dlt != null && Math.abs(dlt) >= (prm.trend_diff || 0.25) ? (dlt > 0 ? '↑' : '↓') : ''), aeFg: tn.fg, aeBg: tn.bg,
             aew: o.ae_win == null ? '–' : fx(o.ae_win, 2), aswFg: aeTone(o.ae_win, o.runs).fg, pos: o.pos_idx ?? '–', posFg: idxTone(o.pos_idx), epr: o.epr_idx ?? '–', eprFg: idxTone(o.epr_idx) }; }) };
@@ -1219,15 +1385,17 @@ class Component extends DCLogic {
 
     // ---- Vorlieben
     const PF = x.pref || {}, yrs = prm.pref_jt_years || 2;
-    const prow = (l, o, today) => { if (!o) return null; const v = Math.max(0, Math.min(2, o.ae ?? 1)), bw = Math.abs(v - 1) * 50, tn = aeTone(o.ae, o.runs), d = o.dev;
+    const PR = x.pref_ref || {};
+    const pvPick = ref => ref && DATA.pref_alle?.[ref[0]]?.[ref[1]] ? () => this.setState({ pv: { ref, no } }) : undefined;
+    const prow = (l, o, today, ref) => { if (!o) return null; const v = Math.max(0, Math.min(2, o.ae ?? 1)), bw = Math.abs(v - 1) * 50, tn = aeTone(o.ae, o.runs), d = o.dev;
       return { l: l + (d?.sig ? ' ✱' : ''), rec: rec(o), ae: o.ae == null ? '–' : fx(o.ae, 2), aeFg: tn.fg, bl: v >= 1 ? 50 : 50 - bw, bw, c: v >= 1 ? C.good : C.bad, bop: (o.runs ?? 0) < 5 ? .35 : 1,
-        bg: today ? C.goldBg : 'transparent', fw: today ? 700 : 400,
-        tip: (o.exp != null ? 'erwartet ' + fx(o.exp, 1) + ' Plätze' : '') + (d ? ' · eigener Schnitt ' + fx(d.base, 2) + ', Verhältnis ' + fx(d.ratio, 2) + ', z ' + fx(d.z, 1) : '') + (o.epr != null ? ' · ' + eur(o.epr) + '/L' : '') }; };
+        bg: today ? C.goldBg : 'transparent', fw: today ? 700 : 400, pick: pvPick(ref), cur: pvPick(ref) ? 'pointer' : 'default',
+        tip: (pvPick(ref) ? 'Antippen: alle Gruppen · ' : '') + (o.exp != null ? 'erwartet ' + fx(o.exp, 1) + ' Plätze' : '') + (d ? ' · eigener Schnitt ' + fx(d.base, 2) + ', Verhältnis ' + fx(d.ratio, 2) + ', z ' + fx(d.z, 1) : '') + (o.epr != null ? ' · ' + eur(o.epr) + '/L' : '') }; };
     const arr = (list, emptyTxt, title) => { const rr = (list || []).map(o => prow(o.label, o, o.today)).filter(Boolean); return { title, note: '', rows: rr, empty: !rr.length, emptyTxt }; };
     const T = PF.trainer || {}, J = PF.jockey || {};
     const prefGroups = [
-      { title: 'Trainer · ' + (tc(x.trainer) || '–'), note: yrs + ' Jahre', rows: [prow('mit ' + tc(x.jockey), T.jockey, true), prow('in ' + tc(rd.course), T.course, true), prow('Typ ' + (rd.type || '–'), T.racetype, true), prow('Alter ' + (T.age_label || '–'), T.age, true)].filter(Boolean) },
-      { title: 'Jockey · ' + (tc(x.jockey) || '–'), note: yrs + ' Jahre', rows: [prow('in ' + tc(rd.course), J.course, true), prow('für ' + tc(x.trainer), J.trainer, true), prow('auf ' + tc(x.horse), J.horse, true)].filter(Boolean) },
+      { title: 'Trainer · ' + (tc(x.trainer) || '–'), note: yrs + ' Jahre', rows: [prow('mit ' + tc(x.jockey), T.jockey, true, PR.trainer?.jockey), prow('in ' + tc(rd.course), T.course, true, PR.trainer?.course), prow('Typ ' + (rd.type || '–'), T.racetype, true, PR.trainer?.racetype), prow('Alter ' + (T.age_label || '–'), T.age, true, PR.trainer?.age)].filter(Boolean) },
+      { title: 'Jockey · ' + (tc(x.jockey) || '–'), note: yrs + ' Jahre', rows: [prow('in ' + tc(rd.course), J.course, true, PR.jockey?.course), prow('für ' + tc(x.trainer), J.trainer, true, PR.jockey?.trainer), prow('auf ' + tc(x.horse), J.horse, true, PR.jockey?.horse)].filter(Boolean) },
       arr(PF.horse?.going, 'Keine Daten.', 'Pferd nach Boden'),
       arr(PF.horse?.distance, 'Keine Daten.', 'Pferd nach Distanz'),
       arr(PF.horse?.course, 'Noch nicht auf ' + tc(rd.course) + ' gelaufen.', 'Pferd auf dieser Bahn'),
@@ -1258,7 +1426,9 @@ class Component extends DCLogic {
         openInfo = ABST_DIM.find(a => a[0] === ok)[1] + ': Perzentil ' + (D.perzentil ?? '–') + ' unter ' + D.vergleich + ' Linien · heute ' + (D.heute || '–') + (D.lage != null ? ' (Lage P' + Math.round(D.lage) + ')' : '') + (D.sicher ? '' : ' · wenig Läufe, zählt nicht');
         rows = D.zeilen.map(([k, rn, wi, pl, wv, ae, ps, ep]) => ({ k: k + (erkl[k] ? ' ' : ''), runs: rn, w: wi, p: pl, wert: wv ?? '–', wFg: idxTone(wv), ae: ae ?? '–', aeFg: idxTone(ae), epr: ep ?? '–', eFg: idxTone(ep),
           bg: k === D.heute ? C.goldBg : 'transparent', fw: k === D.heute ? 700 : 400 })); }
-      return { role, name: tc(name) + (L ? ' · ' + L.runs + ' L' : ''), wert: V.wert != null ? sgn(V.wert, 0) : '–', fg: pTone(V.wert), dims, hasOpen: rows.length > 0, rows, openInfo };
+      const pvRef = ok && (PR[r] || {})[{ dist: 'distance', boden: 'going', reife: 'age' }[ok]];
+      return { role, name: tc(name) + (L ? ' · ' + L.runs + ' L' : ''), wert: V.wert != null ? sgn(V.wert, 0) : '–', fg: pTone(V.wert), dims, hasOpen: rows.length > 0, rows, openInfo,
+        hasPv: !!pvPick(pvRef), pv: pvPick(pvRef) };
     });
 
     // ---- Duelle
