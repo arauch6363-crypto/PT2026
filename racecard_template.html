@@ -1448,7 +1448,7 @@ class Component extends DCLogic {
         pos: posTxt, ran: f.ran ?? '–', margin: f.pos ? lengths(f.margin) : f.lb_min != null ? '≥ ' + lengths(f.lb_min) : '',
         ...(MEDAILLE[f.pos] || { posBg: C.card, posFg: C.ink, posBd: C.line }),
         course: tc(f.course), date: dt(f.date), cond,
-        line3: tc(f.jockey) + ' · ' + kurz(f.weight) + ' kg · Box ' + (f.draw ?? '–') + ' · Q ' + (f.odds != null ? fx(f.odds, 1) : '–') + (f.fav ? ' F' : '') + (f.odds_rank ? ' (' + f.odds_rank + '.)' : ''),
+        line3: tc(f.jockey) + ' · ' + kurz(f.weight) + ' kg · Box ' + (f.draw ?? '–') + ' · Q ' + (f.odds != null ? fx(f.odds, 1) : '–') + (f.fav ? ' F' : ''),
         mR: mm.slice(0, 3), mT: [...mm.slice(3).map(m => ({ vf: "'Spline Sans Mono',monospace", ...m })), ...Array((4 - (mm.length - 3) % 4) % 4).fill({ k: '', v: '', sub: '', bg: C.card, hasWag: false, wag: [], cur: 'default', ul: 'none' })], flags, hasFlags: flags.length > 0, note: f.comment_de || f.comment, hasNote: !!(f.comment_de || f.comment), btns, hasBtns: btns.length > 0, sub, hasSub: sub.length > 0 };
     });
 
