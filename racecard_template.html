@@ -50,8 +50,8 @@ input{color:inherit}
 <div id="app"></div>
 <template id="tpl">
 <div style="min-height:100vh;display:flex;justify-content:center;align-items:flex-start;padding:{{ deskPad }}">
-<div style="width:{{ shellW }};height:{{ shellH }};border-radius:{{ shellR }};border:{{ shellBorder }};background:#F6F4EF;overflow:hidden;position:relative;box-shadow:0 30px 60px -20px rgba(40,30,10,.35)">
-<div ref="{{ scrollRef }}" style="height:100%;overflow-y:auto;overflow-x:hidden;position:relative;scrollbar-width:none">
+<div style="width:{{ shellW }};min-height:100vh;border-radius:{{ shellR }};border:{{ shellBorder }};border-width:0 {{ sideBorder }};background:#F6F4EF;overflow-x:clip;position:relative">
+<div ref="{{ scrollRef }}" style="position:relative">
 
 <header ref="{{ headRef }}" style="position:sticky;top:0;z-index:20;background:#F6F4EF;border-bottom:1px solid #DCD8CE">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:{{ topPad }} 16px 8px">
@@ -589,8 +589,8 @@ input{color:inherit}
 </div>
 
 <sc-if value="{{ kpiOpen }}" hint-placeholder-val="{{ false }}">
-  <div onClick="{{ closeKpi }}" style="position:absolute;inset:0;z-index:40;background:rgba(22,21,18,.35)"></div>
-  <div style="position:absolute;left:0;right:0;bottom:0;z-index:41;background:#F6F4EF;border-radius:18px 18px 0 0;max-height:86%;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.15)">
+  <div onClick="{{ closeKpi }}" style="position:fixed;inset:0;z-index:40;background:rgba(22,21,18,.35)"></div>
+  <div style="position:fixed;left:max(0px, calc(50% - 320px));right:max(0px, calc(50% - 320px));bottom:0;z-index:41;background:#F6F4EF;border-radius:18px 18px 0 0;max-height:86%;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.15)">
     <div style="padding:10px 16px 8px;border-bottom:1px solid #DCD8CE">
       <div style="width:40px;height:4px;border-radius:2px;background:#CFCAC0;margin:0 auto 12px"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
@@ -637,8 +637,8 @@ input{color:inherit}
 </sc-if>
 
 <sc-if value="{{ aemOpen }}" hint-placeholder-val="{{ false }}">
-  <div onClick="{{ closeAem }}" style="position:absolute;inset:0;z-index:40;background:rgba(22,21,18,.35)"></div>
-  <div style="position:absolute;left:0;right:0;bottom:0;z-index:41;background:#F6F4EF;border-radius:18px 18px 0 0;max-height:90%;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.15)">
+  <div onClick="{{ closeAem }}" style="position:fixed;inset:0;z-index:40;background:rgba(22,21,18,.35)"></div>
+  <div style="position:fixed;left:max(0px, calc(50% - 320px));right:max(0px, calc(50% - 320px));bottom:0;z-index:41;background:#F6F4EF;border-radius:18px 18px 0 0;max-height:90%;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.15)">
     <div style="padding:10px 16px 8px;border-bottom:1px solid #DCD8CE">
       <div style="width:40px;height:4px;border-radius:2px;background:#CFCAC0;margin:0 auto 12px"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
@@ -682,8 +682,8 @@ input{color:inherit}
 </sc-if>
 
 <sc-if value="{{ pvOpen }}" hint-placeholder-val="{{ false }}">
-  <div onClick="{{ closePv }}" style="position:absolute;inset:0;z-index:40;background:rgba(22,21,18,.35)"></div>
-  <div style="position:absolute;left:0;right:0;bottom:0;z-index:41;background:#F6F4EF;border-radius:18px 18px 0 0;max-height:86%;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.15)">
+  <div onClick="{{ closePv }}" style="position:fixed;inset:0;z-index:40;background:rgba(22,21,18,.35)"></div>
+  <div style="position:fixed;left:max(0px, calc(50% - 320px));right:max(0px, calc(50% - 320px));bottom:0;z-index:41;background:#F6F4EF;border-radius:18px 18px 0 0;max-height:86%;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.15)">
     <div style="padding:10px 16px 8px;border-bottom:1px solid #DCD8CE">
       <div style="width:40px;height:4px;border-radius:2px;background:#CFCAC0;margin:0 auto 12px"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
@@ -713,8 +713,8 @@ input{color:inherit}
 </sc-if>
 
 <sc-if value="{{ legendOpen }}" hint-placeholder-val="{{ false }}">
-  <div onClick="{{ toggleLegend }}" style="position:absolute;inset:0;z-index:40;background:rgba(22,21,18,.35)"></div>
-  <div style="position:absolute;left:0;right:0;bottom:0;z-index:41;background:#F6F4EF;border-radius:18px 18px 0 0;max-height:82%;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.15)">
+  <div onClick="{{ toggleLegend }}" style="position:fixed;inset:0;z-index:40;background:rgba(22,21,18,.35)"></div>
+  <div style="position:fixed;left:max(0px, calc(50% - 320px));right:max(0px, calc(50% - 320px));bottom:0;z-index:41;background:#F6F4EF;border-radius:18px 18px 0 0;max-height:82%;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.15)">
     <div style="padding:10px 16px 0">
       <div style="width:40px;height:4px;border-radius:2px;background:#CFCAC0;margin:0 auto 12px"></div>
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -966,8 +966,8 @@ class Component extends DCLogic {
   componentDidMount() {
     this.onResize = () => this.setState({ narrow: window.innerWidth < 520 });
     this.onResize(); window.addEventListener('resize', this.onResize);
-    let raf = 0; const S = this.scrollRef.current;
-    if (S) S.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; this.leisten(); }); }, { passive: true });
+    let raf = 0;
+    window.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; this.leisten(); }); }, { passive: true });
     if (!DATA || !DATA.meetings || !DATA.meetings.length) { this.setState({ leer: true }); return; }
     const { idx, races } = karteIndex(DATA);
     const saved = store.get('rc-race'), sort = store.get('rc-sort');
@@ -980,7 +980,7 @@ class Component extends DCLogic {
   // Rennleiste und Kopfleiste des aufgeklappten Starters einblenden, sobald ihr Original nach oben weggescrollt ist
   leisten() {
     const S = this.scrollRef.current, H = this.headRef.current; if (!S || !H) return;
-    const top0 = S.getBoundingClientRect().top + H.offsetHeight, lim = top0 + RACE_H;
+    const top0 = H.offsetHeight, lim = top0 + RACE_H;
     const sec = S.querySelector('section'), rb = S.querySelector('[data-sticky=race]');
     if (rb) rb.style.visibility = sec && sec.getBoundingClientRect().bottom < top0 + 2 ? 'visible' : 'hidden';
     for (const k of S.querySelectorAll('[data-kopf]')) {
@@ -1001,7 +1001,7 @@ class Component extends DCLogic {
     if (this._zu != null) {
       const S = this.scrollRef.current, H = this.headRef.current, a = S && S.querySelector('article[data-no="' + this._zu + '"]');
       this._zu = null;
-      if (a && H) S.scrollTop += a.getBoundingClientRect().top - (S.getBoundingClientRect().top + H.offsetHeight + RACE_H);
+      if (a && H) window.scrollBy(0, a.getBoundingClientRect().top - (H.offsetHeight + RACE_H));
     }
     this.leisten();
     if (this._lastRace !== this.state.raceId && this.stripRef.current) {
@@ -1015,7 +1015,7 @@ class Component extends DCLogic {
     store.set('rc-race', id);
     this.setState({ raceId: id, mid: {}, open: {}, kpi: null, aem: null, pv: null });
     this.loadRace(id);
-    if (this.scrollRef.current) this.scrollRef.current.scrollTop = 0;
+    window.scrollTo(0, 0);
   }
   cycle(no) {
     this.setState(s => {
@@ -1084,7 +1084,7 @@ class Component extends DCLogic {
     }
     const alle = [...gruppen.values()].sort((a, b) => a.nos[0] - b.nos[0]);
     const mit = alle.filter(g => g.s && g.s.ae != null && g.s.pos_idx != null);
-    const W = Math.max(300, Math.min(608, (this.scrollRef.current?.clientWidth || 390) - 32)), H = Math.round(W * 0.78);
+    const W = Math.max(300, Math.min(608, Math.min(window.innerWidth, 640) - 32)), H = Math.round(W * 0.78);
     const pl = 32, pr = 10, pt = 12, pb = 26;
     const xs = mit.map(g => 100 * g.s.ae).concat(mit.filter(g => g.s.prev?.ae != null).map(g => 100 * g.s.prev.ae), [100]);
     const ys = mit.map(g => g.s.pos_idx).concat(mit.filter(g => g.s.prev?.pos_idx != null).map(g => g.s.prev.pos_idx), [100]);
@@ -1129,7 +1129,7 @@ class Component extends DCLogic {
     const q = s.legendQ.trim().toLowerCase();
     const legend = LEGEND.filter(([t, d]) => !q || (t + ' ' + d).toLowerCase().includes(q)).map(([t, d]) => ({ t, d }));
     const base = {
-      deskPad: '0', shellW: narrow ? '100vw' : 'min(100vw, 640px)', shellH: '100dvh',
+      deskPad: '0', shellW: narrow ? '100%' : 'min(100%, 640px)', sideBorder: narrow ? '0' : '1px',
       shellR: '0', shellBorder: narrow ? '0' : '1px solid #DCD8CE', topPad: '12px',
       toolsTop: s.toolsTop ?? 150, raceBarH: RACE_H, kopfH: KOPF_H, kopfTop: (s.toolsTop ?? 150) + RACE_H, tabsTop: (s.toolsTop ?? 150) + RACE_H + KOPF_H, scrollRef: this.scrollRef, stripRef: this.stripRef,
       headRef: this.headRef, toolsRef: this.toolsRef, emptyTxt: s.leer ? 'Keine Rennen in den Daten.' : 'Lade Rennkarte …',
