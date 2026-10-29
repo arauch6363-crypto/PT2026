@@ -378,7 +378,7 @@ input{color:inherit}
                       <sc-for list="{{ x.mT }}" as="mm" hint-placeholder-count="8">
                         <div onClick="{{ mm.tap }}" title="{{ mm.tip }}" style="background:{{ mm.bg }};padding:4px 6px;min-width:0;cursor:{{ mm.cur }}">
                           <div style="font-size:8.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#8C877C;white-space:nowrap">{{ mm.k }}</div>
-                          <div style="font-family:'Spline Sans Mono',monospace;font-size:12px;font-weight:600;color:{{ mm.fg }};white-space:nowrap;text-decoration:{{ mm.ul }};text-underline-offset:3px;text-decoration-color:#CFCAC0">{{ mm.v }}</div>
+                          <div style="font-family:{{ mm.vf }};font-size:12px;font-weight:600;color:{{ mm.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:{{ mm.ul }};text-underline-offset:3px;text-decoration-color:#CFCAC0">{{ mm.v }}</div>
                           <div style="font-family:'Spline Sans Mono',monospace;font-size:9.5px;color:{{ mm.subFg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mm.sub }}</div>
                           <sc-if value="{{ mm.hasWag }}" hint-placeholder-val="{{ false }}">
                             <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px;margin-top:4px">
@@ -940,7 +940,7 @@ const LEGEND = [
   ['Duell', 'Direkte und indirekte Vergleiche mit heutigen Gegnern (180 Tage, ±200 m, Boden max. eine Stufe). Erwartung in Längen: Abstand damals ± Gewichtsverschiebung (1 kg ≈ 1 Länge).'],
   ['Box', 'Startbox; aufgeklappt daneben die Abweichung der Box-Statistik dieser Bahn/Distanz (✱ = signifikant) und die Tage seit dem letzten Lauf (rot über 60).'],
   ['CGD', 'Bilanz vor dem Lauf auf Kurs (C), Bodengruppe (G), Distanzgruppe (D): Großbuchstabe = gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals.'],
-  ['Letzte Läufe', 'Oben groß die Ratings Val, ARR, TR; darunter das Tracking. Pos. vor Finish: Position 400 m vor dem Ziel (früh → 400 m). Pace-Ratio: Tempo früh ÷ Tempo Schluss × 100. Finish-Idx: Endspeed (letzte 400 m) ÷ Tempo davor × 100. ±800 · Weg: groß Plätze gutgemacht ab 800 m (grün ab +3), klein Meter mehr/weniger als der Median (≥ 7,5 m auffällig). K/D/B = wie heute. Val klein: heutige − damalige Valeur.'],
+  ['Letzte Läufe', 'Oben groß die Ratings Val, ARR, TR; darunter das Tracking. Pos. vor Finish: Position 400 m vor dem Ziel (früh → 400 m). Pace-Ratio: Tempo früh ÷ Tempo Schluss × 100, als Kategorie very slow … very fast. Finish-Idx: Endspeed (letzte 400 m) ÷ Tempo davor × 100, als Kategorie very weak … very strong. Beide gemessen am Schnitt aller Läufe der heutigen Starter (normal = ±0,5 SD, very = ab 1,5 SD); klein die Zahl und der Abstand zum Schnitt. ⚑ bei ±800/Weg = auffälliger Wert. ±800 · Weg: groß Plätze gutgemacht ab 800 m (grün ab +3), klein Meter mehr/weniger als der Median (≥ 7,5 m auffällig). K/D/B = wie heute. Val klein: heutige − damalige Valeur.'],
   ['Gegner', 'Pro Lauf: wie die Gegner von damals im nächsten Start abgeschnitten haben, welche heutigen Gegner mitliefen und indirekte Vergleiche über gemeinsame Gegner.'],
   ['A/E', 'Actual vs. Expected: tatsächliche ÷ erwartete Plätze (A/E S: Siege) für Trainer, Jockey, Besitzer, Züchter in 30 / 90 / 365 Tagen. Pos+ und €/L+ als Index, 100 = Schnitt. ▲/▼ = Trend.'],
   ['Vorlieben', 'Trainer und Jockey (2 Jahre), Jockey auf dem Pferd und Pferd nach Boden, Distanz, Bahn, Scheuklappen, Trainer (gesamte Historie). Zeile von Trainer/Jockey antippen: alle Gruppen dieser Person (z. B. alle Bahnen des Trainers), beste mit goldenem Rand. Bei der Abstammung über „Alle Gruppen dieser Linie“.'],
@@ -1376,18 +1376,21 @@ class Component extends DCLogic {
           const st = vd <= -3 ? ['#2F8A55', '#FFFFFF'] : vd <= -1.5 ? ['#BFE0C9', C.ink] : vd < 0 ? ['#E2F1E6', C.ink] : vd === 0 ? null : vd < 1.5 ? ['#F6E3DC', C.ink] : vd < 3 ? ['#EDC3B5', C.ink] : ['#B9533D', '#FFFFFF'];
           return { ...o, bg: st ? st[0] : C.card, fg: st ? st[1] : C.ink, subFg: st ? (st[1] !== C.ink ? st[1] : (vd < 0 ? C.good : C.bad)) : C.ink3, cur: 'default', ul: 'none' };
         }
-        if (o.k === '±800 · Weg' && f.pos_gain != null) {
-          const g = f.pos_gain;
-          const st = g >= 5 ? ['#2F8A55', '#FFFFFF'] : g >= 3 ? ['#BFE0C9', C.ink] : g >= 1 ? ['#E2F1E6', C.ink] : g === 0 ? null : g > -3 ? ['#F6E3DC', C.ink] : g > -5 ? ['#EDC3B5', C.ink] : ['#B9533D', '#FFFFFF'];
-          return { ...o, bg: st ? st[0] : C.card, fg: st ? st[1] : C.ink, subFg: st && st[1] !== C.ink ? st[1] : o.subFg, cur: 'default', ul: 'none' };
+        if (o.k === '±800 · Weg') {        // ohne Farbe; ⚑ bei auffälligen Werten (±3 Plätze, ±7,5 m)
+          const g = f.pos_gain, w = f.weg_med, fg = g != null && Math.abs(g) >= 3, fw = w != null && Math.abs(w) >= 7.5;
+          return { ...o, v: (g != null ? sgn(g, 0) : '–') + (fg ? ' ⚑' : ''), sub: w != null ? 'Weg ' + sgn(w, 1) + ' m' + (fw ? ' ⚑' : '') : 'Plätze',
+            bg: C.card, fg: C.ink, subFg: fw ? C.ink : C.ink3, cur: 'default', ul: 'none',
+            tip: o.tip + (fg ? ' · ⚑ auffällig viele Plätze ' + (g > 0 ? 'gutgemacht' : 'verloren') : '') + (fw ? ' · ⚑ auffällig ' + (w > 0 ? 'langer' : 'kurzer') + ' Weg' : '') };
         }
         const zv = o.k === 'Pace' ? f.pace_ratio : o.k === 'Fin-Idx' ? f.finish_index : null;
         const ps = o.k === 'Pace' ? pools.paceStat : o.k === 'Fin-Idx' ? pools.finStat : null;
-        if (ps && zv != null) {
-          const z = (zv - ps.m) / ps.sd;
-          const st = z >= 1.5 ? ['#2F8A55', '#FFFFFF'] : z >= 0.8 ? ['#BFE0C9', C.ink] : z >= 0.35 ? ['#E2F1E6', C.ink] : z > -0.35 ? null : z > -0.8 ? ['#F6E3DC', C.ink] : z > -1.5 ? ['#EDC3B5', C.ink] : ['#B9533D', '#FFFFFF'];
-          return { ...o, bg: st ? st[0] : C.card, fg: st ? st[1] : o.fg, subFg: st && st[1] !== C.ink ? st[1] : o.subFg,
-            sub: sgn(zv - ps.m, 1) + ' zu Ø ' + fx(ps.m, 1) + (o.k === 'Fin-Idx' && f.fi_adj != null ? ' · ber. ' + sgn(f.fi_adj, 1) : ''), tip: o.tip + ' · Ø des Rennens ' + fx(ps.m, 1) + ', ' + sgn(z, 1) + ' SD',
+        if (ps && zv != null) {           // Kategorie aus dem Abstand zum Schnitt aller Läufe der heutigen Starter (SD)
+          const z = (zv - ps.m) / ps.sd, i = z >= 1.5 ? 4 : z >= 0.5 ? 3 : z > -0.5 ? 2 : z > -1.5 ? 1 : 0;
+          const kat = (o.k === 'Pace' ? ['very slow', 'slow', 'normal', 'fast', 'very fast'] : ['very weak', 'weak', 'normal', 'strong', 'very strong'])[i];
+          const st = [['#B9533D', '#FFFFFF'], ['#EDC3B5', C.ink], null, ['#BFE0C9', C.ink], ['#2F8A55', '#FFFFFF']][i];
+          return { ...o, v: kat, vf: 'Archivo,sans-serif', bg: st ? st[0] : C.card, fg: st ? st[1] : o.fg, subFg: st && st[1] !== C.ink ? st[1] : o.subFg,
+            sub: fx(zv, 1) + ' (' + sgn(zv - ps.m, 1) + ')' + (o.k === 'Fin-Idx' && f.fi_adj != null ? ' · ber. ' + sgn(f.fi_adj, 1) : ''),
+            tip: o.tip + ' · ' + fx(zv, 1) + ', Ø der Läufe der heutigen Starter ' + fx(ps.m, 1) + ', ' + sgn(z, 1) + ' SD → ' + kat + ' (Grenzen ±0,5 / ±1,5 SD)',
             cur: 'default', ul: 'none' };
         }
         const sk = o.k === 'ARR' ? stufe('arr', f.unreliable ? null : (f.arr_adj ?? f.arr)) : o.k === 'TR' ? stufe('tr', f.unreliable ? null : (f.tr_heute ?? f.tr)) : null;
@@ -1425,7 +1428,7 @@ class Component extends DCLogic {
         posBg: f.pos === 1 ? C.ink : f.pos && f.pos <= 3 ? C.mid : C.soft, posFg: f.pos === 1 ? C.paper : C.ink,
         course: tc(f.course), date: dt(f.date), cond,
         line3: tc(f.jockey) + ' · ' + kurz(f.weight) + ' kg · Box ' + (f.draw ?? '–') + ' · Q ' + (f.odds != null ? fx(f.odds, 1) : '–') + (f.fav ? ' F' : '') + (f.odds_rank ? ' (' + f.odds_rank + '.)' : ''),
-        mR: mm.slice(0, 3), mT: [...mm.slice(3), ...Array((4 - (mm.length - 3) % 4) % 4).fill({ k: '', v: '', sub: '', bg: C.card, hasWag: false, wag: [], cur: 'default', ul: 'none' })], flags, hasFlags: flags.length > 0, note: f.comment_de || f.comment, hasNote: !!(f.comment_de || f.comment), btns, hasBtns: btns.length > 0, sub, hasSub: sub.length > 0 };
+        mR: mm.slice(0, 3), mT: [...mm.slice(3).map(m => ({ vf: "'Spline Sans Mono',monospace", ...m })), ...Array((4 - (mm.length - 3) % 4) % 4).fill({ k: '', v: '', sub: '', bg: C.card, hasWag: false, wag: [], cur: 'default', ul: 'none' })], flags, hasFlags: flags.length > 0, note: f.comment_de || f.comment, hasNote: !!(f.comment_de || f.comment), btns, hasBtns: btns.length > 0, sub, hasSub: sub.length > 0 };
     });
 
     // ---- A/E
