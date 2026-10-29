@@ -79,7 +79,7 @@ Tracking ist eine Eigenschaft von **Renntag und Rennen**, nicht von der Bahn:
 | `power_modell.py` | Power-Modell: LightGBM sagt Pos = (Starter − Platz) / (Starter − 1) voraus (Merkmale nur aus Läufen vor dem Renntag), einmal trainiert, die Race Card zeigt daraus „Power“ |
 | `hypothesen_backtest.py` | Hypothesen H1–H6 (Rennverlauf, Überreaktion, Handicap-Erhöhung, Tempo × Stil, Presse-Konsens, Duell-Rangfolge) per A/E und bedingtem Logit |
 | `regel_backtest.py` | Regeln des Skills gegen die Datenbank prüfen: A/E gegen den Markt (Endquote) je Regel |
-| `racecard_template.html` | Layout der Race Card; die Daten werden als JSON eingesetzt |
+| `racecard_template.html` | Layout der Race Card (mobiles Design aus Claude Design: Markup in `<template id="tpl">`, Logik in `class Component`, kleine Laufzeit für `sc-for`/`sc-if`/`{{ }}`); die Daten werden als JSON eingesetzt, Dunkelmodus über Farb-Tokens |
 | `selftest.py` | Selbsttest ohne Internet (`python selftest.py`) |
 
 ## Ausgabe in Drive
@@ -669,11 +669,11 @@ vergleicht beide Rechnungen über Node.
   bevorzugt Value bei kürzeren Kursen – dort bestätigt die Kursbewegung bis zum Start das Modell am deutlichsten.
 - **Tipps auf der Karte:** `racecard.run` und `racecard.festkurse_aktualisieren` ordnen je Veranstaltung alle
   Kandidaten nach derselben Regel (`vb.tipps_setzen`, Wert ≥ 0,2, höchstens 1 je Rennen; Starter: `power.tipp` mit Rang,
-  Kelly-Anteil, Wert und Festkurs). Oben im Kartenkopf wählt man **Min. Kelly** (Vorgabe 5 %) und **max. je
-  Veranst.** (Vorgabe 7; beides im Browser gemerkt) und trägt die **Startbank vor dem Renntag** ein (je Renntag
-  im Browser gemerkt; ohne Eintrag gilt die zuletzt eingetragene). Über jedem Rennen steht der Kasten „Tipps R…“ mit
-  den Tipps über der Schwelle (höchstens N): Rennen, Pferd, Festkurs, Wert und Einsatz = Startbank × ⅛ × Kelly-Anteil in vollen Euro; am Pferd das Abzeichen
-  „Tipp n“. Klick auf eine Zeile springt ins Rennen. Qualifizieren sich mehrere Pferde eines Rennens, zählt nur das
+  Kelly-Anteil, Wert und Festkurs). Über jedem Rennen steht der dunkle Kasten „Tipps R…“ (antippen klappt auf) mit
+  den Tipps über der Schwelle (höchstens N): Rennen, Pferd, Festkurs, Wert und Einsatz = Startbank × ⅛ × Kelly-Anteil
+  in vollen Euro; am Pferd das Abzeichen „Tipp n · Einsatz“. Unten im Kasten wählt man **Kelly ≥** (Vorgabe 5 %) und
+  **max.** je Veranstaltung (Vorgabe 7; beides im Browser gemerkt) und trägt die **Bank vor dem Renntag** ein (je
+  Renntag im Browser gemerkt; ohne Eintrag gilt die zuletzt eingetragene). Klick auf eine Zeile springt ins Rennen. Qualifizieren sich mehrere Pferde eines Rennens, zählt nur das
   mit dem höchsten Kelly-Anteil; der Platz geht an das nächstbeste Pferd eines anderen Rennens (zwei Wetten im selben
   Rennen würden mit Kelly je Wette zu viel setzen).
 - **Einsatz:** Kelly 1/8 bis 1/1, 10 € fest oder 1 % der Bank.
