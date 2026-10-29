@@ -279,10 +279,13 @@ input{color:inherit}
             <span style="color:#8C877C">·</span>
             <span><b style="font-family:'Spline Sans Mono',monospace;font-weight:600;color:{{ r.daysFg }}">{{ r.days }}</b> <span style="color:#8C877C">Tage seit letztem Lauf</span></span>
           </div>
-          <div style="display:flex;justify-content:space-between;gap:8px;margin-top:6px;font-size:12px">
-            <span><span style="color:#8C877C">Karriere</span> <b style="font-family:'Spline Sans Mono',monospace;font-weight:600">{{ r.careerRec }}</b></span>
-            <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px"><b title="{{ r.eprTip }}" style="color:{{ r.eprFg }};background:{{ r.eprBg }};border-radius:4px;padding:1px 5px;font-weight:600">{{ r.careerEpr }}</b> <span style="color:#8C877C">{{ r.careerRank }}</span></span>
-          </div>
+          <sc-for list="{{ r.careerRows }}" as="kr" hint-placeholder-count="2">
+            <div style="display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:8px;align-items:baseline;margin-top:5px;font-size:12px">
+              <span style="color:#8C877C">{{ kr.lab }}</span>
+              <b style="font-family:'Spline Sans Mono',monospace;font-weight:600;white-space:nowrap">{{ kr.rec }}</b>
+              <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;white-space:nowrap"><b title="{{ kr.eprTip }}" style="color:{{ kr.eprFg }};background:{{ kr.eprBg }};border-radius:4px;padding:1px 5px;font-weight:600">{{ kr.epr }}</b> <span style="color:#8C877C">{{ kr.rank }}</span></span>
+            </div>
+          </sc-for>
           <div style="display:grid;gap:0;margin-top:10px;border-top:1px solid #DCD8CE">
             <sc-for list="{{ r.conn }}" as="cn" hint-placeholder-count="4">
               <div onClick="{{ cn.pick }}" style="display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #EEEBE4;font-size:12.5px;cursor:{{ cn.cur }}">
@@ -1231,6 +1234,7 @@ class Component extends DCLogic {
     const pws = field.filter(x => x.power).map(x => x.power.p);
     const eprs = field.map(x => x.career?.all?.epr).filter(v => v != null).sort((a, b) => a - b);
     const medEpr = eprs.length ? eprs[Math.floor(eprs.length / 2)] : null;
+    const e365 = field.map(x => x.career?.d365?.epr).filter(v => v != null).sort((a, b) => a - b), medEpr365 = e365.length ? e365[Math.floor(e365.length / 2)] : null;
     const byNo = Object.fromEntries(rd.runners.map(x => [x.no, x]));
     const mkPool = get => field.flatMap(x => (x.form_lines || []).filter(f => !f.unreliable).map(get)).filter(v => v != null).sort((a, b) => a - b);
     const pools = { arr: mkPool(f => f.arr_adj ?? f.arr), tr: mkPool(f => f.tr_heute ?? f.tr), pace: mkPool(f => f.pace_ratio) };
@@ -1257,7 +1261,7 @@ class Component extends DCLogic {
       no: (a, b) => a.x.no - b.x.no, prono: (a, b) => (a.cote ?? 999) - (b.cote ?? 999) };
     rows.sort((a, b) => (a.x.nr - b.x.nr) || sorters[sort](a, b));
 
-    const runners = rows.map(R => this.runnerVals(R, { thr, prm, idx, rd, race, medEpr, byNo, nField: field.length, pools, tipR: idx.tipp_regel, bank: s.bank || 500 }));
+    const runners = rows.map(R => this.runnerVals(R, { thr, prm, idx, rd, race, medEpr, byNo, nField: field.length, pools, medEpr365, tipR: idx.tipp_regel, bank: s.bank || 500 }));
     const kpi = this.buildKpi(rd, idx);
     const aem = this.buildAem(rd, idx), pv = this.buildPv();
     return { ...common, runnersLoading: false, runners, kpiOpen: !!kpi, kpi: kpi || {}, aemOpen: !!aem, aem: aem || {}, pvOpen: !!pv, pv: pv || {} };
@@ -1340,11 +1344,12 @@ class Component extends DCLogic {
     const drvMax = Math.max(3, ...(pw?.treiber || []).map(([, v]) => Math.abs(v)));
     const drv = (pw?.treiber || []).map(([n, v]) => { const w = Math.abs(v) / drvMax * 50; return { n, t: sgn(v), w, l: v >= 0 ? 50 : 50 - w, c: v >= 0 ? C.good : C.bad }; });
     Object.assign(out, { tags, hasTags: tags.length > 0, formSq, conn, metrics, drv, hasDrv: drv.length > 0,
-      careerRec: K.runs ? K.runs + ' L · ' + K.wins + ' S · ' + K.places + ' P' : 'keine Läufe', careerEpr: K.epr != null ? eur(K.epr) + '/L' : '',
-      careerRank: K.rank ? '#' + K.rank + '/' + K.n : '',
-      ...(() => { const rl = K.epr != null && medEpr ? K.epr / medEpr : null;
+      // Karriere und letzte 365 Tage: Läufe · Siege · Plätze, Gewinn je Lauf (Farbe im Verhältnis zum Median des Feldes), Rang
+      careerRows: [['Karriere', K, medEpr], ['365 Tage', x.career?.d365 || {}, ctx.medEpr365]].map(([lab, Q, med]) => {
+        const rl = Q.epr != null && med ? Q.epr / med : null;
         const st = rl == null ? null : rl >= 2 ? ['#2F8A55', '#FFFFFF'] : rl >= 1.25 ? ['#BFE0C9', C.ink] : rl >= 1.1 ? ['#E2F1E6', C.ink] : rl > 0.9 ? null : rl > 0.8 ? ['#F6E3DC', C.ink] : rl > 0.5 ? ['#EDC3B5', C.ink] : ['#B9533D', '#FFFFFF'];
-        return { eprFg: st ? st[1] : C.ink, eprBg: st ? st[0] : 'transparent', eprTip: rl == null ? '' : fx(rl, 2) + ' × Median des Feldes (' + eur(medEpr) + '/L)' }; })(),
+        return { lab, rec: Q.runs ? Q.runs + ' L · ' + Q.wins + ' S · ' + Q.places + ' P' : 'keine Läufe', epr: Q.epr != null ? eur(Q.epr) + '/L' : '', rank: Q.rank ? '#' + Q.rank + '/' + Q.n : '',
+          eprFg: st ? st[1] : C.ink, eprBg: st ? st[0] : 'transparent', eprTip: rl == null ? '' : 'Gewinn je Lauf ' + lab + ': ' + fx(rl, 2) + ' × Median des Feldes (' + eur(med) + '/L)' }; }),
       hasCrible: !!x.prono?.crible_de, crible: x.prono?.crible_de,
       detailBtn: isOpen ? 'Details schließen' : 'Details: Läufe · A/E · Vorlieben · Abstammung · Duelle',
       detailBtnBg: isOpen ? 'transparent' : C.ink, detailBtnFg: isOpen ? C.ink : C.paper,
