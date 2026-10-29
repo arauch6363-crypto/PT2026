@@ -934,7 +934,7 @@ const LEGEND = [
   ['Form', 'Letzte Platzierungen, links die jüngste. Schwarz = Sieg, grau = Platz 2–3, 0 = außerhalb der ersten 9.'],
   ['Tooltips', 'Felder mit Erklärung (z. B. Kelly, Box, Kennzahlen) antippen: der Text erscheint unten eingeblendet. Am Desktop auch beim Überfahren mit der Maus.'],
   ['Starter in drei Stufen', 'Antippen öffnet Kennzahlen und Verbindungen, „Details“ zeigt Läufe, A/E, Vorlieben, Abstammung, Duelle, Info. Kopfzeile erneut antippen schließt.'],
-  ['Klebende Leisten', 'Beim Scrollen bleibt unter dem Kopf die Rennleiste (Zeit, Rennen, Distanz, Boden, Starter) stehen; in einem aufgeklappten Starter zusätzlich seine Kopfleiste mit Nummer, Trikot, Name, Jockey, Trainer und fairer Quote. Kopfleiste antippen klappt den Starter zu.'],
+  ['Klebende Leisten', 'Beim Scrollen bleibt unter dem Kopf die Rennleiste (Zeit, Rennen, Distanz, Boden, Starter, Preis, Typ, Klasse) stehen; in einem aufgeklappten Starter zusätzlich seine Kopfleiste mit Nummer, Trikot, Name, Jockey, Trainer und fairer Quote. Kopfleiste antippen klappt den Starter zu.'],
 ];
 
 const PV_TITEL = { trainer_jockey: ['Trainer', 'alle Jockeys', 'jt'], trainer_course: ['Trainer', 'alle Bahnen', 'jt'],
@@ -1155,7 +1155,7 @@ class Component extends DCLogic {
       { k: 'Klasse', v: race.cls ? (race.cls.val_idx ?? '–') + ' / ' + (race.cls.epr_idx ?? '–') : '–' },
     ];
     const gl = { F: 'Führend', V: 'Vorne', M: 'Mitte', H: 'Hinten' }, pg = race.pace?.groups || {};
-    const raceV = { sub: [race.dist + ' m', (race.going || '–') + (race.goingAssumed ? '*' : ''), (rd ? rd.runners.filter(x => !x.nr).length : '–') + ' Starter', kEur(race.prize), race.type].filter(Boolean).join(' · '),
+    const raceV = { sub: [race.dist + ' m', (race.going || '–') + (race.goingAssumed ? '*' : ''), (rd ? rd.runners.filter(x => !x.nr).length : '–') + ' Starter', kEur(race.prize), race.type, race.cls ? 'Kl. ' + (race.cls.val_idx ?? '–') + '/' + (race.cls.epr_idx ?? '–') : null].filter(Boolean).join(' · '),
       reunion: race.reunion, no: race.no, time: race.time, name: race.name, cancelled: race.status === 'COURSE_ANNULEE', facts,
       sel: race.prono?.sel || [], pronoText: race.prono?.text || 'Keine Prognose.', hasConsensus: !!race.prono?.consensus?.length,
       consensus: (race.prono?.consensus || []).join(' · '), paceLabel: tc(race.pace?.label || '–'),
