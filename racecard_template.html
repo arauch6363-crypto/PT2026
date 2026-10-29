@@ -65,9 +65,8 @@ input{color:inherit}
   </div>
   <div ref="{{ stripRef }}" style="display:flex;gap:6px;overflow-x:auto;padding:0 16px 10px;scrollbar-width:none">
     <sc-for list="{{ raceChips }}" as="c" hint-placeholder-count="9">
-      <button onClick="{{ c.pick }}" data-on="{{ c.on }}" style="flex:none;min-width:58px;height:44px;border-radius:8px;border:1px solid {{ c.border }};background:{{ c.bg }};color:{{ c.fg }};display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;opacity:{{ c.op }}">
-        <span style="font-weight:800;font-stretch:70%;font-size:15px;line-height:1;text-decoration:{{ c.strike }}">C{{ c.no }}</span>
-        <span style="font-family:'Spline Sans Mono',monospace;font-size:10.5px;line-height:1">{{ c.time }}</span>
+      <button onClick="{{ c.pick }}" data-on="{{ c.on }}" aria-label="C{{ c.no }} {{ c.time }}" style="flex:none;min-width:58px;height:40px;padding:0 8px;border-radius:8px;border:1px solid {{ c.border }};background:{{ c.bg }};color:{{ c.fg }};display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:{{ c.op }}">
+        <span style="font-weight:800;font-stretch:75%;font-size:16px;line-height:1;text-decoration:{{ c.strike }}">{{ c.time }}</span>
       </button>
     </sc-for>
   </div>
