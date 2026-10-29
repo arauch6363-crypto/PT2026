@@ -353,21 +353,18 @@ input{color:inherit}
                         <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:700;color:#161512">/{{ x.ran }}</span>
                         <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:700;color:#161512;white-space:nowrap">{{ x.margin }}</span>
                       </div>
-                      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
-                        <span style="font-weight:700;font-size:13.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.course }}</span>
-                        <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#57534B;flex:none">{{ x.date }}</span>
-                      </div>
-                      <div style="display:flex;justify-content:space-between;align-items:center;gap:4px 8px;font-size:11.5px;color:#57534B">
-                        <span style="display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center;min-width:0">
-                          <sc-for list="{{ x.cond }}" as="cd" hint-placeholder-count="2">
-                            <span style="background:{{ cd.bg }};border-radius:3px;padding:0 {{ cd.pad }};font-weight:{{ cd.fw }};color:{{ cd.fg }};white-space:nowrap">{{ cd.t }}</span>
-                          </sc-for>
-                        </span>
-                        <span style="display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px 6px;text-align:right">
+                      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 8px;align-items:baseline">
+                        <span style="min-width:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#57534B;margin-right:6px">{{ x.date }}</span><b style="font-size:13.5px">{{ x.course }}</b></span>
+                        <span style="display:flex;justify-content:flex-end;gap:6px;font-size:11.5px;margin-left:auto;white-space:nowrap">
                           <sc-for list="{{ x.condR }}" as="cd" hint-placeholder-count="3">
                             <span style="font-weight:{{ cd.fw }};color:{{ cd.fg }};white-space:nowrap">{{ cd.t }}</span>
                           </sc-for>
                         </span>
+                      </div>
+                      <div style="display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center;font-size:11.5px;color:#57534B">
+                        <sc-for list="{{ x.cond }}" as="cd" hint-placeholder-count="2">
+                          <span style="background:{{ cd.bg }};border-radius:3px;padding:0 {{ cd.pad }};font-weight:{{ cd.fw }};color:{{ cd.fg }};white-space:nowrap">{{ cd.t }}</span>
+                        </sc-for>
                       </div>
                       <sc-if value="{{ x.cgd }}" hint-placeholder-val="{{ false }}"><div title="Bilanz vor dem Lauf auf Kurs (C), Bodengruppe (G), Distanzgruppe (D): groß = gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals" style="font-size:11.5px;color:#8C877C">CGD {{ x.cgd }}</div></sc-if>
                       <div style="font-size:11.5px;color:#57534B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.line3 }}</div>
