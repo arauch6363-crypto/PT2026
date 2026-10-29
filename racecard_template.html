@@ -11,9 +11,9 @@
   --k161512:#161512; --k57534B:#57534B; --k8C877C:#8C877C; --kDCD8CE:#DCD8CE; --kF6F4EF:#F6F4EF; --kFFFDF9:#FFFDF9;
   --kEEEBE4:#EEEBE4; --kB9533D:#B9533D; --kCFCAC0:#CFCAC0; --k2F8A55:#2F8A55; --kD9A43A:#D9A43A; --kE2F1E6:#E2F1E6;
   --kF6E3DC:#F6E3DC; --kBFE0C9:#BFE0C9; --kEDC3B5:#EDC3B5; --kE3DFD6:#E3DFD6; --kF1EEE7:#F1EEE7; --kE9E5DC:#E9E5DC;
-  --kE7E3DA:#E7E3DA; --kF3E9CF:#F3E9CF; --kFFFFFF:#FFFFFF;
-  --tip-bg:#161512; --tip-fg:#F6F4EF; --tip-mute:#CFCAC0; --tip-line:#34322D; --tip-line2:#57534B; --tip-in:#24221E;
-  --tip-sel:#2A2824; --tip-good:#8FD3A6; --tip-gold:#D9A43A;
+  --kE7E3DA:#E7E3DA; --kF3E9CF:#F3E9CF; --kFFFFFF:#FFFFFF; --k0B4D3C:#0B4D3C;
+  --tip-bg:#0B4D3C; --tip-fg:#F4F8F5; --tip-mute:#BCD5CC; --tip-line:#26695A; --tip-line2:#5A9686; --tip-in:#083B2E;
+  --tip-sel:#14604D; --tip-good:#B8F0CF; --tip-gold:#E9B949;
   --toast-bg:#161512; --toast-fg:#F6F4EF;
 }
 @media (prefers-color-scheme: dark){
@@ -22,8 +22,8 @@
     --k161512:#ECE8DF; --k57534B:#B4AEA2; --k8C877C:#8E887C; --kDCD8CE:#38352F; --kF6F4EF:#141311; --kFFFDF9:#1D1C19;
     --kEEEBE4:#2B2925; --kB9533D:#E8866F; --kCFCAC0:#57534B; --k2F8A55:#62C38C; --kD9A43A:#E2B04C; --kE2F1E6:#1C3326;
     --kF6E3DC:#3D241D; --kBFE0C9:#2C5A3D; --kEDC3B5:#6B3B2E; --kE3DFD6:#36332D; --kF1EEE7:#232220; --kE9E5DC:#2A2824;
-    --kE7E3DA:#0B0A09; --kF3E9CF:#3E331B; --kFFFFFF:#141311;
-    --tip-bg:#25231F; --tip-line:#3A3833; --tip-in:#1A1916; --tip-sel:#34322C;
+    --kE7E3DA:#0B0A09; --kF3E9CF:#3E331B; --kFFFFFF:#141311; --k0B4D3C:#1C6B55;
+    --tip-bg:#0F4134; --tip-line:#22614F; --tip-in:#0A3127; --tip-sel:#185745;
     --toast-bg:#ECE8DF; --toast-fg:#141311;
   }
 }
@@ -32,8 +32,8 @@
   --k161512:#ECE8DF; --k57534B:#B4AEA2; --k8C877C:#8E887C; --kDCD8CE:#38352F; --kF6F4EF:#141311; --kFFFDF9:#1D1C19;
   --kEEEBE4:#2B2925; --kB9533D:#E8866F; --kCFCAC0:#57534B; --k2F8A55:#62C38C; --kD9A43A:#E2B04C; --kE2F1E6:#1C3326;
   --kF6E3DC:#3D241D; --kBFE0C9:#2C5A3D; --kEDC3B5:#6B3B2E; --kE3DFD6:#36332D; --kF1EEE7:#232220; --kE9E5DC:#2A2824;
-  --kE7E3DA:#0B0A09; --kF3E9CF:#3E331B; --kFFFFFF:#141311;
-  --tip-bg:#25231F; --tip-line:#3A3833; --tip-in:#1A1916; --tip-sel:#34322C;
+  --kE7E3DA:#0B0A09; --kF3E9CF:#3E331B; --kFFFFFF:#141311; --k0B4D3C:#1C6B55;
+  --tip-bg:#0F4134; --tip-line:#22614F; --tip-in:#0A3127; --tip-sel:#185745;
   --toast-bg:#ECE8DF; --toast-fg:#141311;
 }
 html,body{margin:0;background:var(--kE7E3DA);color:var(--k161512);font-family:"Archivo",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
@@ -130,7 +130,7 @@ input{color:inherit}
         <span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#57534B;width:68px;flex:none">PMU-Prognose</span>
         <span style="display:flex;gap:4px;flex:1;flex-wrap:wrap">
           <sc-for list="{{ race.sel }}" as="s" hint-placeholder-count="5">
-            <span style="min-width:24px;height:24px;border-radius:5px;background:#161512;color:#F6F4EF;font-weight:800;font-stretch:70%;font-size:14px;display:grid;place-items:center;padding:0 4px">{{ s }}</span>
+            <span style="min-width:24px;height:24px;border-radius:5px;background:#0B4D3C;color:#FEFEFE;font-weight:800;font-stretch:70%;font-size:14px;display:grid;place-items:center;padding:0 4px">{{ s }}</span>
           </sc-for>
         </span>
         <span style="font-size:14px;color:#8C877C;transform:rotate({{ pronoRot }}deg);transition:transform .2s">›</span>
@@ -157,7 +157,7 @@ input{color:inherit}
               <div style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#57534B">{{ g.label }}</div>
               <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px">
                 <sc-for list="{{ g.nos }}" as="n" hint-placeholder-count="2">
-                  <span style="min-width:20px;height:20px;border-radius:4px;background:#161512;color:#F6F4EF;font-weight:800;font-stretch:70%;font-size:12px;display:grid;place-items:center;padding:0 3px">{{ n }}</span>
+                  <span style="min-width:20px;height:20px;border-radius:4px;background:#0B4D3C;color:#FEFEFE;font-weight:800;font-stretch:70%;font-size:12px;display:grid;place-items:center;padding:0 3px">{{ n }}</span>
                 </sc-for>
               </div>
             </div>
@@ -205,7 +205,7 @@ input{color:inherit}
     <article data-no="{{ r.no }}" style="border-bottom:1px solid #DCD8CE;background:{{ r.rowBg }};opacity:{{ r.op }}">
       <sc-if value="{{ r.isMid }}" hint-placeholder-val="{{ false }}">
         <div data-kopf="1" onClick="{{ r.zu }}" style="position:sticky;top:{{ kopfTop }}px;z-index:6;height:{{ kopfH }}px;margin-bottom:-{{ kopfH }}px;visibility:hidden;background:#FFFDF9;border-bottom:1px solid #DCD8CE;box-shadow:0 4px 10px -6px rgba(0,0,0,.25);display:grid;grid-template-columns:28px 26px minmax(0,1fr) auto;gap:8px;align-items:center;padding:0 16px;cursor:pointer">
-          <span style="width:28px;height:30px;border-radius:5px;background:#161512;color:#F6F4EF;font-weight:800;font-stretch:62%;font-size:20px;display:grid;place-items:center">{{ r.no }}</span>
+          <span style="width:28px;height:30px;border-radius:5px;background:#0B4D3C;color:#FEFEFE;font-weight:800;font-stretch:62%;font-size:20px;display:grid;place-items:center">{{ r.no }}</span>
           <span style="width:26px;height:26px;background-image:{{ r.silkBg }};background-size:contain;background-repeat:no-repeat;background-position:center"></span>
           <span style="min-width:0">
             <span style="display:block;font-weight:800;font-stretch:72%;font-size:15px;line-height:1.1;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.horse }}</span>
@@ -219,7 +219,7 @@ input{color:inherit}
       </sc-if>
       <div onClick="{{ r.cycle }}" style="padding:12px 16px 10px;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) 52px;gap:6px 10px">
         <div style="display:flex;gap:10px;align-items:flex-start;min-width:0">
-          <span style="flex:none;width:32px;height:36px;border-radius:5px;background:#161512;color:#F6F4EF;font-weight:800;font-stretch:62%;font-size:24px;display:grid;place-items:center">{{ r.no }}</span>
+          <span style="flex:none;width:32px;height:36px;border-radius:5px;background:#0B4D3C;color:#FEFEFE;font-weight:800;font-stretch:62%;font-size:24px;display:grid;place-items:center">{{ r.no }}</span>
           <span style="flex:none;width:30px;height:30px;margin-top:3px;background-image:{{ r.silkBg }};background-size:contain;background-repeat:no-repeat;background-position:center"></span>
           <div style="min-width:0;flex:1">
             <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap">
@@ -328,7 +328,7 @@ input{color:inherit}
           <sc-if value="{{ r.hasCrible }}" hint-placeholder-val="{{ false }}">
             <p style="margin:12px 0 0;font-size:12.5px;line-height:1.5;color:#57534B;font-style:italic;text-wrap:pretty"><b style="font-style:normal;font-size:9.5px;letter-spacing:.07em;color:#161512;margin-right:6px">PMU</b>{{ r.crible }}</p>
           </sc-if>
-          <button onClick="{{ r.openDetail }}" style="margin-top:12px;width:100%;height:44px;border-radius:10px;border:1px solid #161512;background:{{ r.detailBtnBg }};color:{{ r.detailBtnFg }};font-weight:700;font-size:13px;cursor:pointer">{{ r.detailBtn }}</button>
+          <button onClick="{{ r.openDetail }}" style="margin-top:12px;width:100%;height:44px;border-radius:10px;border:1px solid #0B4D3C;background:{{ r.detailBtnBg }};color:{{ r.detailBtnFg }};font-weight:700;font-size:13px;cursor:pointer">{{ r.detailBtn }}</button>
         </div>
       </sc-if>
 
@@ -563,7 +563,7 @@ input{color:inherit}
               <sc-for list="{{ r.duelRows }}" as="du" hint-placeholder-count="4">
                 <div style="border:1px solid #DCD8CE;border-radius:10px;background:#FFFDF9;overflow:hidden">
                   <button onClick="{{ du.pick }}" style="width:100%;border:0;background:none;display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 10px;cursor:pointer;text-align:left;min-height:48px">
-                    <span style="width:26px;height:26px;border-radius:5px;background:#161512;color:#F6F4EF;font-weight:800;font-stretch:70%;font-size:15px;display:grid;place-items:center">{{ du.no }}</span>
+                    <span style="width:26px;height:26px;border-radius:5px;background:#0B4D3C;color:#FEFEFE;font-weight:800;font-stretch:70%;font-size:15px;display:grid;place-items:center">{{ du.no }}</span>
                     <span style="min-width:0"><span style="display:block;font-weight:700;font-size:13px;text-transform:uppercase;font-stretch:80%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ du.name }}</span><span style="display:block;font-size:11px;color:#57534B">{{ du.info }}</span></span>
                     <span style="text-align:right"><span style="display:block;font-family:'Spline Sans Mono',monospace;font-size:14px;font-weight:600;color:{{ du.fg }}">{{ du.exp }}</span><span style="display:block;font-size:10px;color:#8C877C">{{ du.expLab }}</span></span>
                   </button>
@@ -583,7 +583,7 @@ input{color:inherit}
               <sc-for list="{{ r.indRows }}" as="du" hint-placeholder-count="3">
                 <div style="border:1px solid #DCD8CE;border-radius:10px;background:#FFFDF9;overflow:hidden">
                   <button onClick="{{ du.pick }}" style="width:100%;border:0;background:none;display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 10px;cursor:pointer;text-align:left;min-height:48px">
-                    <span style="width:26px;height:26px;border-radius:5px;background:#161512;color:#F6F4EF;font-weight:800;font-stretch:70%;font-size:15px;display:grid;place-items:center">{{ du.no }}</span>
+                    <span style="width:26px;height:26px;border-radius:5px;background:#0B4D3C;color:#FEFEFE;font-weight:800;font-stretch:70%;font-size:15px;display:grid;place-items:center">{{ du.no }}</span>
                     <span style="min-width:0"><span style="display:block;font-weight:700;font-size:13px;text-transform:uppercase;font-stretch:80%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ du.name }}</span><span style="display:block;font-size:11px;color:#57534B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ du.info }}</span></span>
                     <span style="text-align:right"><span style="display:block;font-family:'Spline Sans Mono',monospace;font-size:14px;font-weight:600;color:{{ du.fg }}">{{ du.exp }}</span><span style="display:block;font-size:10px;color:#8C877C">{{ du.expLab }}</span></span>
                   </button>
@@ -654,7 +654,7 @@ input{color:inherit}
     <div style="overflow-y:auto;padding:4px 16px 24px">
       <sc-for list="{{ kpi.rows }}" as="kr" hint-placeholder-count="10">
         <div style="display:grid;grid-template-columns:118px minmax(0,1fr) 34px;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid #EEEBE4;background:{{ kr.bg }}">
-          <span style="display:flex;gap:6px;align-items:center;min-width:0"><b style="width:20px;height:20px;border-radius:4px;background:#161512;color:#F6F4EF;font-weight:800;font-stretch:70%;font-size:12px;display:grid;place-items:center;flex:none">{{ kr.no }}</b><span style="font-size:11px;font-weight:700;text-transform:uppercase;font-stretch:80%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ kr.name }}</span></span>
+          <span style="display:flex;gap:6px;align-items:center;min-width:0"><b style="width:20px;height:20px;border-radius:4px;background:#0B4D3C;color:#FEFEFE;font-weight:800;font-stretch:70%;font-size:12px;display:grid;place-items:center;flex:none">{{ kr.no }}</b><span style="font-size:11px;font-weight:700;text-transform:uppercase;font-stretch:80%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ kr.name }}</span></span>
           <div style="position:relative;height:18px">
             <span style="position:absolute;left:0;right:0;top:8px;height:2px;background:#E3DFD6"></span>
             <sc-if value="{{ kpi.hasRef }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:{{ kpi.refL }}%;top:0;bottom:0;width:1px;background:#D9A43A"></span></sc-if>
@@ -701,7 +701,7 @@ input{color:inherit}
         <sc-for list="{{ aem.rows }}" as="am" hint-placeholder-count="8">
           <div title="{{ am.tip }}" style="display:grid;grid-template-columns:auto minmax(0,1fr) 44px 40px 44px;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid #EEEBE4;font-size:12px;background:{{ am.bg }};opacity:{{ am.op }}">
             <span style="display:flex;gap:3px">
-              <sc-for list="{{ am.nos }}" as="an" hint-placeholder-count="1"><b style="min-width:20px;height:20px;border-radius:4px;background:#161512;color:#F6F4EF;font-weight:800;font-stretch:70%;font-size:12px;display:grid;place-items:center;padding:0 3px">{{ an }}</b></sc-for>
+              <sc-for list="{{ am.nos }}" as="an" hint-placeholder-count="1"><b style="min-width:20px;height:20px;border-radius:4px;background:#0B4D3C;color:#FEFEFE;font-weight:800;font-stretch:70%;font-size:12px;display:grid;place-items:center;padding:0 3px">{{ an }}</b></sc-for>
             </span>
             <span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:{{ am.fw }}">{{ am.name }}</span>
             <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;text-align:right;font-weight:600;color:{{ am.aeFg }}">{{ am.ae }}</span>
@@ -789,7 +789,7 @@ const BIND = /\{\{\s*([^}]+?)\s*\}\}/g, NUR = /^\s*\{\{\s*(.+?)\s*\}\}\s*$/;
 const escH = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 // Farben im Stil als Tokens (Dunkelmodus im CSS)
 const TOKEN = new Set(["161512", "57534B", "8C877C", "DCD8CE", "F6F4EF", "FFFDF9", "EEEBE4", "B9533D", "CFCAC0", "2F8A55",
-  "D9A43A", "E2F1E6", "F6E3DC", "BFE0C9", "EDC3B5", "E3DFD6", "F1EEE7", "E9E5DC", "E7E3DA", "F3E9CF", "FFFFFF"]);
+  "D9A43A", "E2F1E6", "F6E3DC", "BFE0C9", "EDC3B5", "E3DFD6", "F1EEE7", "E9E5DC", "E7E3DA", "F3E9CF", "FFFFFF", "0B4D3C"]);
 const farben = s => s.replace(/#([0-9A-Fa-f]{6})\b/g, (m, h) => TOKEN.has(h.toUpperCase()) ? `var(--k${h.toUpperCase()})` : m);
 
 function wert(expr, scope){
@@ -918,7 +918,7 @@ function karteIndex(D){
 }
 
 const C = { ink:'#161512', ink2:'#57534B', ink3:'#8C877C', line:'#DCD8CE', paper:'#F6F4EF', card:'#FFFDF9',
-  good:'#2F8A55', goodBg:'#E2F1E6', bad:'#B9533D', badBg:'#F6E3DC', gold:'#D9A43A', goldBg:'#F3E9CF', mid:'#CFCAC0', soft:'#EEEBE4' };
+  green:'#0B4D3C', onGreen:'#FEFEFE', good:'#2F8A55', goodBg:'#E2F1E6', bad:'#B9533D', badBg:'#F6E3DC', gold:'#D9A43A', goldBg:'#F3E9CF', mid:'#CFCAC0', soft:'#EEEBE4' };
 const LO = Math.log(1.5), HI = Math.log(100);
 const pos = o => Math.max(0, Math.min(100, (Math.log(Math.max(1.5, Math.min(100, o))) - LO) / (HI - LO) * 100));
 const tc = s => (s || '').toLowerCase().replace(/(^|[\s\-'.(])([a-zà-ÿ])/g, (m, a, b) => a + b.toUpperCase());
@@ -1179,11 +1179,11 @@ class Component extends DCLogic {
     const race = idx.races[s.raceId], rd = s.races[s.raceId], prm = idx.params;
 
     const meetings = idx.meetings.map(m => { const on = m.reunion === s.meeting;
-      return { reunion: m.reunion, course: tc(m.course), bg: on ? C.ink : C.card, fg: on ? C.paper : C.ink, border: on ? C.ink : C.line,
+      return { reunion: m.reunion, course: tc(m.course), bg: on ? C.green : C.card, fg: on ? C.onGreen : C.ink, border: on ? C.green : C.line,
         pick: () => { const f = m.races.find(id => idx.races[id].status !== 'COURSE_ANNULEE') || m.races[0]; this.setState({ meeting: m.reunion }); this.pickRace(f); } }; });
     const mt = idx.meetings.find(m => m.reunion === s.meeting);
     const raceChips = mt.races.map(id => { const r = idx.races[id], on = id === s.raceId, cx = r.status === 'COURSE_ANNULEE';
-      return { no: r.no, time: r.time, on: on ? '1' : '0', bg: on ? C.ink : C.card, fg: on ? C.paper : C.ink, border: on ? C.ink : C.line, op: cx && !on ? .5 : 1, strike: cx ? 'line-through' : 'none', pick: () => this.pickRace(id) }; });
+      return { no: r.no, time: r.time, on: on ? '1' : '0', bg: on ? C.green : C.card, fg: on ? C.onGreen : C.ink, border: on ? C.green : C.line, op: cx && !on ? .5 : 1, strike: cx ? 'line-through' : 'none', pick: () => this.pickRace(id) }; });
     const facts = [
       { k: 'Distanz', v: race.dist + ' m' }, { k: 'Boden', v: (race.going || '–') + (race.goingAssumed ? '*' : '') },
       { k: 'Preis', v: kEur(race.prize) }, { k: 'Starter', v: (rd ? rd.runners.filter(x => !x.nr).length : '–') + '/' + (race.declared ?? '–') },
@@ -1290,7 +1290,7 @@ class Component extends DCLogic {
       op: x.nr ? .4 : 1, strike: x.nr ? 'line-through' : 'none', rowBg: isMid ? C.card : 'transparent',
       gold: !!pw?.gold, warn: !!pw?.warn,
       warnTip: pw?.warn ? 'Unterstes Fünftel des Value-Faktors (×' + fx(pw.wert, 2) + '): solche Pferde laufen seltener ins Geld, als ihre Quote erwarten lässt – im Test A/E ≈ 0,7' : '', power: p ?? '–', rank: rank ?? '–',
-      powerFg: p == null ? C.ink3 : p >= 105 ? C.good : p <= 95 ? C.bad : C.ink, rankBg: top3 ? C.ink : 'transparent', rankFg: top3 ? C.paper : C.ink3,
+      powerFg: p == null ? C.ink3 : p >= 105 ? C.good : p <= 95 ? C.bad : C.ink, rankBg: top3 ? C.green : 'transparent', rankFg: top3 ? C.onGreen : C.ink3,
       hasLadder: !!(fair && coteFair), fairPos: fp, mktPos: mp, segL: Math.min(fp, mp), segW: Math.abs(fp - mp), tone,
       fairFg: st === 'value' ? C.good : st === 'under' ? C.bad : C.ink,
       fairRing: st === 'value' ? C.good : st === 'under' ? C.bad : C.ink,
@@ -1319,7 +1319,7 @@ class Component extends DCLogic {
     if (x.style) tags.push({ t: x.style_label + ' · früh Ø ' + Math.round((x.early ?? 0) * 100) + ' %', tip: 'Laufstil aus ' + x.early_runs + ' Läufen', bg: 'transparent', fg: C.ink2, bd: C.line });
     const formSq = []; const re = /(\d|[A-Z])[a-z]/g; let m; const fs = (x.form || '').replace(/\(\d+\)/g, '');
     while ((m = re.exec(fs)) && formSq.length < 10) { const c = m[1];
-      formSq.push(c === '1' ? { c, bg: C.ink, fg: C.paper, bd: C.ink } : (c === '2' || c === '3') ? { c, bg: C.mid, fg: C.ink, bd: C.mid } : { c, bg: 'transparent', fg: C.ink2, bd: C.line }); }
+      formSq.push(c === '1' ? { c, bg: C.green, fg: C.onGreen, bd: C.green } : (c === '2' || c === '3') ? { c, bg: C.mid, fg: C.ink, bd: C.mid } : { c, bg: 'transparent', fg: C.ink2, bd: C.line }); }
     const K = x.career?.all || {};
     const relFg = r => r == null ? C.ink : r >= 1.25 ? C.good : r <= 0.8 ? C.bad : C.ink;
     const trendOf = a => a?.trend === 'hot' ? { t: '▲', fg: C.good } : a?.trend === 'cold' ? { t: '▼', fg: C.bad } : { t: '', fg: C.ink3 };
@@ -1352,7 +1352,7 @@ class Component extends DCLogic {
           eprFg: st ? st[1] : C.ink, eprBg: st ? st[0] : 'transparent', eprTip: rl == null ? '' : 'Gewinn je Lauf ' + lab + ': ' + fx(rl, 2) + ' × Median des Feldes (' + eur(med) + '/L)' }; }),
       hasCrible: !!x.prono?.crible_de, crible: x.prono?.crible_de,
       detailBtn: isOpen ? 'Details schließen' : 'Details: Läufe · A/E · Vorlieben · Abstammung · Duelle',
-      detailBtnBg: isOpen ? 'transparent' : C.ink, detailBtnFg: isOpen ? C.ink : C.paper,
+      detailBtnBg: isOpen ? 'transparent' : C.green, detailBtnFg: isOpen ? C.ink : C.onGreen,
       openDetail: e => { e.stopPropagation(); this.toggleKey('open', no); } });
     if (!isOpen) return out;
 
@@ -1439,7 +1439,7 @@ class Component extends DCLogic {
       const dd = (x.duels || []).filter(d => d.race_id ? d.race_id === f.race_id : d.date === f.date);
       const ii = (x.indirect?.rivals || []).filter(e => (e.via || []).some(v => v[0] === f.race_id));
       const rv = f.rivals || [];
-      const btn = (k, label) => ({ label: (open === k ? '▾ ' : '▸ ') + label, bg: open === k ? C.ink : C.card, fg: open === k ? C.paper : C.ink, bd: open === k ? C.ink : C.line, pick: e => { e.stopPropagation(); this.toggleKey('runX', key, k); } });
+      const btn = (k, label) => ({ label: (open === k ? '▾ ' : '▸ ') + label, bg: open === k ? C.green : C.card, fg: open === k ? C.onGreen : C.ink, bd: open === k ? C.green : C.line, pick: e => { e.stopPropagation(); this.toggleKey('runX', key, k); } });
       const btns = [];
       if (rv.length) { const st2 = f.rivals_stat || {}; btns.push(btn('riv', 'Gegner (' + rv.length + ')' + (st2.better + st2.worse ? ' · danach ' + st2.better + '↑ ' + st2.worse + '↓' : ''))); }
       if (dd.length) { const v = dd.filter(d => (d.exp_l ?? 0) > 0).length; btns.push(btn('dd', 'Heutige Gegner (' + dd.length + ') · vorne ' + v)); }
