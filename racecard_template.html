@@ -231,7 +231,7 @@ input{color:inherit}
               <sc-if value="{{ r.warn }}" hint-placeholder-val="{{ false }}"><span title="{{ r.warnTip }}" style="font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border:1px solid #B9533D;color:#B9533D;border-radius:3px;padding:1px 5px">Überschätzt</span></sc-if>
             </div>
             <div style="font-size:12px;color:#57534B;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.jt }}</div>
-            <div style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#8C877C;margin-top:2px;display:flex;flex-wrap:wrap;align-items:center;gap:0 4px"><span>{{ r.meta }}</span><sc-if value="{{ r.hasBox }}" hint-placeholder-val="{{ false }}"><span title="{{ r.boxTip }}" style="border-radius:3px;padding:0 4px;font-weight:600;background:{{ r.boxBg }};color:{{ r.boxFg }}">{{ r.boxDev }}</span></sc-if><span>{{ r.meta2 }}</span></div>
+            <div style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#8C877C;margin-top:2px;display:flex;flex-wrap:wrap;align-items:center;gap:0 4px"><span>{{ r.meta }}</span></div>
           </div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;padding-top:2px">
@@ -273,6 +273,12 @@ input{color:inherit}
             <sc-for list="{{ r.formSq }}" as="q" hint-placeholder-count="6">
               <span style="width:20px;height:20px;border-radius:4px;display:grid;place-items:center;font-family:'Spline Sans Mono',monospace;font-size:11px;font-weight:600;background:{{ q.bg }};color:{{ q.fg }};border:1px solid {{ q.bd }}">{{ q.c }}</span>
             </sc-for>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-top:6px;font-size:12px">
+            <span><span style="color:#8C877C">Box</span> <b style="font-family:'Spline Sans Mono',monospace;font-weight:600">{{ r.draw }}</b></span>
+            <sc-if value="{{ r.hasBox }}" hint-placeholder-val="{{ false }}"><span title="{{ r.boxTip }}" style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;border-radius:4px;padding:1px 5px;font-weight:600;background:{{ r.boxBg }};color:{{ r.boxFg }}">{{ r.boxDev }}</span></sc-if>
+            <span style="color:#8C877C">·</span>
+            <span><b style="font-family:'Spline Sans Mono',monospace;font-weight:600;color:{{ r.daysFg }}">{{ r.days }}</b> <span style="color:#8C877C">Tage seit letztem Lauf</span></span>
           </div>
           <div style="display:flex;justify-content:space-between;gap:8px;margin-top:6px;font-size:12px">
             <span><span style="color:#8C877C">Karriere</span> <b style="font-family:'Spline Sans Mono',monospace;font-weight:600">{{ r.careerRec }}</b></span>
@@ -922,7 +928,7 @@ const LEGEND = [
   ['RTR / ARR / TR', 'RTR: Rating-Leistung, aufs heutige Gewicht bereinigt (klein: roh). ARR: Leistung gemessen am vorderen Drittel des Einlaufs (kg), Ø der letzten Läufe, gewichtsbereinigt. TR: Zeit-Rating (lb) plus Upgrade aus dem Finishing Speed, aufs heutige Gewicht umgerechnet. #x/n = Rang im Feld. In „Letzte Läufe“ ARR/TR antippen öffnet den Feldvergleich.'],
   ['ΔL600 / ΔB200', 'Tracking: Tempo der letzten 600 m bzw. schnellstes 200-m-Segment der letzten 800 m gegen die Erwartung (km/h), gleiche Bahn/Tag/Boden, korrigiert um Distanz, Tempo, Klasse. + = schneller.'],
   ['Duell', 'Direkte und indirekte Vergleiche mit heutigen Gegnern (180 Tage, ±200 m, Boden max. eine Stufe). Erwartung in Längen: Abstand damals ± Gewichtsverschiebung (1 kg ≈ 1 Länge).'],
-  ['Box', 'Startbox; darunter die Abweichung der Box-Statistik dieser Bahn/Distanz (✱ = signifikant).'],
+  ['Box', 'Startbox; aufgeklappt daneben die Abweichung der Box-Statistik dieser Bahn/Distanz (✱ = signifikant) und die Tage seit dem letzten Lauf (rot über 60).'],
   ['CGD', 'Bilanz vor dem Lauf auf Kurs (C), Bodengruppe (G), Distanzgruppe (D): Großbuchstabe = gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals.'],
   ['Letzte Läufe', 'Pos. vor Finish: Position 400 m vor dem Ziel (früh → 400 m). Pace-Ratio: Tempo früh ÷ Tempo Schluss × 100. Finish-Idx: Endspeed (letzte 400 m) ÷ Tempo davor × 100. ±800: Plätze gutgemacht ab 800 m (grün ab +3). Weg m: Meter mehr/weniger als der Median (≥ 7,5 m auffällig). K/D/B = wie heute. Val klein: heutige − damalige Valeur.'],
   ['Gegner', 'Pro Lauf: wie die Gegner von damals im nächsten Start abgeschnitten haben, welche heutigen Gegner mitliefen und indirekte Vergleiche über gemeinsame Gegner.'],
@@ -1243,7 +1249,7 @@ class Component extends DCLogic {
     const out = {
       no, horse: x.horse, silk: x.silk || '', silkBg: x.silk ? 'url("' + x.silk + '")' : 'none', ageSex: x.age + 'j ' + (SEX[x.sex] || ''),
       jt: 'J ' + tc(x.jockey) + ' · T ' + tc(x.trainer),
-      meta: kurz(x.weight) + ' kg · Box ' + (x.draw ?? '–'), meta2: (x.days != null ? '· ' + x.days + ' T' : '') + (x.style ? ' · ' + x.style : ''),
+      meta: kurz(x.weight) + ' kg · Box ' + (x.draw ?? '–'), draw: x.draw ?? '–', days: x.days ?? '–', daysFg: x.days > 60 ? C.bad : C.ink,
       ...(() => { const D = x.draw_stat; if (!D || x.draw == null || D.dev == null) return { hasBox: false };
         return { hasBox: true, boxDev: sgn(D.dev, 2) + (D.sig ? '✱' : ''), boxBg: D.sig ? (D.dev > 0 ? C.goodBg : C.badBg) : 'transparent', boxFg: D.sig ? (D.dev > 0 ? C.good : C.bad) : C.ink3,
           boxTip: 'Box ' + x.draw + ': Ø-Wert ' + fx(D.mean, 2) + ', Abweichung ' + sgn(D.dev, 2) + ' (z ' + sgn(D.z, 1) + ') aus ' + D.n + ' Läufen' + (D.sig ? ' – signifikant' : '') }; })(),
