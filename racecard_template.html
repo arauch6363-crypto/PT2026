@@ -370,6 +370,13 @@ input{color:inherit}
                           <div style="font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8C877C;white-space:nowrap">{{ mm.k }}</div>
                           <div style="font-family:'Spline Sans Mono',monospace;font-size:16px;font-weight:600;line-height:1.2;color:{{ mm.fg }};white-space:nowrap;text-decoration:{{ mm.ul }};text-underline-offset:3px;text-decoration-color:#CFCAC0">{{ mm.v }}</div>
                           <div style="font-family:'Spline Sans Mono',monospace;font-size:10px;color:{{ mm.subFg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mm.sub }}</div>
+                          <div style="display:grid;gap:1px;margin-top:2px;color:{{ mm.fg }}">
+                            <sc-for list="{{ mm.rk3 }}" as="rq" hint-placeholder-count="3">
+                              <span style="display:flex;justify-content:space-between;align-items:baseline;gap:4px;border-radius:3px;padding:0 3px;background:{{ rq.bg }};color:{{ rq.fg }};font-family:'Spline Sans Mono',monospace;line-height:1.3;white-space:nowrap">
+                                <span style="font-size:9px;opacity:.75">{{ rq.w }} T</span><span style="font-size:10.5px;font-weight:{{ rq.fw }}">{{ rq.r }}</span>
+                              </span>
+                            </sc-for>
+                          </div>
                         </div>
                       </sc-for>
                     </div>
@@ -940,7 +947,7 @@ const LEGEND = [
   ['Duell', 'Direkte und indirekte Vergleiche mit heutigen Gegnern (180 Tage, ±200 m, Boden max. eine Stufe). Erwartung in Längen: Abstand damals ± Gewichtsverschiebung (1 kg ≈ 1 Länge).'],
   ['Box', 'Startbox; aufgeklappt daneben die Abweichung der Box-Statistik dieser Bahn/Distanz (✱ = signifikant) und die Tage seit dem letzten Lauf (rot über 60).'],
   ['CGD', 'Bilanz vor dem Lauf auf Kurs (C), Bodengruppe (G), Distanzgruppe (D): Großbuchstabe = gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals.'],
-  ['Letzte Läufe', 'Oben groß die Ratings Val, ARR, TR; darunter das Tracking. Pos. vor Finish: Position 400 m vor dem Ziel (früh → 400 m). Pace-Ratio: Tempo früh ÷ Tempo Schluss × 100, als Kategorie very slow … very fast. Finish-Idx: Endspeed (letzte 400 m) ÷ Tempo davor × 100, als Kategorie very weak … very strong. Beide gemessen am Schnitt aller Läufe der heutigen Starter (normal = ±0,5 SD, very = ab 1,5 SD); klein die Zahl und der Abstand zum Schnitt. ⚑ bei ±800/Weg = auffälliger Wert. ±800 · Weg: groß Plätze gutgemacht ab 800 m (grün ab +3), klein Meter mehr/weniger als der Median (≥ 7,5 m auffällig). K/D/B = wie heute. Val klein: heutige − damalige Valeur.'],
+  ['Letzte Läufe', 'Oben groß die Ratings Val, ARR, TR; bei ARR und TR darunter der Rang dieses Laufs unter allen Läufen der heutigen Starter der letzten 30 / 90 / 365 Tage (gold = bester). Darunter das Tracking. Pos. vor Finish: Position 400 m vor dem Ziel (früh → 400 m). Pace-Ratio: Tempo früh ÷ Tempo Schluss × 100, als Kategorie very slow … very fast. Finish-Idx: Endspeed (letzte 400 m) ÷ Tempo davor × 100, als Kategorie very weak … very strong. Beide gemessen am Schnitt aller Läufe der heutigen Starter (normal = ±0,5 SD, very = ab 1,5 SD); klein die Zahl und der Abstand zum Schnitt. ⚑ bei ±800/Weg = auffälliger Wert. ±800 · Weg: groß Plätze gutgemacht ab 800 m (grün ab +3), klein Meter mehr/weniger als der Median (≥ 7,5 m auffällig). K/D/B = wie heute. Val klein: heutige − damalige Valeur.'],
   ['Gegner', 'Pro Lauf: wie die Gegner von damals im nächsten Start abgeschnitten haben, welche heutigen Gegner mitliefen und indirekte Vergleiche über gemeinsame Gegner.'],
   ['A/E', 'Actual vs. Expected: tatsächliche ÷ erwartete Plätze (A/E S: Siege) für Trainer, Jockey, Besitzer, Züchter in 30 / 90 / 365 Tagen. Pos+ und €/L+ als Index, 100 = Schnitt. ▲/▼ = Trend.'],
   ['Vorlieben', 'Trainer und Jockey (2 Jahre), Jockey auf dem Pferd und Pferd nach Boden, Distanz, Bahn, Scheuklappen, Trainer (gesamte Historie). Zeile von Trainer/Jockey antippen: alle Gruppen dieser Person (z. B. alle Bahnen des Trainers), beste mit goldenem Rand. Bei der Abstammung über „Alle Gruppen dieser Linie“.'],
@@ -1222,6 +1229,8 @@ class Component extends DCLogic {
     const stat = P => { if (P.length < 5) return null; const m = P.reduce((a, b) => a + b, 0) / P.length; return { m, sd: Math.sqrt(P.reduce((a, b) => a + (b - m) ** 2, 0) / P.length) || 1 }; };
     pools.paceStat = stat(pools.pace);
     pools.finStat = stat(mkPool(f => f.finish_index));
+    const heute = new Date(idx.date);
+    pools.kpi = field.flatMap(x => (x.kpi || []).map(l => ({ no: x.no, rid: l[7], d: (heute - new Date(l[0])) / 864e5, arr: l[4], tr: l[5] })));
 
     let rows = rd.runners.map(x => {
       const pw = x.nr ? null : x.power;
@@ -1354,10 +1363,16 @@ class Component extends DCLogic {
       const vd = x.rating != null && f.valeur != null ? Math.round((x.rating - f.valeur) * 10) / 10 : null;
       const kpiOk = k => !f.unreliable && (k === 'arr' ? f.arr != null : f.tr != null);
       const tapK = k => kpiOk(k) ? (e => { e.stopPropagation(); this.setState({ kpi: { no, rid: f.race_id, k } }); }) : undefined;
+      const raenge = k => { const v = f.unreliable ? null : k === 'arr' ? (f.arr_adj ?? f.arr) : (f.tr_heute ?? f.tr);
+        if (v == null || !pools.kpi.length) return [];
+        return [30, 90, 365].map(t => { const P = pools.kpi.filter(e => e.d <= t && e[k] != null && !(e.no === no && e.rid === f.race_id));
+          const r = 1 + P.filter(e => e[k] > v).length, n = P.length + 1, eins = r === 1;
+          return { w: t, r: r + '/' + n, bg: eins ? '#D9A43B' : 'transparent', fg: eins ? '#161511' : 'inherit', fw: eins ? 800 : 600 }; }); };
       const mm = [
         { k: 'Val', v: kurz(f.valeur), sub: vd == null ? '' : vd === 0 ? '±0' : sgn(vd, 1).replace(/,0$/, ''), subFg: vd < 0 ? C.good : vd > 0 ? C.bad : C.ink3, fg: C.ink, tip: 'Valeur damals; klein: heute − damals' },
-        { k: 'ARR', v: kurz(f.arr_adj ?? f.arr), sub: f.arr != null ? 'roh ' + kurz(f.arr) : '', subFg: C.ink3, fg: C.ink, tap: tapK('arr'), tip: 'Antippen: Feldvergleich' },
-        { k: 'TR', v: f.tr_heute ?? f.tr ?? '–', sub: f.tr != null ? f.tr + ' = ' + f.tr_zeit + sgn(f.tr_upg ?? 0, 1).replace(/,0$/, '') + (f.tr_cap ? ' ✱' : '') : (f.tracking ? '' : 'kein Tracking'), subFg: C.ink3, fg: C.ink, tap: tapK('tr'), tip: 'TR aufs heutige Gewicht; klein: TR = Zeit-Rating + Upgrade' },
+        { k: 'ARR', v: kurz(f.arr_adj ?? f.arr), sub: '', rk3: raenge('arr'), subFg: C.ink3, fg: C.ink, tap: tapK('arr'), tip: 'ARR aufs heutige Gewicht' + (f.arr != null ? ' (roh ' + kurz(f.arr) + ')' : '') + ' · darunter Rang unter allen Läufen der heutigen Starter der letzten 30 / 90 / 365 Tage · Antippen: Feldvergleich' },
+        { k: 'TR', v: f.tr_heute ?? f.tr ?? '–', sub: f.tr != null ? '' : (f.tracking ? '' : 'kein Tracking'), rk3: raenge('tr'), subFg: C.ink3, fg: C.ink, tap: tapK('tr'),
+          tip: 'TR aufs heutige Gewicht' + (f.tr != null ? ' (TR ' + f.tr + ' = Zeit-Rating ' + f.tr_zeit + ' + Upgrade ' + sgn(f.tr_upg ?? 0, 1) + (f.tr_cap ? ', Upgrade gedeckelt ✱' : '') + ')' : '') + ' · darunter Rang unter allen Läufen der heutigen Starter der letzten 30 / 90 / 365 Tage · Antippen: Feldvergleich' },
         { k: 'Pos ' + (f.pos_before_m || 400), v: f.pos_before ? f.pos_before + '.' : '–', sub: f.early_pos ? 'früh ' + f.early_pos + '.' + (f.fifth ? ' · ' + f.fifth + '/5' : '') : '', subFg: C.ink3, fg: C.ink, tip: 'Position vor dem Ziel, Fünftel des Feldes' },
         { k: 'Pace', v: fx(f.pace_ratio), sub: f.pace_ratio == null ? '' : f.pace_ratio >= 102 ? 'schnell früh' : f.pace_ratio <= 98 ? 'langsam früh' : 'gleichmäßig', subFg: C.ink3, fg: C.ink, tip: 'Tempo früh ÷ Tempo Schluss × 100' },
         { k: 'Fin-Idx', v: fx(f.finish_index), sub: f.fi_adj != null ? 'ber. ' + sgn(f.fi_adj, 1) : '', subFg: C.ink3, fg: C.ink, tip: 'Endspeed ÷ Tempo davor × 100' },
