@@ -169,7 +169,16 @@ input{color:inherit}
   </div>
 </section>
 
-<div ref="{{ toolsRef }}" style="position:sticky;top:{{ toolsTop }}px;z-index:15;background:#F6F4EF;padding:8px 16px 0;border-bottom:1px solid #161512">
+<div data-sticky="race" style="position:sticky;top:{{ toolsTop }}px;z-index:16;height:{{ raceBarH }}px;margin-bottom:-{{ raceBarH }}px;visibility:hidden;background:#F6F4EF;border-bottom:1px solid #161512;padding:6px 16px 0;display:flex;flex-direction:column;justify-content:center;gap:2px">
+  <div style="display:flex;align-items:baseline;gap:8px;min-width:0">
+    <span style="font-family:'Spline Sans Mono',monospace;font-weight:600;font-size:11.5px;color:#57534B;flex:none">R{{ race.reunion }}·C{{ race.no }}</span>
+    <span style="font-weight:800;font-stretch:62%;font-size:22px;line-height:1;flex:none">{{ race.time }}</span>
+    <span style="font-weight:700;font-stretch:72%;font-size:14px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ race.name }}</span>
+  </div>
+  <div style="font-size:11.5px;color:#57534B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ race.sub }}</div>
+</div>
+
+<div ref="{{ toolsRef }}" style="position:relative;background:#F6F4EF;padding:8px 16px 0;border-bottom:1px solid #161512">
   <div style="display:flex;gap:8px;align-items:center">
     <div style="display:flex;flex:1;background:#E9E5DC;border-radius:8px;padding:2px">
       <sc-for list="{{ sorts }}" as="s" hint-placeholder-count="4">
@@ -194,7 +203,21 @@ input{color:inherit}
 
 <div>
   <sc-for list="{{ runners }}" as="r" hint-placeholder-count="10">
-    <article style="border-bottom:1px solid #DCD8CE;background:{{ r.rowBg }};opacity:{{ r.op }}">
+    <article data-no="{{ r.no }}" style="border-bottom:1px solid #DCD8CE;background:{{ r.rowBg }};opacity:{{ r.op }}">
+      <sc-if value="{{ r.isMid }}" hint-placeholder-val="{{ false }}">
+        <div data-kopf="1" onClick="{{ r.zu }}" style="position:sticky;top:{{ kopfTop }}px;z-index:6;height:{{ kopfH }}px;margin-bottom:-{{ kopfH }}px;visibility:hidden;background:#FFFDF9;border-bottom:1px solid #DCD8CE;box-shadow:0 4px 10px -6px rgba(0,0,0,.25);display:grid;grid-template-columns:28px 26px minmax(0,1fr) auto;gap:8px;align-items:center;padding:0 16px;cursor:pointer">
+          <span style="width:28px;height:30px;border-radius:5px;background:#161512;color:#F6F4EF;font-weight:800;font-stretch:62%;font-size:20px;display:grid;place-items:center">{{ r.no }}</span>
+          <span style="width:26px;height:26px;background-image:{{ r.silkBg }};background-size:contain;background-repeat:no-repeat;background-position:center"></span>
+          <span style="min-width:0">
+            <span style="display:block;font-weight:800;font-stretch:72%;font-size:15px;line-height:1.1;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.horse }}</span>
+            <span style="display:block;font-size:11.5px;color:#57534B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.jt }}</span>
+          </span>
+          <span style="text-align:right">
+            <span style="display:block;font-family:'Spline Sans Mono',monospace;font-weight:600;font-size:17px;line-height:1.1;color:{{ r.fairFg }}">{{ r.fairTxt }}</span>
+            <span style="display:block;font-size:10.5px;color:#8C877C;white-space:nowrap">{{ r.mktLab }} {{ r.mktTxt }}</span>
+          </span>
+        </div>
+      </sc-if>
       <div onClick="{{ r.cycle }}" style="padding:12px 16px 10px;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) 52px;gap:6px 10px">
         <div style="display:flex;gap:10px;align-items:flex-start;min-width:0">
           <span style="flex:none;width:32px;height:36px;border-radius:5px;background:#161512;color:#F6F4EF;font-weight:800;font-stretch:62%;font-size:24px;display:grid;place-items:center">{{ r.no }}</span>
@@ -911,6 +934,7 @@ const LEGEND = [
   ['Form', 'Letzte Platzierungen, links die jüngste. Schwarz = Sieg, grau = Platz 2–3, 0 = außerhalb der ersten 9.'],
   ['Tooltips', 'Felder mit Erklärung (z. B. Kelly, Box, Kennzahlen) antippen: der Text erscheint unten eingeblendet. Am Desktop auch beim Überfahren mit der Maus.'],
   ['Starter in drei Stufen', 'Antippen öffnet Kennzahlen und Verbindungen, „Details“ zeigt Läufe, A/E, Vorlieben, Abstammung, Duelle, Info. Kopfzeile erneut antippen schließt.'],
+  ['Klebende Leisten', 'Beim Scrollen bleibt unter dem Kopf die Rennleiste (Zeit, Rennen, Distanz, Boden, Starter, Preis, Typ, Klasse) stehen; in einem aufgeklappten Starter zusätzlich seine Kopfleiste mit Nummer, Trikot, Name, Jockey, Trainer und fairer Quote. Kopfleiste antippen klappt den Starter zu.'],
 ];
 
 const PV_TITEL = { trainer_jockey: ['Trainer', 'alle Jockeys', 'jt'], trainer_course: ['Trainer', 'alle Bahnen', 'jt'],
@@ -927,6 +951,7 @@ function bestKat(zeilen) {
   for (const z of ok) { const w = (z[3] + 5 * pl / ex) / (z[5] + 5); if (w > bw) { bw = w; best = z[0]; } }
   return best;
 }
+const RACE_H = 50, KOPF_H = 54;                            // Höhe der klebenden Renn- und Kopfleiste (px)
 const ROLLEN = { trainer: ['Trainer', 'trainer'], jockey: ['Jockey', 'jockey'], owner: ['Besitzer', 'owner'], breeder: ['Züchter', 'breeder'] };
 
 class Component extends DCLogic {
@@ -941,6 +966,8 @@ class Component extends DCLogic {
   componentDidMount() {
     this.onResize = () => this.setState({ narrow: window.innerWidth < 520 });
     this.onResize(); window.addEventListener('resize', this.onResize);
+    let raf = 0; const S = this.scrollRef.current;
+    if (S) S.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; this.leisten(); }); }, { passive: true });
     if (!DATA || !DATA.meetings || !DATA.meetings.length) { this.setState({ leer: true }); return; }
     const { idx, races } = karteIndex(DATA);
     const saved = store.get('rc-race'), sort = store.get('rc-sort');
@@ -950,11 +977,33 @@ class Component extends DCLogic {
     this.setState({ idx, races, meeting: race.reunion, raceId: race.id, bank: bank > 0 ? bank : 500,
       sort: SORTS.includes(sort) ? sort : null });
   }
+  // Rennleiste und Kopfleiste des aufgeklappten Starters einblenden, sobald ihr Original nach oben weggescrollt ist
+  leisten() {
+    const S = this.scrollRef.current, H = this.headRef.current; if (!S || !H) return;
+    const top0 = S.getBoundingClientRect().top + H.offsetHeight, lim = top0 + RACE_H;
+    const sec = S.querySelector('section'), rb = S.querySelector('[data-sticky=race]');
+    if (rb) rb.style.visibility = sec && sec.getBoundingClientRect().bottom < top0 + 2 ? 'visible' : 'hidden';
+    for (const k of S.querySelectorAll('[data-kopf]')) {
+      const art = k.closest('article'), kopf = k.nextElementSibling;
+      const an = kopf.getBoundingClientRect().bottom < lim + 2 && art.getBoundingClientRect().bottom > lim + KOPF_H + 8;
+      k.style.visibility = an ? 'visible' : 'hidden';
+    }
+  }
+  // Kopfleiste antippen: Starter zuklappen und zurück zu seiner Zeile scrollen
+  zuklappen(no) {
+    this._zu = no;
+    this.setState(s => { const mid = { ...s.mid }, open = { ...s.open }; delete mid[no]; delete open[no]; return { mid, open }; });
+  }
   componentWillUnmount() { window.removeEventListener('resize', this.onResize); }
   componentDidUpdate() {
-    const H = this.headRef.current, T = this.toolsRef.current;
-    if (H && T) { const t1 = H.offsetHeight, t2 = t1 + T.offsetHeight;
-      if (t1 !== this.state.toolsTop || t2 !== this.state.tabsTop) this.setState({ toolsTop: t1, tabsTop: t2 }); }
+    const H = this.headRef.current;
+    if (H && H.offsetHeight !== this.state.toolsTop) this.setState({ toolsTop: H.offsetHeight });
+    if (this._zu != null) {
+      const S = this.scrollRef.current, H = this.headRef.current, a = S && S.querySelector('article[data-no="' + this._zu + '"]');
+      this._zu = null;
+      if (a && H) S.scrollTop += a.getBoundingClientRect().top - (S.getBoundingClientRect().top + H.offsetHeight + RACE_H);
+    }
+    this.leisten();
     if (this._lastRace !== this.state.raceId && this.stripRef.current) {
       this._lastRace = this.state.raceId;
       const el = this.stripRef.current, c = el.querySelector('[data-on="1"]');
@@ -1082,7 +1131,7 @@ class Component extends DCLogic {
     const base = {
       deskPad: '0', shellW: narrow ? '100vw' : 'min(100vw, 640px)', shellH: '100dvh',
       shellR: '0', shellBorder: narrow ? '0' : '1px solid #DCD8CE', topPad: '12px',
-      toolsTop: s.toolsTop ?? 150, tabsTop: s.tabsTop ?? 222, scrollRef: this.scrollRef, stripRef: this.stripRef,
+      toolsTop: s.toolsTop ?? 150, raceBarH: RACE_H, kopfH: KOPF_H, kopfTop: (s.toolsTop ?? 150) + RACE_H, tabsTop: (s.toolsTop ?? 150) + RACE_H + KOPF_H, scrollRef: this.scrollRef, stripRef: this.stripRef,
       headRef: this.headRef, toolsRef: this.toolsRef, emptyTxt: s.leer ? 'Keine Rennen in den Daten.' : 'Lade Rennkarte …',
       toggleLegend: () => this.setState(x => ({ legendOpen: !x.legendOpen })), legendOpen: s.legendOpen, legendQ: s.legendQ,
       onLegendQ: e => this.setState({ legendQ: e.target.value }), legend, legendEmpty: !legend.length,
@@ -1106,7 +1155,8 @@ class Component extends DCLogic {
       { k: 'Klasse', v: race.cls ? (race.cls.val_idx ?? '–') + ' / ' + (race.cls.epr_idx ?? '–') : '–' },
     ];
     const gl = { F: 'Führend', V: 'Vorne', M: 'Mitte', H: 'Hinten' }, pg = race.pace?.groups || {};
-    const raceV = { reunion: race.reunion, no: race.no, time: race.time, name: race.name, cancelled: race.status === 'COURSE_ANNULEE', facts,
+    const raceV = { sub: [race.dist + ' m', (race.going || '–') + (race.goingAssumed ? '*' : ''), (rd ? rd.runners.filter(x => !x.nr).length : '–') + ' Starter', kEur(race.prize), race.type, race.cls ? 'Kl. ' + (race.cls.val_idx ?? '–') + '/' + (race.cls.epr_idx ?? '–') : null].filter(Boolean).join(' · '),
+      reunion: race.reunion, no: race.no, time: race.time, name: race.name, cancelled: race.status === 'COURSE_ANNULEE', facts,
       sel: race.prono?.sel || [], pronoText: race.prono?.text || 'Keine Prognose.', hasConsensus: !!race.prono?.consensus?.length,
       consensus: (race.prono?.consensus || []).join(' · '), paceLabel: tc(race.pace?.label || '–'),
       bias: race.bias == null ? '–' : sgn(race.bias, 2), paceGroups: ['F', 'V', 'M', 'H'].map(k => ({ label: gl[k], nos: pg[k] || [] })) };
@@ -1215,7 +1265,7 @@ class Component extends DCLogic {
         const e = ok ? Math.round(ctx.bank * (TR.kelly || 0.125) * T.kelly) : 0;
         return { isTip: ok, tipRang: ok ? T.rang : '', tipEinsatz: ok ? e + ' €' : '', tipTip: ok ? 'Festkurs ' + fx(T.fk, 1) + ' · Wert +' + Math.round(T.wert * 100) + ' % · Kelly-Anteil ' + fx(T.kelly * 100, 1) + ' % · Einsatz auf Sieg' : '' }; })(),
       tip: x.prono?.konsens ? '· Tipp ' + x.prono.konsens.pos + '/' + x.prono.konsens.of : '',
-      cycle: () => this.cycle(no), isMid, isOpen,
+      cycle: () => this.cycle(no), zu: () => this.zuklappen(no), isMid, isOpen,
     };
     if (!isMid) return out;
 
