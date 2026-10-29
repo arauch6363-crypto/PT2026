@@ -658,9 +658,19 @@ vergleicht beide Rechnungen über Node.
   - `parquet/pmu_races/YYYYMMDD.parquet` mit dem Einlauf
 - Tage ohne Einlauf bleiben offen und werden in der Kopfzeile genannt.
 - **Pool:** alle Starter mit Festkurs Sieg und Wert ≥ 0.
-- **Filter:** Mindest-Wert, genau ein Modus (`max`/`rank`/`rel`/`none`), Top-Wert, Mindest-Kelly-Anteil, Höchstzahl je
-  Veranstaltung (frei, 0 = alle), Tag (einzeln ab 1000 €) und Pferdesuche. Vorgabe ist die Tipp-Strategie: ⅛ Kelly,
-  nur Sieg, Wert ≥ 0,2, ohne Modus, Kelly-Anteil ≥ 5 %, höchstens 7 je Veranstaltung und 1 je Rennen.
+- **Ansicht (für das Handy, eine Spalte):** oben der **Zeitraum** (Gesamt oder eine der letzten drei
+  ISO-Kalenderwochen; jede Zeile in „Woche für Woche“ lässt sich ebenso antippen) und die **Strategie** (antippen
+  klappt die Filter auf). Danach in dieser Reihenfolge: die Signale „Modell → Toto“ und „Sieger gegen
+  Toto-Erwartung“ mit einer Lesart in einem Satz, „Woche für Woche“, „Bank & Ergebnis“ (Bank, Gewinn · ROI,
+  Wetten / Tage, Kurs bis Start, Trefferquote Sieg und Platz, Edge Sieg), „Sieger kumuliert“ (echt gegen erwartet
+  nach Festkurs und Modell), „Bank im Verlauf“ (x-Achse je Wette, Tag, Woche oder Monat) und die durchsuchbare
+  Pick-Liste. Antippen eines Diagramms zeigt die Werte des nächsten Punkts. Bei einer Woche beginnt die Bank mit dem
+  Stand zu Wochenbeginn. Die **Trefferquote Platz** zählt alle Picks unter den ersten 3, auch ohne Platzbein (anders
+  als `place_rate` in Python, das nur Wetten mit Platzbein zählt).
+- **Filter:** Einsatz, Wettart, faire Quote (Karte / Schatten), Mindest-Wert, Mindest-Kelly-Anteil, Höchstzahl je
+  Veranstaltung (0 = alle), höchstens 1 je Rennen und Toto-Abzug. Vorgabe ist die Tipp-Strategie: ⅛ Kelly, nur Sieg,
+  Wert ≥ 0,2, Kelly-Anteil ≥ 5 %, höchstens 7 je Veranstaltung und 1 je Rennen; „Auf Vorgabe zurück“ stellt sie
+  wieder her. Modus (`max`/`rank`/`rel`) und Top-Wert gibt es nur noch in Python (`vb.FilterConfig`).
 - **Kelly-Schwelle und je Veranstaltung (Tipps):** nur Starter mit Kelly-Anteil Wert ÷ (Festkurs − 1) ≥ Schwelle
   (`min_kelly`; bei ⅛ Kelly = Einsatz ≥ ⅛ der Schwelle von der Bank, 5 % ≙ 0,625 %) – so hängt die Zahl der Tipps
   davon ab, wie viel Value eine Veranstaltung bietet; danach mit „max. 1 je Rennen“ der beste je Rennen und höchstens
@@ -683,18 +693,18 @@ vergleicht beide Rechnungen über Node.
 - **Kurs bis Start:** Festkurs gegen Toto-Endquote (`parquet/pmu_runners`, `odds_final` = letzte Siegquote vor dem
   Start). Weil Festkurs und Toto grundsätzlich verschieden liegen (Toto nach Abzug), zählt der Vergleich mit dem
   Schnitt aller Starter desselben Rennens: Kachel „Kurs bis Start“ (geometrisches Mittel, + = Picks wurden stärker
-  gewettet als das Feld) und Spalte „Kurs ±“ je Wette. Schnellstes ehrliches Signal, ob die Picks echten Wert haben.
-- **Kursvorteil im Verlauf:** Das Diagramm zeigt den laufenden Kursvorteil der Picks über die Wetten, mit einem Band
-  von ±1 Standardfehler und den einzelnen Wetten als Punkte. Zum Vergleich steht gestrichelt derselbe Wert für den
-  ganzen Pool (Wert ≥ 0); die Kachel nennt dazu den Pool-Wert und z = Ø kurs_rel ÷ Standardfehler
-  (`vb.kurs_verlauf`, `vb.kurs_kpis`). So sieht man, ab wann der Vorteil sich sicher von 0 abhebt und was die
-  Auswahl über den Pool hinaus bringt.
+  gewettet als das Feld, mit z = Ø kurs_rel ÷ Standardfehler). Schnellstes ehrliches Signal, ob die Picks echten
+  Wert haben.
+- **Kursvorteil im Verlauf:** laufender Kursvorteil der Picks über die Wetten mit ±1 Standardfehler und derselbe
+  Wert für den ganzen Pool (Wert ≥ 0) – nur in Python (`vb.kurs_verlauf`, `vb.kurs_kpis`), nicht mehr als Diagramm
+  auf der Seite.
 - **Modell → Toto (bereinigt):** „Kurs ±“ enthält einen Auswahleffekt – wir bevorzugen hohe Festkurse, also auch Fälle,
   in denen der Buchmacher danebenlag. Die Kachel „Modell → Toto“ prüft deshalb per Regression über die Picks des
   Filters (unabhängig vom Einsatz): log(Toto-End) = a + b1·log(Festkurs) + b2·log(Power-Chance), mit Power allein
   (`sieg_blind`, Power-Mischung vor Value) und robustem t (HC1); zweite Variante zusätzlich mit der Presse-Quote. t ≤ −2:
-  Pferde, die das Modell bei gleichem Festkurs höher einschätzt, enden kürzer im Toto (`vb.modell_toto`). Das
-  Diagramm „Modell → Toto im Verlauf“ zeigt den t-Wert je Renntag kumuliert, ab 20 Picks.
+  Pferde, die das Modell bei gleichem Festkurs höher einschätzt, enden kürzer im Toto (`vb.modell_toto`). Die Karte
+  zeigt t für den gewählten Zeitraum (Skala −4 … +4, Bereich unter −2 hervorgehoben), die Tabelle „Woche für Woche“ je
+  Woche, beides ab 20 Picks mit Toto-Endquote. Den Verlauf je Renntag liefert `vb.modell_toto_verlauf`.
 - **Faire Quote:** nur noch eine, die der Karte (Power-Mischung, mit Value, sobald übernommen) – sie bestimmt Wert,
   Rang, Top-Wert, Platzchance und Kelly. Karten vom 21.–23.10.2026 mischten noch die Morgenquote ein
   (`sieg_quelle` „morgen“/„mischung“): für sie rechnet das Dashboard mit `sieg_blind` (Power bzw. Power-Mischung
@@ -723,22 +733,23 @@ vergleicht beide Rechnungen über Node.
   mit Prognose-Schicht, Publikum aus den **Festkursen der Karte** (`publikum="fk"`, Vorgabe; wahlweise der Toto-Stand
   der Karte, nie die Endquote) – nur als Preis, nicht als Teil unserer Chance –, Auszahlungsfaktor c je Tag als Median
   aus allen früher abgerechneten Rennen (ab 30; davor `kombi.KOMBI_C`: Couplé Placé 0,77, 2sur4 0,66); abgerechnet
-  gegen die PMU-Dividenden. `kombi.rueckrechnung(BASE, publikum="fk")` rechnet die Rückrechnung ebenso. Panel „Kombiwetten
-  (Vorwärtstest)“: Wettart, Chance (Modell / Schatten) und Schwelle wählbar; je Woche Tickets, Treffer gegen
-  „erwartet Modell“ und „erwartet Publikum“, **Abschlag** (Treffer ÷ erwartet Modell − 1: wie stark das Modell seine
-  Auswahl überschätzt) und ROI bei 1 € je Paar. Noch kein Wettgeld.
+  gegen die PMU-Dividenden. `kombi.rueckrechnung(BASE, publikum="fk")` rechnet die Rückrechnung ebenso. Auswertung je
+  Woche (`kombiBlick` in der Seite): Tickets, Treffer gegen „erwartet Modell“ und „erwartet Publikum“, **Abschlag**
+  (Treffer ÷ erwartet Modell − 1: wie stark das Modell seine Auswahl überschätzt) und ROI bei 1 € je Paar. Die Paare
+  stehen weiter in den Seitendaten (`kombi`), das Dashboard zeigt sie in der Handy-Ansicht nicht mehr an. Noch kein
+  Wettgeld.
 - **Bahnprofil:** `bahn_profil.recherche(BASE)` (in Colab, braucht freies Internet) liest für alle Bahnen aus
   `boden_manuell.json` die Bahnbeschreibungen bei Turfoo und Zeturf, zieht die Sätze mit Zahlen heraus und erkennt
   Umfang, Zielgerade, Kurve, Profil und gerade Bahn → `BASE/bahn_profil_recherche.csv` zum Prüfen. Geprüfte Werte
   kommen in `bahn_profil.PROFIL` (je Bahn, bei mehreren Pisten je Piste); `bahn_profil.profil(bahn, parcours)` liefert
   sie mit Größenklasse. Für die Bahn-Merkmale in Version 20 (MERKMALE.md, Punkt 8).
-- **Wochenblick** (oben, für die Picks des Filters, je ISO-Kalenderwoche und gesamt): realisiertes **FK/Toto**
-  (geometrisches Mittel Festkurs ÷ Toto-Endquote) gegen die Schwelle (1 + 5 % Steuer) ÷ (1 − Toto-Abzug) – die
-  Gewinnschwelle, falls die Toto-Endquote die wahre Chance wäre; den Abzug trägt man ein (Vorgabe 23 %) –, daraus die
-  „Edge bei Toto-Wahrheit“; **Sieger gegen die Toto-Erwartung** (Σ (1 − Abzug) ÷ Toto-Endquote, mit z) – liegt sie
-  deutlich darüber, weiß das Modell mehr als selbst die Endquote; und **Modell → Toto** (t, je Woche ab 20 Picks).
-  Diese Zahlen statt der Bank verfolgen: bei der Varianz einzelner Treffer sagt die Bank wenig.
-- **Faire Quote: Berechnung im Verlauf:** Liste über den Kennzahlen und ◆-Marken im Bank-Diagramm (Tooltip) an jedem
+- **Woche für Woche** (für die Picks des Filters, je ISO-Kalenderwoche und gesamt; `wochenBlick`): realisiertes
+  **FK/Toto** (geometrisches Mittel Festkurs ÷ Toto-Endquote, blau = über der Schwelle (1 + 5 % Steuer) ÷
+  (1 − Toto-Abzug), der Gewinnschwelle, falls die Toto-Endquote die wahre Chance wäre; den Abzug trägt man in den
+  Filtern ein, Vorgabe 23 %), **Sieger gegen die Toto-Erwartung** (Σ (1 − Abzug) ÷ Toto-Endquote; die Karte oben
+  nennt dazu z – liegt sie deutlich darüber, weiß das Modell mehr als selbst die Endquote) und **Modell → Toto** (t,
+  je Woche ab 20 Picks). Diese Zahlen statt der Bank verfolgen: bei der Varianz einzelner Treffer sagt die Bank wenig.
+- **Faire Quote: Berechnung im Verlauf:** Liste unter dem Bank-Diagramm und ◆-Marken darin (Werte beim Antippen) an jedem
   Renntag, an dem sich das Verfahren (z. B. Power → Power × Power-sieg → … × Value) oder der Trainingsstand von
   Power/Value geändert hat (`vb.aenderungen`). Neuere Karten schreiben dazu `modelle.faire_quote` (Quellen der
   Mischung, Schichten, κ, Trainingszeitpunkte); bei älteren wird das Verfahren aus den Starterdaten erschlossen.
