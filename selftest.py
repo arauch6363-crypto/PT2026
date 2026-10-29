@@ -347,6 +347,8 @@ def main() -> int:
     prognose_pruefen()
     print("\n17) Einlauf-Modell: Platz- und Kombichancen aus Siegchancen")
     einlauf_pruefen()
+    print("\n18) Bahnprofil: Eigenschaften der Rennbahnen")
+    bahn_profil_pruefen()
 
     pt.read_pages = requests_session_orig
     print("\n" + ("Alle Prüfungen bestanden." if not fehler else f"{len(fehler)} Prüfung(en) fehlgeschlagen:"))
@@ -1899,6 +1901,25 @@ def einlauf_pruefen() -> None:
            f"Kombiwetten: Couplé Placé {cp['rennen']} Rennen (3 Gewinnpaare je Rennen, NP-Zeilen ignoriert, c ≈ "
            f"{cp['auszahlungsfaktor_c']}), 2sur4 (6 Gewinnpaare, c ≈ {zv['auszahlungsfaktor_c']}), Quinté+ "
            f"{qu['rennen']} Rennen mit Stufen {qu['modell']['stufen']}")
+
+
+def bahn_profil_pruefen() -> None:
+    import bahn_profil as bp
+    a1 = bp.auswerten("Bienvenue. La piste du Jockey-Club fait 2 400 mètres, corde à droite, avec une ligne d'arrivée "
+                      "de 600 mètres. Une piste en ligne droite est réservée aux sprinters sur 1 000 à 1 200 mètres.")
+    a2 = bp.auswerten("Piste de plat corde à droite de 1 425 mètres, avec une ligne d'arrivée de 300 mètres. Le terrain est plat.")
+    a3 = bp.auswerten("La piste de 1 800 m, corde à gauche, est vallonnée avec une montée avant l'arrivée. Ligne droite de 450 m.")
+    alt = dict(bp.PROFIL)
+    bp.PROFIL.update({"TEST": {"umfang_m": 1425, "pisten": {"GRANDE": {"umfang_m": 2400, "zielgerade_m": 600}}}})
+    p1, p2 = bp.profil("TEST"), bp.profil("TEST", "GRANDE")
+    bp.PROFIL.clear(); bp.PROFIL.update(alt)
+    pruefe((a1["umfang_m"], a1["zielgerade_m"], a1["kurve"], a1["gerade_bahn"]) == (2400, 600, "rechts", True)
+           and (a2["umfang_m"], a2["zielgerade_m"], a2["profil"]) == (1425, 300, "flach")
+           and (a3["umfang_m"], a3["zielgerade_m"], a3["kurve"], a3["profil"], a3["ziel_ansteigend"]) == (1800, 450, "links", "wellig", True)
+           and p1["groesse"] == "klein" and p2["groesse"] == "groß" and p2["zielgerade_m"] == 600 and bp.profil("NICHT") is None
+           and len(bp.bahnen()) >= 40 and "sables-d-olonne" in bp.slugs("LES SABLES D OLONNE"),
+           "Bahnprofil: Umfang, Zielgerade, Kurve, Profil, gerade Bahn aus Bahnbeschreibungen erkannt; Größenklasse aus dem "
+           "Umfang, Werte je Piste; Bahnliste aus boden_manuell.json")
 
 
 def prognose_pruefen() -> None:

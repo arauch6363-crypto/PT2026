@@ -322,3 +322,10 @@ Gesammelt, nicht dringend – beim nächsten ohnehin fälligen Neubau der Merkma
    `racecard.platz_erwartung`): die Vorgabe überschätzt die Platzerwartung von Außenseitern um etwa 6 % (Prüfung
    Oktober 2026: 5.143 erwartet gegen 4.869 echt unter 10 % Siegchance; geschätzt 4.860), ihre Trainer, Jockeys und
    Linien stehen dadurch zu schlecht da. Ändert alle A/E-Merkmale – deshalb erst mit dem Neubau.
+8. **Bahn-Eigenschaften statt Bahnname** (überträgt Muster auch auf seltene Bahnen): aus `bahn_profil.PROFIL` (geprüfte
+   Recherche, je Piste) Umfang, Größenklasse (klein/eng < 1.600 m, mittel, groß ≥ 2.000 m), Zielgerade, Kurve,
+   Profil, ansteigendes Ziel, gerade Bahn; dazu aus den eigenen Daten je Konfiguration, zeitlich sauber (nur Rennen
+   vor dem Tag): Vorne-Vorteil (Siegquote von der Spitze) und Endspurt-Gewicht (Anteil der letzten 600 m am
+   Ergebnis, aus dem Tracking). Wirkung vor allem über Wechselwirkungen mit dem Pferd – Laufstil × Vorne-Vorteil,
+   Endspeed × Zielgerade, Box × Größe. Vergleichsweise auch die Bahn als Kategorie (seltene Bahnen zusammengefasst).
+   Übernahme nur mit gepaartem Test.
