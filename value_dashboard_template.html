@@ -2,195 +2,222 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Value-Wetten</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
 :root {
   color-scheme: light;
-  --bg: #fcfcfb; --panel: #ffffff; --line: #e4e3df; --grid: #ecebe7;
-  --text: #0b0b0b; --text2: #52514e; --muted: #8a8984;
-  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
-  --good: #1a7f37; --bad: #cf222e; --warn: #9a6700;
+  --bg: #f6f5f2; --panel: #ffffff; --line: #e3e1db; --line2: #efede8; --seg: #eceae4; --chip: #eeede8;
+  --text: #17171a; --text2: #54524c; --muted: #6e6c66; --zero: #b9b6ae;
+  --accent: #1f5fbf; --on-accent: #ffffff; --orange: #b5501a; --model: #33322e;
+  --warn-bg: #fbede4; --warn-fg: #8f3d12; --good: #1a7f37; --bad: #b42318;
+  --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg: #1a1a19; --panel: #222220; --line: #3a3a37; --grid: #2e2e2b;
-    --text: #f0efec; --text2: #c3c2b7; --muted: #8f8e88;
-    --s1: #3987e5; --s2: #d95926; --s3: #199e70;
-    --good: #4ac26b; --bad: #ff7b72; --warn: #d29922;
+    --bg: #1a1a19; --panel: #222220; --line: #3a3a37; --line2: #2e2e2b; --seg: #2e2e2b; --chip: #34342f;
+    --text: #f0efec; --text2: #c3c2b7; --muted: #9a998f; --zero: #5a5955;
+    --accent: #6a9eeb; --on-accent: #111111; --orange: #e07a3f; --model: #c3c2b7;
+    --warn-bg: #4a2a17; --warn-fg: #f3b58a; --good: #4ac26b; --bad: #ff7b72;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #1a1a19; --panel: #222220; --line: #3a3a37; --grid: #2e2e2b;
-  --text: #f0efec; --text2: #c3c2b7; --muted: #8f8e88;
-  --s1: #3987e5; --s2: #d95926; --s3: #199e70;
-  --good: #4ac26b; --bad: #ff7b72; --warn: #d29922;
+  --bg: #1a1a19; --panel: #222220; --line: #3a3a37; --line2: #2e2e2b; --seg: #2e2e2b; --chip: #34342f;
+  --text: #f0efec; --text2: #c3c2b7; --muted: #9a998f; --zero: #5a5955;
+  --accent: #6a9eeb; --on-accent: #111111; --orange: #e07a3f; --model: #c3c2b7;
+  --warn-bg: #4a2a17; --warn-fg: #f3b58a; --good: #4ac26b; --bad: #ff7b72;
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--text);
-  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
-main { max-width: 1280px; margin: 0 auto; padding: 16px; }
-h1 { font-size: 20px; margin: 0 0 2px; }
-.stand { color: var(--text2); font-size: 13px; margin-bottom: 12px; }
-.filter { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
-.filter label { display: flex; align-items: center; gap: 6px; color: var(--text2); font-size: 13px; }
-.filter select, .filter input[type=text] { font: inherit; color: var(--text); background: var(--bg);
-  border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
-.filter input[type=range] { width: 120px; }
-.filter output { min-width: 34px; color: var(--text); font-variant-numeric: tabular-nums; }
-.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 12px 0; }
-.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
-.kpi .t { font-size: 11px; color: var(--text2); }
-.kpi .w { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.kpi .u { font-size: 11px; color: var(--muted); }
-.hinweis { color: var(--bad); font-weight: 600; margin: 4px 0 8px; }
-.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 8px; }
-.chart { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
-.chart.breit { grid-column: 1 / -1; }
-.chart .sub { font-size: 12px; color: var(--text2); margin: -2px 0 4px; }
-.chart h2 { font-size: 13px; margin: 0 0 4px; font-weight: 600; }
-.legend { display: flex; gap: 12px; font-size: 12px; color: var(--text2); margin-bottom: 2px; }
-.legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
-.legend i.d { background: none !important; border-top: 2px dashed; height: 0; }
-svg { display: block; width: 100%; height: auto; overflow: visible; }
-svg text { fill: var(--muted); font-size: 11px; }
-.tip { position: fixed; pointer-events: none; background: var(--panel); color: var(--text);
-  border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; font-size: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,.15); display: none; white-space: pre; z-index: 9; }
-.tabelle { margin-top: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: auto; max-height: 560px; }
-table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
-th, td { padding: 3px 7px; text-align: right; white-space: nowrap; font-size: 12px; }
-th { position: sticky; top: 0; background: var(--panel); cursor: pointer; border-bottom: 1px solid var(--line); color: var(--text2); }
-th.l, td.l { text-align: left; }
-tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 4%, transparent); }
-.pos { color: var(--good); } .neg { color: var(--bad); } .wa { color: var(--warn); }
-.fuss { color: var(--muted); font-size: 12px; margin-top: 10px; }
-.aend { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin-top: 8px; }
-.aend h2 { font-size: 13px; margin: 0 0 4px; font-weight: 600; }
-.aend ol { margin: 0; padding-left: 18px; color: var(--text2); font-size: 12px; }
-.aend li span { color: var(--text); font-variant-numeric: tabular-nums; margin-right: 6px; }
-.tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; }
-.tabs button { font: inherit; font-size: 13px; color: var(--text2); background: var(--panel); border: 1px solid var(--line);
-  border-radius: 999px; padding: 5px 12px; cursor: pointer; }
-.tabs button.an { color: var(--panel); background: var(--text); border-color: var(--text); font-weight: 600; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 var(--sans); }
+main { max-width: 480px; margin: 0 auto; padding: 20px 16px 32px; display: flex; flex-direction: column; gap: 16px; }
+h1 { margin: 0; font-size: 22px; font-weight: 600; }
+h2 { margin: 4px 0 0; font-size: 16px; font-weight: 600; }
+h3 { margin: 0; font-size: 13px; font-weight: 600; }
+p { margin: 0; }
+.stand { margin-top: 4px; color: var(--text2); font-size: 12px; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.klein { font-size: 12px; color: var(--text2); }
+.pos { color: var(--good); } .neg { color: var(--bad); } .akz { color: var(--accent); }
+
+.seg { display: grid; gap: 2px; padding: 3px; background: var(--seg); border-radius: 10px; }
+.seg button { min-height: 44px; padding: 0 4px; border: 0; border-radius: 8px; background: transparent; color: var(--text2);
+  font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--panel); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .14); }
+
+.strategie { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.strategie > button { width: 100%; min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 14px; border: 0; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.strategie .t1 { display: block; font-size: 13px; font-weight: 600; }
+.strategie .t2 { display: block; font-size: 12px; color: var(--text2); }
+.strategie svg { flex: none; stroke: var(--text2); }
+.blatt { border-top: 1px solid var(--line2); padding: 6px 14px 14px; display: flex; flex-direction: column; gap: 2px; }
+.blatt[hidden] { display: none; }
+.feld { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; font-size: 14px; }
+.feld select, .feld input[type=number] { height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel); color: var(--text); font: inherit; font-size: 14px; }
+.feld select { width: 170px; }
+.feld input[type=number] { width: 96px; text-align: right; }
+.feld input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--accent); }
+.knoepfe { display: flex; gap: 8px; margin-top: 8px; }
+.knopf { flex: 1; min-height: 44px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text);
+  font: inherit; font-weight: 500; cursor: pointer; }
+.knopf.primaer { background: var(--text); border-color: var(--text); color: var(--bg); }
+.knopf.gross { min-height: 48px; border-radius: 12px; }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.kopf { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.kopf.bl { align-items: baseline; }
+.pill { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--chip); color: var(--text2); white-space: nowrap; }
+.pill.stark { background: var(--accent); color: var(--on-accent); }
+.pill.warn { background: var(--warn-bg); color: var(--warn-fg); }
+.zahl { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
+.zahl .w { font-size: 36px; font-weight: 500; letter-spacing: -0.03em; line-height: 1; }
+.skala { position: relative; height: 20px; }
+.skala > div { position: absolute; }
+.skala .spur { left: 0; right: 0; top: 6px; height: 8px; border-radius: 4px; background: var(--chip); }
+.skala .zone { left: 0; width: 25%; top: 6px; height: 8px; border-radius: 4px 0 0 4px; background: color-mix(in srgb, var(--accent) 30%, var(--panel)); }
+.skala .balken { left: 0; top: 6px; height: 8px; border-radius: 4px; background: var(--accent); }
+.skala .marke { top: 0; width: 4px; height: 20px; margin-left: -2px; border-radius: 2px; background: var(--text); }
+.skala .strich { top: 0; width: 2px; height: 20px; margin-left: -1px; background: var(--text); }
+.ticks { display: flex; justify-content: space-between; margin-top: -6px; font-size: 11px; color: var(--muted); }
+.lesart { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: var(--seg); font-size: 13px; }
+.lesart svg { flex: none; margin-top: 1px; stroke: var(--text2); }
+.hinweis { font-size: 12px; color: var(--warn-fg); }
+.hinweis:empty { display: none; }
+
+.tabelle { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.tabelle[hidden] { display: none; }
+.wz { width: 100%; display: grid; grid-template-columns: 1.3fr 1fr 1fr .8fr; gap: 8px; padding: 10px 14px; border: 0;
+  border-bottom: 1px solid var(--line2); background: transparent; color: var(--text); font: 12.5px var(--mono);
+  font-variant-numeric: tabular-nums; text-align: right; }
+.wz > :first-child { text-align: left; font: 13px var(--sans); }
+.wz.kopfz { font: 500 11px var(--sans); color: var(--text2); border-bottom-color: var(--line); }
+.wz.kopfz > :first-child { font: inherit; }
+button.wz { min-height: 44px; cursor: pointer; }
+.wz.an { background: color-mix(in srgb, var(--accent) 10%, var(--panel)); font-weight: 600; }
+.wz.an > :first-child { font-weight: 600; }
+.wz:last-child { border-bottom: 0; }
+.wz .n { color: var(--muted); font-weight: 400; }
+
+.kacheln { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.kachel { background: var(--panel); padding: 10px 12px; min-width: 0; }
+.kachel.ganz { grid-column: span 2; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.kachel .t { font-size: 12px; color: var(--text2); }
+.kachel .w { font-size: 18px; font-weight: 500; }
+.kachel .u { font-size: 11px; color: var(--muted); }
+
+.diagramm svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: pan-y; cursor: crosshair; }
+.diagramm svg text { font: 10px var(--mono); fill: var(--muted); }
+.xachse { position: relative; height: 16px; font-size: 10.5px; color: var(--muted); }
+.xachse span { position: absolute; top: 0; white-space: nowrap; }
+.info { min-height: 18px; font-size: 12px; color: var(--text2); }
+.legende { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11px; color: var(--text2); }
+.legende span { display: flex; align-items: center; gap: 6px; }
+.legende i { display: inline-block; width: 14px; height: 0; border-top: 2px solid; }
+.legende i.dash { border-top-style: dashed; }
+.legende i.dot { border-top-style: dotted; }
+.aend { margin: 0; padding: 8px 0 0; list-style: none; border-top: 1px solid var(--line2); display: flex; flex-direction: column;
+  gap: 4px; font-size: 12px; color: var(--text2); }
+.aend:empty { display: none; }
+.aend b { font-weight: 400; color: var(--text); margin-right: 6px; }
+.fuss { margin-top: -4px; font-size: 12px; color: var(--muted); }
+.leer { padding: 12px 14px; font-size: 13px; color: var(--muted); }
+.card .leer { padding: 0; }
+
+.suche { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--text2); }
+.suche input { flex: 1; min-width: 0; height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel); color: var(--text); font: inherit; font-size: 14px; }
+.liste { max-height: 520px; overflow-y: auto; }
+.pick { display: flex; justify-content: space-between; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line2); }
+.pick .n { font-weight: 500; }
+.pick .u { font-size: 11px; color: var(--muted); }
+.pick .r { flex: none; text-align: right; }
+.fussnote { font-size: 11px; color: var(--muted); }
 </style>
 </head>
 <body>
 <main>
-<h1>Value-Wetten</h1>
-<div class="stand" id="stand"></div>
-<div class="filter">
-  <label>Einsatz <select id="st">
-    <option value="kelly8" selected>⅛ Kelly</option><option value="kelly4">¼ Kelly</option>
-    <option value="kelly2">½ Kelly</option><option value="kelly1">1/1 Kelly</option>
-    <option value="level10">10 € fest</option><option value="level1p">1 % der Bank</option></select></label>
-  <label title="faire Quote: die der Karte oder die Schattenversion mit PMU-Prognose-Schicht (Vorwärtstest, nicht auf der Karte angezeigt); zum Vergleich „Karte (nur Tage mit Schatten)“ über dieselben Tage">Faire Quote <select id="chance">
-    <option value="karte" selected>Karte</option><option value="karte_schatten_tage">Karte (nur Tage mit Schatten)</option>
-    <option value="schatten">Schatten: mit Prognose-Schicht</option></select></label>
-  <label>Wettart <select id="wa"><option value="ew">Each-Way (Sieg + Platz)</option>
-    <option value="sieg" selected>nur Sieg</option></select></label>
-  <label>Min. Wert <input type="range" id="minw" min="0" max="1.5" step="0.1" value="0.2"><output id="minw_o"></output></label>
-  <label>Modus <select id="modus">
-    <option value="max">Fair &lt; X</option><option value="rank">Rang% ≥ X</option>
-    <option value="rel">Rel ≥ X</option><option value="none" selected>ohne</option></select></label>
-  <label id="r_max">Fair &lt; <input type="range" id="v_max" min="5" max="100" step="5" value="10"><output id="v_max_o"></output></label>
-  <label id="r_rank">Rang% ≥ <input type="range" id="v_rank" min="0" max="1" step="0.05" value="0.5"><output id="v_rank_o"></output></label>
-  <label id="r_rel">Rel ≥ <input type="range" id="v_rel" min="0" max="4" step="0.1" value="1"><output id="v_rel_o"></output></label>
-  <label>Top <select id="top"><option value="beides" selected>beides</option>
-    <option value="ja">nur Top-Wert</option><option value="nein">ohne Top-Wert</option></select></label>
-  <label title="nur Starter mit Kelly-Anteil Wert ÷ (Festkurs − 1) mindestens so hoch (0 = ohne Schwelle); bei ⅛ Kelly ist der Einsatz dann mindestens ⅛ davon von der Bank">Min. Kelly-Anteil <input type="number" id="mk" min="0" max="50" step="0.5" value="5" style="width:56px"> %</label>
-  <label title="höchstens so viele Starter je Veranstaltung, die mit dem höchsten Kelly-Anteil (0 = alle)">max. je Veranstaltung <input type="number" id="jv" min="0" max="30" step="1" value="7" style="width:56px"></label>
-  <label title="vor der Auswahl je Veranstaltung nur der Starter mit dem höchsten Kelly-Anteil je Rennen"><input type="checkbox" id="ejr" checked> max. 1 je Rennen</label>
-  <label>Tag <select id="tag"><option value="alle">alle</option></select></label>
-  <label>Pferd <input type="text" id="suche" placeholder="Suche …" size="12"></label>
-</div>
-<div class="aend" id="aend"></div>
-<div class="kpis" id="kpis"></div>
-<div class="hinweis" id="hinweis"></div>
-<div class="charts">
-  <div class="chart breit"><h2>Wochenblick</h2>
-    <div class="sub">Die zwei Zahlen, die zählen – nicht die Bank, die bei dieser Varianz Märchen erzählt.
-      <b>FK/Toto</b>: wie viel mehr der Festkurs zahlt als die Toto-Endquote (geometrisches Mittel der Picks); die
-      Schwelle (gestrichelt) = (1 + 5 % Steuer) ÷ (1 − Toto-Abzug) ist die Gewinnschwelle, falls die Toto-Endquote die
-      wahre Chance wäre. <b>Modell → Toto</b>: t-Wert wie in der Kachel (unter −2 = das Modell weiß mehr als der
-      Festkurs). <b>Sieger gegen Toto</b>: gewinnen die Picks öfter, als selbst die Toto-Endquote erwartet? Nur dann
-      ist die Edge größer als FK/Toto allein zeigt.
-      <label style="display:inline-flex;gap:4px;align-items:baseline;margin-left:6px">Toto-Abzug
-        <input type="number" id="abzug" min="5" max="40" step="0.5" value="23" style="width:56px"> %</label></div>
-    <div id="c_woche"></div><div class="tabelle" style="max-height:none;margin-top:6px"><table id="t_woche"></table></div></div>
-  <div class="chart"><h2>Bank</h2><div id="c_bank"></div></div>
-  <div class="chart"><h2>Gewinn je Tag</h2><div id="c_tag"></div></div>
-  <div class="chart"><h2>Sieger kumuliert</h2><div id="c_sieg"></div></div>
-  <div class="chart"><h2>Platzierte kumuliert</h2><div id="c_platz"></div></div>
-  <div class="chart breit"><h2>Kursvorteil im Verlauf</h2>
-    <div class="sub">Festkurs gegen Toto-Endquote, je Rennen gegen den Feldschnitt – laufend über die Wetten
-      (Band: ±1 Standardfehler). Über 0 = der Markt ging bis zum Start in unsere Richtung.</div>
-    <div id="c_kurs"></div></div>
-  <div class="chart breit"><h2>Modell → Toto im Verlauf</h2>
-    <div class="sub">t-Wert von b2 (Power-Chance bei festgehaltenem Festkurs), kumuliert über alle Picks bis zum
-      jeweiligen Tag. Unter −2 = das Modell erklärt die Toto-Endquote über den Festkurs hinaus.</div>
-    <div id="c_mt"></div></div>
-</div>
-<section class="kombi" id="kb_bereich">
-  <h1 style="margin-top:22px">Kombiwetten</h1>
-  <div class="stand">Alles darüber: Siegwetten. Hier: Vollkombi aller Pferde, die sich qualifizieren, 1 € je Kombination,
-    abgerechnet gegen die PMU-Dividenden (nur Rennen, in denen die Wettart abgerechnet ist). Ein qualifiziertes Pferd:
-    keine Kombiwette; zwei: Zwilling, Platzzwilling, 2 aus 4; ab drei: alle Wettarten.</div>
-  <div class="tabs" id="kb_tabs">
-    <button data-art="dreier" title="die ersten drei in der richtigen Reihenfolge (Trio Ordre) – alle Reihenfolgen der Pferde: 3 Pferde = 6 Kombinationen">Dreier</button>
-    <button data-art="zwilling" title="die ersten zwei, Reihenfolge egal (Couplé Gagnant): 3 Pferde = 3 Kombinationen">Zwilling</button>
-    <button data-art="drilling" title="die ersten drei, Reihenfolge egal (Trio): 4 Pferde = 4 Kombinationen">Drilling</button>
-    <button data-art="platzzwilling" title="zwei unter den ersten drei (Couplé Placé)">Platzzwilling</button>
-    <button data-art="2sur4" title="zwei unter den ersten vier (2 sur 4)">2 aus 4</button>
+<header>
+  <h1>Value-Wetten</h1>
+  <p class="stand" id="stand"></p>
+</header>
+
+<div class="seg" role="group" aria-label="Zeitraum" id="zeitraum"></div>
+
+<section class="strategie" aria-label="Strategie und Filter">
+  <button type="button" id="strat_knopf" aria-expanded="false" aria-controls="blatt">
+    <span><span class="t1" id="strat_titel">Tipp-Strategie</span><span class="t2" id="strat_text"></span></span>
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke-width="1.5" stroke-linecap="round"><path d="M2 4h7M12 4h2M2 12h2M7 12h7"/><circle cx="10.5" cy="4" r="1.5"/><circle cx="5.5" cy="12" r="1.5"/></svg>
+  </button>
+  <div class="blatt" id="blatt" hidden>
+    <label class="feld">Einsatz <select id="st">
+      <option value="kelly8">⅛ Kelly</option><option value="kelly4">¼ Kelly</option><option value="kelly2">½ Kelly</option>
+      <option value="kelly1">1/1 Kelly</option><option value="level10">10 € fest</option><option value="level1p">1 % der Bank</option></select></label>
+    <label class="feld">Wettart <select id="wa"><option value="sieg">nur Sieg</option><option value="ew">Each-Way</option></select></label>
+    <label class="feld" title="Schatten = Vorwärtstest mit PMU-Prognose-Schicht (nicht auf der Karte angezeigt), nur Tage mit Schattenversion">Faire Quote
+      <select id="chance"><option value="karte">Karte</option><option value="schatten">Schatten</option></select></label>
+    <label class="feld">Min. Wert <input type="number" id="minw" min="0" max="3" step="0.1" inputmode="decimal"></label>
+    <label class="feld" title="Kelly-Anteil = Wert ÷ (Festkurs − 1); 0 = ohne Schwelle">Kelly-Anteil ≥ (%) <input type="number" id="mk" min="0" max="50" step="0.5" inputmode="decimal"></label>
+    <label class="feld" title="die mit dem höchsten Kelly-Anteil; 0 = alle">max. je Veranstaltung <input type="number" id="jv" min="0" max="30" step="1" inputmode="numeric"></label>
+    <label class="feld">höchstens 1 je Rennen <input type="checkbox" id="ejr"></label>
+    <label class="feld" title="für FK/Toto-Schwelle und Sieger-Erwartung">Toto-Abzug (%) <input type="number" id="abzug" min="5" max="40" step="0.5" inputmode="decimal"></label>
+    <div class="knoepfe"><button type="button" class="knopf" id="zurueck">Auf Vorgabe zurück</button>
+      <button type="button" class="knopf primaer" id="fertig">Fertig</button></div>
   </div>
-  <div class="filter">
-    <label title="faire Quote, gegen die der Wert gerechnet wird: die der Karte oder die Schattenversion mit Prognose-Schicht">Faire Quote <select id="kb_chance">
-      <option value="karte" selected>Karte</option><option value="schatten">Schatten: mit Prognose-Schicht</option></select></label>
-    <label title="qualifiziert: Wert gegen den Festkurs über 0 (bei 0) bzw. mindestens so hoch">Min. Wert <input type="range" id="kb_minw" min="0" max="1.5" step="0.1" value="0"><output id="kb_minw_o"></output></label>
-    <label title="nur Pferde mit fairer Quote unter X (0 = ohne)">Fair &lt; <input type="number" id="kb_fair" min="0" max="100" step="1" value="0" style="width:56px"></label>
-    <label title="je Rennen höchstens so viele Pferde, die mit dem höchsten Wert (0 = alle; Dreier mit 5 Pferden = 60 Kombinationen)">max. Pferde je Rennen <input type="number" id="kb_max" min="0" max="8" step="1" value="0" style="width:56px"></label>
-    <label title="5 % Wettsteuer auf den Einsatz wie bei den Siegwetten"><input type="checkbox" id="kb_steuer" checked> 5 % Steuer</label>
-    <label>Tag <select id="kb_tag"><option value="alle">alle</option></select></label>
-  </div>
-  <div class="kpis" id="kb_kpis"></div>
-  <div class="hinweis" id="kb_hinweis"></div>
-  <div class="charts">
-    <div class="chart"><h2>Bank</h2><div id="kb_c_bank"></div></div>
-    <div class="chart"><h2>Gewinn je Tag</h2><div id="kb_c_tag"></div></div>
-    <div class="chart breit"><h2>Treffer kumuliert</h2>
-      <div class="sub">Echt gegen erwartet nach Modell (gezogene Einläufe aus der fairen Chance) und nach Festkurs
-        (Einläufe aus 1/Festkurs der Karte, normiert) – über alle gespielten Kombinationen. Liegt „echt“ über
-        „erwartet Festkurs“, weiß das Modell mehr als der Markt.</div>
-      <div id="kb_c_treffer"></div></div>
-    <div class="chart breit"><h2>Wochenblick</h2><div class="tabelle" style="max-height:none;margin-top:0"><table id="kb_t_woche"></table></div></div>
-  </div>
-  <div class="tabelle"><table id="kb_tab"></table></div>
 </section>
-<div class="chart breit" style="margin-top:12px" id="kombi_box"><h2>Kombiwetten (Vorwärtstest)</h2>
-  <div class="sub">Couplé Placé (beide unter den ersten 3) und 2sur4 (beide unter den ersten 4), 1 € je Paar mit
-    Erwartungswert über der Schwelle. Unsere Chance nur aus dem Modell (ohne Tagesquoten) bzw. der Schattenversion mit
-    Prognose-Schicht; Publikum = Festkurse der Karte (nur als Preis, nicht in unserer Chance); Auszahlungsfaktor je Tag
-    aus den früher abgerechneten Rennen; abgerechnet gegen die PMU-Dividenden.
-    <b>Abschlag</b> = Treffer ÷ erwartet (Modell) − 1: so viel überschätzt das Modell seine eigene Auswahl.
-    <b>Treffer gegen Publikum</b> &gt; erwartet: das Modell weiß mehr als der Toto. Noch kein Wettgeld.</div>
-  <div class="filter" style="margin:6px 0">
-    <label>Wettart <select id="k_art"><option value="couple_place" selected>Couplé Placé</option><option value="2sur4">2sur4</option></select></label>
-    <label>Chance <select id="k_quelle"><option value="modell" selected>Modell</option><option value="schatten">Schatten (Prognose-Schicht)</option></select></label>
-    <label>Erwartungswert ≥ <input type="number" id="k_ew" min="0" max="3" step="0.1" value="0.2" style="width:56px"></label>
-  </div>
-  <div class="tabelle" style="max-height:none"><table id="t_kombi"></table></div></div>
-<div class="tabelle"><table id="tab"></table></div>
-<div class="fuss">Kurse = Festkurse zum Stand der Karte (festkurse_stand), keine Endkurse ·
-  unter etwa 30 Wetten kaum belastbar · Wert &gt; 3 (gelb) deutet oft auf einen Kursfehler hin ·
-  Each-Way: Sieg- und Platzbein mit gleichem Einsatz (nur Sieg: kein Platzbein), je Bein 5 % Steuer ·
-  Tag einzeln = Start mit 1000 €.<br>
-  Kurs bis Start: Festkurs ÷ Toto-Endquote (letzte Siegquote vor dem Start). Weil Toto und Festkurs grundsätzlich
-  verschieden liegen, zählt der Vergleich mit dem Schnitt aller Starter des Rennens („Kurs ±“): positiv = der Pick
-  wurde bis zum Start stärker gewettet als das Feld, der Markt ist also in unsere Richtung gegangen.
-  Kurs ± enthält einen Auswahleffekt (hoher Festkurs wird bevorzugt); Modell → Toto ist die bereinigte Sicht.</div>
+
+<div>
+  <h2>Weiß das Modell mehr als der Markt?</h2>
+  <p class="klein" id="info_zeitraum"></p>
+</div>
+<article class="card" id="k_mt"></article>
+<article class="card" id="k_sieger"></article>
+<div class="lesart">
+  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" fill="none" stroke-width="1.5"><circle cx="9" cy="9" r="7.25"/><path d="M9 8v5M9 5.2v.1" stroke-linecap="round"/></svg>
+  <p><b>Lesart:</b> <span id="lesart"></span></p>
+</div>
+<p class="hinweis" id="hinweis"></p>
+
+<h2>Woche für Woche</h2>
+<div class="tabelle" id="wochen"></div>
+
+<h2>Bank &amp; Ergebnis</h2>
+<div class="kacheln" id="kacheln"></div>
+
+<article class="card diagramm">
+  <div class="kopf bl"><h3>Sieger kumuliert</h3><span class="klein">echt gegen erwartet</span></div>
+  <div id="c_sieg"></div>
+  <p class="info" id="i_sieg"></p>
+  <div class="legende"><span><i style="border-color:var(--accent)"></i>echt</span>
+    <span><i class="dash" style="border-color:var(--orange)"></i>erwartet Festkurs</span>
+    <span><i class="dot" style="border-color:var(--model)"></i>erwartet Modell</span></div>
+</article>
+
+<article class="card diagramm">
+  <div class="kopf bl"><h3>Bank im Verlauf</h3><span class="klein" id="bank_hinweis"></span></div>
+  <div id="c_bank"></div>
+  <p class="info" id="i_bank"></p>
+  <div class="seg" role="group" aria-label="x-Achse" id="xachse"></div>
+  <ol class="aend" id="aend"></ol>
+</article>
+<p class="fuss">Zur Kontrolle, nicht zur Bewertung – bei dieser Varianz sagt die Bank wenig.</p>
+
+<button type="button" class="knopf gross" id="picks_knopf" aria-expanded="false" aria-controls="picks"></button>
+<div class="tabelle" id="picks" hidden>
+  <label class="suche">Pferd <input type="search" id="suche" placeholder="Suche …"></label>
+  <div class="liste" id="liste"></div>
+</div>
+
+<p class="fussnote">Kurse = Festkurse zum Stand der Karte (festkurse_stand), keine Endkurse · unter etwa 30 Wetten kaum
+  belastbar · Wert über 3 deutet oft auf einen Kursfehler hin · je Bein 5 % Steuer · Zeitraum Woche: Bank ab Wochenbeginn.
+  Platzquote = Anteil der Picks unter den ersten 3, auch ohne Platzbein. Modell → Toto: log(Toto-End) = a + b1·log(Festkurs)
+  + b2·log(Power-Chance vor Value), t nach HC1; FK/Toto = geometrisches Mittel Festkurs ÷ Toto-Endquote, Schwelle
+  (1 + 5 % Steuer) ÷ (1 − Toto-Abzug). Antippen der Diagramme zeigt die Werte.</p>
 </main>
-<div class="tip" id="tip"></div>
 <script>
 const DATA = /*__DATA__*/null;
 
@@ -581,12 +608,18 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
   if (typeof document === 'undefined' || !DATA) return;
   const pool = zeilen(DATA);
   const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const ok = v => v !== null && v !== undefined && isFinite(v);
+  const nf = (v, nk = 2) => ok(v) ? v.toLocaleString('de-DE', {minimumFractionDigits: nk, maximumFractionDigits: nk}) : '–';
+  const sg = (v, nk = 1) => ok(v) ? (v > 0 ? '+' : v < 0 ? '−' : '') + nf(Math.abs(v), nk) : '–';
+  const eur = (v, nk = 0) => ok(v) ? nf(v, nk) + ' €' : '–';
+  const pct = v => ok(v) ? nf(100 * v, 1) + ' %' : '–';
   const fd = d => `${d.slice(6, 8)}.${d.slice(4, 6)}.${d.slice(0, 4)}`;
   const fdk = d => `${d.slice(6, 8)}.${d.slice(4, 6)}.`;
-  const nf = (v, nk = 2) => v === null || v === undefined ? '–'
-    : v.toLocaleString('de-DE', {minimumFractionDigits: nk, maximumFractionDigits: nk});
-  const eur = v => v === null || v === undefined ? '–' : nf(v) + ' €';
-  const pct = v => v === null || v === undefined ? '–' : nf(100 * v, 1) + ' %';
+  const zahl = v => { const x = parseFloat(String(v).replace(',', '.')); return isFinite(x) ? x : 0; };
+  const kurz = v => nf(v, Number.isInteger(v) ? 0 : 1);
+  const klasse = v => ok(v) ? (v > 0 ? 'pos' : v < 0 ? 'neg' : '') : '';
+  const MONAT = ['Jan.', 'Feb.', 'März', 'Apr.', 'Mai', 'Juni', 'Juli', 'Aug.', 'Sep.', 'Okt.', 'Nov.', 'Dez.'];
 
   const mitErg = [...new Set(pool.filter(r => r.settled).map(r => r.date))].sort();
   const alle = [...new Set(pool.map(r => r.date))].sort();
@@ -594,398 +627,287 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
   $('stand').textContent = (mitErg.length
       ? `Renntage ${fd(mitErg[0])} – ${fd(mitErg[mitErg.length - 1])} (${mitErg.length} mit Ergebnis)`
       : 'noch kein Renntag mit Ergebnis')
-    + (offen.length ? ` · offen: ${offen.map(fd).join(', ')}` : '')
-    + ` · erstellt ${DATA.erstellt}`;
-  for (const d of mitErg) $('tag').add(new Option(fd(d), d));
+    + (offen.length ? ` · offen: ${offen.map(fdk).join(', ')}` : '') + ` · erstellt ${DATA.erstellt}`;
   // Änderungen an der Berechnung der fairen Quote (aus den Karten: Verfahren und Trainingsstand je Renntag)
   const AEND = DATA.aenderungen || [];
   const aendTag = Object.fromEntries(AEND.map(a => [a.date, a.text]));
-  $('aend').innerHTML = AEND.length
-    ? '<h2>Faire Quote: Berechnung im Verlauf</h2><ol>' + AEND.map(a => `<li><span>${fd(a.date)}</span>${
-        String(a.text).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</li>`).join('') + '</ol>'
-    : '';
-  if (!AEND.length) $('aend').style.display = 'none';
+  const wochen = [...new Set(mitErg.map(d => isoWoche(d).key))].sort();
+  const wocheName = k => 'KW ' + Number(k.split('-W')[1]);
 
-  // ---- Tooltip
-  const tip = $('tip');
-  document.addEventListener('mousemove', e => {
-    const t = e.target.closest && e.target.closest('[data-tip]');
-    if (!t) { tip.style.display = 'none'; return; }
-    tip.textContent = t.dataset.tip;
-    tip.style.display = 'block';
-    const x = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8);
-    tip.style.left = x + 'px'; tip.style.top = (e.clientY + 12) + 'px';
-  });
-
-  // ---- Diagramme (SVG)
-  const W = 560, H = 230, L = 48, R = 10, T = 8, B = 24;
-  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-  function skala(min, max) {
-    if (min === max) { min -= 1; max += 1; }
-    const roh = (max - min) / 4, p = 10 ** Math.floor(Math.log10(roh));
-    const st = [1, 2, 2.5, 5, 10].map(m => m * p).find(s => s >= roh);
-    const a = Math.floor(min / st) * st, b = Math.ceil(max / st) * st, ticks = [];
-    for (let v = a; v <= b + st / 2; v += st) ticks.push(+v.toFixed(10));
-    return {a, b, ticks};
+  // ---- Strategie (Vorgabe = Tipp-Strategie der Karte)
+  const VORGABE = {st: 'kelly8', wa: 'sieg', chance: 'karte', minw: '0.2', mk: '5', jv: '7', ejr: true, abzug: '23'};
+  const FELDER = Object.keys(VORGABE), ZAHLEN = ['minw', 'mk', 'jv', 'abzug'];
+  const EINSATZ = {kelly8: '⅛ Kelly', kelly4: '¼ Kelly', kelly2: '½ Kelly', kelly1: '1/1 Kelly', level10: '10 € fest', level1p: '1 % der Bank'};
+  const setzeFelder = w => { for (const k of FELDER) $(k)[k === 'ejr' ? 'checked' : 'value'] = w[k]; };
+  const leseFelder = () => Object.fromEntries(FELDER.map(k => [k, k === 'ejr' ? $(k).checked : $(k).value]));
+  function strategie(w) {
+    const gleich = FELDER.every(k => ZAHLEN.includes(k) ? zahl(w[k]) === zahl(VORGABE[k]) : w[k] === VORGABE[k]);
+    const jv = Math.max(0, Math.floor(zahl(w.jv)));
+    $('strat_titel').textContent = gleich ? 'Tipp-Strategie' : 'Eigene Auswahl';
+    $('strat_text').textContent = [EINSATZ[w.st], w.wa === 'ew' ? 'Each-Way' : 'nur Sieg', `Wert ≥ ${kurz(zahl(w.minw))}`,
+      `Kelly ≥ ${kurz(zahl(w.mk))} %`, jv ? `≤ ${jv} je Veranst.` : 'alle je Veranst.', w.ejr ? '1 je Rennen' : null,
+      w.chance === 'schatten' ? 'Schatten' : null, zahl(w.abzug) !== 23 ? `Toto-Abzug ${kurz(zahl(w.abzug))} %` : null]
+      .filter(Boolean).join(' · ');
   }
-  function achsen(sk, y, xlabels, w = W) {
-    let s = '';
-    for (const v of sk.ticks) {
-      s += `<line x1="${L}" x2="${w - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/>`
-        + `<text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${nf(v, Math.abs(sk.b - sk.a) < 10 ? 1 : 0)}</text>`;
+
+  function segment(el, optionen, aktiv, waehle) {
+    el.style.gridTemplateColumns = `repeat(${optionen.length}, minmax(0, 1fr))`;
+    el.innerHTML = optionen.map(([k, t]) => `<button type="button" data-k="${k}" aria-pressed="${k === aktiv}">${esc(t)}</button>`).join('');
+    el.querySelectorAll('button').forEach(b => { b.onclick = () => waehle(b.dataset.k); });
+  }
+
+  // ---- Signale
+  function pille(t, art = '') { return `<span class="pill ${art}">${esc(t)}</span>`; }
+  function karteMt(m) {
+    const t = m.mt_t, da = ok(t);
+    const p = !da ? pille(`ab ${MT_MIN_N} Picks`) : t <= -2 ? pille('Signal', 'stark') : t < 0 ? pille('Richtung stimmt')
+      : t >= 2 ? pille('gegenläufig', 'warn') : pille('kein Signal');
+    $('k_mt').innerHTML = `<div class="kopf"><h3>Modell → Toto</h3>${p}</div>`
+      + `<div class="zahl"><span class="w num">${da ? sg(t) : '–'}</span><span class="klein">t-Wert · `
+      + (da ? `b₂ ${sg(m.mt_b2, 2)} · mit Presse t ${sg(m.mt_t_presse)} · ` : '') + `${m.mt_n} Picks mit Toto-Endquote</span></div>`
+      + `<div class="skala"><div class="spur"></div><div class="zone"></div>`
+      + (da ? `<div class="marke" style="left:${Math.max(1, Math.min(99, (t + 4) / 8 * 100)).toFixed(1)}%"></div>` : '') + '</div>'
+      + '<div class="ticks num"><span>−4</span><span>−2</span><span>0</span><span>+2</span><span>+4</span></div>'
+      + '<p class="klein">Unter −2: Pferde, die das Modell bei gleichem Festkurs höher einschätzt, enden kürzer im Toto – '
+      + 'bereinigt um den Auswahleffekt.</p>';
+  }
+  function karteSieger(w) {
+    const z = w.z_toto, max = Math.max(w.sieger, w.erw_toto, 1) * 1.3;
+    const p = !ok(z) ? pille('–') : z >= 2 ? pille('mehr als erwartet', 'stark') : z <= -2 ? pille('weniger als erwartet', 'warn')
+      : pille('im Rahmen');
+    $('k_sieger').innerHTML = `<div class="kopf"><h3>Sieger gegen Toto-Erwartung</h3>${p}</div>`
+      + (w.n ? `<div class="zahl"><span class="w num">${w.sieger}</span><span class="klein">Sieger · erwartet `
+        + `<span class="num">${nf(w.erw_toto, 1)}</span> · z <span class="num">${sg(z)}</span> · ${w.n} Picks</span></div>`
+        + `<div class="skala"><div class="spur"></div><div class="balken" style="width:${(w.sieger / max * 100).toFixed(1)}%"></div>`
+        + `<div class="strich" style="left:${(w.erw_toto / max * 100).toFixed(1)}%"></div></div>`
+        + '<div class="ticks"><span>Balken: Sieger</span><span>Strich: Toto-Erwartung</span></div>'
+        : '<p class="leer">keine Picks mit Toto-Endquote (pmu_runners)</p>')
+      + '<p class="klein">Gewinnen die Picks öfter, als selbst die Toto-Endquote erwartet? Nur dann ist die Edge größer, '
+      + 'als FK/Toto allein zeigt.</p>';
+  }
+  function lesart(n, m, w) {
+    if (!n) return 'Keine Wette bei diesem Filter.';
+    const t = m.mt_t;
+    return [!ok(t) ? `Für Modell → Toto braucht es mindestens ${MT_MIN_N} Picks mit Toto-Endquote (jetzt ${m.mt_n}).`
+      : t <= -2 ? `Das Modell weiß mehr als der Festkurs (t = ${sg(t)}).`
+        : t < 0 ? `Modell → Toto zeigt in die richtige Richtung (t = ${sg(t)}), ist bei ${m.mt_n} Picks aber noch nicht sicher.`
+          : `Modell → Toto zeigt kein Signal (t = ${sg(t)}).`,
+      !w.n ? '' : ok(w.z_toto) && w.z_toto >= 2
+        ? `${w.sieger} Sieger gegen ${nf(w.erw_toto, 1)} erwartet: mehr, als selbst die Toto-Endquote erwartet.`
+        : ok(w.z_toto) && w.z_toto <= -2 ? `${w.sieger} Sieger gegen ${nf(w.erw_toto, 1)} erwartet: deutlich weniger als erwartet.`
+          : `${w.sieger} Sieger gegen ${nf(w.erw_toto, 1)} erwartet: noch im Rahmen des Zufalls.`].join(' ');
+  }
+
+  // ---- Woche für Woche (Zeile antippen = Zeitraum)
+  function wochenTabelle(W) {
+    const zeile = (key, name, o) => `<button type="button" class="wz${zeitraum === key ? ' an' : ''}" data-z="${key}" `
+      + `aria-pressed="${zeitraum === key}"><span>${name} <span class="n">· ${o.n}</span></span>`
+      + `<span class="${ok(o.fk_toto) && o.fk_toto >= W.schwelle ? 'akz' : ''}">${ok(o.fk_toto) ? nf(o.fk_toto, 2) + '×' : '–'}</span>`
+      + `<span>${o.sieger} / ${nf(o.erw_toto, 1)}</span>`
+      + `<span class="${ok(o.mt_t) && o.mt_t <= -2 ? 'akz' : ''}">${ok(o.mt_t) ? sg(o.mt_t) : '–'}</span></button>`;
+    const w = W.wochen;
+    $('wochen').innerHTML = '<div class="wz kopfz"><span>Woche · Picks</span><span>FK/Toto</span><span>Sieger / erw.</span><span>t</span></div>'
+      + (w.length ? w.map(x => zeile(x.woche, 'KW ' + x.kw, x)).join('') + zeile('gesamt', 'Gesamt', w[w.length - 1].kum)
+        : '<p class="leer">keine abgerechneten Picks bei diesem Filter</p>');
+    $('wochen').querySelectorAll('[data-z]').forEach(b => { b.onclick = () => { zeitraum = b.dataset.z; neu(); }; });
+  }
+
+  // ---- Kennzahlen
+  function kacheln(k, bets) {
+    const platziert = bets.filter(b => b.placed).length;
+    const z = (t, w, u, kl = '') => `<div class="kachel"><div class="t">${t}</div><div class="w num ${kl}">${w}</div><div class="u">${u}</div></div>`;
+    $('kacheln').innerHTML = [
+      z('Bank', eur(k.bank), `Start ${eur(k.start_bank)}`),
+      z('Gewinn · ROI', `${sg(k.profit ?? 0, 0)} €`, k.bets ? `ROI ${sg(100 * k.roi)} %` : 'ROI –', klasse(k.profit)),
+      z('Wetten / Tage', `${k.bets} / ${k.days}`, k.bets ? `Einsatz ${eur(k.stake)} · Steuer ${eur(k.tax)}` : ''),
+      z('Kurs bis Start', k.kurs_n ? `${sg(100 * k.clv_rel)} %` : '–',
+        k.kurs_n ? `gegen Rennschnitt${ok(k.kurs_z) ? ` · z ${nf(k.kurs_z, 1)}` : ''}` : 'keine Toto-Endquote', klasse(k.clv_rel)),
+      z('Trefferquote Sieg', pct(k.strike_rate), `${k.wins ?? 0} von ${k.bets}`),
+      z('Trefferquote Platz', k.bets ? pct(platziert / k.bets) : '–', `${platziert} von ${k.bets} unter den ersten 3`),
+      `<div class="kachel ganz"><div><div class="t">Edge Sieg</div><div class="u">Σ 1/Fair ${nf(k.exp_wins_model, 1)} ÷ `
+        + `Σ 1/FK ${nf(k.exp_wins_fk, 1)}</div></div><div class="num" style="font-size:22px;font-weight:500">${nf(k.edge_win, 2)}</div></div>`,
+    ].join('');
+  }
+
+  // ---- Diagramme (SVG, Zeichenfläche 330 × 160; antippen zeigt den nächsten Punkt)
+  const VB = 330, Y0 = 10, YH = 140, Y1 = Y0 + YH, r1 = v => v.toFixed(1);
+  const pfad = pts => pts.map((p, i) => (i ? 'L' : 'M') + r1(p[0]) + ' ' + r1(p[1])).join(' ');
+  const linie = (y, art = 'var(--line2)', dash = '') => `<line x1="0" x2="${VB}" y1="${r1(y)}" y2="${r1(y)}" `
+    + `style="stroke:${art};stroke-width:1${dash ? ';stroke-dasharray:' + dash : ''}"/>`;
+  const text = (x, y, t, anker = 'end', farbe = '') => `<text x="${r1(x)}" y="${r1(y)}" text-anchor="${anker}"`
+    + `${farbe ? ` style="fill:${farbe}"` : ''}>${esc(t)}</text>`;
+  const cursor = `<line class="cursor" x1="0" x2="0" y1="${Y0}" y2="${Y1}" style="display:none;stroke:var(--text2);stroke-width:1;stroke-dasharray:2 2"/>`;
+  function achse(el, marken) {                  // [x, Anteil 0..1, Text]
+    el.innerHTML = marken.map(([x, fr, t]) => `<span style="left:${(x / VB * 100).toFixed(2)}%;transform:`
+      + `${fr <= 0 ? 'none' : fr >= 1 ? 'translateX(-100%)' : 'translateX(-50%)'}">${esc(t)}</span>`).join('');
+  }
+  function wenige(n, k = 4) {                   // höchstens k gut verteilte Indizes aus 0 … n − 1
+    if (n <= k) return [...Array(n).keys()];
+    const s = new Set([0, n - 1]);
+    for (let j = 1; j < k - 1; j++) s.add(Math.round(j * (n - 1) / (k - 1)));
+    return [...s].sort((a, b) => a - b);
+  }
+  function zeiger(box, n, xf, beschreibung, info, leer) {
+    const svg = box.querySelector('svg'), lin = svg.querySelector('.cursor');
+    info.textContent = leer;
+    const zeig = ev => {
+      const r = svg.getBoundingClientRect(), vx = (ev.clientX - r.left) / r.width * VB;
+      let i = 0;
+      for (let j = 1; j < n; j++) if (Math.abs(xf(j) - vx) < Math.abs(xf(i) - vx)) i = j;
+      lin.setAttribute('x1', r1(xf(i))); lin.setAttribute('x2', r1(xf(i))); lin.style.display = '';
+      info.textContent = beschreibung(i);
+    };
+    svg.addEventListener('pointerdown', zeig);
+    svg.addEventListener('pointermove', ev => { if (ev.pointerType === 'mouse' || ev.buttons) zeig(ev); });
+  }
+
+  function siegerChart(b) {
+    const box = $('c_sieg'), n = b.length;
+    if (!n) { box.innerHTML = '<p class="leer">Keine Wette bei diesem Filter.</p>'; $('i_sieg').textContent = ''; return; }
+    const e = [0], fk = [0], m = [0];
+    b.forEach((r, i) => { e.push(e[i] + (r.won ? 1 : 0)); fk.push(fk[i] + (r.p_fk || 0)); m.push(m[i] + (r.p_model || 0)); });
+    let top = Math.max(2, Math.ceil(Math.max(e[n], fk[n], m[n]) * 1.1));
+    top += top % 2;
+    const X0 = 30, X1 = 296, sx = i => X0 + i / n * (X1 - X0), sy = v => Y1 - v / top * YH;
+    let echt = `M${r1(sx(0))} ${r1(sy(0))}`;
+    for (let i = 1; i <= n; i++) echt += ` L${r1(sx(i))} ${r1(sy(e[i - 1]))} L${r1(sx(i))} ${r1(sy(e[i]))}`;
+    const enden = [[e[n], String(e[n]), 'var(--accent)'], [m[n], nf(m[n], 1), 'var(--model)'], [fk[n], nf(fk[n], 1), 'var(--orange)']]
+      .map(([v, t, c]) => ({y: sy(v) + 4, t, c})).sort((a, c) => a.y - c.y);
+    for (let i = 1; i < 3; i++) enden[i].y = Math.max(enden[i].y, enden[i - 1].y + 11);
+    box.innerHTML = `<svg viewBox="0 0 ${VB} 160" role="img" aria-label="Sieger kumuliert über ${n} Wetten: ${e[n]} echt, `
+      + `${nf(m[n], 1)} erwartet nach Modell, ${nf(fk[n], 1)} nach Festkurs">`
+      + linie(Y0) + linie(Y0 + YH / 2) + linie(Y1, 'var(--zero)')
+      + `<path d="${pfad(fk.map((v, i) => [sx(i), sy(v)]))}" style="fill:none;stroke:var(--orange);stroke-width:1.5;stroke-dasharray:5 4"/>`
+      + `<path d="${pfad(m.map((v, i) => [sx(i), sy(v)]))}" style="fill:none;stroke:var(--model);stroke-width:1.5;stroke-dasharray:2 3"/>`
+      + `<path d="${echt}" style="fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round"/>`
+      + text(24, Y0 + 4, String(top)) + text(24, Y0 + YH / 2 + 4, String(top / 2)) + text(24, Y1 + 4, '0')
+      + enden.map(x => text(300, x.y, x.t, 'start', x.c)).join('') + cursor
+      + '</svg><div class="xachse num"></div>';
+    achse(box.querySelector('.xachse'), [...new Set([1, Math.ceil(n / 2), n])].map(i => [sx(i), i === n ? 1 : 0.5, i === n ? `${n} Wetten` : String(i)]));
+    zeiger(box, n + 1, sx, i => i ? `nach ${i} Wetten (${b[i - 1].horse}): ${e[i]} Sieger · erwartet Festkurs ${nf(fk[i], 1)} · Modell ${nf(m[i], 1)}`
+      : 'Start', $('i_sieg'), 'Antippen zeigt die Werte.');
+  }
+
+  let xModus = 'tag';
+  function bankChart(b, d, start) {
+    const box = $('c_bank'), erster = mitErg[0];
+    const P = [[start, 'Start', `Start: Bank ${eur(start, 2)}`]], marken = [];
+    if (xModus === 'wette') {
+      let tag = null, lauf = 0;
+      b.forEach((r, i) => {
+        if (r.date !== tag) { tag = r.date; lauf = r.bank_start; if (aendTag[tag] && tag !== erster) marken.push(i + 1); }
+        lauf = rhu(lauf + r.profit, 2);
+        P.push([lauf, String(i + 1), `${fdk(r.date)} ${r.race} · ${r.horse}: ${sg(r.profit, 2)} € → Bank ${eur(lauf, 2)}`]);
+      });
+      if (P.length > 1) P[P.length - 1][1] = `${b.length} Wetten`;
+    } else if (xModus === 'tag') {
+      d.forEach((x, i) => {
+        if (aendTag[x.date] && x.date !== erster) marken.push(i + 1);
+        P.push([x.bank, fdk(x.date), `${fd(x.date)}: Bank ${eur(x.bank, 2)} · Tag ${sg(x.profit, 2)} € · ${x.bets} Wetten`
+          + (aendTag[x.date] ? ` · ◆ ${aendTag[x.date]}` : '')]);
+      });
+    } else {
+      const gruppe = x => xModus === 'woche' ? isoWoche(x.date).key : x.date.slice(0, 6), g = new Map();
+      for (const x of d) {
+        const a = g.get(gruppe(x)) || {bank: 0, profit: 0, bets: 0, date: x.date};
+        g.set(gruppe(x), {bank: x.bank, profit: a.profit + x.profit, bets: a.bets + x.bets, date: x.date});
+      }
+      for (const [k, x] of g) {
+        const name = xModus === 'woche' ? wocheName(k) : `${MONAT[+k.slice(4, 6) - 1]} ${k.slice(0, 4)}`;
+        P.push([x.bank, xModus === 'woche' ? name : MONAT[+k.slice(4, 6) - 1],
+          `${name}: Bank ${eur(x.bank, 2)} · ${sg(x.profit, 2)} € · ${x.bets} Wetten`]);
+      }
     }
-    for (const [x, t] of xlabels)                      // am Rand bündig, damit nichts abgeschnitten wird
-      s += `<text x="${x}" y="${H - 6}" text-anchor="${x > w - R - 20 ? 'end' : x < L + 10 ? 'start' : 'middle'}">${esc(t)}</text>`;
-    return s;
+    $('bank_hinweis').textContent = {wette: 'nach jeder Wette', tag: 'am Ende jedes Renntags', woche: 'am Ende jeder Woche',
+      monat: 'am Ende jedes Monats'}[xModus] + (marken.length ? ' · ◆ faire Quote geändert' : '');
+    if (P.length < 2) { box.innerHTML = '<p class="leer">Keine Wette bei diesem Filter.</p>'; $('i_bank').textContent = ''; return; }
+    const v = P.map(p => p[0]), lo = Math.min(...v), hi = Math.max(...v), pad = Math.max(10, (hi - lo) * 0.12);
+    const yMin = lo - pad, yMax = hi + pad, L = P.length - 1, X0 = 40, X1 = 322;
+    const bx = i => X0 + i / L * (X1 - X0), by = w => Y0 + (yMax - w) / (yMax - yMin) * YH;
+    const pts = v.map((w, i) => [bx(i), by(w)]), yS = by(start);
+    const ticks = [[start, yS]];
+    for (const w of [hi, lo]) if (ticks.every(([, y]) => Math.abs(by(w) - y) > 14)) ticks.push([w, by(w)]);
+    box.innerHTML = `<svg viewBox="0 0 ${VB} 160" role="img" aria-label="Bank von ${nf(start, 0)} auf ${nf(v[L], 0)} Euro">`
+      + linie(Y1) + linie(yS, 'var(--zero)', '4 4')
+      + `<path d="${pfad(pts)} L${X1} ${Y1} L${X0} ${Y1} Z" style="fill:var(--accent);opacity:.08"/>`
+      + `<path d="${pfad(pts)}" style="fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round"/>`
+      + (P.length <= 40 ? pts.map(([x, y]) => `<circle cx="${r1(x)}" cy="${r1(y)}" r="3" style="fill:var(--accent)"/>`).join('') : '')
+      + marken.map(i => `<path d="M${r1(pts[i][0])} ${r1(pts[i][1] - 6)} l5 6 l-5 6 l-5 -6 Z" style="fill:var(--text)"/>`).join('')
+      + ticks.map(([w, y]) => text(34, y + 3.5, nf(w, 0))).join('') + cursor + '</svg><div class="xachse num"></div>';
+    achse(box.querySelector('.xachse'), wenige(P.length).map(i => [bx(i), i / L, P[i][1]]));
+    zeiger(box, P.length, bx, i => P[i][2], $('i_bank'), 'Antippen zeigt die Werte.');
   }
-  function xlabelsAus(xs, lab) {
-    const n = xs.length, schritt = Math.max(1, Math.ceil(n / 8)), out = [];
-    xs.forEach((x, i) => { if (i % schritt === 0 || i === n - 1) out.push([x, lab(i)]); });
-    return out;
-  }
-  function legende(serien) {
-    if (serien.length < 2) return '';
-    return '<div class="legend">' + serien.map(s =>
-      `<span><i class="${s.dash ? 'd' : ''}" style="background:${s.farbe};border-color:${s.farbe}"></i>${esc(s.name)}</span>`).join('') + '</div>';
-  }
-  function linien(el, serien, xlab, tipp, ref, marken = []) {
-    const n = serien[0].werte.length;
-    if (!n) { el.innerHTML = '<p class="fuss">keine Daten</p>'; return; }
-    const Wl = Math.max(360, Math.min(1400, Math.round(el.clientWidth || W)));   // Zeichenbreite = echte Breite
-    let lo = Infinity, hi = -Infinity;
-    for (const s of serien) for (const v of s.werte) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
-    const refs = ref === undefined ? [] : [].concat(ref);
-    for (const r_ of refs) { lo = Math.min(lo, r_); hi = Math.max(hi, r_); }
-    const sk = skala(lo, hi);
-    const x = i => n === 1 ? (L + Wl - R) / 2 : L + i * (Wl - L - R) / (n - 1);
-    const y = v => T + (sk.b - v) * (H - T - B) / (sk.b - sk.a);
-    const xs = Array.from({length: n}, (_, i) => x(i));
-    let s = achsen(sk, y, xlabelsAus(xs, xlab), Wl);
-    for (const r_ of refs)
-      s += `<line x1="${L}" x2="${Wl - R}" y1="${y(r_)}" y2="${y(r_)}" stroke="var(--muted)" stroke-dasharray="4 4"/>`;
-    for (const i of marken)                            // Änderung der fairen Quote an diesem Tag
-      s += `<line x1="${x(i)}" x2="${x(i)}" y1="${T}" y2="${H - B}" stroke="var(--warn)" stroke-dasharray="2 3"/>`
-        + `<text x="${x(i)}" y="${T + 10}" text-anchor="middle" style="fill:var(--warn)">◆</text>`;
-    for (const se of serien) {
-      const pts = se.werte.map((v, i) => `${x(i)},${y(v)}`).join(' ');
-      s += `<polyline points="${pts}" fill="none" stroke="${se.farbe}" stroke-width="2" stroke-linejoin="round"${se.dash ? ' stroke-dasharray="5 4"' : ''}/>`;
-    }
-    if (n <= 60) for (const se of serien.slice(0, 1))
-      se.werte.forEach((v, i) => { s += `<circle cx="${x(i)}" cy="${y(v)}" r="4" fill="${se.farbe}" stroke="var(--panel)" stroke-width="2"/>`; });
-    // Spalten für Hover (breiter als die Markierung)
-    const bw = n === 1 ? Wl - L - R : (Wl - L - R) / (n - 1);
-    xs.forEach((xx, i) => {
-      s += `<rect x="${xx - bw / 2}" y="${T}" width="${bw}" height="${H - T - B}" fill="transparent" data-tip="${esc(tipp(i))}"/>`;
-    });
-    el.innerHTML = legende(serien) + `<svg viewBox="0 0 ${Wl} ${H}" role="img">${s}</svg>`;
-  }
-  function kursChart(el, v, farben) {
-    const n = v.length;
-    if (!n) { el.innerHTML = '<p class="fuss">keine Wette mit Toto-Endquote bei diesem Filter</p>'; return; }
-    const Wk = Math.max(360, Math.min(1400, Math.round(el.clientWidth || W)));   // Zeichenbreite = echte Breite
-    const H2 = 260, pr = x => 100 * x, ein = r => pr(Math.exp(r.kurs_rel) - 1);
-    let lo = 0, hi = 0;
-    for (const r of v) for (const w of [r.lauf, r.lauf_lo, r.lauf_hi, r.pool_lauf, Math.exp(r.kurs_rel) - 1])
-      if (w !== null && isFinite(w)) { lo = Math.min(lo, pr(w)); hi = Math.max(hi, pr(w)); }
-    const sk = skala(lo, hi);
-    const x = i => n === 1 ? (L + Wk - R) / 2 : L + i * (Wk - L - R) / (n - 1);
-    const y = w => T + (sk.b - w) * (H2 - T - B) / (sk.b - sk.a);
-    let s = '';
-    for (const t_ of sk.ticks) s += `<line x1="${L}" x2="${Wk - R}" y1="${y(t_)}" y2="${y(t_)}" stroke="var(--grid)"/>`
-      + `<text x="${L - 6}" y="${y(t_) + 4}" text-anchor="end">${nf(t_, 0)} %</text>`;
-    const xs = v.map((_, i) => x(i));
-    for (const [xx, lab] of xlabelsAus(xs, i => String(v[i].n))) s += `<text x="${xx}" y="${H2 - 6}" text-anchor="middle">${lab}</text>`;
-    const band = v.map((r, i) => [i, r]).filter(([, r]) => r.lauf_lo !== null);
-    if (band.length > 1) s += `<polygon points="${band.map(([i, r]) => `${x(i)},${y(pr(r.lauf_hi))}`).join(' ')} `
-      + `${band.slice().reverse().map(([i, r]) => `${x(i)},${y(pr(r.lauf_lo))}`).join(' ')}" fill="var(--muted)" opacity="0.18"/>`;
-    s += `<line x1="${L}" x2="${Wk - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--muted)" stroke-dasharray="4 4"/>`;
-    v.forEach((r, i) => {
-      const w = ein(r);
-      s += `<circle cx="${x(i)}" cy="${y(w)}" r="3" fill="${w > 0 ? farben.pos : farben.neg}" opacity="0.55"/>`;
-    });
-    const pp = v.map((r, i) => [i, r.pool_lauf]).filter(([, w]) => w !== null);
-    if (pp.length) s += `<polyline points="${pp.map(([i, w]) => `${x(i)},${y(pr(w))}`).join(' ')}" fill="none" `
-      + `stroke="${farben.pool}" stroke-width="2" stroke-dasharray="5 4"/>`;
-    s += `<polyline points="${v.map((r, i) => `${x(i)},${y(pr(r.lauf))}`).join(' ')}" fill="none" stroke="${farben.lauf}" `
-      + `stroke-width="2" stroke-linejoin="round"/>`;
-    const bw = n === 1 ? Wk - L - R : (Wk - L - R) / (n - 1);
-    v.forEach((r, i) => {
-      const tip = `${fd(r.date)} ${r.race} · ${r.horse}\nFestkurs ${nf(r.fk_sieg, 1)} · Toto-End ${nf(r.toto_end, 1)} · `
-        + `Kurs ± ${ein(r) > 0 ? '+' : ''}${nf(ein(r), 0)} %\nlaufend nach ${r.n} Wetten: ${pr(r.lauf) > 0 ? '+' : ''}${nf(pr(r.lauf), 1)} %`
-        + (r.lauf_lo !== null ? ` (±SE ${nf(pr(r.lauf_lo), 1)} … ${nf(pr(r.lauf_hi), 1)} %)` : '')
-        + (r.pool_lauf !== null ? `\nPool (Wert ≥ 0): ${pr(r.pool_lauf) > 0 ? '+' : ''}${nf(pr(r.pool_lauf), 1)} %` : '');
-      s += `<rect x="${x(i) - bw / 2}" y="${T}" width="${bw}" height="${H2 - T - B}" fill="transparent" data-tip="${esc(tip)}"/>`;
-    });
-    el.innerHTML = legende([{name: 'Picks laufend', farbe: farben.lauf}, {name: 'Pool (Wert ≥ 0) laufend', farbe: farben.pool, dash: 1}])
-      + `<svg viewBox="0 0 ${Wk} ${H2}" role="img">${s}</svg>`;
-  }
-  function balken(el, serien, xlab, tipp) {
-    const n = serien[0].werte.length;
-    if (!n) { el.innerHTML = '<p class="fuss">keine Daten</p>'; return; }
-    let lo = 0, hi = 0;
-    for (const s of serien) for (const v of s.werte) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
-    const sk = skala(lo, hi);
-    const y = v => T + (sk.b - v) * (H - T - B) / (sk.b - sk.a);
-    const gw = (W - L - R) / n, k = serien.length, bw = Math.min(28, (gw - 6) / k - 2);
-    const xs = Array.from({length: n}, (_, i) => L + gw * (i + 0.5));
-    let s = achsen(sk, y, xlabelsAus(xs, xlab));
-    serien.forEach((se, j) => se.werte.forEach((v, i) => {
-      const x0 = xs[i] - (k * (bw + 2)) / 2 + j * (bw + 2) + 1, y0 = y(Math.max(v, 0)), h = Math.abs(y(v) - y(0));
-      s += `<rect x="${x0}" y="${y0}" width="${bw}" height="${Math.max(h, 0.5)}" rx="2" fill="${se.farbe}"/>`;
-    }));
-    s += `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="var(--muted)"/>`;
-    xs.forEach((xx, i) => {
-      s += `<rect x="${xx - gw / 2}" y="${T}" width="${gw}" height="${H - T - B}" fill="transparent" data-tip="${esc(tipp(i))}"/>`;
-    });
-    el.innerHTML = legende(serien) + `<svg viewBox="0 0 ${W} ${H}" role="img">${s}</svg>`;
+  function aenderungen(d) {
+    const tage = new Set(d.map(x => x.date));
+    $('aend').innerHTML = AEND.filter(a => tage.has(a.date))
+      .map(a => `<li><b class="num">◆ ${fdk(a.date)}</b>${esc(a.text)}</li>`).join('');
   }
 
-  // ---- Tabelle
-  const SP = [
-    ['date', 'Tag', 'l', r => fdk(r.date)], ['race', 'Rennen', 'l'], ['course', 'Bahn', 'l'],
-    ['no', 'Nr'], ['horse', 'Pferd', 'l'], ['n', 'Starter'],
-    ['fk_sieg', 'FK Sieg', '', r => nf(r.fk_sieg, 1)], ['fk_platz', 'FK Platz', '', r => nf(r.fk_platz, 1)],
-    ['cote_dec', 'Presse', '', r => nf(r.cote_dec, 1)], ['p', 'p %', '', r => nf(100 * r.p, 1)],
-    ['fair', 'Fair', '', r => nf(r.fair, 1)], ['fair_platz', 'Fair P', '', r => nf(r.fair_platz, 1)], ['wert', 'Wert', '', r => nf(r.wert, 2)],
-    ['rank_pct', 'Rang%', '', r => nf(r.rank_pct, 2)], ['rel', 'Rel', '', r => nf(r.rel, 2)],
-    ['is_top', 'Top', '', r => r.is_top ? '▲' : ''],
-    ['pos', 'Platz', '', r => r.pos === null ? '–' : r.pos],
-    ['stake_win', 'Einsatz S', '', r => nf(r.stake_win, 0)], ['stake_place', 'Einsatz P', '', r => nf(r.stake_place, 0)],
-    ['profit_win', 'G/V Sieg', '', r => nf(r.profit_win)], ['profit_place', 'G/V Platz', '', r => nf(r.profit_place)],
-    ['profit', 'G/V', '', r => nf(r.profit)],
-    ['toto_end', 'Toto End', '', r => nf(r.toto_end, 1)], ['kurs_rel', 'Kurs ±', '',
-      r => r.kurs_rel === null || r.kurs_rel === undefined ? '–' : (r.kurs_rel > 0 ? '+' : '') + nf(100 * (Math.exp(r.kurs_rel) - 1), 0) + ' %'],
-  ];
-  let sortSp = null, sortAuf = true, letzte = [];
-  function tabelle(bets) {
-    letzte = bets;
+  // ---- Picks
+  let letzte = [];
+  function pickListe() {
     const q = $('suche').value.trim().toLowerCase();
-    let b = q ? bets.filter(r => String(r.horse).toLowerCase().includes(q)) : bets.slice();
-    if (sortSp) b.sort((x, y) => {
-      const a = x[sortSp], c = y[sortSp];
-      if (a === c) return 0; if (a === null) return 1; if (c === null) return -1;
-      return (a < c ? -1 : 1) * (sortAuf ? 1 : -1);
-    });
-    const kopf = '<thead><tr>' + SP.map(([k, t, c]) =>
-      `<th class="${c || ''}" data-k="${k}">${t}${sortSp === k ? (sortAuf ? ' ▴' : ' ▾') : ''}</th>`).join('') + '</tr></thead>';
-    const farbe = v => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
-    const rumpf = b.map(r => '<tr>' + SP.map(([k, , c, f]) => {
-      let kl = c || '';
-      if (k.startsWith('profit') || k === 'kurs_rel') kl += ' ' + farbe(r[k]);
-      if (k === 'wert' && r.wert > 3) kl += ' wa';
-      return `<td class="${kl}">${esc(f ? f(r) : r[k])}</td>`;
-    }).join('') + '</tr>').join('');
-    $('tab').innerHTML = kopf + '<tbody>' + (rumpf || `<tr><td class="l" colspan="${SP.length}">keine Wette bei diesem Filter</td></tr>`) + '</tbody>';
-    $('tab').querySelectorAll('th').forEach(th => th.onclick = () => {
-      const k = th.dataset.k; sortAuf = sortSp === k ? !sortAuf : true; sortSp = k; tabelle(letzte);
-    });
+    const l = letzte.filter(r => !q || String(r.horse).toLowerCase().includes(q)).slice().reverse();
+    $('liste').innerHTML = l.length ? l.map(r => `<div class="pick"><div style="min-width:0"><div class="n">${esc(r.horse)}</div>`
+      + `<div class="u">${fdk(r.date)} · ${esc(r.race)}${r.course ? ' ' + esc(r.course) : ''} · FK ${nf(r.fk_sieg, 1)} · `
+      + `Wert ${nf(r.wert, 2)}${r.wert > 3 ? ' (Kursfehler?)' : ''} · ${eur(r.stake_win)}${r.stake_place ? ' EW' : ''}</div></div>`
+      + `<div class="r"><div class="num ${klasse(r.profit)}">${sg(r.profit, 2)} €</div>`
+      + `<div class="u">${r.pos === null || r.pos === undefined ? '–' : 'Platz ' + r.pos}`
+      + `${ok(r.toto_end) ? ' · Toto ' + nf(r.toto_end, 1) : ''}</div></div></div>`).join('')
+      : `<p class="leer">${q ? 'Kein Pick passt zur Suche.' : 'Keine Wette bei diesem Filter.'}</p>`;
+  }
+  function picksKnopf() {
+    const zu = $('picks').hidden;
+    $('picks_knopf').textContent = zu ? `Alle ${letzte.length} Picks ansehen` : 'Picks ausblenden';
+    $('picks_knopf').setAttribute('aria-expanded', String(!zu));
   }
 
-  function karten(k) {
-    const z = (t, w, u = '', tip = '') => `<div class="kpi"${tip ? ` title="${esc(tip)}"` : ''}><div class="t">${t}</div>`
-      + `<div class="w">${w}</div><div class="u">${u}</div></div>`;
-    const kl = v => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
-    $('kpis').innerHTML = [
-      z('Bank', `<span class="${kl(k.bank - k.start_bank)}">${eur(k.bank)}</span>`, `Start ${eur(k.start_bank)}`),
-      z('Gewinn', `<span class="${kl(k.profit)}">${eur(k.profit)}</span>`, `Sieg ${eur(k.profit_win)} · Platz ${eur(k.profit_place)}`),
-      z('ROI', pct(k.roi), `Sieg ${pct(k.roi_win)} · Platz ${pct(k.roi_place)}`),
-      z('Tage / Wetten', `${k.days} / ${k.bets}`, ''),
-      z('Einsatz', eur(k.stake), `Steuer ${eur(k.tax)}`),
-      z('Sieger', k.wins ?? '–', `Trefferquote ${pct(k.strike_rate)}`),
-      z('Platziert', k.places ?? '–', `Platzquote ${pct(k.place_rate)}`),
-      z('Edge Sieg', nf(k.edge_win), `Σ 1/Fair ${nf(k.exp_wins_model)} ÷ Σ 1/FK ${nf(k.exp_wins_fk)}`),
-      z('Edge Platz', nf(k.edge_place), `Σ 1/Fair P ${nf(k.exp_places_model)} ÷ Σ 1/FK P ${nf(k.exp_places_pq)}`),
-      z('Kurs bis Start', k.kurs_n ? `<span class="${kl(k.clv_rel)}">${k.clv_rel > 0 ? '+' : ''}${pct(k.clv_rel)}</span>` : '–',
-        k.kurs_n ? `gegen Rennschnitt · ${pct(k.kurs_besser)} besser als das Feld · `
-          + `Pool (Wert ≥ 0): ${k.pool_clv_rel > 0 ? '+' : ''}${pct(k.pool_clv_rel)} · `
-          + (k.kurs_z !== null ? `z = ${nf(k.kurs_z, 1)} (SE ${nf(100 * k.kurs_rel_se, 1)} %) · ` : '')
-          + `FK/Toto Ø ${nf(1 + k.clv)} · ${k.kurs_n} Picks` : 'keine Toto-Endquote (pmu_runners)'),
-      z('Modell → Toto', k.mt_t !== null && k.mt_t !== undefined
-          ? `<span class="${k.mt_t <= -2 ? 'pos' : k.mt_t >= 2 ? 'neg' : ''}">${nf(k.mt_t, 1)}</span>` : '–',
-        k.mt_t !== null && k.mt_t !== undefined
-          ? `b = ${nf(k.mt_b2, 2)} · mit Presse t = ${k.mt_t_presse !== null ? nf(k.mt_t_presse, 1) : '–'} · ${k.mt_n} Picks`
-          : `zu wenige Picks mit Toto-Endquote (${k.mt_n ?? 0} < 20)`,
-        'Negativ = Pferde, die das Modell bei gleichem Festkurs höher einschätzt, enden kürzer im Toto. '
-        + 'Bereinigt um den Auswahleffekt; ab |t| > 2 auffällig. '
-        + `log(Toto-End) = a + b1·log(Festkurs) + b2·log(Power-Chance vor Value); t nach HC1 (robust)`
-        + (k.mt_b1 !== null && k.mt_b1 !== undefined ? `; b1 (Festkurs) = ${nf(k.mt_b1, 2)}` : '') + '.'),
-    ].join('');
-    $('hinweis').textContent = k.hinweis || '';
-  }
-
-  const farbe = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-  let letzterKurs = () => {}, zeitResize = null;
-  addEventListener('resize', () => { clearTimeout(zeitResize); zeitResize = setTimeout(() => neu(), 150); });
+  // ---- Neu rechnen
+  let zeitraum = 'gesamt';
   function neu() {
-    const modus = $('modus').value;
-    for (const m of ['max', 'rank', 'rel']) $('r_' + m).style.display = m === modus ? '' : 'none';
-    $('minw_o').textContent = nf(+$('minw').value, 1);
-    $('v_max_o').textContent = $('v_max').value;
-    $('v_rank_o').textContent = nf(+$('v_rank').value, 2);
-    $('v_rel_o').textContent = nf(+$('v_rel').value, 1);
-    const f = {chance: $('chance').value, toto_abzug: Math.min(0.6, Math.max(0, (+$('abzug').value || 23) / 100)), minw: +$('minw').value, mode: modus, min_kelly: Math.max(0, +$('mk').value || 0) / 100, je_veranstaltung: Math.max(0, Math.floor(+$('jv').value || 0)), eins_je_rennen: $('ejr').checked,
-               mode_value: modus === 'none' ? 0 : +$('v_' + modus).value, top: $('top').value};
-    const p = $('tag').value === 'alle' ? pool : pool.filter(r => r.date === $('tag').value);
-    const res = simulieren(p, f, $('st').value, 1000, $('wa').value);
-    karten(res.kpi);
-    const d = res.days, b = res.bets, c1 = farbe('--s1'), c2 = farbe('--s2'), c3 = farbe('--s3');
-    const aendIdx = d.map((x, i) => aendTag[x.date] && i > 0 ? i + 1 : null).filter(i => i !== null);
-    linien($('c_bank'), [{name: 'Bank', farbe: c1, werte: [1000, ...d.map(x => x.bank)]}],
-      i => i ? fdk(d[i - 1].date) : 'Start',
-      i => i ? `${fd(d[i - 1].date)}\nBank ${eur(d[i - 1].bank)}\nTag ${eur(d[i - 1].profit)} (${d[i - 1].bets} Wetten)`
-        + (aendTag[d[i - 1].date] ? `\n◆ faire Quote: ${aendTag[d[i - 1].date]}` : '') : `Start ${eur(1000)}`, 1000, aendIdx);
-    balken($('c_tag'), [{name: 'Sieg', farbe: c1, werte: d.map(x => x.profit_win)},
-                        {name: 'Platz', farbe: c2, werte: d.map(x => x.profit_place)}],
-      i => fdk(d[i].date), i => `${fd(d[i].date)}\nSieg ${eur(d[i].profit_win)}\nPlatz ${eur(d[i].profit_place)}`);
-    const kum = (a, f) => { let s = 0; return a.map(x => (s += f(x))); };
-    const wb = [0, ...kum(b, x => x.won ? 1 : 0)], wfk = [0, ...kum(b, x => x.p_fk)], wm = [0, ...kum(b, x => x.p_model)];
-    linien($('c_sieg'), [{name: 'echt', farbe: c1, werte: wb}, {name: 'erwartet Festkurs', farbe: c2, werte: wfk, dash: 1},
-                         {name: 'erwartet Modell', farbe: c3, werte: wm, dash: 1}],
-      i => String(i), i => `nach ${i} Wetten${i ? ' (' + b[i - 1].horse + ')' : ''}\necht ${wb[i]}\nFK ${nf(wfk[i])} · Modell ${nf(wm[i])}`);
-    const mp = b.filter(x => x.stake_place > 0);
-    const pb = [0, ...kum(mp, x => x.placed ? 1 : 0)], pq = [0, ...kum(mp, x => x.p_pq)],
-          pm = [0, ...kum(mp, x => x.p_platz)];
-    linien($('c_platz'), [{name: 'echt', farbe: c1, werte: pb}, {name: 'erwartet Festkurs', farbe: c2, werte: pq, dash: 1},
-                          {name: 'erwartet Modell', farbe: c3, werte: pm, dash: 1}],
-      i => String(i), i => `nach ${i} Platzwetten\necht ${pb[i]}\nFK ${nf(pq[i])} · Modell ${nf(pm[i])}`);
-    letzterKurs = () => kursChart($('c_kurs'), res.kurs, {lauf: farbe('--s1'), pool: farbe('--s2'),
-                                                          pos: farbe('--good'), neg: farbe('--bad')});
-    letzterKurs();
-    const mt = res.mt, el_mt = $('c_mt');
-    if (!mt.length) el_mt.innerHTML = '<p class="fuss">zu wenige Picks mit Toto-Endquote für die Regression (n < 20)</p>';
-    else {
-      const ser = [{name: 't (Modell)', farbe: c1, werte: mt.map(x => x.t ?? 0)}];
-      if (mt.every(x => x.t_presse !== null && x.t_presse !== undefined))
-        ser.push({name: 't mit Presse', farbe: c2, werte: mt.map(x => x.t_presse), dash: 1});
-      linien(el_mt, ser, i => fdk(mt[i].date),
-        i => `${fd(mt[i].date)}\nb2 = ${nf(mt[i].b2, 2)} · t = ${nf(mt[i].t, 1)} · mit Presse t = `
-          + `${mt[i].t_presse !== null ? nf(mt[i].t_presse, 1) : '–'}\nn kumuliert ${mt[i].n} · an diesem Tag ${mt[i].n_tag}`,
-        [-2, 0]);
-    }
-    wochenAnzeige(res.woche, c1, c2);
-    kombiAnzeige();
-    kombiBereich();
-    tabelle(b);
+    const w = leseFelder();
+    strategie(w);
+    const abzug = Math.min(0.6, Math.max(0, (zahl(w.abzug) || 23) / 100));
+    const F = {chance: w.chance, toto_abzug: abzug, minw: zahl(w.minw), mode: 'none', mode_value: 0, top: 'beides',
+               min_kelly: Math.max(0, zahl(w.mk)) / 100, je_veranstaltung: Math.max(0, Math.floor(zahl(w.jv))),
+               eins_je_rennen: w.ejr};
+    const res = simulieren(pool, F, w.st, 1000, w.wa);
+    const pSim = mitWert(chanceWaehlen(pool, F.chance)), selAlle = auswahl(pSim, F).filter(r => r.settled);
+    if (zeitraum !== 'gesamt' && !wochen.includes(zeitraum)) zeitraum = 'gesamt';
+    const optionen = [['gesamt', 'Gesamt'], ...wochen.slice(-3).map(k => [k, wocheName(k)])];
+    segment($('zeitraum'), optionen, zeitraum, k => { zeitraum = k; neu(); });
+    const inR = zeitraum === 'gesamt' ? () => true : r => isoWoche(r.date).key === zeitraum;
+    const b = res.bets.filter(inR), d = res.days.filter(inR), sel = selAlle.filter(inR);
+    const start = zeitraum === 'gesamt' || !d.length ? 1000 : d[0].bank_start;
+    const tage = new Set(d.map(x => x.date));
+    const k = zeitraum === 'gesamt' ? res.kpi : kpis(b, d, start, pSim.filter(r => tage.has(r.date)), sel);
+    const m = modellToto(sel), ww = _wocheWerte(sel, abzug);
+    $('info_zeitraum').textContent = (zeitraum === 'gesamt' ? 'Gesamt' : wocheName(zeitraum))
+      + (d.length ? ` · ${fdk(d[0].date)} – ${fd(d[d.length - 1].date)}` : '') + ` · ${sel.length} Picks`;
+    karteMt(m);
+    karteSieger(ww);
+    $('lesart').textContent = lesart(sel.length, m, ww);
+    $('hinweis').textContent = k.hinweis || '';
+    wochenTabelle(res.woche);
+    kacheln(k, b);
+    siegerChart(b);
+    segment($('xachse'), [['wette', 'Wette'], ['tag', 'Tag'], ['woche', 'Woche'], ['monat', 'Monat']], xModus,
+      x => { xModus = x; neu(); });
+    bankChart(b, d, start);
+    aenderungen(d);
+    letzte = b;
+    picksKnopf();
+    pickListe();
   }
-  const KOMBI = DATA.kombi && DATA.kombi.zeilen && DATA.kombi.zeilen.length ? zeilen(DATA.kombi) : [];
-  function kombiAnzeige() {
-    if (!KOMBI.length) { $('kombi_box').style.display = 'none'; return; }
-    const K = kombiBlick(KOMBI, $('k_art').value, $('k_quelle').value, +$('k_ew').value || 0);
-    const pr = v => v === null || v === undefined ? '–' : (v > 0 ? '+' : '') + nf(100 * v, 0) + ' %';
-    const kl = v => v === null || v === undefined ? '' : v > 0 ? 'pos' : 'neg';
-    const zeile = (t, o) => `<tr><td class="l">${t}</td><td>${o.tickets}</td><td>${o.rennen}</td><td>${o.treffer}</td>`
-      + `<td>${nf(o.erw_modell, 1)}</td><td class="${kl(o.treffer - o.erw_publikum)}">${nf(o.erw_publikum, 1)}</td>`
-      + `<td class="${kl(o.abschlag)}">${pr(o.abschlag)}</td><td class="${kl(o.roi)}">${pr(o.roi)}</td></tr>`;
-    $('t_kombi').innerHTML = '<thead><tr><th class="l">Woche</th><th>Tickets</th><th>Rennen</th><th>Treffer</th>'
-      + '<th>erw. Modell</th><th>erw. Publikum</th><th>Abschlag</th><th>ROI</th></tr></thead><tbody>'
-      + (K.wochen.length ? K.wochen.map(x => zeile(`KW ${x.kw} (${fdk(x.von)}–${fdk(x.bis)})`, x)).join('') + zeile('<b>gesamt</b>', K.gesamt)
-         : `<tr><td class="l" colspan="8">keine abgerechneten Paare bei dieser Auswahl${$('k_quelle').value === 'schatten' ? ' (Schattenversion erst auf neuen Karten)' : ''}</td></tr>`)
-      + '</tbody>';
-  }
-  for (const id of ['k_art', 'k_quelle', 'k_ew']) $(id).addEventListener('input', kombiAnzeige);
 
-  // ---- Kombi-Bereich (Dreier, Zwilling, Drilling, Platzzwilling, 2 aus 4)
-  const KW = DATA.kombi_wetten || {}, KB_NAME = {dreier: 'Dreier', zwilling: 'Zwilling', drilling: 'Drilling',
-    platzzwilling: 'Platzzwilling', '2sur4': '2 aus 4'};
-  let kbArt = 'dreier';
-  try { const a = localStorage.getItem('vd-kb-art'); if (KOMBI_ARTEN[a]) kbArt = a; } catch (e) {}
-  for (const d of mitErg) $('kb_tag').add(new Option(fd(d), d));
-  $('kb_tabs').querySelectorAll('button').forEach(b => b.onclick = () => {
-    kbArt = b.dataset.art; try { localStorage.setItem('vd-kb-art', kbArt); } catch (e) {} kombiBereich(); });
-  const KB_SP = [
-    ['date', 'Tag', 'l', r => fdk(r.date)], ['race', 'Rennen', 'l'], ['course', 'Bahn', 'l'], ['pferde', 'Pferde', 'l'],
-    ['tickets', 'Kombis'], ['einsatz', 'Einsatz', '', r => nf(r.einsatz, 0)], ['einlauf', 'Gewinnkombi', 'l'],
-    ['treffer', 'Treffer', '', r => r.treffer ? '✔ ' + r.gewinner : ''], ['auszahlung', 'Auszahlung', '', r => nf(r.auszahlung)],
-    ['profit', 'G/V', '', r => nf(r.profit)], ['p_modell', 'erw. Modell', '', r => nf(r.p_modell, 2)],
-    ['p_fk', 'erw. FK', '', r => nf(r.p_fk, 2)],
-  ];
-  let kbSort = null, kbAuf = true, kbLetzte = [];
-  function kbTabelle(rs) {
-    kbLetzte = rs;
-    const b = rs.slice();
-    if (kbSort) b.sort((x, y) => { const a = x[kbSort], c = y[kbSort];
-      if (a === c) return 0; if (a === null) return 1; if (c === null) return -1; return (a < c ? -1 : 1) * (kbAuf ? 1 : -1); });
-    const kl = v => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
-    $('kb_tab').innerHTML = '<thead><tr>' + KB_SP.map(([k, t, c]) => `<th class="${c || ''}" data-k="${k}">${t}${kbSort === k ? (kbAuf ? ' ▴' : ' ▾') : ''}</th>`).join('')
-      + '</tr></thead><tbody>' + (b.map(r => '<tr>' + KB_SP.map(([k, , c, f]) =>
-        `<td class="${(c || '') + (k === 'profit' ? ' ' + kl(r.profit) : '')}">${esc(f ? f(r) : r[k])}</td>`).join('') + '</tr>').join('')
-        || `<tr><td class="l" colspan="${KB_SP.length}">keine Kombiwette bei diesem Filter</td></tr>`) + '</tbody>';
-    $('kb_tab').querySelectorAll('th').forEach(th => th.onclick = () => {
-      const k = th.dataset.k; kbAuf = kbSort === k ? !kbAuf : true; kbSort = k; kbTabelle(kbLetzte); });
-  }
-  function kombiBereich() {
-    if (!KW.rennen || !Object.keys(KW.rennen).length) { $('kb_bereich').style.display = 'none'; return; }
-    $('kb_tabs').querySelectorAll('button').forEach(b => b.classList.toggle('an', b.dataset.art === kbArt));
-    $('kb_minw_o').textContent = +$('kb_minw').value ? '≥ ' + nf(+$('kb_minw').value, 1) : '> 0';
-    const f = {art: kbArt, chance: $('kb_chance').value, minw: +$('kb_minw').value, fair_max: Math.max(0, +$('kb_fair').value || 0),
-               max_pferde: Math.max(0, Math.floor(+$('kb_max').value || 0)), steuer: $('kb_steuer').checked};
-    const p = $('kb_tag').value === 'alle' ? pool : pool.filter(r => r.date === $('kb_tag').value);
-    const S = kombiSim(p, KW, f, 1000), k = S.kpi;
-    const z = (t, w, u = '', tip = '') => `<div class="kpi"${tip ? ` title="${esc(tip)}"` : ''}><div class="t">${t}</div><div class="w">${w}</div><div class="u">${u}</div></div>`;
-    const kl = v => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
-    $('kb_kpis').innerHTML = [
-      z('Bank', `<span class="${kl(k.bank - k.start_bank)}">${eur(k.bank)}</span>`, `Start ${eur(k.start_bank)} · ${KB_NAME[kbArt]}`),
-      z('Gewinn', `<span class="${kl(k.gewinn)}">${eur(k.gewinn)}</span>`, `Auszahlung ${eur(k.auszahlung)}`),
-      z('ROI', pct(k.roi), 'Gewinn ÷ Einsatz'),
-      z('Tage / Rennen', `${k.tage} / ${k.rennen}`, `${k.tickets} Kombinationen`),
-      z('Einsatz', eur(k.einsatz), `Steuer ${eur(k.steuer)}`),
-      z('Treffer', `${k.treffer}`, `in ${k.rennen_treffer} Rennen · ${pct(k.rennen ? k.rennen_treffer / k.rennen : null)} der Rennen`),
-      z('Treffer erwartet', `${nf(k.erw_modell, 1)} / ${nf(k.erw_fk, 1)}`, 'Modell / Festkurs',
-        'Summe der Chancen aller gespielten Kombinationen: nach Modell und nach Festkurs (gezogene Einläufe)'),
-      z('Edge', nf(k.edge), 'Σ Chance Modell ÷ Σ Chance Festkurs', 'über 1: das Modell sieht die gespielten Kombinationen wahrscheinlicher als der Markt'),
-    ].join('');
-    $('kb_hinweis').textContent = k.hinweis || '';
-    const d = S.days, c1 = farbe('--s1'), c2 = farbe('--s2'), c3 = farbe('--s3');
-    linien($('kb_c_bank'), [{name: 'Bank', farbe: c1, werte: [1000, ...d.map(x => x.bank)]}],
-      i => i ? fdk(d[i - 1].date) : 'Start',
-      i => i ? `${fd(d[i - 1].date)}\nBank ${eur(d[i - 1].bank)}\nTag ${eur(d[i - 1].gewinn)} (${d[i - 1].rennen} Rennen, ${d[i - 1].tickets} Kombis)` : `Start ${eur(1000)}`, 1000);
-    balken($('kb_c_tag'), [{name: 'Gewinn', farbe: c1, werte: d.map(x => x.gewinn)}],
-      i => fdk(d[i].date), i => `${fd(d[i].date)}\nGewinn ${eur(d[i].gewinn)}\nEinsatz ${eur(d[i].einsatz)} · Treffer ${d[i].treffer}`);
-    const t = S.tickets, kum = (a, fn) => { let s = 0; return a.map(x => (s += fn(x))); };
-    const te = [0, ...kum(t, x => x.treffer ? 1 : 0)], tm = [0, ...kum(t, x => x.p_modell)], tf = [0, ...kum(t, x => x.p_fk || 0)];
-    linien($('kb_c_treffer'), [{name: 'echt', farbe: c1, werte: te}, {name: 'erwartet Festkurs', farbe: c2, werte: tf, dash: 1},
-                               {name: 'erwartet Modell', farbe: c3, werte: tm, dash: 1}],
-      i => String(i), i => `nach ${i} Kombinationen\necht ${te[i]}\nFestkurs ${nf(tf[i])} · Modell ${nf(tm[i])}`);
-    const pr = v => v === null || v === undefined ? '–' : (v > 0 ? '+' : '') + nf(100 * v, 0) + ' %';
-    const zeile = (tt, o) => `<tr><td class="l">${tt}</td><td>${o.rennen}</td><td>${o.tickets}</td><td>${o.treffer}</td>`
-      + `<td>${nf(o.erw_modell, 1)}</td><td>${nf(o.erw_fk, 1)}</td><td class="${kl(o.gewinn)}">${nf(o.gewinn)}</td><td class="${kl(o.roi)}">${pr(o.roi)}</td></tr>`;
-    $('kb_t_woche').innerHTML = '<thead><tr><th class="l">Woche</th><th>Rennen</th><th>Kombis</th><th>Treffer</th><th>erw. Modell</th>'
-      + '<th>erw. Festkurs</th><th>Gewinn</th><th>ROI</th></tr></thead><tbody>'
-      + (S.wochen.length ? S.wochen.map(x => zeile(`KW ${x.kw} (${fdk(x.von)}–${fdk(x.bis)})`, x)).join('') + zeile('<b>gesamt</b>', k)
-         : '<tr><td class="l" colspan="8">keine Kombiwette bei diesem Filter</td></tr>') + '</tbody>';
-    kbTabelle(S.races);
-  }
-  for (const id of ['kb_chance', 'kb_minw', 'kb_fair', 'kb_max', 'kb_steuer', 'kb_tag']) $(id).addEventListener('input', kombiBereich);
-  function wochenAnzeige(W, c1, c2) {
-    const w = W.wochen, el = $('c_woche'), sg = v => (v > 0 ? '+' : '') + nf(v, 1);
-    const wt = x => `KW ${x.kw} (${fdk(x.von)}–${fdk(x.bis)})`;
-    if (!w.length) { el.innerHTML = '<p class="fuss">keine abgerechneten Picks bei diesem Filter</p>'; $('t_woche').innerHTML = ''; return; }
-    const mit = w.filter(x => x.fk_toto !== null);
-    if (mit.length) linien(el, [{name: 'FK/Toto je Woche', farbe: c1, werte: mit.map(x => x.fk_toto)},
-                                {name: 'FK/Toto laufend', farbe: c2, werte: mit.map(x => x.kum.fk_toto), dash: 1}],
-      i => 'KW ' + mit[i].kw,
-      i => `${wt(mit[i])}\nFK/Toto ${nf(mit[i].fk_toto, 3)} (laufend ${nf(mit[i].kum.fk_toto, 3)}) · Schwelle ${nf(W.schwelle, 3)}\n`
-        + `Edge, falls Toto-Endquote = wahre Chance: ${sg(100 * mit[i].edge_toto)} % (nach Steuer)\n${mit[i].n} Picks mit Toto-Endquote`,
-      [W.schwelle, 1]);
-    else el.innerHTML = '<p class="fuss">keine Toto-Endquoten (pmu_runners)</p>';
-    const z = (o, k) => o[k] === null || o[k] === undefined ? '–' : nf(o[k], k === 'fk_toto' ? 3 : 1);
-    const kl = (v, gut) => v === null || v === undefined ? '' : (gut(v) ? 'pos' : 'neg');
-    const zeile = (t, o) => `<tr><td class="l">${t}</td><td>${o.n}</td>`
-      + `<td class="${kl(o.fk_toto, v => v >= W.schwelle)}">${z(o, 'fk_toto')}</td>`
-      + `<td class="${kl(o.edge_toto, v => v >= 0)}">${o.edge_toto === null ? '–' : sg(100 * o.edge_toto) + ' %'}</td>`
-      + `<td>${o.sieger} / ${nf(o.erw_toto, 1)}</td><td class="${kl(o.z_toto, v => v > 0)}">${z(o, 'z_toto')}</td>`
-      + `<td class="${kl(o.mt_t, v => v <= -2)}">${z(o, 'mt_t')}</td></tr>`;
-    const letzte = w[w.length - 1].kum;
-    $('t_woche').innerHTML = '<thead><tr><th class="l">Woche</th><th>Picks</th><th>FK/Toto</th><th>Edge bei Toto-Wahrheit</th>'
-      + '<th>Sieger / erw. Toto</th><th>z Sieger</th><th>Modell → Toto t</th></tr></thead><tbody>'
-      + w.map(x => zeile(wt(x), x)).join('') + zeile('<b>gesamt</b>', letzte)
-      + `<tr><td class="l" colspan="7" style="white-space:normal;color:var(--muted)">Schwelle FK/Toto ${nf(W.schwelle, 3)} bei ${nf(100 * W.abzug, 1)} % Toto-Abzug und 5 % Steuer · `
-      + `grün: FK/Toto über der Schwelle, Sieger über der Toto-Erwartung, Modell → Toto ≤ −2 · Modell → Toto je Woche erst ab ${MT_MIN_N} Picks</td></tr></tbody>`;
-  }
-  for (const id of ['chance', 'abzug', 'st', 'wa', 'minw', 'mk', 'jv', 'ejr', 'modus', 'v_max', 'v_rank', 'v_rel', 'top', 'tag'])
-    $(id).addEventListener('input', neu);
-  $('suche').addEventListener('input', () => tabelle(letzte));
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', neu);
+  setzeFelder(VORGABE);
+  for (const id of FELDER) $(id).addEventListener('input', neu);
+  const blatt = offen => { $('blatt').hidden = !offen; $('strat_knopf').setAttribute('aria-expanded', String(offen)); };
+  $('strat_knopf').onclick = () => blatt($('blatt').hidden);
+  $('fertig').onclick = () => blatt(false);
+  $('zurueck').onclick = () => { setzeFelder(VORGABE); neu(); };
+  $('picks_knopf').onclick = () => { $('picks').hidden = !$('picks').hidden; picksKnopf(); };
+  $('suche').addEventListener('input', pickListe);
   neu();
 })();
 </script>
