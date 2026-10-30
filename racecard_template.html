@@ -226,8 +226,6 @@ input{color:inherit}
               <span style="font-weight:800;font-stretch:72%;font-size:18px;line-height:1.05;text-transform:uppercase;letter-spacing:.01em;text-decoration:{{ r.strike }}">{{ r.horse }}</span>
               <span style="font-size:11.5px;color:#8C877C">{{ r.ageSex }}</span>
               <sc-if value="{{ r.isTip }}" hint-placeholder-val="{{ false }}"><span title="{{ r.tipTip }}" style="font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;background:var(--tip-bg);color:var(--tip-gold);border-radius:3px;padding:2px 5px">Tipp {{ r.tipRang }} · {{ r.tipEinsatz }}</span></sc-if>
-              <sc-if value="{{ r.gold }}" hint-placeholder-val="{{ false }}"><span style="font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;background:#D9A43A;color:#161512;border-radius:3px;padding:2px 5px">◆ Value</span></sc-if>
-              <sc-if value="{{ r.warn }}" hint-placeholder-val="{{ false }}"><span title="{{ r.warnTip }}" style="font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border:1px solid #B9533D;color:#B9533D;border-radius:3px;padding:1px 5px">Überschätzt</span></sc-if>
             </div>
             <div style="font-size:12px;color:#57534B;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.jt }}</div>
             <div style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#8C877C;margin-top:2px;display:flex;flex-wrap:wrap;align-items:center;gap:0 4px"><span>{{ r.meta }}</span></div>
@@ -235,7 +233,6 @@ input{color:inherit}
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;padding-top:2px">
           <span style="font-family:'Spline Sans Mono',monospace;font-weight:600;font-size:21px;line-height:1;color:{{ r.fairFg }}">{{ r.fairTxt }}</span>
-          <span style="font-family:'Spline Sans Mono',monospace;font-size:10.5px;font-weight:600;border-radius:4px;padding:2px 5px;background:{{ r.rankBg }};color:{{ r.rankFg }}">#{{ r.rank }}</span>
           <span title="{{ r.kTip }}" style="font-family:'Spline Sans Mono',monospace;font-size:10.5px;font-weight:600;white-space:nowrap;color:{{ r.kFg }}">K {{ r.kTxt }}</span>
         </div>
         <div style="grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) 52px;gap:10px;align-items:center;margin-top:2px">
@@ -252,7 +249,7 @@ input{color:inherit}
           </div>
           <span style="font-family:'Spline Sans Mono',monospace;font-size:12px;font-weight:600;text-align:right;color:{{ r.gapFg }}">{{ r.gapTxt }}</span>
           <div style="grid-column:1/-1;display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#57534B;margin:-2px 6px 0">
-            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;border:2px solid {{ r.fairRing }};margin-right:4px;vertical-align:-1px"></span>Power <b style="font-family:'Spline Sans Mono',monospace;color:{{ r.powerFg }}">{{ r.power }}</b> <span style="color:#8C877C">{{ r.winPct }}</span></span></span>
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;border:2px solid {{ r.fairRing }};margin-right:4px;vertical-align:-1px"></span>Sieg <b style="font-family:'Spline Sans Mono',monospace">{{ r.winPct }}</b></span>
             <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#161512;margin-right:4px;vertical-align:-1px"></span>{{ r.mktLab }} <b style="font-family:'Spline Sans Mono',monospace;color:#161512">{{ r.mktTxt }}</b> <span style="color:#8C877C">{{ r.mktSub }}</span></span>
           </div>
         </div>
@@ -947,11 +944,10 @@ const aeTone = (v, n) => v == null || (n ?? 0) < 5 ? { fg: C.ink3, bg: 'transpar
 const rkTone = (rk, n) => rk == null ? C.ink3 : rk <= Math.max(1, n / 3) ? C.good : rk > n * 2 / 3 ? C.bad : C.ink;
 const rec = o => o && o.runs ? o.wins + '-' + o.places + '/' + o.runs : '–';
 const LEGEND = [
-  ['Power', 'Stärke-Einschätzung des Modells ohne Marktdaten. 100 = Feldschnitt, ±10 je Standardabweichung im heutigen Feld. Ab 105 grün, bis 95 rot. #Rang = Platz im Feld nach Power. „Warum Power“ zeigt die stärksten Treiber.'],
+  ['Power', 'Stärke-Einschätzung des Modells ohne Marktdaten (100 = Feldschnitt, ±10 je Standardabweichung). Steht aufgeklappt bei „Warum Power“ mit den stärksten Treibern und im Reiter Info; in der Übersicht zählt die faire Quote mit der Siegchance („Sieg 12 %“).'],
   ['Quoten-Leiter', 'Logarithmische Achse 1,5 – 100. Hohler Ring = faire Quote des Modells, gefüllter Punkt = Marktkurs: Wettstar-Festkurs, wenn vorhanden, sonst Toto, sonst PMU-Prognose (Marge herausgerechnet). Punkt rechts vom Ring = Markt zahlt mehr als fair (grün).'],
   ['Value-Lücke', 'Festkurs × Modell-Siegchance − 1, also der Erwartungswert je 1 € Einsatz. Ab der Schwelle (Standard +20 %) grün, spiegelbildlich rot; nur bis Kurs 30.'],
   ['Tipps', 'Je Veranstaltung die Starter mit dem höchsten Kelly-Anteil Wert ÷ (FK − 1): nur Sieg, Wert ≥ 20 %, Kelly-Anteil ≥ 5 %, höchstens 7 je Veranstaltung und einer je Rennen. Einsatz = Bank × ⅛ Kelly × Kelly-Anteil, auf ganze Euro. Kelly-Schwelle, Anzahl und Bank im Tipp-Kasten änderbar (Bank je Renntag gespeichert). Antippen springt ins Rennen.'],
-  ['◆ Value / Überschätzt', '◆ = oberste 10 % des Value-Faktors (bis 10/1). „Überschätzt“ = unterstes Fünftel – solche Pferde überschätzt der Markt klar (A/E ≈ 0,7).'],
   ['Valeur', 'Handicap-Rating. Groß: bereinigt aufs heutige Gewicht (Valeur − Gewicht + 55), klein: roh. S/P = letzte Sieg- bzw. Platzmarke im Handicap, in Klammern die Differenz zu heute.'],
   ['RTR / ARR / TR', 'RTR: Rating-Leistung, aufs heutige Gewicht bereinigt (klein: roh). ARR: Leistung gemessen am vorderen Drittel des Einlaufs (kg), Ø der letzten Läufe, gewichtsbereinigt. TR: Zeit-Rating (lb) plus Upgrade aus dem Finishing Speed, aufs heutige Gewicht umgerechnet. #x/n = Rang im Feld. In „Letzte Läufe“ ARR/TR antippen öffnet den Feldvergleich.'],
   ['ΔL600 / ΔB200', 'Tracking: Tempo der letzten 600 m bzw. schnellstes 200-m-Segment der letzten 800 m gegen die Erwartung (km/h), gleiche Bahn/Tag/Boden, korrigiert um Distanz, Tempo, Klasse. + = schneller.'],
