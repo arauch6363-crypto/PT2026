@@ -356,7 +356,7 @@ input{color:inherit}
                         <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:700;color:#161512;white-space:nowrap">{{ x.margin }}</span>
                       </div>
                       <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
-                        <span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><b style="font-size:13.5px">{{ x.course }}</b><sc-if value="{{ x.cgd }}" hint-placeholder-val="{{ false }}"><span title="Bilanz vor dem Lauf je Buchstabe: C = Kurs, G = Bodengruppe, D = Distanzgruppe · groß = gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals" style="font-size:11.5px;font-weight:400;color:#8C877C;margin-left:6px">Bilanz {{ x.cgd }}</span></sc-if></span>
+                        <span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><b style="font-size:13.5px">{{ x.course }}</b><sc-if value="{{ x.cgd }}" hint-placeholder-val="{{ false }}"><span title="Bilanz vor dem Lauf je Buchstabe: C = Kurs, G = Bodengruppe, D = Distanzgruppe · groß = gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals" style="font-size:11.5px;font-weight:400;color:#8C877C;margin-left:6px">{{ x.cgd }}</span></sc-if></span>
                         <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#57534B;flex:none">{{ x.date }}</span>
                       </div>
                       <div style="display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center;font-size:11.5px;color:#57534B">
@@ -1313,7 +1313,7 @@ class Component extends DCLogic {
     const tags = [];
     (x.badges || []).filter(b => !(x.cgd && ['C', 'D', 'CD'].includes(b))).forEach(b => tags.push({ t: b, tip: BADGE[b], bg: b === 'BF' ? C.badBg : C.ink, fg: b === 'BF' ? C.bad : C.paper, bd: b === 'BF' ? C.badBg : C.ink }));
     (x.changes || []).forEach(c => tags.push({ t: c.text, tip: c.text, bg: C.goldBg, fg: C.ink, bd: C.goldBg }));
-    if (x.cgd) tags.push({ t: 'Bilanz ' + x.cgd, tip: 'Bilanz vor heute je Buchstabe: C = Kurs, G = Bodengruppe, D = Distanzgruppe · groß = schon gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = noch nie gelaufen', bg: 'transparent', fg: C.ink, bd: C.line });
+    if (x.cgd) tags.push({ t: x.cgd, tip: 'Bilanz vor heute je Buchstabe: C = Kurs, G = Bodengruppe, D = Distanzgruppe · groß = schon gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = noch nie gelaufen', bg: 'transparent', fg: C.ink, bd: C.line });
     if (x.abst_pass && x.abst_pass.gesamt != null && Math.abs(x.abst_pass.gesamt) >= 15) tags.push({ t: 'Abst ' + arrow(x.abst_pass.gesamt) + ' ' + sgn(x.abst_pass.gesamt, 0), tip: 'Abstammungs-Passung heute', bg: 'transparent', fg: pTone(x.abst_pass.gesamt), bd: C.line });
     const bl = blinkTxt(x.blinkers); if (bl) tags.push({ t: bl, tip: x.blinkers, bg: 'transparent', fg: C.ink2, bd: C.line });
     if (x.style) tags.push({ t: x.style_label + ' · früh Ø ' + Math.round((x.early ?? 0) * 100) + ' %', tip: 'Laufstil aus ' + x.early_runs + ' Läufen', bg: 'transparent', fg: C.ink2, bd: C.line });
