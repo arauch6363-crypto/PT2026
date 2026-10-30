@@ -367,3 +367,122 @@ def rueckrechnung(base: Path, ab: str | None = START_DATUM, bis: str | None = No
     else:
         log(f"\nQuinté+: {q.get('grund')}")
     return out
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Kombiwetten im Value-Dashboard: Vollkombi aller Pferde, die sich für Kombiwetten qualifizieren (Filter im Browser,
+# Vorgabe Wert > 0), 1 € je Kombination. Hier je Rennen die Dividenden und die Chancen jeder Kombination der
+# Kandidaten (Pferde mit Wert ≥ 0) aus gezogenen Einläufen – Modell (faire Chance der Karte bzw. Schattenversion,
+# Modell-λ) und Festkurs (1/FK der Karte normiert, Markt-λ) für „erwartet Modell“ und „erwartet Festkurs“.
+DASH_ARTEN = {                  # Schlüssel: (PMU-Code, Pferde je Kombination, Reihenfolge zählt, unter den ersten …)
+    "dreier": ("TRIO_ORDRE", 3, True, 3),           # die ersten drei in richtiger Reihenfolge
+    "zwilling": ("COUPLE_GAGNANT", 2, False, 2),    # die ersten zwei, Reihenfolge egal
+    "drilling": ("TRIO", 3, False, 3),              # die ersten drei, Reihenfolge egal
+    "platzzwilling": ("COUPLE_PLACE", 2, False, 3), # zwei unter den ersten drei
+    "2sur4": ("DEUX_SUR_QUATRE", 2, False, 4),      # zwei unter den ersten vier
+}
+DASH_MAX_KANDIDATEN = 8         # je Rennen höchstens so viele Kandidaten (höchster Wert zuerst)
+DASH_N_SIM = 10000
+
+
+def kombi_schluessel(nos, ordnung: bool) -> str:
+    """Kombination als Text wie in den Dividenden: Reihenfolge zählt → wie gegeben, sonst aufsteigend."""
+    z = [int(x) for x in nos]
+    return "-".join(map(str, z if ordnung else sorted(z)))
+
+
+def _zaehlen(codes: np.ndarray, n_sim: int) -> dict[int, float]:
+    u, c = np.unique(codes, return_counts=True)
+    return dict(zip(u.tolist(), (c / n_sim).tolist()))
+
+
+def kombi_chancen(E: np.ndarray, nos: np.ndarray, kand: np.ndarray, stellen: int = 5) -> dict[str, dict[str, float]]:
+    """Aus gezogenen Einläufen E (Indizes der Starter auf Platz 1 …, mindestens 4 Plätze) je Wettart die Chance jeder
+    Kombination, deren Pferde alle Kandidaten sind (kand: bool je Starter); Kombinationen ohne Treffer fehlen."""
+    n_sim, n = E.shape[0], len(nos)
+    ist = kand[E]
+    out = {}
+    for art, (_, k, ordnung, plaetze) in DASH_ARTEN.items():
+        if E.shape[1] < plaetze:
+            out[art] = {}
+            continue
+        if k == plaetze:                                     # Dreier, Zwilling, Drilling: genau die ersten k
+            sel = E[:, :k] if ordnung else np.sort(E[:, :k], axis=1)
+            ok = ist[:, :k].all(axis=1)
+            code = sel[ok] @ (n ** np.arange(k - 1, -1, -1))
+        else:                                                # zwei unter den ersten 3 bzw. 4
+            teile = []
+            for a, b in a_paare(plaetze):
+                ok = ist[:, a] & ist[:, b]
+                lo, hi = np.minimum(E[ok, a], E[ok, b]), np.maximum(E[ok, a], E[ok, b])
+                teile.append(lo * n + hi)
+            code = np.concatenate(teile) if teile else np.empty(0, int)
+        ch = _zaehlen(code, n_sim)
+        d = {}
+        for c, p in ch.items():
+            idx = [(c // n ** i) % n for i in range(k - 1, -1, -1)]
+            d[kombi_schluessel(nos[idx], ordnung)] = round(p, stellen)
+        out[art] = d
+    return out
+
+
+def dashboard_daten(base: Path, pool: pd.DataFrame, ab: str | None = START_DATUM, *, n_sim: int = DASH_N_SIM,
+                    seed: int = 0, log=print) -> dict:
+    """Je Rennen mit Karte: Dividenden der fünf Wettarten (NATIONAL, ohne NP/Rückzahlung; fehlt die Wettart, wurde
+    sie nicht angeboten oder ist noch nicht abgerechnet) und je faire Quote ("karte", "schatten") die Kandidaten
+    (Wert ≥ 0 gegen den Festkurs, aus dem Pool des Dashboards) mit den Chancen ihrer Kombinationen nach Modell ("m")
+    sowie nach Festkurs ("f", nur wenn alle Starter einen Festkurs haben)."""
+    lam = einlauf.laden(base)
+    daten = daten_laden(base, ab)
+    feld, dv = daten["feld"], daten["dividenden"]
+    out = {"arten": {a: {"code": c, "pferde": k, "ordnung": o, "plaetze": p} for a, (c, k, o, p) in DASH_ARTEN.items()},
+           "rennen": {}}
+    if feld.empty or pool is None or pool.empty:
+        return out
+    div: dict[str, dict[str, list]] = {}
+    codes = {c: a for a, (c, *_r) in DASH_ARTEN.items()}
+    if len(dv):
+        for rid, typ, komb, d in zip(dv["race_id"], dv["bet_type"], dv["combination"], dv["div"]):
+            art = codes.get(typ)
+            if art is None or pd.isna(d) or not re.fullmatch(r"\d+(-\d+)+", str(komb)):
+                continue
+            key = kombi_schluessel(str(komb).split("-"), DASH_ARTEN[art][2])
+            liste = div.setdefault(str(rid), {}).setdefault(art, [])
+            if key not in {x[0] for x in liste}:
+                liste.append([key, float(d)])
+    werte = pool.assign(race_id=pool["race_id"].astype(str)).set_index(["race_id", "no"])
+    rng = np.random.default_rng(seed)
+    n_r = 0
+    for rid, g in feld.groupby("race_id", sort=False):
+        g = g.reset_index(drop=True)
+        if len(g) < 4:
+            continue
+        nos = g["no"].to_numpy(int)
+        r_out: dict = {"div": div.get(str(rid), {}), "c": {}}
+        alle = np.zeros(len(g), bool)
+        for chance, sp, spw in (("karte", "p", "wert"), ("schatten", "p_sh", "wert_sh")):
+            if not np.all(g[sp] > 0) or spw not in werte:
+                continue
+            w = np.array([werte[spw].get((str(rid), int(no)), np.nan) for no in nos], float)
+            ok = np.where(np.isfinite(w) & (w >= -1e-9))[0]
+            if len(ok) < 2:
+                continue
+            ok = ok[np.argsort(-w[ok], kind="stable")][:DASH_MAX_KANDIDATEN]
+            kand = np.zeros(len(g), bool)
+            kand[ok] = True
+            alle |= kand
+            E = einlauf.einlaeufe(g[sp].to_numpy(float), 4, lam["modell"], n_sim, rng)
+            r_out["c"][chance] = {"no": sorted(nos[ok].tolist()), "m": kombi_chancen(E, nos, kand)}
+        if not r_out["c"]:
+            continue
+        fk = pd.to_numeric(g["fk_karte"], errors="coerce").to_numpy(float)
+        if np.all(fk > 1):
+            q = (1 / fk) / np.sum(1 / fk)
+            E = einlauf.einlaeufe(q, 4, lam["markt"], n_sim, rng)
+            r_out["f"] = kombi_chancen(E, nos, alle)
+        out["rennen"][str(rid)] = r_out
+        n_r += 1
+    n_div = sum(1 for r in out["rennen"].values() if r["div"])
+    log(f"Kombiwetten (Dashboard): {n_r} Rennen mit Kandidaten, davon {n_div} mit Dividenden; "
+        f"Wettarten in den Dividenden: {', '.join(a for a in DASH_ARTEN if any(a in r['div'] for r in out['rennen'].values())) or 'keine'}")
+    return out

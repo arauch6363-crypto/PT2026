@@ -51,6 +51,10 @@ def bauen(base: Path, tage: int = 6, rennen: int = 8, seed: int = 0) -> None:
             d4 = round(0.7 * 6 / sum(Pq[a - 1, b - 1] for a, b in paare4), 1)
             dv += [_zeile(rid, "DEUX_SUR_QUATRE", "2sur4", f"{a}-{b}", d4, 300.0, 300) for a, b in paare4]
             dv.append(_zeile(rid, "COUPLE_PLACE", "Couplé Placé 1 NP", "1-NP", 2.0, 1.0, 200))
+            # Zwilling, Drilling, Dreier (Kombination in der Reihenfolge des Einlaufs wie bei der PMU)
+            dv += [_zeile(rid, "COUPLE_GAGNANT", "Couplé gagnant", f"{E[0]}-{E[1]}", round(float(2 + 30 * rng.random()), 1), 50.0, 150),
+                   _zeile(rid, "TRIO", "Trio", f"{E[0]}-{E[1]}-{E[2]}", round(float(10 + 200 * rng.random()), 1), 20.0, 100),
+                   _zeile(rid, "TRIO_ORDRE", "Trio ordre", f"{E[0]}-{E[1]}-{E[2]}", round(float(50 + 900 * rng.random()), 1), 5.0, 100)]
             if c == 4:
                 arr = "-".join(map(str, E[:5]))
                 dv += [_zeile(rid, "QUINTE_PLUS", "Quinté+ Ordre", arr, 5000.0, 10.0, 200),

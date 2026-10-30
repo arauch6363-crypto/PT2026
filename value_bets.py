@@ -938,30 +938,32 @@ def _tabelle_json(df: pd.DataFrame | None, spalten: list[str]) -> dict:
     return {"spalten": spalten, "zeilen": zeilen}
 
 
-def dashboard_daten(pool: pd.DataFrame, kombi: pd.DataFrame | None = None) -> dict:
+def dashboard_daten(pool: pd.DataFrame, kombi: pd.DataFrame | None = None, kombi_wetten: dict | None = None) -> dict:
     """Pool kompakt (Spalten + Zeilen, volle Float-Genauigkeit) für die HTML-Seite; kombi: Paare des
-    Kombiwetten-Vorwärtstests (kombi.vorwaertstest)."""
+    Kombiwetten-Vorwärtstests (kombi.vorwaertstest); kombi_wetten: Dividenden und Chancen der Kombinationen für den
+    Kombi-Bereich (kombi.dashboard_daten)."""
     zeilen = [[_json_wert(v) for v in r] for r in pool.reindex(columns=_HTML_SPALTEN).itertuples(index=False)] \
         if not pool.empty else []
     import kombi as kb
     return {"spalten": _HTML_SPALTEN, "zeilen": zeilen, "aenderungen": aenderungen(pool),
-            "kombi": _tabelle_json(kombi, kb.VORWAERTS_SPALTEN),
+            "kombi": _tabelle_json(kombi, kb.VORWAERTS_SPALTEN), "kombi_wetten": kombi_wetten or {},
             "erstellt": pd.Timestamp.now(tz="Europe/Paris").strftime("%d.%m.%Y %H:%M")}
 
 
-def dashboard_html(pool: pd.DataFrame, kombi: pd.DataFrame | None = None) -> str:
+def dashboard_html(pool: pd.DataFrame, kombi: pd.DataFrame | None = None, kombi_wetten: dict | None = None) -> str:
     """Eigenständige HTML-Seite: Filter, Kennzahlen, Grafiken und Tabelle laufen im Browser
     (gleiche Regeln wie ``simulate``)."""
-    js = json.dumps(dashboard_daten(pool, kombi), ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    js = json.dumps(dashboard_daten(pool, kombi, kombi_wetten), ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
     seite = TEMPLATE.read_text(encoding="utf-8").replace("/*__DATA__*/null", js, 1)
     return f'<!doctype html>\n<html lang="de">\n{seite}\n</html>\n'
 
 
-def dashboard(pool: pd.DataFrame, pfad: str | Path, kombi: pd.DataFrame | None = None) -> Path:
+def dashboard(pool: pd.DataFrame, pfad: str | Path, kombi: pd.DataFrame | None = None,
+              kombi_wetten: dict | None = None) -> Path:
     """Dashboard als HTML-Datei schreiben (überschreibt eine vorhandene)."""
     pfad = Path(pfad)
     pfad.parent.mkdir(parents=True, exist_ok=True)
-    pfad.write_text(dashboard_html(pool, kombi), encoding="utf-8")
+    pfad.write_text(dashboard_html(pool, kombi, kombi_wetten), encoding="utf-8")
     return pfad
 
 
@@ -984,7 +986,13 @@ def start(base: str | Path = BASE_DRIVE, ab: str | None = START_DATUM) -> Path:
     except Exception as e:                                 # darf das Dashboard nie verhindern
         print(f"Kombiwetten-Vorwärtstest nicht gerechnet: {e}")
         kombi = None
-    pfad = dashboard(pool, base / "racecards" / DASHBOARD_DATEI, kombi)
+    try:                                                   # Kombi-Bereich: Dreier, Zwilling, Drilling, Platzzwilling, 2sur4
+        import kombi as kb
+        kombi_wetten = kb.dashboard_daten(base, pool, ab)
+    except Exception as e:
+        print(f"Kombiwetten für das Dashboard nicht gerechnet: {e}")
+        kombi_wetten = None
+    pfad = dashboard(pool, base / "racecards" / DASHBOARD_DATEI, kombi, kombi_wetten)
     tage = pool.loc[pool["settled"].astype(bool), "date"].nunique() if not pool.empty else 0
     k = simulate(pool).kpi_dict
     print(f"Value-Dashboard: {tage} Renntage mit Ergebnis, Standard (¼ Kelly) "

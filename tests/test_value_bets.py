@@ -591,3 +591,87 @@ def test_kombiblick_js(tmp_path):
             assert g["roi"] == pytest.approx(s["div"].sum() / len(s) - 1)
             assert g["abschlag"] == pytest.approx(s["treffer"].sum() / s["p_modell"].sum() - 1)
             assert sum(w["tickets"] for w in k["wochen"]) == len(s)
+
+
+def test_kombi_chancen_summen():
+    import kombi
+    import einlauf
+    rng = np.random.default_rng(1)
+    p = rng.dirichlet(np.ones(9))
+    E = einlauf.einlaeufe(p, 4, None, 5000, rng)
+    ch = kombi.kombi_chancen(E, np.arange(1, 10), np.ones(9, bool))
+    soll = {"dreier": 1, "zwilling": 1, "drilling": 1, "platzzwilling": 3, "2sur4": 6}
+    for art, s in soll.items():
+        assert sum(ch[art].values()) == pytest.approx(s, abs=1e-3), art
+    assert all(k == kombi.kombi_schluessel(k.split("-"), False) for k in ch["drilling"])
+
+
+def _kombi_pool(tmp_path):
+    import kombi
+    import kombi_fall
+    kombi_fall.bauen(tmp_path, tage=4, rennen=6)
+    f = kombi.daten_laden(tmp_path, ab=None)["feld"]
+    fk = pd.to_numeric(f["fk_karte"])
+    return f.assign(wert=f["p"] * fk - 1, fair=1 / f["p"], wert_sh=f["p_sh"] * fk - 1, fair_sh=1 / f["p_sh"],
+                    settled=True, race="R1C" + f["race_id"].str[-1], course="X")
+
+
+def test_kombi_dashboard_js(tmp_path):
+    import shutil
+    import subprocess
+    import sys
+    import itertools
+    if not shutil.which("node"):
+        pytest.skip("node fehlt")
+    sys.path.insert(0, str(Path(__file__).parent))
+    import kombi
+    pool = _kombi_pool(tmp_path)
+    kw = kombi.dashboard_daten(tmp_path, pool, ab=None, n_sim=2000, log=lambda *a: None)
+    assert kw["rennen"] and all(set(r["div"]) == set(kombi.DASH_ARTEN) for r in kw["rennen"].values())
+    t = vb.TEMPLATE.read_text(encoding="utf-8")
+    sim = t[t.index("// SIM-START"):t.index("// SIM-END")]
+    pj = {"spalten": list(pool.columns), "zeilen": json.loads(pool.to_json(orient="values"))}
+    filter_ = [{"art": a, "chance": "karte", "minw": w, "fair_max": 0, "max_pferde": m, "steuer": True}
+               for a in kombi.DASH_ARTEN for w, m in ((0, 0), (0.2, 3))]
+    js = (sim + f"\nconst pool = zeilen({json.dumps(pj)}), KW = {json.dumps(kw)};\n"
+          f"console.log(JSON.stringify({json.dumps(filter_)}.map(f => kombiSim(pool, KW, f).kpi)));")
+    (tmp_path / "kb.js").write_text(js, encoding="utf-8")
+    erg = json.loads(subprocess.run(["node", str(tmp_path / "kb.js")], capture_output=True, text=True, check=True).stdout)
+    for f, k in zip(filter_, erg):                         # Nachrechnung in Python
+        n, ordnung = kombi.DASH_ARTEN[f["art"]][1], kombi.DASH_ARTEN[f["art"]][2]
+        tickets = treffer = 0
+        aus = 0.0
+        for rid, g in pool.groupby("race_id"):
+            R = kw["rennen"].get(rid)
+            if not R or f["art"] not in R["div"] or "karte" not in R["c"]:
+                continue
+            q = g[g["no"].isin(R["c"]["karte"]["no"]) & (g["wert"] > 1e-6) & (g["wert"] >= f["minw"] - 1e-6)]
+            q = q.sort_values(["wert", "no"], ascending=[False, True])
+            if f["max_pferde"]:
+                q = q.head(f["max_pferde"])
+            if len(q) < n:
+                continue
+            nos = sorted(q["no"])
+            ks = [kombi.kombi_schluessel(c, ordnung) for c in
+                  (itertools.permutations(nos, n) if ordnung else itertools.combinations(nos, n))]
+            div = dict(R["div"][f["art"]])
+            tickets += len(ks)
+            treffer += sum(k_ in div for k_ in ks)
+            aus += sum(div.get(k_, 0) for k_ in ks)
+        assert k["tickets"] == tickets and k["treffer"] == treffer, f
+        assert k["auszahlung"] == pytest.approx(aus, abs=0.01)
+        assert k["gewinn"] == pytest.approx(aus - 1.05 * tickets, abs=0.02)
+    assert any(k["tickets"] for k in erg)
+
+
+def test_kombi_liste_js(tmp_path):
+    import shutil
+    import subprocess
+    if not shutil.which("node"):
+        pytest.skip("node fehlt")
+    t = vb.TEMPLATE.read_text(encoding="utf-8")
+    sim = t[t.index("// SIM-START"):t.index("// SIM-END")]
+    (tmp_path / "kl.js").write_text(sim + "\nconsole.log(JSON.stringify([kombiListe([1,4,7],3,true).length,"
+                                    "kombiListe([1,4,7,9],3,false),kombiListe([2,5,8],2,false)]));", encoding="utf-8")
+    a, b, c = json.loads(subprocess.run(["node", str(tmp_path / "kl.js")], capture_output=True, text=True, check=True).stdout)
+    assert a == 6 and b == ["1-4-7", "1-4-9", "1-7-9", "4-7-9"] and c == ["2-5", "2-8", "5-8"]

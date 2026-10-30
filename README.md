@@ -718,6 +718,16 @@ vergleicht beide Rechnungen über Node.
   der Gewinnkombination (Kapazität) und je Erwartungswert-Schwelle Tickets, Treffer, ROI mit 90-%-Intervall
   (Rennen als Cluster). Erwartungswert je Paar = P_Modell × c ÷ P_Publikum − 1; c wird aus denselben Rennen
   geschätzt – bei wenigen Tagen eine Rückrechnung, kein Beleg.
+- **Kombi-Bereich (unter den Sieg-Grafiken):** Tabs **Dreier** (Trio Ordre: die ersten drei in richtiger
+  Reihenfolge), **Zwilling** (Couplé Gagnant), **Drilling** (Trio), **Platzzwilling** (Couplé Placé: zwei unter den
+  ersten drei) und **2 aus 4** (Deux sur Quatre). Eigener Filter: faire Quote (Karte / Schatten), Min. Wert (Vorgabe
+  Wert > 0), Fair < X, max. Pferde je Rennen (höchster Wert zuerst), 5 % Steuer, Tag. Gespielt wird die **Vollkombi**
+  aller qualifizierten Pferde, **1 € je Kombination** (Dreier: alle Reihenfolgen, 3 Pferde = 6 €; Drilling: 4 Pferde =
+  4 €; Paare: 3 Pferde = 3 €); unter 2 Pferden keine Kombiwette, Dreier/Drilling erst ab 3. Abgerechnet gegen die
+  PMU-Dividenden (NATIONAL), nur in Rennen, in denen die Wettart abgerechnet ist. Sichten wie bei Sieg: Kennzahlen,
+  Bank, Gewinn je Tag, Treffer kumuliert (echt gegen erwartet Modell und erwartet Festkurs), Wochenblick, Tabelle je
+  Rennen. Die Chancen der Kombinationen rechnet `kombi.dashboard_daten` aus gezogenen Einläufen (Modell: faire Chance
+  mit Modell-λ; Festkurs: 1/FK der Karte normiert mit Markt-λ) für die Pferde mit Wert ≥ 0 (höchstens 8 je Rennen).
 - **Kombiwetten (Vorwärtstest):** `vb.start(BASE)` rechnet mit `kombi.vorwaertstest` je Karte Couplé Placé und 2sur4
   so, wie man sie wetten würde: unsere Chance **nur aus dem Modell** (ohne Tagesquoten) bzw. aus der Schattenversion
   mit Prognose-Schicht, Publikum aus den **Festkursen der Karte** (`publikum="fk"`, Vorgabe; wahlweise der Toto-Stand

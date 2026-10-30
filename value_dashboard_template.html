@@ -70,6 +70,10 @@ tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 4%, transp
 .aend h2 { font-size: 13px; margin: 0 0 4px; font-weight: 600; }
 .aend ol { margin: 0; padding-left: 18px; color: var(--text2); font-size: 12px; }
 .aend li span { color: var(--text); font-variant-numeric: tabular-nums; margin-right: 6px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; }
+.tabs button { font: inherit; font-size: 13px; color: var(--text2); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+.tabs button.an { color: var(--panel); background: var(--text); border-color: var(--text); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -128,6 +132,41 @@ tbody tr:nth-child(even) { background: color-mix(in srgb, var(--text) 4%, transp
       jeweiligen Tag. Unter −2 = das Modell erklärt die Toto-Endquote über den Festkurs hinaus.</div>
     <div id="c_mt"></div></div>
 </div>
+<section class="kombi" id="kb_bereich">
+  <h1 style="margin-top:22px">Kombiwetten</h1>
+  <div class="stand">Alles darüber: Siegwetten. Hier: Vollkombi aller Pferde, die sich qualifizieren, 1 € je Kombination,
+    abgerechnet gegen die PMU-Dividenden (nur Rennen, in denen die Wettart abgerechnet ist). Ein qualifiziertes Pferd:
+    keine Kombiwette; zwei: Zwilling, Platzzwilling, 2 aus 4; ab drei: alle Wettarten.</div>
+  <div class="tabs" id="kb_tabs">
+    <button data-art="dreier" title="die ersten drei in der richtigen Reihenfolge (Trio Ordre) – alle Reihenfolgen der Pferde: 3 Pferde = 6 Kombinationen">Dreier</button>
+    <button data-art="zwilling" title="die ersten zwei, Reihenfolge egal (Couplé Gagnant): 3 Pferde = 3 Kombinationen">Zwilling</button>
+    <button data-art="drilling" title="die ersten drei, Reihenfolge egal (Trio): 4 Pferde = 4 Kombinationen">Drilling</button>
+    <button data-art="platzzwilling" title="zwei unter den ersten drei (Couplé Placé)">Platzzwilling</button>
+    <button data-art="2sur4" title="zwei unter den ersten vier (2 sur 4)">2 aus 4</button>
+  </div>
+  <div class="filter">
+    <label title="faire Quote, gegen die der Wert gerechnet wird: die der Karte oder die Schattenversion mit Prognose-Schicht">Faire Quote <select id="kb_chance">
+      <option value="karte" selected>Karte</option><option value="schatten">Schatten: mit Prognose-Schicht</option></select></label>
+    <label title="qualifiziert: Wert gegen den Festkurs über 0 (bei 0) bzw. mindestens so hoch">Min. Wert <input type="range" id="kb_minw" min="0" max="1.5" step="0.1" value="0"><output id="kb_minw_o"></output></label>
+    <label title="nur Pferde mit fairer Quote unter X (0 = ohne)">Fair &lt; <input type="number" id="kb_fair" min="0" max="100" step="1" value="0" style="width:56px"></label>
+    <label title="je Rennen höchstens so viele Pferde, die mit dem höchsten Wert (0 = alle; Dreier mit 5 Pferden = 60 Kombinationen)">max. Pferde je Rennen <input type="number" id="kb_max" min="0" max="8" step="1" value="0" style="width:56px"></label>
+    <label title="5 % Wettsteuer auf den Einsatz wie bei den Siegwetten"><input type="checkbox" id="kb_steuer" checked> 5 % Steuer</label>
+    <label>Tag <select id="kb_tag"><option value="alle">alle</option></select></label>
+  </div>
+  <div class="kpis" id="kb_kpis"></div>
+  <div class="hinweis" id="kb_hinweis"></div>
+  <div class="charts">
+    <div class="chart"><h2>Bank</h2><div id="kb_c_bank"></div></div>
+    <div class="chart"><h2>Gewinn je Tag</h2><div id="kb_c_tag"></div></div>
+    <div class="chart breit"><h2>Treffer kumuliert</h2>
+      <div class="sub">Echt gegen erwartet nach Modell (gezogene Einläufe aus der fairen Chance) und nach Festkurs
+        (Einläufe aus 1/Festkurs der Karte, normiert) – über alle gespielten Kombinationen. Liegt „echt“ über
+        „erwartet Festkurs“, weiß das Modell mehr als der Markt.</div>
+      <div id="kb_c_treffer"></div></div>
+    <div class="chart breit"><h2>Wochenblick</h2><div class="tabelle" style="max-height:none;margin-top:0"><table id="kb_t_woche"></table></div></div>
+  </div>
+  <div class="tabelle"><table id="kb_tab"></table></div>
+</section>
 <div class="chart breit" style="margin-top:12px" id="kombi_box"><h2>Kombiwetten (Vorwärtstest)</h2>
   <div class="sub">Couplé Placé (beide unter den ersten 3) und 2sur4 (beide unter den ersten 4), 1 € je Paar mit
     Erwartungswert über der Schwelle. Unsere Chance nur aus dem Modell (ohne Tagesquoten) bzw. der Schattenversion mit
@@ -382,6 +421,79 @@ function kombiBlick(rows, art, quelle, schwelle) {
   return {wochen, gesamt: _kombiWerte(r)};
 }
 
+// Kombi-Bereich: Vollkombi aller Pferde, die sich qualifizieren (Wert > 0 bzw. ≥ Min. Wert, optional Fair < X und
+// höchstens N je Rennen mit dem höchsten Wert), 1 € je Kombination; nur Rennen, in denen die Wettart abgerechnet ist
+// (Dividenden aus kombi.dashboard_daten). Dreier = Reihenfolge zählt (alle Permutationen), sonst alle Kombinationen.
+const KOMBI_ARTEN = {dreier: {n: 3, ord: true}, zwilling: {n: 2, ord: false}, drilling: {n: 3, ord: false},
+                     platzzwilling: {n: 2, ord: false}, '2sur4': {n: 2, ord: false}};
+function kombiListe(nos, n, ord) {     // nos aufsteigend; Schlüssel wie kombi.kombi_schluessel
+  const out = [], wahl = [];
+  const rek = start => {
+    if (wahl.length === n) { out.push(wahl.join('-')); return; }
+    for (let i = ord ? 0 : start; i < nos.length; i++) {
+      if (wahl.includes(nos[i])) continue;
+      wahl.push(nos[i]); rek(i + 1); wahl.pop();
+    }
+  };
+  rek(0);
+  return out;
+}
+function _kombiSumme(rs) {
+  const s = k => _summe(rs.map(r => r[k] || 0));
+  const ein = s('einsatz'), st = s('steuer'), aus = s('auszahlung'), mf = rs.filter(r => r.p_fk !== null);
+  return {rennen: rs.length, tickets: s('tickets'), treffer: s('treffer'), rennen_treffer: rs.filter(r => r.treffer > 0).length,
+          einsatz: ein, steuer: rhu(st, 2), auszahlung: rhu(aus, 2), gewinn: rhu(aus - ein - st, 2),
+          roi: ein ? (aus - ein - st) / ein : null, erw_modell: s('p_modell'),
+          erw_fk: mf.length ? _summe(mf.map(r => r.p_fk)) : null,
+          edge: mf.length && _summe(mf.map(r => r.p_fk)) > 0 ? _summe(mf.map(r => r.p_modell_fk)) / _summe(mf.map(r => r.p_fk)) : null};
+}
+function kombiSim(pool, KW, f, start = 1000) {
+  const A = KOMBI_ARTEN[f.art], chance = f.chance === 'schatten' ? 'schatten' : 'karte';
+  const je = {};
+  for (const r of chanceWaehlen(pool, chance).filter(r => r.settled)) (je[r.race_id] = je[r.race_id] || []).push(r);
+  const cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+  const ids = Object.keys(je).sort((a, b) => cmp(je[a][0].date, je[b][0].date) || cmp(a, b));
+  const st = f.steuer ? STEUER : 0, races = [], tickets = [];
+  for (const rid of ids) {
+    const R = ((KW || {}).rennen || {})[rid];
+    if (!R || !R.div || !R.div[f.art] || !R.c || !R.c[chance]) continue;
+    const C = R.c[chance];
+    let q = je[rid].filter(r => C.no.includes(r.no) && r.wert > TOL && r.wert >= f.minw - TOL
+                                && (!f.fair_max || r.fair < f.fair_max - TOL));
+    q.sort((a, b) => (b.wert - a.wert) || (a.no - b.no));
+    if (f.max_pferde) q = q.slice(0, f.max_pferde);
+    if (q.length < A.n) continue;
+    const nos = q.map(r => r.no).sort((a, b) => a - b), div = Object.fromEntries(R.div[f.art]);
+    const pm = (C.m || {})[f.art] || {}, pf = R.f ? (R.f[f.art] || {}) : null, r0 = je[rid][0];
+    const ks = kombiListe(nos, A.n, A.ord);
+    const t = ks.map(k => ({date: r0.date, race_id: rid, kombi: k, div: div[k] || 0, treffer: (div[k] || 0) > 0,
+                            p_modell: pm[k] || 0, p_fk: pf ? (pf[k] || 0) : null}));
+    tickets.push(...t);
+    const aus = _summe(t.map(x => x.div));
+    races.push({date: r0.date, race_id: rid, race: r0.race, course: r0.course,
+                pferde: nos.map(n => `${n} ${(q.find(r => r.no === n) || {}).horse || ''}`.trim()).join(', '),
+                n_pferde: nos.length, tickets: ks.length, einsatz: ks.length, steuer: rhu(st * ks.length, 2),
+                auszahlung: rhu(aus, 2), profit: rhu(aus - ks.length - st * ks.length, 2),
+                treffer: t.filter(x => x.treffer).length, gewinner: t.filter(x => x.treffer).map(x => x.kombi).join(' · '),
+                einlauf: R.div[f.art].map(x => x[0]).join(' · '),
+                p_modell: _summe(t.map(x => x.p_modell)), p_fk: pf ? _summe(t.map(x => x.p_fk)) : null,
+                p_modell_fk: pf ? _summe(t.map(x => x.p_modell)) : null});
+  }
+  let bank = start;
+  const days = [...new Set(races.map(r => r.date))].sort().map(tag => {
+    const rs = races.filter(r => r.date === tag), k = _kombiSumme(rs);
+    bank = rhu(bank + k.gewinn, 2);
+    return {date: tag, ...k, bank};
+  });
+  const wo = {};
+  for (const r of races) (wo[isoWoche(r.date).key] = wo[isoWoche(r.date).key] || []).push(r);
+  const wochen = Object.keys(wo).sort().map(k => ({woche: k, ...isoWoche(wo[k][0].date), ..._kombiSumme(wo[k])}));
+  const kpi = {..._kombiSumme(races), tage: days.length, start_bank: start, bank,
+               hinweis: !races.length ? 'keine Kombiwette bei diesem Filter'
+                 : races.length < 30 ? 'Stichprobe klein (< 30 Rennen)' : null};
+  return {races, tickets, days, wochen, kpi};
+}
+
 function _mtKpis(sel) {
   return {...modellToto(sel || []), toto_fehlt: (sel || []).filter(r => r.toto_end === null || r.toto_end === undefined).length};
 }
@@ -462,7 +574,7 @@ function simulieren(pool, f, variant, start = 1000, wettart = 'ew') {
 }
 // SIM-END
 
-if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlick, isoWoche, kombiBlick};
+if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlick, isoWoche, kombiBlick, kombiSim, kombiListe};
 </script>
 <script>
 (function () {
@@ -752,6 +864,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
     }
     wochenAnzeige(res.woche, c1, c2);
     kombiAnzeige();
+    kombiBereich();
     tabelle(b);
   }
   const KOMBI = DATA.kombi && DATA.kombi.zeilen && DATA.kombi.zeilen.length ? zeilen(DATA.kombi) : [];
@@ -770,6 +883,79 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
       + '</tbody>';
   }
   for (const id of ['k_art', 'k_quelle', 'k_ew']) $(id).addEventListener('input', kombiAnzeige);
+
+  // ---- Kombi-Bereich (Dreier, Zwilling, Drilling, Platzzwilling, 2 aus 4)
+  const KW = DATA.kombi_wetten || {}, KB_NAME = {dreier: 'Dreier', zwilling: 'Zwilling', drilling: 'Drilling',
+    platzzwilling: 'Platzzwilling', '2sur4': '2 aus 4'};
+  let kbArt = 'dreier';
+  try { const a = localStorage.getItem('vd-kb-art'); if (KOMBI_ARTEN[a]) kbArt = a; } catch (e) {}
+  for (const d of mitErg) $('kb_tag').add(new Option(fd(d), d));
+  $('kb_tabs').querySelectorAll('button').forEach(b => b.onclick = () => {
+    kbArt = b.dataset.art; try { localStorage.setItem('vd-kb-art', kbArt); } catch (e) {} kombiBereich(); });
+  const KB_SP = [
+    ['date', 'Tag', 'l', r => fdk(r.date)], ['race', 'Rennen', 'l'], ['course', 'Bahn', 'l'], ['pferde', 'Pferde', 'l'],
+    ['tickets', 'Kombis'], ['einsatz', 'Einsatz', '', r => nf(r.einsatz, 0)], ['einlauf', 'Gewinnkombi', 'l'],
+    ['treffer', 'Treffer', '', r => r.treffer ? '✔ ' + r.gewinner : ''], ['auszahlung', 'Auszahlung', '', r => nf(r.auszahlung)],
+    ['profit', 'G/V', '', r => nf(r.profit)], ['p_modell', 'erw. Modell', '', r => nf(r.p_modell, 2)],
+    ['p_fk', 'erw. FK', '', r => nf(r.p_fk, 2)],
+  ];
+  let kbSort = null, kbAuf = true, kbLetzte = [];
+  function kbTabelle(rs) {
+    kbLetzte = rs;
+    const b = rs.slice();
+    if (kbSort) b.sort((x, y) => { const a = x[kbSort], c = y[kbSort];
+      if (a === c) return 0; if (a === null) return 1; if (c === null) return -1; return (a < c ? -1 : 1) * (kbAuf ? 1 : -1); });
+    const kl = v => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
+    $('kb_tab').innerHTML = '<thead><tr>' + KB_SP.map(([k, t, c]) => `<th class="${c || ''}" data-k="${k}">${t}${kbSort === k ? (kbAuf ? ' ▴' : ' ▾') : ''}</th>`).join('')
+      + '</tr></thead><tbody>' + (b.map(r => '<tr>' + KB_SP.map(([k, , c, f]) =>
+        `<td class="${(c || '') + (k === 'profit' ? ' ' + kl(r.profit) : '')}">${esc(f ? f(r) : r[k])}</td>`).join('') + '</tr>').join('')
+        || `<tr><td class="l" colspan="${KB_SP.length}">keine Kombiwette bei diesem Filter</td></tr>`) + '</tbody>';
+    $('kb_tab').querySelectorAll('th').forEach(th => th.onclick = () => {
+      const k = th.dataset.k; kbAuf = kbSort === k ? !kbAuf : true; kbSort = k; kbTabelle(kbLetzte); });
+  }
+  function kombiBereich() {
+    if (!KW.rennen || !Object.keys(KW.rennen).length) { $('kb_bereich').style.display = 'none'; return; }
+    $('kb_tabs').querySelectorAll('button').forEach(b => b.classList.toggle('an', b.dataset.art === kbArt));
+    $('kb_minw_o').textContent = +$('kb_minw').value ? '≥ ' + nf(+$('kb_minw').value, 1) : '> 0';
+    const f = {art: kbArt, chance: $('kb_chance').value, minw: +$('kb_minw').value, fair_max: Math.max(0, +$('kb_fair').value || 0),
+               max_pferde: Math.max(0, Math.floor(+$('kb_max').value || 0)), steuer: $('kb_steuer').checked};
+    const p = $('kb_tag').value === 'alle' ? pool : pool.filter(r => r.date === $('kb_tag').value);
+    const S = kombiSim(p, KW, f, 1000), k = S.kpi;
+    const z = (t, w, u = '', tip = '') => `<div class="kpi"${tip ? ` title="${esc(tip)}"` : ''}><div class="t">${t}</div><div class="w">${w}</div><div class="u">${u}</div></div>`;
+    const kl = v => v > 0 ? 'pos' : v < 0 ? 'neg' : '';
+    $('kb_kpis').innerHTML = [
+      z('Bank', `<span class="${kl(k.bank - k.start_bank)}">${eur(k.bank)}</span>`, `Start ${eur(k.start_bank)} · ${KB_NAME[kbArt]}`),
+      z('Gewinn', `<span class="${kl(k.gewinn)}">${eur(k.gewinn)}</span>`, `Auszahlung ${eur(k.auszahlung)}`),
+      z('ROI', pct(k.roi), 'Gewinn ÷ Einsatz'),
+      z('Tage / Rennen', `${k.tage} / ${k.rennen}`, `${k.tickets} Kombinationen`),
+      z('Einsatz', eur(k.einsatz), `Steuer ${eur(k.steuer)}`),
+      z('Treffer', `${k.treffer}`, `in ${k.rennen_treffer} Rennen · ${pct(k.rennen ? k.rennen_treffer / k.rennen : null)} der Rennen`),
+      z('Treffer erwartet', `${nf(k.erw_modell, 1)} / ${nf(k.erw_fk, 1)}`, 'Modell / Festkurs',
+        'Summe der Chancen aller gespielten Kombinationen: nach Modell und nach Festkurs (gezogene Einläufe)'),
+      z('Edge', nf(k.edge), 'Σ Chance Modell ÷ Σ Chance Festkurs', 'über 1: das Modell sieht die gespielten Kombinationen wahrscheinlicher als der Markt'),
+    ].join('');
+    $('kb_hinweis').textContent = k.hinweis || '';
+    const d = S.days, c1 = farbe('--s1'), c2 = farbe('--s2'), c3 = farbe('--s3');
+    linien($('kb_c_bank'), [{name: 'Bank', farbe: c1, werte: [1000, ...d.map(x => x.bank)]}],
+      i => i ? fdk(d[i - 1].date) : 'Start',
+      i => i ? `${fd(d[i - 1].date)}\nBank ${eur(d[i - 1].bank)}\nTag ${eur(d[i - 1].gewinn)} (${d[i - 1].rennen} Rennen, ${d[i - 1].tickets} Kombis)` : `Start ${eur(1000)}`, 1000);
+    balken($('kb_c_tag'), [{name: 'Gewinn', farbe: c1, werte: d.map(x => x.gewinn)}],
+      i => fdk(d[i].date), i => `${fd(d[i].date)}\nGewinn ${eur(d[i].gewinn)}\nEinsatz ${eur(d[i].einsatz)} · Treffer ${d[i].treffer}`);
+    const t = S.tickets, kum = (a, fn) => { let s = 0; return a.map(x => (s += fn(x))); };
+    const te = [0, ...kum(t, x => x.treffer ? 1 : 0)], tm = [0, ...kum(t, x => x.p_modell)], tf = [0, ...kum(t, x => x.p_fk || 0)];
+    linien($('kb_c_treffer'), [{name: 'echt', farbe: c1, werte: te}, {name: 'erwartet Festkurs', farbe: c2, werte: tf, dash: 1},
+                               {name: 'erwartet Modell', farbe: c3, werte: tm, dash: 1}],
+      i => String(i), i => `nach ${i} Kombinationen\necht ${te[i]}\nFestkurs ${nf(tf[i])} · Modell ${nf(tm[i])}`);
+    const pr = v => v === null || v === undefined ? '–' : (v > 0 ? '+' : '') + nf(100 * v, 0) + ' %';
+    const zeile = (tt, o) => `<tr><td class="l">${tt}</td><td>${o.rennen}</td><td>${o.tickets}</td><td>${o.treffer}</td>`
+      + `<td>${nf(o.erw_modell, 1)}</td><td>${nf(o.erw_fk, 1)}</td><td class="${kl(o.gewinn)}">${nf(o.gewinn)}</td><td class="${kl(o.roi)}">${pr(o.roi)}</td></tr>`;
+    $('kb_t_woche').innerHTML = '<thead><tr><th class="l">Woche</th><th>Rennen</th><th>Kombis</th><th>Treffer</th><th>erw. Modell</th>'
+      + '<th>erw. Festkurs</th><th>Gewinn</th><th>ROI</th></tr></thead><tbody>'
+      + (S.wochen.length ? S.wochen.map(x => zeile(`KW ${x.kw} (${fdk(x.von)}–${fdk(x.bis)})`, x)).join('') + zeile('<b>gesamt</b>', k)
+         : '<tr><td class="l" colspan="8">keine Kombiwette bei diesem Filter</td></tr>') + '</tbody>';
+    kbTabelle(S.races);
+  }
+  for (const id of ['kb_chance', 'kb_minw', 'kb_fair', 'kb_max', 'kb_steuer', 'kb_tag']) $(id).addEventListener('input', kombiBereich);
   function wochenAnzeige(W, c1, c2) {
     const w = W.wochen, el = $('c_woche'), sg = v => (v > 0 ? '+' : '') + nf(v, 1);
     const wt = x => `KW ${x.kw} (${fdk(x.von)}–${fdk(x.bis)})`;
