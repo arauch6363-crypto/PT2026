@@ -356,7 +356,7 @@ input{color:inherit}
                         <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:700;color:#161512;white-space:nowrap">{{ x.margin }}</span>
                       </div>
                       <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
-                        <span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><b style="font-size:13.5px">{{ x.course }}</b><sc-if value="{{ x.cgd }}" hint-placeholder-val="{{ false }}"><span title="Bilanz vor dem Lauf auf Kurs (C), Bodengruppe (G), Distanzgruppe (D): groß = gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals" style="font-size:11.5px;font-weight:400;color:#8C877C;margin-left:6px">CGD {{ x.cgd }}</span></sc-if></span>
+                        <span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><b style="font-size:13.5px">{{ x.course }}</b><sc-if value="{{ x.cgd }}" hint-placeholder-val="{{ false }}"><span title="Bilanz vor dem Lauf je Buchstabe: C = Kurs, G = Bodengruppe, D = Distanzgruppe · groß = gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals" style="font-size:11.5px;font-weight:400;color:#8C877C;margin-left:6px">Bilanz {{ x.cgd }}</span></sc-if></span>
                         <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#57534B;flex:none">{{ x.date }}</span>
                       </div>
                       <div style="display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center;font-size:11.5px;color:#57534B">
@@ -957,7 +957,7 @@ const LEGEND = [
   ['ΔL600 / ΔB200', 'Tracking: Tempo der letzten 600 m bzw. schnellstes 200-m-Segment der letzten 800 m gegen die Erwartung (km/h), gleiche Bahn/Tag/Boden, korrigiert um Distanz, Tempo, Klasse. + = schneller.'],
   ['Duell', 'Direkte und indirekte Vergleiche mit heutigen Gegnern (180 Tage, ±200 m, Boden max. eine Stufe). Erwartung in Längen: Abstand damals ± Gewichtsverschiebung (1 kg ≈ 1 Länge).'],
   ['Box', 'Startbox; aufgeklappt daneben die Abweichung der Box-Statistik dieser Bahn/Distanz (✱ = signifikant) und die Tage seit dem letzten Lauf (rot über 60).'],
-  ['CGD', 'Bilanz vor dem Lauf auf Kurs (C), Bodengruppe (G), Distanzgruppe (D): Großbuchstabe = gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals.'],
+  ['Bilanz (CGD)', 'Bilanz vor dem Lauf je Buchstabe: C = Kurs, G = Bodengruppe, D = Distanzgruppe. Großbuchstabe = gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals. Ersetzt die PMU-Abzeichen C / D / CD.'],
   ['Letzte Läufe', 'Oben groß die Ratings Val, ARR, TR; bei ARR und TR rechts daneben der Rang dieses Laufs unter allen Läufen der heutigen Starter der letzten 30 / 90 / 365 Tage (nur Zeiträume, in denen der Lauf selbst liegt, und nur wenn unter den besten 5; gold = bester). Darunter das Tracking. Pos. vor Finish: Position 400 m vor dem Ziel (früh → 400 m). Pace-Ratio: Tempo früh ÷ Tempo Schluss × 100, als Kategorie very slow … very fast. Finish-Idx: Endspeed (letzte 400 m) ÷ Tempo davor × 100, als Kategorie very weak … very strong. Beide gemessen am Schnitt aller Läufe der heutigen Starter (normal = ±0,5 SD, very = ab 1,5 SD); klein die Zahl und der Abstand zum Schnitt. ⚑ bei ±800/Weg = auffälliger Wert. ±800 · Weg: groß Plätze gutgemacht ab 800 m (grün ab +3), klein Meter mehr/weniger als der Median (≥ 7,5 m auffällig). K/D/B = wie heute. Val klein: heutige − damalige Valeur.'],
   ['Gegner', 'Pro Lauf: wie die Gegner von damals im nächsten Start abgeschnitten haben, welche heutigen Gegner mitliefen und indirekte Vergleiche über gemeinsame Gegner.'],
   ['A/E', 'Actual vs. Expected: tatsächliche ÷ erwartete Plätze (A/E S: Siege) für Trainer, Jockey, Besitzer, Züchter in 30 / 90 / 365 Tagen. Pos+ und €/L+ als Index, 100 = Schnitt. ▲/▼ = Trend.'],
@@ -1311,9 +1311,9 @@ class Component extends DCLogic {
 
     // ---- mittlere Stufe
     const tags = [];
-    (x.badges || []).forEach(b => tags.push({ t: b, tip: BADGE[b], bg: b === 'BF' ? C.badBg : C.ink, fg: b === 'BF' ? C.bad : C.paper, bd: b === 'BF' ? C.badBg : C.ink }));
+    (x.badges || []).filter(b => !(x.cgd && ['C', 'D', 'CD'].includes(b))).forEach(b => tags.push({ t: b, tip: BADGE[b], bg: b === 'BF' ? C.badBg : C.ink, fg: b === 'BF' ? C.bad : C.paper, bd: b === 'BF' ? C.badBg : C.ink }));
     (x.changes || []).forEach(c => tags.push({ t: c.text, tip: c.text, bg: C.goldBg, fg: C.ink, bd: C.goldBg }));
-    if (x.cgd) tags.push({ t: 'CGD ' + x.cgd, tip: 'Bilanz vor heute auf Kurs · Bodengruppe · Distanzgruppe', bg: 'transparent', fg: C.ink, bd: C.line });
+    if (x.cgd) tags.push({ t: 'Bilanz ' + x.cgd, tip: 'Bilanz vor heute je Buchstabe: C = Kurs, G = Bodengruppe, D = Distanzgruppe · groß = schon gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = noch nie gelaufen', bg: 'transparent', fg: C.ink, bd: C.line });
     if (x.abst_pass && x.abst_pass.gesamt != null && Math.abs(x.abst_pass.gesamt) >= 15) tags.push({ t: 'Abst ' + arrow(x.abst_pass.gesamt) + ' ' + sgn(x.abst_pass.gesamt, 0), tip: 'Abstammungs-Passung heute', bg: 'transparent', fg: pTone(x.abst_pass.gesamt), bd: C.line });
     const bl = blinkTxt(x.blinkers); if (bl) tags.push({ t: bl, tip: x.blinkers, bg: 'transparent', fg: C.ink2, bd: C.line });
     if (x.style) tags.push({ t: x.style_label + ' · früh Ø ' + Math.round((x.early ?? 0) * 100) + ' %', tip: 'Laufstil aus ' + x.early_runs + ' Läufen', bg: 'transparent', fg: C.ink2, bd: C.line });
