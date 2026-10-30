@@ -448,6 +448,79 @@ function kombiBlick(rows, art, quelle, schwelle) {
   return {wochen, gesamt: _kombiWerte(r)};
 }
 
+// Kombi-Bereich: Vollkombi aller Pferde, die sich qualifizieren (Wert > 0 bzw. ≥ Min. Wert, optional Fair < X und
+// höchstens N je Rennen mit dem höchsten Wert), 1 € je Kombination; nur Rennen, in denen die Wettart abgerechnet ist
+// (Dividenden aus kombi.dashboard_daten). Dreier = Reihenfolge zählt (alle Permutationen), sonst alle Kombinationen.
+const KOMBI_ARTEN = {dreier: {n: 3, ord: true}, zwilling: {n: 2, ord: false}, drilling: {n: 3, ord: false},
+                     platzzwilling: {n: 2, ord: false}, '2sur4': {n: 2, ord: false}};
+function kombiListe(nos, n, ord) {     // nos aufsteigend; Schlüssel wie kombi.kombi_schluessel
+  const out = [], wahl = [];
+  const rek = start => {
+    if (wahl.length === n) { out.push(wahl.join('-')); return; }
+    for (let i = ord ? 0 : start; i < nos.length; i++) {
+      if (wahl.includes(nos[i])) continue;
+      wahl.push(nos[i]); rek(i + 1); wahl.pop();
+    }
+  };
+  rek(0);
+  return out;
+}
+function _kombiSumme(rs) {
+  const s = k => _summe(rs.map(r => r[k] || 0));
+  const ein = s('einsatz'), st = s('steuer'), aus = s('auszahlung'), mf = rs.filter(r => r.p_fk !== null);
+  return {rennen: rs.length, tickets: s('tickets'), treffer: s('treffer'), rennen_treffer: rs.filter(r => r.treffer > 0).length,
+          einsatz: ein, steuer: rhu(st, 2), auszahlung: rhu(aus, 2), gewinn: rhu(aus - ein - st, 2),
+          roi: ein ? (aus - ein - st) / ein : null, erw_modell: s('p_modell'),
+          erw_fk: mf.length ? _summe(mf.map(r => r.p_fk)) : null,
+          edge: mf.length && _summe(mf.map(r => r.p_fk)) > 0 ? _summe(mf.map(r => r.p_modell_fk)) / _summe(mf.map(r => r.p_fk)) : null};
+}
+function kombiSim(pool, KW, f, start = 1000) {
+  const A = KOMBI_ARTEN[f.art], chance = f.chance === 'schatten' ? 'schatten' : 'karte';
+  const je = {};
+  for (const r of chanceWaehlen(pool, chance).filter(r => r.settled)) (je[r.race_id] = je[r.race_id] || []).push(r);
+  const cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+  const ids = Object.keys(je).sort((a, b) => cmp(je[a][0].date, je[b][0].date) || cmp(a, b));
+  const st = f.steuer ? STEUER : 0, races = [], tickets = [];
+  for (const rid of ids) {
+    const R = ((KW || {}).rennen || {})[rid];
+    if (!R || !R.div || !R.div[f.art] || !R.c || !R.c[chance]) continue;
+    const C = R.c[chance];
+    let q = je[rid].filter(r => C.no.includes(r.no) && r.wert > TOL && r.wert >= f.minw - TOL
+                                && (!f.fair_max || r.fair < f.fair_max - TOL));
+    q.sort((a, b) => (b.wert - a.wert) || (a.no - b.no));
+    if (f.max_pferde) q = q.slice(0, f.max_pferde);
+    if (q.length < A.n) continue;
+    const nos = q.map(r => r.no).sort((a, b) => a - b), div = Object.fromEntries(R.div[f.art]);
+    const pm = (C.m || {})[f.art] || {}, pf = R.f ? (R.f[f.art] || {}) : null, r0 = je[rid][0];
+    const ks = kombiListe(nos, A.n, A.ord);
+    const t = ks.map(k => ({date: r0.date, race_id: rid, kombi: k, div: div[k] || 0, treffer: (div[k] || 0) > 0,
+                            p_modell: pm[k] || 0, p_fk: pf ? (pf[k] || 0) : null}));
+    tickets.push(...t);
+    const aus = _summe(t.map(x => x.div));
+    races.push({date: r0.date, race_id: rid, race: r0.race, course: r0.course,
+                pferde: nos.map(n => `${n} ${(q.find(r => r.no === n) || {}).horse || ''}`.trim()).join(', '),
+                n_pferde: nos.length, tickets: ks.length, einsatz: ks.length, steuer: rhu(st * ks.length, 2),
+                auszahlung: rhu(aus, 2), profit: rhu(aus - ks.length - st * ks.length, 2),
+                treffer: t.filter(x => x.treffer).length, gewinner: t.filter(x => x.treffer).map(x => x.kombi).join(' · '),
+                einlauf: R.div[f.art].map(x => x[0]).join(' · '),
+                p_modell: _summe(t.map(x => x.p_modell)), p_fk: pf ? _summe(t.map(x => x.p_fk)) : null,
+                p_modell_fk: pf ? _summe(t.map(x => x.p_modell)) : null});
+  }
+  let bank = start;
+  const days = [...new Set(races.map(r => r.date))].sort().map(tag => {
+    const rs = races.filter(r => r.date === tag), k = _kombiSumme(rs);
+    bank = rhu(bank + k.gewinn, 2);
+    return {date: tag, ...k, bank};
+  });
+  const wo = {};
+  for (const r of races) (wo[isoWoche(r.date).key] = wo[isoWoche(r.date).key] || []).push(r);
+  const wochen = Object.keys(wo).sort().map(k => ({woche: k, ...isoWoche(wo[k][0].date), ..._kombiSumme(wo[k])}));
+  const kpi = {..._kombiSumme(races), tage: days.length, start_bank: start, bank,
+               hinweis: !races.length ? 'keine Kombiwette bei diesem Filter'
+                 : races.length < 30 ? 'Stichprobe klein (< 30 Rennen)' : null};
+  return {races, tickets, days, wochen, kpi};
+}
+
 function _mtKpis(sel) {
   return {...modellToto(sel || []), toto_fehlt: (sel || []).filter(r => r.toto_end === null || r.toto_end === undefined).length};
 }
@@ -528,7 +601,7 @@ function simulieren(pool, f, variant, start = 1000, wettart = 'ew') {
 }
 // SIM-END
 
-if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlick, isoWoche, kombiBlick};
+if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlick, isoWoche, kombiBlick, kombiSim, kombiListe};
 </script>
 <script>
 (function () {
