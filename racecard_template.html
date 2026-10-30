@@ -353,7 +353,7 @@ input{color:inherit}
                         <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;font-weight:700;color:#161512;white-space:nowrap">{{ x.margin }}</span>
                       </div>
                       <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
-                        <span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><b style="font-size:13.5px">{{ x.course }}</b><sc-if value="{{ x.cgd }}" hint-placeholder-val="{{ false }}"><span title="Bilanz vor dem Lauf je Buchstabe: C = Kurs, G = Bodengruppe, D = Distanzgruppe · groß = gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals" style="font-size:11.5px;font-weight:400;color:#8C877C;margin-left:6px">{{ x.cgd }}</span></sc-if></span>
+                        <span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><b title="{{ x.courseTip }}" style="font-size:13.5px;background:{{ x.courseBg }};border-radius:3px;padding:0 {{ x.coursePad }}">{{ x.course }}</b><sc-if value="{{ x.cgd }}" hint-placeholder-val="{{ false }}"><span title="Bilanz vor dem Lauf je Buchstabe: C = Kurs, G = Bodengruppe, D = Distanzgruppe · groß = gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals" style="font-size:11.5px;font-weight:400;color:#8C877C;margin-left:6px">{{ x.cgd }}</span></sc-if></span>
                         <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#57534B;flex:none">{{ x.date }}</span>
                       </div>
                       <div style="display:flex;flex-wrap:wrap;gap:3px 6px;align-items:center;font-size:11.5px;color:#57534B">
@@ -1430,7 +1430,6 @@ class Component extends DCLogic {
         flags.push({ t: (f.verlauf_pferd === 'gegen' ? 'gegen Verlauf' : 'mit Verlauf') + (f.verlauf === 'vorne' ? ' (vorne gew.)' : ' (hinten gew.)'), tip: 'Rennverlauf-Wert ' + sgn(f.verlauf_wert, 2), bg: plus ? C.goodBg : 'transparent', fg: plus ? C.good : f.verlauf_pferd === 'mit' ? C.bad : C.ink2, bd: plus ? C.goodBg : C.line });
       }
       if (f.abst_pass && f.abst_pass.gesamt != null && Math.abs(f.abst_pass.gesamt) >= 15) flags.push({ t: 'Abst ' + arrow(f.abst_pass.gesamt) + ' ' + sgn(f.abst_pass.gesamt, 0), tip: 'Abstammungs-Passung dieses Laufs', bg: 'transparent', fg: pTone(f.abst_pass.gesamt), bd: C.line });
-      if (same.includes('K')) flags.push({ t: 'gleicher Kurs', tip: 'Kurs wie heute (gleicher Belag)', bg: C.goldBg, fg: C.ink, bd: C.goldBg });
       const bln = blinkTxt(f.blinkers); if (bln) flags.push({ t: bln, tip: '', bg: 'transparent', fg: C.ink2, bd: C.line });
       if (f.sieger) flags.push({ t: 'Sieger ' + tc(f.sieger), tip: '', bg: 'transparent', fg: C.ink2, bd: C.line });
       const dd = (x.duels || []).filter(d => d.race_id ? d.race_id === f.race_id : d.date === f.date);
@@ -1452,7 +1451,7 @@ class Component extends DCLogic {
       return { hasSep: !!sep, sep, pause, pauseFg: gap != null && gap > 60 ? C.bad : C.ink3, op: f.unreliable ? .6 : 1, cardBg: f.extra ? '#F1EEE7' : C.card,
         pos: posTxt, ran: f.ran ?? '–', margin: f.pos ? lengths(f.margin) : f.lb_min != null ? '≥ ' + lengths(f.lb_min) : '',
         ...(MEDAILLE[f.pos] || { posBg: C.card, posFg: C.ink, posBd: C.line }),
-        course: tc(f.course), date: dt(f.date), cond, condR, cgd: f.cgd || '',
+        course: tc(f.course), courseBg: same.includes('K') ? C.goldBg : 'transparent', coursePad: same.includes('K') ? '4px' : '0', courseTip: same.includes('K') ? 'Kurs wie heute (gleicher Belag)' : '', date: dt(f.date), cond, condR, cgd: f.cgd || '',
         line3: tc(f.jockey) + ' · ' + kurz(f.weight) + ' kg · Box ' + (f.draw ?? '–') + ' · Q ' + (f.odds != null ? fx(f.odds, 1) : '–') + (f.fav ? ' F' : ''),
         mR: mm.slice(0, 3), mT: [...mm.slice(3).map(m => ({ vf: "'Spline Sans Mono',monospace", ...m })), ...Array((4 - (mm.length - 3) % 4) % 4).fill({ k: '', v: '', sub: '', bg: C.card, hasWag: false, wag: [], cur: 'default', ul: 'none' })], flags, hasFlags: flags.length > 0, note: f.comment_de || f.comment, hasNote: !!(f.comment_de || f.comment), btns, hasBtns: btns.length > 0, sub, hasSub: sub.length > 0 };
     });
