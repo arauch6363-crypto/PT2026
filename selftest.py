@@ -2131,6 +2131,9 @@ def racecard_pruefen() -> None:
                                                 {"nomCheval": "S", "place": {"place": 1, "statusArrivee": "PLACE"}},
                                                 {"nomCheval": "T", "place": {"place": 2, "statusArrivee": "PLACE"},
                                                  "distanceAvecPrecedent": {"rawValue": "1 L 1/2"}}]},
+        {"date": int(pd.Timestamp("2026-06-10").timestamp() * 1000) - 7200000, "timezoneOffset": 7200000,
+         "hippodrome": "DEAUVILLE", "nomPrix": "ABGESAGT", "discipline": "PLAT", "allocation": 20000, "distance": 1600,
+         "nbParticipants": 15, "participants": [{"itsHim": True, "place": {"statusArrivee": "NON_PLACE"}}]},
         {"date": int(pd.Timestamp("2026-06-01").timestamp() * 1000) - 7200000, "timezoneOffset": 7200000,
          "hippodrome": "DORTMUND", "nomPrix": "PREIS", "discipline": "PLAT", "allocation": 9000, "distance": 2000,
          "nbParticipants": 8, "participants": [{"itsHim": True, "place": {"place": 3, "statusArrivee": "PLACE"},
@@ -2150,6 +2153,8 @@ def racecard_pruefen() -> None:
            and pd.isna(ab6_["lengths_behind"].iloc[0]) and ab6_["sieger"].iloc[0] == "S",
            "Externe Läufe: Längen zum Sieger aus den Abständen der ersten fünf (3. in Dortmund: Encolure + 1 L), Sieger "
            "mit Vorsprung, ab Platz 6 nur Untergrenze; Dortmund = Ausland, Aurillac nicht")
+    pruefe(not (hext["race_name"].astype(str) == "ABGESAGT").any(),
+           "Externe Läufe: Rennen ohne eigenen Platz und ohne Sieger (abgesagt, nicht gelaufen) fallen weg – kein „6+“")
     pruefe(len(ab6_) == 1 and pd.isna(ab6_["finish_pos"].iloc[0]) and ab6_["pos_ab"].iloc[0] == 6
            and abs(ab6_["rel_place"].iloc[0] - (12 - 9) / 11) < 1e-9 and ab6_["won"].iloc[0] == 0,
            "Externe Läufe: im Ziel ab Platz 6 (NON_PLACE, ohne Nummer) – Pos aus der Mitte der Plätze 6 … Starterzahl, "

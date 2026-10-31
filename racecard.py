@@ -859,6 +859,10 @@ def extern_zeilen(ext: pd.DataFrame, quellen: pd.DataFrame, h: pd.DataFrame) -> 
                 on=["quelle_race_id", "quelle_no"], how="inner")
     e["date"] = pd.to_datetime(e["date"], errors="coerce")
     e = e.dropna(subset=["date", "horse_id"])
+    # nicht gelaufen (z. B. abgesagtes Meeting): weder eigener Platz noch ein Sieger bekannt – ein gelaufenes Rennen
+    # nennt in den Detail-Leistungen immer den Sieger; ältere Rohdaten ohne Spalte „sieger“ bleiben unverändert
+    if "sieger" in e:
+        e = e[pd.to_numeric(e["finish_pos"], errors="coerce").notna() | e["sieger"].notna()]
     schon = set(zip(h["horse_id"], h["date"])) if len(h) else set()
     e = e[[(a, b) not in schon for a, b in zip(e["horse_id"], e["date"])]]
     e = e.drop_duplicates(["horse_id", "date"], keep="first")

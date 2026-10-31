@@ -257,32 +257,33 @@ input{color:inherit}
 
       <sc-if value="{{ r.isMid }}" hint-placeholder-val="{{ false }}">
         <div style="padding:0 16px 14px">
-          <sc-if value="{{ r.hasTags }}" hint-placeholder-val="{{ false }}">
-            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">
-              <sc-for list="{{ r.tags }}" as="tg" hint-placeholder-count="3">
-                <span title="{{ tg.tip }}" style="font-size:10.5px;font-weight:700;letter-spacing:.02em;border-radius:4px;padding:3px 6px;background:{{ tg.bg }};color:{{ tg.fg }};border:1px solid {{ tg.bd }}">{{ tg.t }}</span>
-              </sc-for>
+          <div style="display:grid;gap:6px">
+            <div style="display:grid;grid-template-columns:78px minmax(0,1fr);gap:8px;align-items:center">
+              <span style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#8C877C">Form</span>
+              <span style="display:flex;gap:3px;flex-wrap:wrap">
+                <sc-for list="{{ r.formSq }}" as="q" hint-placeholder-count="6">
+                  <span style="width:20px;height:20px;border-radius:4px;display:grid;place-items:center;font-family:'Spline Sans Mono',monospace;font-size:11px;font-weight:600;background:{{ q.bg }};color:{{ q.fg }};border:1px solid {{ q.bd }}">{{ q.c }}</span>
+                </sc-for>
+              </span>
             </div>
-          </sc-if>
-          <div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">
-            <span style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#8C877C;margin-right:4px">Form</span>
-            <sc-for list="{{ r.formSq }}" as="q" hint-placeholder-count="6">
-              <span style="width:20px;height:20px;border-radius:4px;display:grid;place-items:center;font-family:'Spline Sans Mono',monospace;font-size:11px;font-weight:600;background:{{ q.bg }};color:{{ q.fg }};border:1px solid {{ q.bd }}">{{ q.c }}</span>
+            <sc-for list="{{ r.steck }}" as="st" hint-placeholder-count="4">
+              <div style="display:grid;grid-template-columns:78px minmax(0,1fr);gap:8px;align-items:baseline;font-size:12.5px">
+                <span style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#8C877C">{{ st.k }}</span>
+                <span style="display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 8px;min-width:0">
+                  <sc-for list="{{ st.items }}" as="si" hint-placeholder-count="2">
+                    <span title="{{ si.tip }}" style="font-family:{{ si.ff }};font-weight:{{ si.fw }};color:{{ si.fg }};background:{{ si.bg }};border-radius:4px;padding:0 {{ si.pad }}">{{ si.t }}</span>
+                  </sc-for>
+                </span>
+              </div>
+            </sc-for>
+            <sc-for list="{{ r.careerRows }}" as="kr" hint-placeholder-count="2">
+              <div style="display:grid;grid-template-columns:78px minmax(0,1fr) auto;gap:8px;align-items:baseline;font-size:12.5px">
+                <span style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#8C877C">{{ kr.lab }}</span>
+                <b style="font-family:'Spline Sans Mono',monospace;font-weight:600;white-space:nowrap">{{ kr.rec }}</b>
+                <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;white-space:nowrap"><b title="{{ kr.eprTip }}" style="color:{{ kr.eprFg }};background:{{ kr.eprBg }};border-radius:4px;padding:1px 5px;font-weight:600">{{ kr.epr }}</b> <span style="color:#8C877C">{{ kr.rank }}</span></span>
+              </div>
             </sc-for>
           </div>
-          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-top:6px;font-size:12px">
-            <span><span style="color:#8C877C">Box</span> <b style="font-family:'Spline Sans Mono',monospace;font-weight:600">{{ r.draw }}</b></span>
-            <sc-if value="{{ r.hasBox }}" hint-placeholder-val="{{ false }}"><span title="{{ r.boxTip }}" style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;border-radius:4px;padding:1px 5px;font-weight:600;background:{{ r.boxBg }};color:{{ r.boxFg }}">{{ r.boxDev }}</span></sc-if>
-            <span style="color:#8C877C">·</span>
-            <span><b style="font-family:'Spline Sans Mono',monospace;font-weight:600;color:{{ r.daysFg }}">{{ r.days }}</b> <span style="color:#8C877C">Tage seit letztem Lauf</span></span>
-          </div>
-          <sc-for list="{{ r.careerRows }}" as="kr" hint-placeholder-count="2">
-            <div style="display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:8px;align-items:baseline;margin-top:5px;font-size:12px">
-              <span style="color:#8C877C">{{ kr.lab }}</span>
-              <b style="font-family:'Spline Sans Mono',monospace;font-weight:600;white-space:nowrap">{{ kr.rec }}</b>
-              <span style="font-family:'Spline Sans Mono',monospace;font-size:11.5px;white-space:nowrap"><b title="{{ kr.eprTip }}" style="color:{{ kr.eprFg }};background:{{ kr.eprBg }};border-radius:4px;padding:1px 5px;font-weight:600">{{ kr.epr }}</b> <span style="color:#8C877C">{{ kr.rank }}</span></span>
-            </div>
-          </sc-for>
           <div style="display:grid;gap:0;margin-top:10px;border-top:1px solid #DCD8CE">
             <sc-for list="{{ r.conn }}" as="cn" hint-placeholder-count="4">
               <div onClick="{{ cn.pick }}" style="display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid #EEEBE4;font-size:12.5px;cursor:{{ cn.cur }}">
@@ -296,12 +297,13 @@ input{color:inherit}
               </div>
             </sc-for>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:#DCD8CE;border:1px solid #DCD8CE;border-radius:10px;overflow:hidden;margin-top:10px">
-            <sc-for list="{{ r.metrics }}" as="k" hint-placeholder-count="12">
-              <div title="{{ k.tip }}" style="background:#FFFDF9;padding:7px 9px 8px;min-width:0">
-                <div style="display:flex;justify-content:space-between;gap:4px;font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#8C877C"><span>{{ k.k }}</span><span style="font-family:'Spline Sans Mono',monospace;letter-spacing:0;font-weight:500">{{ k.rk }}</span></div>
-                <div style="font-family:'Spline Sans Mono',monospace;font-size:15px;font-weight:600;margin-top:2px;color:{{ k.fg }};white-space:nowrap">{{ k.v }}</div>
-                <div style="font-family:'Spline Sans Mono',monospace;font-size:10px;color:#8C877C;white-space:{{ k.ws }};overflow:hidden;text-overflow:ellipsis">{{ k.sub }}</div>
+          <div style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#8C877C;margin:14px 0 2px">Kennzahlen · Rang im Feld</div>
+          <div style="display:grid;border-top:1px solid #DCD8CE">
+            <sc-for list="{{ r.metrics }}" as="k" hint-placeholder-count="7">
+              <div title="{{ k.tip }}" style="display:grid;grid-template-columns:78px minmax(0,1fr) auto;gap:2px 8px;align-items:baseline;padding:6px 0;border-bottom:1px solid #EEEBE4">
+                <span style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#8C877C">{{ k.k }}</span>
+                <span style="min-width:0"><b style="font-family:'Spline Sans Mono',monospace;font-size:14px;font-weight:600;color:{{ k.fg }}">{{ k.v }}</b> <span style="font-family:'Spline Sans Mono',monospace;font-size:10.5px;color:#8C877C">{{ k.sub }}</span></span>
+                <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#57534B;white-space:nowrap">{{ k.rk }}</span>
               </div>
             </sc-for>
           </div>
@@ -1306,13 +1308,25 @@ class Component extends DCLogic {
     if (!isMid) return out;
 
     // ---- mittlere Stufe
-    const tags = [];
-    (x.badges || []).filter(b => !(x.cgd && ['C', 'D', 'CD'].includes(b))).forEach(b => tags.push({ t: b, tip: BADGE[b], bg: b === 'BF' ? C.badBg : C.ink, fg: b === 'BF' ? C.bad : C.paper, bd: b === 'BF' ? C.badBg : C.ink }));
-    (x.changes || []).forEach(c => tags.push({ t: c.text, tip: c.text, bg: C.goldBg, fg: C.ink, bd: C.goldBg }));
-    if (x.cgd) tags.push({ t: x.cgd, tip: 'Bilanz vor heute je Buchstabe: C = Kurs, G = Bodengruppe, D = Distanzgruppe · groß = schon gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = noch nie gelaufen', bg: 'transparent', fg: C.ink, bd: C.line });
-    if (x.abst_pass && x.abst_pass.gesamt != null && Math.abs(x.abst_pass.gesamt) >= 15) tags.push({ t: 'Abst ' + arrow(x.abst_pass.gesamt) + ' ' + sgn(x.abst_pass.gesamt, 0), tip: 'Abstammungs-Passung heute', bg: 'transparent', fg: pTone(x.abst_pass.gesamt), bd: C.line });
-    const bl = blinkTxt(x.blinkers); if (bl) tags.push({ t: bl, tip: x.blinkers, bg: 'transparent', fg: C.ink2, bd: C.line });
-    if (x.style) tags.push({ t: x.style_label + ' · früh Ø ' + Math.round((x.early ?? 0) * 100) + ' %', tip: 'Laufstil aus ' + x.early_runs + ' Läufen', bg: 'transparent', fg: C.ink2, bd: C.line });
+    // Steckbrief: Stil, Ausrüstung, Änderungen, Box, Pause, Kennzeichen (je Zeile Bezeichnung links, Werte rechts)
+    const it = (t, o = {}) => ({ t, tip: '', fg: C.ink, bg: 'transparent', pad: '0', fw: 500, ff: 'Archivo,sans-serif', ...o });
+    const mono = { ff: "'Spline Sans Mono',monospace", fw: 600 }, gold = { bg: C.goldBg, pad: '4px', fw: 600 };
+    const steck = [], bl = blinkTxt(x.blinkers), aend = x.changes || [];
+    const aendBl = aend.filter(c => /scheuklappe|oeill/i.test(c.text)), aendSonst = aend.filter(c => !aendBl.includes(c));
+    if (x.style) steck.push({ k: 'Stil', items: [it(x.style_label), it('früh Ø ' + Math.round((x.early ?? 0) * 100) + ' %', { fg: C.ink2, tip: 'Laufstil aus ' + x.early_runs + ' Läufen' })] });
+    if (bl || aendBl.length) steck.push({ k: 'Ausrüstung', items: aendBl.length ? aendBl.map(c => it(c.text, gold)) : [it(bl, { tip: x.blinkers })] });
+    if (aendSonst.length) steck.push({ k: 'Änderung', items: aendSonst.map(c => it(c.text, gold)) });
+    const D = x.draw_stat;
+    steck.push({ k: 'Box · Pause', items: [it(String(x.draw ?? '–'), mono),
+      ...(D && x.draw != null && D.dev != null ? [it(sgn(D.dev, 2) + (D.sig ? '✱' : ''), { ...mono, fg: D.sig ? (D.dev > 0 ? C.good : C.bad) : C.ink3,
+        bg: D.sig ? (D.dev > 0 ? C.goodBg : C.badBg) : 'transparent', pad: D.sig ? '4px' : '0',
+        tip: 'Box ' + x.draw + ': Ø-Wert ' + fx(D.mean, 2) + ', Abweichung ' + sgn(D.dev, 2) + ' (z ' + sgn(D.z, 1) + ') aus ' + D.n + ' Läufen' + (D.sig ? ' – signifikant' : '') })] : []),
+      it('·', { fg: C.ink3 }), it(x.days != null ? x.days + ' Tage' : '–', { ...mono, fg: x.days > 60 ? C.bad : C.ink, tip: 'Tage seit dem letzten Lauf' })] });
+    const kz = (x.badges || []).filter(b => !(x.cgd && ['C', 'D', 'CD'].includes(b))).map(b => it(b, { fw: 700, fg: b === 'BF' ? C.bad : C.ink, bg: b === 'BF' ? C.badBg : C.soft, pad: '4px', tip: BADGE[b] }));
+    if (x.cgd) kz.push(it(x.cgd, { ...mono, tip: 'Bilanz vor heute je Buchstabe: C = Kurs, G = Bodengruppe, D = Distanzgruppe · groß = schon gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = noch nie gelaufen' }));
+    if (x.abst_pass && x.abst_pass.gesamt != null && Math.abs(x.abst_pass.gesamt) >= 15)
+      kz.push(it('Abst ' + arrow(x.abst_pass.gesamt) + ' ' + sgn(x.abst_pass.gesamt, 0), { fw: 600, fg: pTone(x.abst_pass.gesamt), tip: 'Abstammungs-Passung heute' }));
+    if (kz.length) steck.push({ k: 'Kennzeichen', items: kz });
     const formSq = []; const re = /(\d|[A-Z])[a-z]/g; let m; const fs = (x.form || '').replace(/\(\d+\)/g, '');
     while ((m = re.exec(fs)) && formSq.length < 10) { const c = m[1];
       formSq.push(c === '1' ? { c, bg: C.green, fg: C.onGreen, bd: C.green } : (c === '2' || c === '3') ? { c, bg: C.mid, fg: C.ink, bd: C.mid } : { c, bg: 'transparent', fg: C.ink2, bd: C.line }); }
@@ -1336,10 +1350,9 @@ class Component extends DCLogic {
       { k: 'ΔL600', v: sgn(S.dl600_a, 2), sub: '±' + fx(S.dl600_a_sd, 2) + ' · ' + (S.runs ?? 0) + ' L', rk: rk(S.dl600_a_rank, S.dl600_a_n), fg: rkTone(S.dl600_a_rank, S.dl600_a_n), tip: 'Tempo letzte 600 m gegen Erwartung (km/h)' },
       { k: 'ΔB200', v: sgn(S.db200_a, 2), sub: '±' + fx(S.db200_a_sd, 2) + ' · ' + (S.runs ?? 0) + ' L', rk: rk(S.db200_a_rank, S.db200_a_n), fg: rkTone(S.db200_a_rank, S.db200_a_n), tip: 'Schnellstes 200-m-Segment gegen Erwartung (km/h)' },
     ].map(m => ({ ws: 'nowrap', ...m }));
-    while (metrics.length % 3) metrics.push({ k: '', v: '', sub: '', rk: '', fg: C.ink, tip: '', ws: 'nowrap' });
     const drvMax = Math.max(3, ...(pw?.treiber || []).map(([, v]) => Math.abs(v)));
     const drv = (pw?.treiber || []).map(([n, v]) => { const w = Math.abs(v) / drvMax * 50; return { n, t: sgn(v), w, l: v >= 0 ? 50 : 50 - w, c: v >= 0 ? C.good : C.bad }; });
-    Object.assign(out, { tags, hasTags: tags.length > 0, formSq, conn, metrics, drv, hasDrv: drv.length > 0,
+    Object.assign(out, { steck, formSq, conn, metrics, drv, hasDrv: drv.length > 0,
       // Karriere und letzte 365 Tage: Läufe · Siege · Plätze, Gewinn je Lauf (Farbe im Verhältnis zum Median des Feldes), Rang
       careerRows: [['Karriere', K, medEpr], ['365 Tage', x.career?.d365 || {}, ctx.medEpr365]].map(([lab, Q, med]) => {
         const rl = Q.epr != null && med ? Q.epr / med : null;
