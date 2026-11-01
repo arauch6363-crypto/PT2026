@@ -135,6 +135,7 @@ oder der Regel-Backtest es bestätigt.
 ```python
 import hypothesen_backtest as hb
 erg = hb.run(BASE)        # oder hb.run(BASE, hist=hist)
+erg = hb.run(BASE, hist=hist, nur="H7")   # nur einzelne Hypothesen, auch nur=["H2", "H7"]
 ```
 
 Je Hypothese A/E-Gruppen gegen die Endquote und ein bedingtes Logit je Rennen (P(Sieg) ∝ exp(β·ln p_mkt + γ·x)): γ > 0

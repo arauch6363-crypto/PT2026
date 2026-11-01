@@ -19,6 +19,7 @@ H7 Form gegen die Quotenerwartung des Vorlaufs: Variante B (z-Wert gegen E/SD de
 Colab:
     import hypothesen_backtest as hb
     erg = hb.run(BASE)              # oder hb.run(BASE, hist=hist)
+    erg = hb.run(BASE, hist=hist, nur="H7")   # nur einzelne Hypothesen (auch nur=["H2", "H7"])
 """
 from __future__ import annotations
 
@@ -441,7 +442,10 @@ def h7(h: pd.DataFrame):
 
 
 # --------------------------------------------------------------------------
-def run(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None):
+def run(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
+        nur: list[str] | str | None = None):
+    """nur: nur diese Hypothesen rechnen, z. B. nur="H7" oder nur=["H2", "H7"] (Vorgabe: alle)."""
+    nur = {nur.upper()} if isinstance(nur, str) else ({x.upper() for x in nur} if nur else None)
     if hist is None:
         print("Historie laden (wie die Race Card) …")
         hist = rb.laden(Path(base))
@@ -449,6 +453,8 @@ def run(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path
     print(f"{h['race_id'].nunique():,} Rennen, Test ab {h.loc[h['test'], 'date'].min():%d.%m.%Y} (H1, H4, H6 nur im Testteil)")
     zeilen, koef = [], []
     for name, fn in [("H1", h1), ("H2", h2), ("H3", h3), ("H4", h4), ("H5", lambda x: h5(x, base)), ("H6", h6), ("H7", h7)]:
+        if nur and name not in nur:
+            continue
         try:
             gruppen, modelle = fn(h)
         except Exception as e:                       # eine Hypothese darf die anderen nicht aufhalten
@@ -471,7 +477,7 @@ def run(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path
     if base is not None or out is not None:
         ziel = Path(out) if out else Path(base) / "auswertung"
         ziel.mkdir(parents=True, exist_ok=True)
-        tag = f"{pd.Timestamp.today():%Y%m%d}"
+        tag = f"{pd.Timestamp.today():%Y%m%d}" + (("_" + "_".join(sorted(nur))) if nur else "")
         gr.to_csv(ziel / f"hypothesen_gruppen_{tag}.csv", index=False)
         ko.to_csv(ziel / f"hypothesen_logit_{tag}.csv", index=False)
         print(f"\ngespeichert: {ziel}/hypothesen_*_{tag}.csv")
