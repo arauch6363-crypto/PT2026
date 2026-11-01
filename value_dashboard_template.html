@@ -536,7 +536,7 @@ function kombiSim(pool, KW, f, start = 1000) {
     const R = ((KW || {}).rennen || {})[rid];
     if (!R || !R.div || !R.div[f.art] || !R.c || !R.c[chance]) continue;
     const C = R.c[chance];
-    let q = je[rid].filter(r => C.no.includes(r.no) && r.wert > TOL && r.wert >= f.minw - TOL
+    let q = je[rid].filter(r => r.nr !== true && C.no.includes(r.no) && r.wert > TOL && r.wert >= f.minw - TOL
                                 && (!f.fair_max || r.fair < f.fair_max - TOL));
     q.sort((a, b) => (b.wert - a.wert) || (a.no - b.no));
     if (f.max_pferde) q = q.slice(0, f.max_pferde);
@@ -631,6 +631,7 @@ function simulieren(pool, f, variant, start = 1000, wettart = 'ew') {
     const bs = bank;
     let gs = 0, gp = 0, n = 0;
     for (const r of sel.filter(r => r.date === tag)) {
+      if (r.nr === true) continue;                                   // Nichtstarter: Wette erstattet
       const st = einsatz(bs, r.p, r.fk_sieg, variant);
       if (st <= 0) continue;
       const [g_s, t_s] = bein(st, r.fk_sieg, r.won);
