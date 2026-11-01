@@ -15,7 +15,7 @@
     "SLOW": ["Souple", "Très souple"],
     "VERY SLOW": ["Collant", "Lourd", "Très lourd"]
   },
-  "datum": "2026-10-30",
+  "datum": "2026-11-01",
   "bahnen": {
     "AGEN": "Bon",
     "AMIENS": "Collant",
@@ -50,7 +50,7 @@
     "MARSEILLE VIVAUX": "Bon",
     "MONT DE MARSAN": "Bon",
     "MOULINS": "Bon",
-    "NANCY": "Souple",
+    "NANCY": "Bon",
     "NANTES": "Très souple",
     "PARISLONGCHAMP": "Bon",
     "PAU": "Bon",
