@@ -550,6 +550,7 @@ def hypothesen_pruefen() -> None:
                    for i, hz in enumerate(feld)]
     h7 = pd.DataFrame(z7)
     h7["test"], h7["ln_p"] = h7["date"] >= T + pd.Timedelta(days=60), np.log(h7["p_mkt"])
+    h7["p_mkt_vor"] = h7.groupby("horse_id")["p_mkt"].shift()          # wie hb.merkmale (Spalte schon vorhanden)
     me = hb.markt_erwartung(h7, ~h7["test"])
     lm = me[~h7["test"]]
     sieg = h7["won"] == 1

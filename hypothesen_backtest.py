@@ -19,6 +19,7 @@ H7 Form gegen die Quotenerwartung des Vorlaufs: Variante B (z-Wert gegen E/SD de
 Colab:
     import hypothesen_backtest as hb
     erg = hb.run(BASE)              # oder hb.run(BASE, hist=hist)
+    erg = hb.run(BASE, hist=hist, nur="H7")   # nur einzelne Hypothesen (auch nur=["H2", "H7"])
 """
 from __future__ import annotations
 
@@ -368,7 +369,8 @@ def markt_erwartung(h: pd.DataFrame, lern: pd.Series) -> pd.DataFrame:
 
 def h7_merkmale(h: pd.DataFrame) -> pd.DataFrame:
     """Merkmale aus den Vorläufen (nur Läufe vor dem Renntag, höchstens H7_TAGE alt)."""
-    h = h.join(markt_erwartung(h, ~h["test"]))
+    me = markt_erwartung(h, ~h["test"])
+    h = h.drop(columns=me.columns, errors="ignore").join(me)
     h = h.sort_values(["date", "race_id", "saddle_no"])
     g = h.groupby("horse_id", sort=False)
     vor = {k: {c: g[c].shift(k) for c in ["date", "ue_z", "pit", "ue_lin", "p_mkt"]} for k in range(1, H7_ZG_N + 1)}
@@ -397,7 +399,8 @@ def h7(h: pd.DataFrame):
     """Form gegen die Quotenerwartung: z-Wert (B) und Perzentil (C) des Vorlaufs und der letzten Läufe gegen den Sieg
     im nächsten Lauf; Klassen je Niveau des Vorlaufs (Favorit/Mitte/Außenseiter) beantworten, ob dieselbe Abweichung
     beim Favoriten so viel wert ist wie in der Feldmitte."""
-    d = h.join(h7_merkmale(h))
+    m7 = h7_merkmale(h)
+    d = h.drop(columns=m7.columns, errors="ignore").join(m7)          # eigene Fassung (z. B. p_mkt_vor ≤ 365 T) gilt
     d = d[d["test"]].copy()
     da = d["ue_z_vor"].notna()
     d["vor_da"], d["form_da"] = da.astype(float), d["ue_z_5"].notna().astype(float)
@@ -439,7 +442,10 @@ def h7(h: pd.DataFrame):
 
 
 # --------------------------------------------------------------------------
-def run(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None):
+def run(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
+        nur: list[str] | str | None = None):
+    """nur: nur diese Hypothesen rechnen, z. B. nur="H7" oder nur=["H2", "H7"] (Vorgabe: alle)."""
+    nur = {nur.upper()} if isinstance(nur, str) else ({x.upper() for x in nur} if nur else None)
     if hist is None:
         print("Historie laden (wie die Race Card) …")
         hist = rb.laden(Path(base))
@@ -447,6 +453,8 @@ def run(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path
     print(f"{h['race_id'].nunique():,} Rennen, Test ab {h.loc[h['test'], 'date'].min():%d.%m.%Y} (H1, H4, H6 nur im Testteil)")
     zeilen, koef = [], []
     for name, fn in [("H1", h1), ("H2", h2), ("H3", h3), ("H4", h4), ("H5", lambda x: h5(x, base)), ("H6", h6), ("H7", h7)]:
+        if nur and name not in nur:
+            continue
         try:
             gruppen, modelle = fn(h)
         except Exception as e:                       # eine Hypothese darf die anderen nicht aufhalten
@@ -469,7 +477,7 @@ def run(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path
     if base is not None or out is not None:
         ziel = Path(out) if out else Path(base) / "auswertung"
         ziel.mkdir(parents=True, exist_ok=True)
-        tag = f"{pd.Timestamp.today():%Y%m%d}"
+        tag = f"{pd.Timestamp.today():%Y%m%d}" + (("_" + "_".join(sorted(nur))) if nur else "")
         gr.to_csv(ziel / f"hypothesen_gruppen_{tag}.csv", index=False)
         ko.to_csv(ziel / f"hypothesen_logit_{tag}.csv", index=False)
         print(f"\ngespeichert: {ziel}/hypothesen_*_{tag}.csv")
