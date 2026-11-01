@@ -77,7 +77,7 @@ Tracking ist eine Eigenschaft von **Renntag und Rennen**, nicht von der Bahn:
 | `rtr_arr.py` | Ratings aus PT_Vorarbeiten: RTR (Elo-artiges Rating nach dem Rennen) und ARR (Leistung im Rennen) |
 | `tipp_auswertung.py` | Claude-Tipps (Ausgabe des Skills) gegen die Ergebnisse: Treffsicherheit, Stufen, Angle-Typen, Wett-Ergebnis |
 | `power_modell.py` | Power-Modell: LightGBM sagt Pos = (Starter − Platz) / (Starter − 1) voraus (Merkmale nur aus Läufen vor dem Renntag), einmal trainiert, die Race Card zeigt daraus „Power“ |
-| `hypothesen_backtest.py` | Hypothesen H1–H6 (Rennverlauf, Überreaktion, Handicap-Erhöhung, Tempo × Stil, Presse-Konsens, Duell-Rangfolge) per A/E und bedingtem Logit |
+| `hypothesen_backtest.py` | Hypothesen H1–H7 (Rennverlauf, Überreaktion, Handicap-Erhöhung, Tempo × Stil, Presse-Konsens, Duell-Rangfolge, Form gegen Quotenerwartung) per A/E und bedingtem Logit |
 | `regel_backtest.py` | Regeln des Skills gegen die Datenbank prüfen: A/E gegen den Markt (Endquote) je Regel |
 | `racecard_template.html` | Layout der Race Card (mobiles Design aus Claude Design: Markup in `<template id="tpl">`, Logik in `class Component`, kleine Laufzeit für `sc-for`/`sc-if`/`{{ }}`); die Daten werden als JSON eingesetzt, Dunkelmodus über Farb-Tokens |
 | `selftest.py` | Selbsttest ohne Internet (`python selftest.py`) |
@@ -143,7 +143,12 @@ Kommentar), H2 Überreaktion auf das Vorrennen (Marktchance, geschlagene Favorit
 H3 Handicap-Erhöhung nach Sieg (Stufen 0–1,5/2–3,5/≥ 4; ARR des Siegrennens gegen neue Marke, Dreijährige), H4 Führende ×
 erwartetes Tempo × Frontvorteil der Bahn, H5 Presse-Konsens nur vorwärts aus `racecards/*_claude.json`, H6
 Duell-Rangfolge (`hb.duell_merkmale`: für jedes Testrennen wie auf der Race Card aus den Läufen davor nachgerechnet –
-Duell-Wert in Längen, Rang 1, letzter Rang; nur Rennen mit ≥ 3 verbundenen Pferden; dauert einige Minuten). H1/H4/H6
+Duell-Wert in Längen, Rang 1, letzter Rang; nur Rennen mit ≥ 3 verbundenen Pferden; dauert einige Minuten), H7 Form
+gegen die Quotenerwartung früherer Rennen (`hb.markt_erwartung`): Variante B z-Wert = (Pos+ − E[Pos+]) / SD[Pos+] und
+Variante C Perzentil unter dem Markt, je Zelle Marktchance (20 Quantilklassen) × Feldgröße auf der ersten Hälfte
+geschätzt; geprüft der Vorlauf in z-Klassen (gesamt und je Niveau Favorit/Mitte/Außenseiter), U-Form (z², |Perzentil|),
+letzte 5 (Ø, plus/minus, Streuung) und zeitgewichtet (0,5^(Tage ÷ 90)) gegen die bisherige lineare Fassung
+(Quotenrang). Die Quote des Tages ist nur Maßstab, nie Merkmal. H1/H4/H6/H7
 im Testteil (Norm, Pace-Kalibrierung, Bias auf der ersten Hälfte gelernt). CSV nach `auswertung/hypothesen_*_JJJJMMTT.csv`.
 
 ## Power-Modell (einmal trainieren)

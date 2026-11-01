@@ -531,6 +531,36 @@ def hypothesen_pruefen() -> None:
            and abs(dh.loc["A", "duel_score"] - dh.loc["B", "duel_score"] - 2.0) < 0.15,
            "H6: Duell-Rangfolge im Backtest aus früheren Läufen nachgerechnet (A schlägt B 2 L, B schlägt C 1 L, "
            "A–C indirekt über B -> A, B, C)")
+    # H7: Form gegen die Quotenerwartung – Markt sieht nur die Hälfte der wandernden Form
+    a_, f_, z7 = rng.normal(0, 1, 300), np.zeros(300), []
+    for t_ in range(120):
+        f_ = 0.97 * f_ + rng.normal(0, 0.2, 300)
+        frei = rng.permutation(300)
+        for r_ in range(8):
+            n_ = int(rng.integers(6, 15))
+            feld, frei = frei[:n_], frei[n_:]
+            m_ = np.exp(a_[feld] + 0.5 * f_[feld])
+            u_ = a_[feld] + f_[feld] + rng.gumbel(size=n_)
+            pos_ = np.empty(n_, int)
+            pos_[np.argsort(-u_)] = np.arange(1, n_ + 1)
+            z7 += [{"date": T + pd.Timedelta(days=t_), "race_id": f"{t_}_{r_}", "saddle_no": i + 1, "horse_id": str(hz),
+                    "n_runners": n_, "finish_pos": pos_[i], "rel_place": (n_ - pos_[i]) / (n_ - 1),
+                    "won": int(pos_[i] == 1), "placed": int(pos_[i] <= 3), "p_mkt": m_[i] / m_.sum(),
+                    "odds_final": m_.sum() / m_[i], "exp_place": min(1.0, 3 * m_[i] / m_.sum())}
+                   for i, hz in enumerate(feld)]
+    h7 = pd.DataFrame(z7)
+    h7["test"], h7["ln_p"] = h7["date"] >= T + pd.Timedelta(days=60), np.log(h7["p_mkt"])
+    me = hb.markt_erwartung(h7, ~h7["test"])
+    lm = me[~h7["test"]]
+    sieg = h7["won"] == 1
+    pruefe(abs(lm["ue_z"].mean()) < 0.05 and abs(lm["ue_z"].std() - 1) < 0.05 and abs(lm["pit"].mean() - 0.5) < 0.02
+           and me.loc[sieg & (h7["p_mkt"] < 0.06), "ue_z"].mean() > me.loc[sieg & (h7["p_mkt"] > 0.3), "ue_z"].mean() + 1
+           and me.loc[sieg & (h7["p_mkt"] > 0.3), "ue_lin"].abs().max() < 0.2,
+           "H7: z-Wert und Perzentil gegen den Markt geeicht (Ø 0, SD 1, Ø 0,5); Außenseiter-Sieg zählt mehr als "
+           "Favoriten-Sieg (linear bisher ≈ 0)")
+    _, mo7 = hb.h7(h7)
+    k7 = hb.clogit(*[(d_, sp_) for nm_, d_, sp_ in mo7 if nm_ == "H7B zeitgewichtet"][0]).set_index("variable")
+    pruefe(k7.loc["ue_z_zg", "z"] > 2, "H7: übersehene Form (zeitgewichteter z-Wert) im bedingten Logit gefunden")
     pruefe(bool(hb.PECH.search("A été enfermé dans la ligne droite")) and bool(hb.PECH.search("a manqué de place"))
            and not hb.PECH.search("a fini fort"), "Pech im Kommentar erkannt (enfermé, manqué de place)")
 

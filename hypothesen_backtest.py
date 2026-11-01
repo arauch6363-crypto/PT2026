@@ -12,6 +12,9 @@ H3 Erhöhung im Handicap nach einem Sieg (H3a) und ob das Pferd schon über der 
 H4 Tempo-Szenario × Laufstil (Führende bei erwartet langsamem Tempo, × Frontvorteil der Bahn).
 H5 Presse-Konsens (Herde gegen Figlewski): nur vorwärts aus den gespeicherten Claude-JSONs (Tipps sind nicht archiviert).
 H6 Duell-Rangfolge (racecard.duell_rangfolge) je Testrennen nachgerechnet, nur aus früheren Läufen – dauert einige Minuten.
+H7 Form gegen die Quotenerwartung des Vorlaufs: Variante B (z-Wert gegen E/SD der Pos+ bei dieser Marktchance und
+   Feldgröße) und C (Perzentil unter dem Markt), linear, U-Form, je Niveau, plus/minus, letzte 5, zeitgewichtet.
+   Nur Endquoten früherer Rennen – die Quote des Tages steckt allein im Maßstab (ln p_mkt), nie im Merkmal.
 
 Colab:
     import hypothesen_backtest as hb
@@ -308,6 +311,134 @@ def h6(h: pd.DataFrame):
 
 
 # --------------------------------------------------------------------------
+# H7 Form gegen die Quotenerwartung (Variante B: z-Wert, Variante C: Perzentil unter dem Markt)
+# --------------------------------------------------------------------------
+H7_P_BINS = 20                   # Klassen der Marktchance (Quantile auf dem Lernteil)
+H7_FELD = [1, 7, 11, 15, 99]     # Feldgrößen-Gruppen: ≤ 7, 8–11, 12–15, ≥ 16
+H7_MIN = 200                     # Zelle Marktchance × Feldgröße erst ab so vielen Läufen, sonst nur Marktchance
+H7_TAGE = 365                    # Vorläufe höchstens so alt
+H7_FORM = 5                      # Schnitt über die letzten 5 Läufe
+H7_ZG_N, H7_ZG_HALB = 10, 90     # zeitgewichtet: bis zu 10 Läufe, Gewicht 0,5^(Tage ÷ 90)
+H7_NIVEAU = [(0.25, 1.01, "Favorit damals (p ≥ 25 %)"), (0.08, 0.25, "Mitte damals (8–25 %)"),
+             (0.0, 0.08, "Außenseiter damals (< 8 %)")]
+H7_Z_KL = [(-np.inf, -1.5, "z ≤ −1,5"), (-1.5, -0.5, "z −1,5…−0,5"), (-0.5, 0.5, "z −0,5…+0,5"),
+           (0.5, 1.5, "z +0,5…+1,5"), (1.5, np.inf, "z ≥ +1,5")]
+
+
+def markt_erwartung(h: pd.DataFrame, lern: pd.Series) -> pd.DataFrame:
+    """Je Lauf: wie gut das Ergebnis gegen die Erwartung des damaligen Markts war.
+
+    Pos+ = (Starter − Platz) / (Starter − 1), nicht im Ziel = 0 (wie power_modell.ziel).
+    ue_lin = Pos+ − (1 − Quotenrang relativ)    – die bisherige lineare Fassung (form5_ue)
+    ue_z   = (Pos+ − E[Pos+]) / SD[Pos+]        – Variante B
+    pit    = P(Pos+ < x) + ½ P(Pos+ = x)        – Variante C (0,5 = wie erwartet; gleichverteilt, wenn der Markt stimmt)
+    E, SD und die Verteilung je Zelle Marktchance (Quantilklassen) × Feldgröße, nur aus den Lern-Läufen; Zellen mit
+    weniger als H7_MIN Läufen nehmen die Werte der Marktchance-Klasse allein."""
+    n = pd.to_numeric(h["n_runners"], errors="coerce")
+    rp = pd.to_numeric(h["rel_place"], errors="coerce").fillna(0.0).where(n > 1)
+    p = pd.to_numeric(h["p_mkt"], errors="coerce")
+    ok = rp.notna() & (p > 0)
+    rang = p.where(ok).groupby(h["race_id"]).rank(ascending=False, method="average")
+    m = ok.groupby(h["race_id"]).transform("sum")
+    ue_lin = rp - (1 - ((rang - 1) / (m - 1)).where(m > 1))
+
+    lp = np.log(p.where(ok))
+    l_ok = ok & lern.reindex(h.index, fill_value=False)
+    kanten = np.unique(np.quantile(lp[l_ok], np.linspace(0, 1, H7_P_BINS + 1)[1:-1])) if l_ok.any() else np.array([])
+    pb = pd.Series(np.digitize(lp.fillna(0), kanten), index=h.index)
+    fg = pd.Series(np.digitize(n.fillna(0), H7_FELD[1:-1], right=True), index=h.index)
+    zelle = pb * 10 + fg
+
+    def tabelle(schluessel):
+        vert = {k: np.sort(v.to_numpy()) for k, v in rp[l_ok].groupby(schluessel[l_ok])}
+        return {k: v for k, v in vert.items() if len(v) >= (H7_MIN if schluessel is zelle else 2)}
+    t_zelle, t_pb = tabelle(zelle), tabelle(pb)
+    ue_z, pit = pd.Series(np.nan, index=h.index), pd.Series(np.nan, index=h.index)
+    for z, idx in h.index[ok].groupby(zelle[ok].to_numpy()).items():
+        v = t_zelle.get(z)
+        v = v if v is not None else t_pb.get(z // 10)
+        if v is None:
+            continue
+        x = rp.loc[idx].to_numpy()
+        sd = v.std()
+        ue_z.loc[idx] = (x - v.mean()) / sd if sd > 0 else np.nan
+        pit.loc[idx] = (np.searchsorted(v, x, "left") + np.searchsorted(v, x, "right")) / (2 * len(v))
+    return pd.DataFrame({"pos_plus": rp, "ue_lin": ue_lin.where(ok), "ue_z": ue_z, "pit": pit})
+
+
+def h7_merkmale(h: pd.DataFrame) -> pd.DataFrame:
+    """Merkmale aus den Vorläufen (nur Läufe vor dem Renntag, höchstens H7_TAGE alt)."""
+    h = h.join(markt_erwartung(h, ~h["test"]))
+    h = h.sort_values(["date", "race_id", "saddle_no"])
+    g = h.groupby("horse_id", sort=False)
+    vor = {k: {c: g[c].shift(k) for c in ["date", "ue_z", "pit", "ue_lin", "p_mkt"]} for k in range(1, H7_ZG_N + 1)}
+    for k in vor:
+        alt = (h["date"] - vor[k]["date"]).dt.days
+        frisch = alt <= H7_TAGE
+        for c in ["ue_z", "pit", "ue_lin", "p_mkt"]:
+            vor[k][c] = vor[k][c].where(frisch)
+        vor[k]["w"] = (0.5 ** (alt / H7_ZG_HALB)).where(frisch & vor[k]["ue_z"].notna())
+    out = pd.DataFrame(index=h.index)
+    for c in ["ue_z", "pit", "ue_lin", "p_mkt"]:
+        out[c + "_vor"] = vor[1][c]
+    z5 = pd.concat([vor[k]["ue_z"] for k in range(1, H7_FORM + 1)], axis=1)
+    out["ue_z_5"] = z5.mean(axis=1)
+    out["ue_z_plus5"] = z5.clip(lower=0).mean(axis=1)
+    out["ue_z_minus5"] = z5.clip(upper=0).mean(axis=1)
+    out["ue_z_abs5"] = z5.abs().mean(axis=1)
+    out["ue_z_n5"] = z5.notna().sum(axis=1)
+    zs = sum(vor[k]["ue_z"].fillna(0) * vor[k]["w"].fillna(0) for k in vor)
+    ws = sum(vor[k]["w"].fillna(0) for k in vor)
+    out["ue_z_zg"] = (zs / (ws + 1)).where(ws > 0)        # zum Ausgangswert 0 geschrumpft wie mit einem heutigen Lauf
+    return out
+
+
+def h7(h: pd.DataFrame):
+    """Form gegen die Quotenerwartung: z-Wert (B) und Perzentil (C) des Vorlaufs und der letzten Läufe gegen den Sieg
+    im nächsten Lauf; Klassen je Niveau des Vorlaufs (Favorit/Mitte/Außenseiter) beantworten, ob dieselbe Abweichung
+    beim Favoriten so viel wert ist wie in der Feldmitte."""
+    d = h.join(h7_merkmale(h))
+    d = d[d["test"]].copy()
+    da = d["ue_z_vor"].notna()
+    d["vor_da"], d["form_da"] = da.astype(float), d["ue_z_5"].notna().astype(float)
+    z = d["ue_z_vor"]
+    d["ue_z"], d["ue_z_q"] = z.fillna(0), (z ** 2 - 1).where(da, 0)          # quadratisch: U-Form
+    d["ue_lin"] = d["ue_lin_vor"].fillna(0)
+    d["pit_c"] = (d["pit_vor"] - 0.5).fillna(0)
+    d["pit_abs"] = (2 * (d["pit_vor"] - 0.5).abs() - 0.5).where(da & d["pit_vor"].notna(), 0)  # 0 = Zufall
+    for c in ["ue_z_5", "ue_z_plus5", "ue_z_minus5", "ue_z_zg"]:
+        d[c] = d[c].fillna(0)
+    d["ue_z_abs5"] = (d["ue_z_abs5"] - 0.8).fillna(0)                     # ≈ Ø |z| bei Zufall (√(2/π))
+    gruppen, niveau = [], {}
+    for lo, hi, name in H7_NIVEAU:
+        niveau[name] = da & d["p_mkt_vor"].ge(lo) & d["p_mkt_vor"].lt(hi)
+        d["ue_z_x_" + name.split()[0].lower()] = z.where(niveau[name], 0).fillna(0)
+    for lo, hi, kl in H7_Z_KL:
+        gruppen.append(("H7B", f"Vorlauf {kl}", da & z.gt(lo) & z.le(hi)))
+    for name, m in niveau.items():
+        for lo, hi, kl in H7_Z_KL:
+            gruppen.append(("H7B", f"{name} · {kl}", m & z.gt(lo) & z.le(hi)))
+    for k in range(5):
+        lo, hi = k / 5, (k + 1) / 5
+        gruppen.append(("H7C", f"Vorlauf Perzentil {lo:.1f}–{hi:.1f}", d["pit_vor"].ge(lo) & (d["pit_vor"].lt(hi) | (k == 4))))
+    gruppen += [("H7B", "letzte 5: Ø z ≥ +0,5 (mind. 3 Läufe)", (d["ue_z_n5"] >= 3) & (d["ue_z_5"] >= 0.5)),
+                ("H7B", "letzte 5: Ø z ≤ −0,5 (mind. 3 Läufe)", (d["ue_z_n5"] >= 3) & (d["ue_z_5"] <= -0.5)),
+                ("H7B", "letzte 5: unberechenbar (Ø |z| ≥ 1,2, mind. 3)", (d["ue_z_n5"] >= 3) & (d["ue_z_abs5"] >= 0.4))]
+    x_niv = [c for c in d if c.startswith("ue_z_x_")]
+    # Kennzeichen „Vorlauf da“ nur, wenn es auch Starter ohne gibt (sonst im bedingten Logit nicht schätzbar)
+    vd = ["vor_da"] if int((d["vor_da"] == 0).sum()) >= MIN_AKTIV else []
+    fd = ["form_da"] if int((d["form_da"] == 0).sum()) >= MIN_AKTIV else []
+    modelle = [("H7 linear (bisher, Quotenrang)", d, ["ue_lin"] + vd),
+               ("H7B z Vorlauf + U-Form", d, ["ue_z", "ue_z_q"] + vd),
+               ("H7B z Vorlauf je Niveau", d, x_niv + vd),
+               ("H7B letzte 5: plus/minus", d, ["ue_z_plus5", "ue_z_minus5"] + fd),
+               ("H7B letzte 5: Ø und Streuung", d, ["ue_z_5", "ue_z_abs5"] + fd),
+               ("H7B zeitgewichtet", d, ["ue_z_zg"] + fd),
+               ("H7C Perzentil Vorlauf + U-Form", d, ["pit_c", "pit_abs"] + vd)]
+    return gruppen, modelle
+
+
+# --------------------------------------------------------------------------
 def run(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None):
     if hist is None:
         print("Historie laden (wie die Race Card) …")
@@ -315,7 +446,7 @@ def run(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path
     h = merkmale(hist)
     print(f"{h['race_id'].nunique():,} Rennen, Test ab {h.loc[h['test'], 'date'].min():%d.%m.%Y} (H1, H4, H6 nur im Testteil)")
     zeilen, koef = [], []
-    for name, fn in [("H1", h1), ("H2", h2), ("H3", h3), ("H4", h4), ("H5", lambda x: h5(x, base)), ("H6", h6)]:
+    for name, fn in [("H1", h1), ("H2", h2), ("H3", h3), ("H4", h4), ("H5", lambda x: h5(x, base)), ("H6", h6), ("H7", h7)]:
         try:
             gruppen, modelle = fn(h)
         except Exception as e:                       # eine Hypothese darf die anderen nicht aufhalten
