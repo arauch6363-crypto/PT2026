@@ -306,6 +306,24 @@ def _endquoten(starter_path: str | Path | None) -> dict[tuple[str, int], float]:
     return {(str(r), int(n)): float(x) for r, n, x in zip(s["race_id"][ok], no[ok], q[ok])}
 
 
+def _nichtstarter(starter_path: str | Path | None) -> set[tuple[str, int]]:
+    """(race_id, Startnummer) der Nichtstarter laut pmu_runners (status oder incident NON_PARTANT) – nach dem Bau der
+    Karte zurückgezogene Pferde: Wette erstattet, also weder Einsatz noch Verlust."""
+    if starter_path is None or not Path(starter_path).exists():
+        return set()
+    import pyarrow.parquet as pq
+    sp = [c for c in ("race_id", "saddle_no", "status", "incident") if c in pq.read_schema(starter_path).names]
+    if not {"race_id", "saddle_no"} <= set(sp) or len(sp) < 3:
+        return set()
+    s = pd.read_parquet(starter_path, columns=sp)
+    nr = pd.Series(False, index=s.index)
+    for c in ("status", "incident"):
+        if c in s:
+            nr |= s[c].astype("string").str.upper().fillna("").eq("NON_PARTANT")
+    no = pd.to_numeric(s["saddle_no"], errors="coerce")
+    return {(str(r), int(n)) for r, n, x in zip(s["race_id"], no, nr) if x and pd.notna(n)}
+
+
 def load_day(json_path: str | Path, parquet_path: str | Path | None,
              starter_path: str | Path | None = None, einlauf_lambda=None) -> pd.DataFrame:
     """Pool eines Renntags: alle Starter mit Festkurs und Wert ≥ 0, samt Ergebnis.
@@ -340,6 +358,8 @@ def load_day(json_path: str | Path, parquet_path: str | Path | None,
     endq = _endquoten(starter_path)
     pool["toto_end"] = [endq.get((str(r), int(n))) for r, n in zip(pool["race_id"], pool["no"])]
     pool["toto_end"] = pd.to_numeric(pool["toto_end"], errors="coerce")
+    nrs = _nichtstarter(starter_path)
+    pool["nr"] = [(str(r), int(n)) in nrs for r, n in zip(pool["race_id"], pool["no"])]
     lv = np.log(pool["fk_sieg"].astype(float) / pool["toto_end"])
     pool["fk_toto"] = np.exp(lv)
     pool["kurs_rel"] = lv - lv.groupby(pool["race_id"]).transform("mean")       # alle Starter des Rennens
@@ -372,7 +392,7 @@ def _leerer_pool() -> pd.DataFrame:
         "date", "race_id", "race", "course", "no", "horse", "n", "p", "fair", "rank_fq",
         "rank_pct", "rel", "fk_sieg", "fk_platz", "cote_dec", "wert", "ohne_morgenquote", "p_fk",
         "p_model", "p_blind", "p_pq", "p_platz", "fair_platz", "paid_places", "is_top", "festkurse_stand",
-        "verfahren", "power_trainiert", "wert_trainiert", "toto_end", "fk_toto", "kurs_rel", "settled", "pos", "won",
+        "verfahren", "power_trainiert", "wert_trainiert", "toto_end", "fk_toto", "kurs_rel", "nr", "settled", "pos", "won",
         "placed", *[f"{c}_sh" for c in CHANCE_SPALTEN]])
 
 
@@ -630,6 +650,8 @@ def simulate(pool: pd.DataFrame, filters: FilterConfig = None,
         gw_s = gw_p = 0.0
         n_tag = 0
         for _, r in sel[sel["date"] == tag].iterrows():
+            if isinstance(r.get("nr"), (bool, np.bool_)) and r.get("nr"):   # Nichtstarter: Wette erstattet
+                continue
             st = einsatz(bank_start, r["p"], r["fk_sieg"], staking)
             if st <= 0:
                 continue
@@ -916,7 +938,7 @@ DASHBOARD_DATEI = "value_dashboard.html"
 _HTML_SPALTEN = [
     "date", "race_id", "race", "course", "no", "horse", "n", "p", "fair", "rank_fq", "rank_pct",
     "rel", "fk_sieg", "fk_platz", "cote_dec", "wert", "is_top", "p_fk", "p_model", "p_pq",
-    "p_platz", "fair_platz", "toto_end", "fk_toto", "kurs_rel", "p_blind", "settled", "pos", "won", "placed",
+    "p_platz", "fair_platz", "toto_end", "fk_toto", "kurs_rel", "p_blind", "nr", "settled", "pos", "won", "placed",
     *[f"{c}_sh" for c in CHANCE_SPALTEN]]
 
 

@@ -216,7 +216,8 @@ def _zufallspool(tmp_path, tage=4, seed=7):
         stz = [(r_["race_id"], x["no"]) for r_ in rennen for x in r_["runners"]]
         (tmp_path / "pmu_runners").mkdir(exist_ok=True)
         pd.DataFrame({"race_id": [a_ for a_, _ in stz], "saddle_no": [b_ for _, b_ in stz],
-                      "odds_final": [rnd.choice([None, 1.8, 3.5, 6.0, 12.0, 25.0]) for _ in stz]}).to_parquet(
+                      "odds_final": [rnd.choice([None, 1.8, 3.5, 6.0, 12.0, 25.0]) for _ in stz],
+                      "status": [rnd.choice(["PARTANT"] * 9 + ["NON_PARTANT"]) for _ in stz]}).to_parquet(
             tmp_path / "pmu_runners" / f"{d}.parquet")
     with pytest.warns(UserWarning):
         return vb.load_folder(tmp_path, ab=None)
@@ -675,3 +676,18 @@ def test_kombi_liste_js(tmp_path):
                                     "kombiListe([1,4,7,9],3,false),kombiListe([2,5,8],2,false)]));", encoding="utf-8")
     a, b, c = json.loads(subprocess.run(["node", str(tmp_path / "kl.js")], capture_output=True, text=True, check=True).stdout)
     assert a == 6 and b == ["1-4-7", "1-4-9", "1-7-9", "4-7-9"] and c == ["2-5", "2-8", "5-8"]
+
+
+def test_nichtstarter_ohne_einsatz(tmp_path):
+    pool = _zufallspool(tmp_path)
+    assert pool["nr"].any() and not pool["nr"].all()            # Status NON_PARTANT aus pmu_runners gelesen
+    f = vb.FilterConfig(minw=0.2, mode="none", min_kelly=0.05, je_veranstaltung=7, eins_je_rennen=True)
+    st = vb.StakingConfig("kelly8", wettart="sieg")
+    p0 = pool.assign(nr=False)
+    b0 = vb.simulate(p0, f, st).bets_df
+    weg = list(zip(b0["race_id"], b0["no"]))[:2]               # zwei Picks nachträglich Nichtstarter
+    p1 = p0.assign(nr=[(r, n) in weg for r, n in zip(p0["race_id"], p0["no"])])
+    b1 = vb.simulate(p1, f, st).bets_df
+    # kein Einsatz auf die Nichtstarter, kein anderes Pferd rückt nach, die übrigen Picks bleiben dieselben
+    assert len(b1) == len(b0) - 2 and not set(zip(b1["race_id"], b1["no"])) & set(weg)
+    assert set(zip(b1["race_id"], b1["no"])) == set(zip(b0["race_id"], b0["no"])) - set(weg)
