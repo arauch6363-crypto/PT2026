@@ -368,7 +368,8 @@ def markt_erwartung(h: pd.DataFrame, lern: pd.Series) -> pd.DataFrame:
 
 def h7_merkmale(h: pd.DataFrame) -> pd.DataFrame:
     """Merkmale aus den Vorläufen (nur Läufe vor dem Renntag, höchstens H7_TAGE alt)."""
-    h = h.join(markt_erwartung(h, ~h["test"]))
+    me = markt_erwartung(h, ~h["test"])
+    h = h.drop(columns=me.columns, errors="ignore").join(me)
     h = h.sort_values(["date", "race_id", "saddle_no"])
     g = h.groupby("horse_id", sort=False)
     vor = {k: {c: g[c].shift(k) for c in ["date", "ue_z", "pit", "ue_lin", "p_mkt"]} for k in range(1, H7_ZG_N + 1)}
@@ -397,7 +398,8 @@ def h7(h: pd.DataFrame):
     """Form gegen die Quotenerwartung: z-Wert (B) und Perzentil (C) des Vorlaufs und der letzten Läufe gegen den Sieg
     im nächsten Lauf; Klassen je Niveau des Vorlaufs (Favorit/Mitte/Außenseiter) beantworten, ob dieselbe Abweichung
     beim Favoriten so viel wert ist wie in der Feldmitte."""
-    d = h.join(h7_merkmale(h))
+    m7 = h7_merkmale(h)
+    d = h.drop(columns=m7.columns, errors="ignore").join(m7)          # eigene Fassung (z. B. p_mkt_vor ≤ 365 T) gilt
     d = d[d["test"]].copy()
     da = d["ue_z_vor"].notna()
     d["vor_da"], d["form_da"] = da.astype(float), d["ue_z_5"].notna().astype(float)
