@@ -735,3 +735,24 @@ def test_nicht_vollblut_rennen(tmp_path):
     df.to_parquet(pfad)
     assert vb._nicht_vollblut(pfad) == {"A", "B", "C", "D"}
     assert vb._nicht_vollblut(None) == set()
+
+
+def test_kombi_dashboard_ohne_runners_zeile(tmp_path):
+    """Pferde der Karte ohne pmu_runners-Zeile (z. B. heutiger Tag) und Status-Spalte: kein Abbruch, NR wird erkannt."""
+    import kombi
+    import kombi_fall
+    kombi_fall.bauen(tmp_path, tage=3, rennen=4)
+    for i, p in enumerate(sorted((tmp_path / "parquet" / "pmu_runners").glob("*.parquet"))):
+        ru = pd.read_parquet(p)
+        ru["status"] = "PARTANT"
+        if i == 0:
+            ru = ru.iloc[2:]                                  # zwei Starter fehlen ganz
+        if i == 1:
+            ru.loc[ru.index[0], "status"] = "NON_PARTANT"
+        ru.to_parquet(p)
+    f = kombi.daten_laden(tmp_path, ab=None)["feld"]
+    assert f["nr"].dtype == bool and f["nr"].sum() == 1
+    fk = pd.to_numeric(f["fk_karte"])
+    pool = f.assign(wert=f["p"] * fk - 1, wert_sh=f["p_sh"] * fk - 1)
+    kw = kombi.dashboard_daten(tmp_path, pool, ab=None, n_sim=500, log=lambda *a: None)
+    assert kw["rennen"]

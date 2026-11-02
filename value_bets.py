@@ -1039,7 +1039,7 @@ def start(base: str | Path = BASE_DRIVE, ab: str | None = START_DATUM) -> Path:
         import kombi as kb
         kombi_wetten = kb.dashboard_daten(base, pool, ab)
     except Exception as e:
-        print(f"Kombiwetten für das Dashboard nicht gerechnet: {e}")
+        print(f"Kombiwetten für das Dashboard nicht gerechnet: {type(e).__name__}: {e}")
         kombi_wetten = None
     pfad = dashboard(pool, base / "racecards" / DASHBOARD_DATEI, kombi, kombi_wetten)
     tage = pool.loc[pool["settled"].astype(bool), "date"].nunique() if not pool.empty else 0
