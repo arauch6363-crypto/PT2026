@@ -15,6 +15,8 @@ H6 Duell-Rangfolge (racecard.duell_rangfolge) je Testrennen nachgerechnet, nur a
 H7 Form gegen die Quotenerwartung des Vorlaufs: Variante B (z-Wert gegen E/SD der Pos+ bei dieser Marktchance und
    Feldgröße) und C (Perzentil unter dem Markt), linear, U-Form, je Niveau, plus/minus, letzte 5, zeitgewichtet.
    Nur Endquoten früherer Rennen – die Quote des Tages steckt allein im Maßstab (ln p_mkt), nie im Merkmal.
+H8 Jockey kennt das Pferd: Stammreiter (nach Zahl gemeinsamer Ritte), neuer Reiter, Rückkehr eines früheren Reiters
+   (mit/ohne Sieg auf dem Pferd), Bilanz des Paars als Ø z-Wert gegen den Markt (H7) und gegen andere Jockeys.
 
 Colab:
     import hypothesen_backtest as hb
@@ -48,6 +50,9 @@ def clogit(df: pd.DataFrame, spalten: list[str], iter_max: int = 40) -> pd.DataF
     voll = d.groupby("race_id")["won"].transform("sum") == 1
     d = d[voll]
     zu_wenig = [c for c in spalten if int((d[c].fillna(0) != 0).sum()) < MIN_AKTIV]
+    # (fast) konstant, z. B. ein Kennzeichen, das auf alle zutrifft: im bedingten Logit nicht schätzbar
+    zu_wenig += [c for c in spalten if c not in zu_wenig
+                 and int((d[c].fillna(0) != d[c].fillna(0).mode().iloc[0]).sum()) < MIN_AKTIV]
     spalten = [c for c in spalten if c not in zu_wenig]
     X = np.column_stack([d["ln_p"].to_numpy(float)] + [d[c].fillna(0).to_numpy(float) for c in spalten])
     y = d["won"].to_numpy(float)
@@ -442,6 +447,106 @@ def h7(h: pd.DataFrame):
 
 
 # --------------------------------------------------------------------------
+# H8 Jockey kennt das Pferd: Anzahl gemeinsamer Ritte, Bilanz des Paars, Rückkehr des früheren Reiters
+# --------------------------------------------------------------------------
+H8_SCHRUMPF = 2                  # Paar-Bilanz zum Ausgangswert 0 geschrumpft wie mit so vielen Läufen mehr
+
+
+def h8_merkmale(h: pd.DataFrame) -> pd.DataFrame:
+    """Je Lauf aus den früheren Läufen des Pferdes (nur Tage davor):
+    ritte_paar  – so oft hat der heutige Jockey das Pferd schon geritten
+    wechsel     – anderer Jockey als im letzten Lauf (leer ohne Vorlauf oder ohne Jockey)
+    rueckkehr   – Wechsel, aber der Jockey hat das Pferd früher schon geritten
+    sieg_paar   – der heutige Jockey hat mit dem Pferd schon gewonnen
+    paar_ue     – Ø z-Wert gegen den Markt (H7, Variante B) in den Läufen mit diesem Jockey, geschrumpft
+    paar_ue_rel – paar_ue minus Ø z-Wert des Pferdes mit anderen Jockeys (beide geschrumpft; nur wenn es beide gibt)"""
+    me = markt_erwartung(h, ~h["test"])
+    d = h[["date", "horse_id", "jockey_key", "won"]].join(me[["ue_z"]])
+    d = d.sort_values(["horse_id", "date"], kind="stable")
+    out = {c: np.full(len(d), np.nan) for c in ["ritte_paar", "wechsel", "rueckkehr", "sieg_paar", "paar_ue", "paar_ue_rel"]}
+    hid, tag = d["horse_id"].astype(str).to_numpy(), d["date"].to_numpy()
+    jk = d["jockey_key"].astype("string").fillna("").to_numpy(dtype=object)
+    won = pd.to_numeric(d["won"], errors="coerce").fillna(0).to_numpy()
+    uz = d["ue_z"].to_numpy(dtype=float)
+    grenzen = np.flatnonzero(np.r_[True, hid[1:] != hid[:-1], True])
+    for a, e in zip(grenzen[:-1], grenzen[1:]):
+        n_, s_, w_ = {}, {}, {}                     # je Jockey: Ritte, Summe z (mit z), Anzahl z; Siege
+        sz_ges, nz_ges, letzter = 0.0, 0, None
+        i = a
+        while i < e:
+            j = i
+            while j < e and tag[j] == tag[i]:          # Läufe desselben Tags sehen einander nicht
+                j += 1
+            for k in range(i, j):
+                if not jk[k]:
+                    continue
+                r = n_.get(jk[k], 0)
+                out["ritte_paar"][k] = r
+                out["sieg_paar"][k] = float(w_.get(jk[k], 0) > 0)
+                if letzter is not None:
+                    out["wechsel"][k] = float(jk[k] != letzter)
+                    out["rueckkehr"][k] = float(jk[k] != letzter and r > 0)
+                sz, nz = s_.get(jk[k], (0.0, 0))
+                if nz:
+                    out["paar_ue"][k] = sz / (nz + H8_SCHRUMPF)
+                    no, so = nz_ges - nz, sz_ges - sz
+                    if no:
+                        out["paar_ue_rel"][k] = sz / (nz + H8_SCHRUMPF) - so / (no + H8_SCHRUMPF)
+            for k in range(i, j):
+                if jk[k]:
+                    n_[jk[k]] = n_.get(jk[k], 0) + 1
+                    w_[jk[k]] = w_.get(jk[k], 0) + won[k]
+                    if np.isfinite(uz[k]):
+                        sz, nz = s_.get(jk[k], (0.0, 0))
+                        s_[jk[k]] = (sz + uz[k], nz + 1)
+                        sz_ges, nz_ges = sz_ges + uz[k], nz_ges + 1
+                    letzter = jk[k]
+            i = j
+    return pd.DataFrame(out, index=d.index).reindex(h.index)
+
+
+def h8(h: pd.DataFrame):
+    """Jockey kennt das Pferd: Stammreiter, neuer Reiter, Rückkehr (auch eines Sieg-Jockeys), Zahl der gemeinsamen
+    Ritte und die Bilanz des Paars gegen die Markterwartung – jeweils bei gegebener Endquote."""
+    m8 = h8_merkmale(h)
+    d = h.drop(columns=m8.columns, errors="ignore").join(m8)
+    d = d[d["test"]].copy()
+    vor = d["wechsel"].notna()
+    stamm, neu = vor & d["wechsel"].eq(0), vor & d["wechsel"].eq(1) & d["ritte_paar"].eq(0)
+    rueck = vor & d["rueckkehr"].eq(1)
+    rueck_sieg = rueck & d["sieg_paar"].eq(1)
+    r = d["ritte_paar"]
+    d["vor_da"] = vor.astype(float)
+    d["neu"], d["rueck"] = neu.astype(float), rueck.astype(float)
+    d["rueck_sieger"], d["rueck_sonst"] = rueck_sieg.astype(float), (rueck & ~rueck_sieg).astype(float)
+    d["ln_ritte"] = np.log1p(r).where(vor, 0).fillna(0)
+    d["kennt"] = (vor & r.gt(0)).astype(float)
+    d["sieg_paar_x"] = (vor & d["sieg_paar"].eq(1)).astype(float)
+    d["paar_ue_x"] = d["paar_ue"].where(vor, 0).fillna(0)
+    d["paar_ue_rel_x"] = d["paar_ue_rel"].where(vor, 0).fillna(0)
+    d["paar_rel_da"] = (vor & d["paar_ue_rel"].notna()).astype(float)
+    vd = ["vor_da"] if int((d["vor_da"] == 0).sum()) >= MIN_AKTIV else []
+    gruppen = [("H8", "gleicher Jockey wie zuletzt", stamm),
+               ("H8", "… davon 1 Ritt zusammen", stamm & r.eq(1)),
+               ("H8", "… davon 2–4 Ritte", stamm & r.between(2, 4)),
+               ("H8", "… davon ≥ 5 Ritte", stamm & r.ge(5)),
+               ("H8", "Wechsel: Jockey kennt das Pferd nicht", neu),
+               ("H8", "Wechsel: Rückkehr eines früheren Reiters", rueck),
+               ("H8", "… davon hat mit dem Pferd gewonnen", rueck_sieg),
+               ("H8", "… davon ohne Sieg mit dem Pferd", rueck & ~rueck_sieg),
+               ("H8", "Paar über Markterwartung (Ø z ≥ +0,3, ≥ 2 Ritte)", vor & r.ge(2) & d["paar_ue"].ge(0.3)),
+               ("H8", "Paar unter Markterwartung (Ø z ≤ −0,3, ≥ 2 Ritte)", vor & r.ge(2) & d["paar_ue"].le(-0.3)),
+               ("H8", "mit diesem Jockey besser als mit anderen (Δz ≥ +0,3)", vor & d["paar_ue_rel"].ge(0.3)),
+               ("H8", "mit diesem Jockey schlechter als mit anderen (Δz ≤ −0,3)", vor & d["paar_ue_rel"].le(-0.3))]
+    modelle = [("H8 neu / Rückkehr (gegen Stammreiter)", d, ["neu", "rueck"] + vd),
+               ("H8 Rückkehr mit / ohne Sieg", d, ["neu", "rueck_sieger", "rueck_sonst"] + vd),
+               ("H8 Zahl der Ritte", d, ["kennt", "ln_ritte"] + vd),
+               ("H8 Paar-Bilanz (z gegen Markt)", d, ["paar_ue_x", "sieg_paar_x", "kennt"] + vd),
+               ("H8 Paar gegen andere Jockeys", d, ["paar_ue_rel_x", "paar_rel_da"] + vd)]
+    return gruppen, modelle
+
+
+# --------------------------------------------------------------------------
 def run(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
         nur: list[str] | str | None = None):
     """nur: nur diese Hypothesen rechnen, z. B. nur="H7" oder nur=["H2", "H7"] (Vorgabe: alle)."""
@@ -452,7 +557,7 @@ def run(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path
     h = merkmale(hist)
     print(f"{h['race_id'].nunique():,} Rennen, Test ab {h.loc[h['test'], 'date'].min():%d.%m.%Y} (H1, H4, H6 nur im Testteil)")
     zeilen, koef = [], []
-    for name, fn in [("H1", h1), ("H2", h2), ("H3", h3), ("H4", h4), ("H5", lambda x: h5(x, base)), ("H6", h6), ("H7", h7)]:
+    for name, fn in [("H1", h1), ("H2", h2), ("H3", h3), ("H4", h4), ("H5", lambda x: h5(x, base)), ("H6", h6), ("H7", h7), ("H8", h8)]:
         if nur and name not in nur:
             continue
         try:

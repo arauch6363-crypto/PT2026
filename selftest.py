@@ -562,6 +562,20 @@ def hypothesen_pruefen() -> None:
     _, mo7 = hb.h7(h7)
     k7 = hb.clogit(*[(d_, sp_) for nm_, d_, sp_ in mo7 if nm_ == "H7B zeitgewichtet"][0]).set_index("variable")
     pruefe(k7.loc["ue_z_zg", "z"] > 2, "H7: übersehene Form (zeitgewichteter z-Wert) im bedingten Logit gefunden")
+    # H8: Jockey kennt das Pferd – Pferd A: J1 (Sieg), J1, J2, J1, J3; Pferd B nur Füllfeld
+    seq = [("J1", 1), ("J1", 3), ("J2", 2), ("J1", 2), ("J3", 1)]
+    z8 = []
+    for t_, (j_, pos_) in enumerate(seq):
+        for i, (hz, jz, pz) in enumerate([("A", j_, pos_), ("B", "JB", 1 if pos_ != 1 else 2), ("C", "JC", 3)]):
+            z8.append({"date": T + pd.Timedelta(days=10 * t_), "race_id": f"R{t_}", "saddle_no": i + 1, "horse_id": hz,
+                       "jockey_key": jz, "n_runners": 3, "finish_pos": pz, "rel_place": (3 - pz) / 2,
+                       "won": int(pz == 1), "p_mkt": 1 / 3, "test": False})
+    h8 = pd.DataFrame(z8)
+    m8 = hb.h8_merkmale(h8)[h8["horse_id"].eq("A").to_numpy()].reset_index(drop=True)
+    pruefe(m8["ritte_paar"].tolist() == [0, 1, 0, 2, 0] and m8["wechsel"].tolist()[1:] == [0, 1, 1, 1]
+           and np.isnan(m8.loc[0, "wechsel"]) and m8["rueckkehr"].tolist()[1:] == [0, 0, 1, 0]
+           and m8["sieg_paar"].tolist() == [0, 1, 0, 1, 0],
+           "H8: gemeinsame Ritte, Wechsel, Rückkehr des früheren Reiters und Sieg mit dem Pferd aus früheren Läufen")
     pruefe(bool(hb.PECH.search("A été enfermé dans la ligne droite")) and bool(hb.PECH.search("a manqué de place"))
            and not hb.PECH.search("a fini fort"), "Pech im Kommentar erkannt (enfermé, manqué de place)")
 
