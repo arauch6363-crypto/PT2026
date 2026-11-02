@@ -676,6 +676,32 @@ def power_modell_pruefen() -> None:
            and X["kennt_jockey"].isin([0.0, 1.0]).any() and X.loc[X["runs"] == 0, "kennt_jockey"].fillna(0).eq(0).all(),
            f"Power-Modell: kennt_jockey ({X['kennt_jockey'].mean():.0%} ja) und Trainerwechsel in den letzten 5 Starts "
            f"({X['trainerwechsel5'].mean():.0%} ja)")
+    # Jockey × Pferd, Jockey auf der Bahn, Trainer mit dem Alter – Nachrechnung aus den Vorläufen
+    rp_ = pm.ziel(h)
+    fehler_jp = 0
+    for i_ in X.index[X["runs"] >= 2][::7][:60]:
+        pid, jk_ = h.loc[i_, "horse_id"], h.loc[i_, "jockey_key"]
+        if pd.isna(jk_):                                 # ohne Jockey: Merkmale leer
+            fehler_jp += not X.loc[i_, ["jockey_pferd_ritte", "jockey_rueckkehr"]].isna().all()
+            continue
+        vor = hs[(hs["horse_id"] == pid) & (hs["date"] < h.loc[i_, "date"])].iloc[::-1]
+        mit, ohne = vor[vor["jockey_key"] == jk_], vor[vor["jockey_key"] != jk_]
+        rk = (np.nan if pd.isna(vor["jockey_key"].iloc[0])           # letzter Jockey unbekannt: leer
+              else float(vor["jockey_key"].iloc[0] != jk_ and len(mit) > 0))
+        erw = np.nan
+        if len(mit) and len(ohne):
+            m0, K = rp_[vor.index].mean(), pm.JK_PFERD_K
+            erw = (rp_[mit.index].sum() + K * m0) / (len(mit) + K) - (rp_[ohne.index].sum() + K * m0) / (len(ohne) + K)
+        ok_ = (X.loc[i_, "jockey_pferd_ritte"] == len(mit) and X.loc[i_, "jockey_pferd_siege"] == float(h.loc[mit.index, "won"].sum())
+               and (X.loc[i_, "jockey_rueckkehr"] == rk or np.isnan(rk) and np.isnan(X.loc[i_, "jockey_rueckkehr"]))
+               and (np.isnan(erw) and np.isnan(X.loc[i_, "jockey_pferd_pos_rel"]) or abs(X.loc[i_, "jockey_pferd_pos_rel"] - erw) < 1e-9))
+        fehler_jp += not ok_
+    pruefe(fehler_jp == 0 and X["jockey_rueckkehr"].eq(1).any() and X["jockey_pferd_pos_rel"].notna().any()
+           and X["jockey_kurs_score"].notna().any() and X["trainer_alter_score"].notna().any()
+           and pm._gruppe("jockey_pferd_pos_rel") == "Jockey kennt Pferd" and pm._gruppe("jockey_kurs_score") == "Jockey auf der Bahn"
+           and pm._gruppe("trainer_alter_score") == "Trainer mit dem Alter",
+           f"Power-Modell: Jockey × Pferd (Ritte, Siege, Rückkehr {X['jockey_rueckkehr'].mean():.0%}, Bilanz mit/ohne ihn) "
+           f"nachgerechnet; Jockey auf der Bahn und Trainer mit dem Alter als Scores")
     h2 = h.copy()
     letzt = h2["date"] == h2["date"].max()
     h2.loc[letzt, "finish_pos"] = h2.loc[letzt, "finish_pos"].to_numpy()[::-1]          # Ergebnis des letzten Tages ändern

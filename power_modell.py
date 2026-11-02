@@ -68,7 +68,7 @@ PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schr
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
 SCHLUESSEL_DATEI = "merkmale_schluessel.parquet"   # je Zeile des Zwischenspeichers: race_id, horse_id
-MERKMAL_VERSION = 19                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+MERKMAL_VERSION = 20                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
@@ -99,6 +99,7 @@ FORM_TREND_N = 6            # Formtrend: Steigung über so viele letzte Läufe (
 FORM_ZEIT_N = 10            # zeitgewichtete Form: höchstens so viele letzte Läufe …
 FORM_HWZ = 90               # … mit Gewicht 0,5 ^ (Tage / FORM_HWZ)
 FORM_ZEIT_K = 1.0           # … und zum Ausgangswert hin geschrumpft wie mit so vielen Läufen von heute
+JK_PFERD_K = 2             # Jockey × Pferd: Bilanz mit / ohne diesen Jockey zum Ø des Pferdes geschrumpft (wie 2 Läufe)
 FORM_ZEIT_PRIOR = {"pos": 0.5, "ue": 0.0}   # Ausgangswerte (Pos: Feldmitte, über Erwartung: 0); ARR ungeschrumpft
 FORM_TOP = 0.75             # „Spitzenlauf“: Pos ab hier
 ABST_STAND_MIN = 2000       # Abstammungs-Passung: Monatsstand erst ab so vielen Läufen davor
@@ -147,7 +148,9 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("chg_trainer", "Trainerwechsel"),
            ("form_best3", "Formtrend"), ("form_pos_hoeher", "Form in gleicher/höherer Klasse"), ("season", "Jahreszeit"), ("feld_aelter", "Erfahrung im Feld"),
            ("feld_erfahrener", "Erfahrung im Feld"), ("chg_", "Wechsel zum letzten Lauf"),
-           ("kennt_jockey", "Jockey kennt Pferd"), ("trainerwechsel5", "Trainerwechsel"),
+           ("kennt_jockey", "Jockey kennt Pferd"), ("jockey_pferd", "Jockey kennt Pferd"),
+           ("jockey_rueckkehr", "Jockey kennt Pferd"), ("jockey_kurs", "Jockey auf der Bahn"),
+           ("trainer_alter", "Trainer mit dem Alter"), ("trainerwechsel5", "Trainerwechsel"),
            ("dam_", "Mutter (Geschwister)"), ("hcp_", "Handicap-Marke"), ("starts_nach_pause", "Starts nach Pause"),
            ("letzte_pause", "Starts nach Pause"),
            ("erst_wallach", "erstmals Wallach"), ("arr_best", "Bestform ARR"), ("blink", "Scheuklappen"),
@@ -495,6 +498,8 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
               "form_steig_pos", "form_steig_arr", "form_steig_lb",
               "form_steig_ue", "form_best3_diff", "form_pos_hoeher", "chg_weight", "chg_dist", "chg_class",
               "chg_prize", "chg_jockey", "chg_trainer", "blink_first", "blink_change", "kennt_jockey", "trainerwechsel5",
+              "jockey_pferd_ritte", "jockey_pferd_siege", "jockey_rueckkehr", "jockey_pferd_pos_rel",
+              "jockey_pferd_ue_rel",
               "chg_rating", "hcp_sieg_diff", "hcp_platz_diff", "starts_nach_pause60", "starts_nach_pause180",
               "letzte_pause_tage", "arr_best365", "arr_best_dist",
               "arr_best_abst", "erst_wallach", "cgd_sieg", "cgd_platz", "cgd_neu", "erst_kurs", "erst_boden",
@@ -594,6 +599,20 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 F["erst_belag"][i] = float(all(belag[j] != belag[i] for j in vor))
             if jk[i] is not None:                              # Jockey hat das Pferd schon geritten
                 F["kennt_jockey"][i] = float(any(jk[j] == jk[i] for j in vor))
+                mit = [j for j in vor if jk[j] == jk[i]]
+                F["jockey_pferd_ritte"][i] = len(mit)
+                F["jockey_pferd_siege"][i] = float(np.nansum(won[mit])) if mit else 0.0
+                if vor and jk[vor[0]] is not None:         # Rückkehr: nicht zuletzt, aber früher schon geritten
+                    F["jockey_rueckkehr"][i] = float(jk[vor[0]] != jk[i] and bool(mit))
+                ohne = [j for j in vor if jk[j] != jk[i]]
+                if mit and ohne:                           # mit diesem Jockey besser als mit anderen (geschrumpft)
+                    for name, y in (("jockey_pferd_pos_rel", rp0), ("jockey_pferd_ue_rel", ue)):
+                        a_, b_ = y[mit], y[ohne]
+                        a_, b_ = a_[np.isfinite(a_)], b_[np.isfinite(b_)]
+                        if len(a_) and len(b_):
+                            m0 = float(np.mean(np.r_[a_, b_]))
+                            F[name][i] = ((a_.sum() + JK_PFERD_K * m0) / (len(a_) + JK_PFERD_K)
+                                          - (b_.sum() + JK_PFERD_K * m0) / (len(b_) + JK_PFERD_K))
             if not vor:
                 continue
             # Starts nach Pause (≥ 60 bzw. ≥ 180 Tage ohne Start): 1 = heute erster Start nach der Pause, 2, 3 …
@@ -853,6 +872,8 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     rollen.update({
         "trainer_30": tr_, "jockey_30": jo_,                                        # Form im kurzen Fenster
         "trainer_typ": paar(tr_, typ3), "trainer_kurs": paar(tr_, course), "jockey_trainer": paar(jo_, tr_),
+        "jockey_kurs": paar(jo_, course),                                           # Jockey auf dieser Bahn
+        "trainer_alter": paar(tr_, np.array([rc.alter_gruppe(a) for a in werte["age"]], dtype=object)),  # 2j/3j/4j+
         "trainer_debuet": np.where(erst_l, tr_, None), "trainer_pause": np.where(pause_l, tr_, None)})
     fenster = {"trainer_30": KURZ_TAGE, "jockey_30": KURZ_TAGE}
     mutter = _spalte(h, "dam", None)

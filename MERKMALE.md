@@ -1,4 +1,4 @@
-# Merkmale des Power- und Value-Modells (Version 19)
+# Merkmale des Power- und Value-Modells (Version 20)
 
 Übersicht aller Eingangsgrößen von `power_modell.merkmale` mit kurzer Definition und Berechnung. Die Angaben sind
 bewusst knapp gehalten; maßgeblich ist der Code.
@@ -164,7 +164,8 @@ Trend und Klasse:
 - `trainer_30_score` / `jockey_30_score` – nur letzte 30 Tage (Stallform).
 - `trainer_form` / `jockey_form` – 30-Tage- minus 365-Tage-Score.
 - `trainer_typ_score` – Trainer im heutigen Renntyp; `trainer_kurs_score` – Trainer auf diesem Kurs;
-  `jockey_trainer_score` – diese Jockey-Trainer-Kombination.
+  `jockey_trainer_score` – diese Jockey-Trainer-Kombination; `jockey_kurs_score` – Jockey auf diesem Kurs;
+  `trainer_alter_score` – Trainer mit Pferden dieses Alters (2j, 3j, 4j+) (beide ab Version 20).
 - `trainer_debuet_score` / `trainer_pause_score` – Trainer mit Debütanten bzw. nach Pause.
 - `jockey_ritte_meeting` – Ritte des Jockeys heute auf dieser Bahn (PMU-Rennen, dieses eingeschlossen).
 - `trainer_starter_meeting` – Starter des Trainers heute auf dieser Bahn.
@@ -175,6 +176,10 @@ Trend und Klasse:
   Stallgefährten.
 - `kennt_jockey` – Jockey hat das Pferd schon geritten. `chg_jockey` – anderer Jockey als zuletzt;
   `chg_jockey_score` – Score heutiger minus voriger Jockey.
+- Jockey × Pferd (Version 20), aus den früheren Läufen des Pferdes: `jockey_pferd_ritte` – gemeinsame Ritte;
+  `jockey_pferd_siege` – Siege zusammen; `jockey_rueckkehr` – nicht zuletzt, aber früher schon geritten (leer ohne
+  Vorlauf/Jockey); `jockey_pferd_pos_rel` / `jockey_pferd_ue_rel` – Ø Pos+ bzw. Pos über Erwartung mit diesem Jockey
+  minus mit anderen, beide Seiten zum Ø des Pferdes geschrumpft (wie `JK_PFERD_K` = 2 Läufe; leer ohne beide Seiten).
 
 ## Trainer- und Besitzerwechsel (Version 17)
 
@@ -301,7 +306,7 @@ Trend und Klasse:
 - **Faire Quote auf der Karte** (nur noch eine): Power-Mischung × exp(κ × Value) (siehe oben) und – sobald übernommen –
   die Kommentar-Schicht. `sieg_blind` = ohne Value.
 
-## Offen für den nächsten Neubau (Version 20)
+## Offen für den nächsten Neubau (Version 21)
 
 Gesammelt, nicht dringend – beim nächsten ohnehin fälligen Neubau der Merkmale in einem Rutsch umsetzen:
 
