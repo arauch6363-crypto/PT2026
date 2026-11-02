@@ -613,7 +613,7 @@ def _kombi_pool(tmp_path):
     kombi_fall.bauen(tmp_path, tage=4, rennen=6)
     f = kombi.daten_laden(tmp_path, ab=None)["feld"]
     fk = pd.to_numeric(f["fk_karte"])
-    return f.assign(wert=f["p"] * fk - 1, fair=1 / f["p"], wert_sh=f["p_sh"] * fk - 1, fair_sh=1 / f["p_sh"],
+    return f.assign(wert=f["p"] * fk - 1, fair=1 / f["p"], wert_sh=f["p_sh"] * fk - 1, fair_sh=1 / f["p_sh"], fk_sieg=fk,
                     settled=True, race="R1C" + f["race_id"].str[-1], course="X")
 
 
@@ -632,8 +632,13 @@ def test_kombi_dashboard_js(tmp_path):
     t = vb.TEMPLATE.read_text(encoding="utf-8")
     sim = t[t.index("// SIM-START"):t.index("// SIM-END")]
     pj = {"spalten": list(pool.columns), "zeilen": json.loads(pool.to_json(orient="values"))}
-    filter_ = [{"art": a, "chance": "karte", "minw": w, "fair_max": 0, "max_pferde": m, "steuer": True}
-               for a in kombi.DASH_ARTEN for w, m in ((0, 0), (0.2, 3))]
+    filter_ = [{"art": a, "chance": "karte", "minw": w, "fair_max": 0, "max_pferde": m, "steuer": True,
+                "steller": st, "fair1_dazu": d}
+               for a in kombi.DASH_ARTEN for w, m in ((0, 0), (0.2, 3))
+               for st, d in (("", False), ("", True), ("wert", False), ("wert", True), ("kelly", False),
+                             ("kelly", True), ("fair1", False))]
+    assert any(R["c"]["karte"].get("f1") not in R["c"]["karte"]["no"] for R in kw["rennen"].values()
+               if "karte" in R["c"])                    # faire Quote Nr. 1 auch ohne Wert in den Kombi-Chancen
     js = (sim + f"\nconst pool = zeilen({json.dumps(pj)}), KW = {json.dumps(kw)};\n"
           f"console.log(JSON.stringify({json.dumps(filter_)}.map(f => kombiSim(pool, KW, f).kpi)));")
     (tmp_path / "kb.js").write_text(js, encoding="utf-8")
@@ -650,11 +655,26 @@ def test_kombi_dashboard_js(tmp_path):
             q = q.sort_values(["wert", "no"], ascending=[False, True])
             if f["max_pferde"]:
                 q = q.head(f["max_pferde"])
-            if len(q) < n:
+            f1 = R["c"]["karte"].get("f1")
+            stl = None
+            if f["steller"] == "wert":
+                stl = int(q["no"].iloc[0]) if len(q) else None
+            elif f["steller"] == "kelly":
+                k_ = q.assign(kel=q["wert"] / (q["fk_sieg"] - 1)).sort_values(["kel", "wert", "no"], ascending=[False, False, True])
+                stl = int(k_["no"].iloc[0]) if len(k_) else None
+            elif f["steller"] == "fair1":
+                stl = f1
+            if f["steller"] and stl is None:
                 continue
-            nos = sorted(q["no"])
+            menge = set(int(x) for x in q["no"])
+            if f1 is not None and (f["fair1_dazu"] or f["steller"] == "fair1"):
+                menge.add(int(f1))
+            if len(menge) < n:
+                continue
+            nos = sorted(menge)
             ks = [kombi.kombi_schluessel(c, ordnung) for c in
-                  (itertools.permutations(nos, n) if ordnung else itertools.combinations(nos, n))]
+                  (itertools.permutations(nos, n) if ordnung else itertools.combinations(nos, n))
+                  if stl is None or stl in c]
             div = dict(R["div"][f["art"]])
             tickets += len(ks)
             treffer += sum(k_ in div for k_ in ks)
@@ -663,6 +683,9 @@ def test_kombi_dashboard_js(tmp_path):
         assert k["auszahlung"] == pytest.approx(aus, abs=0.01)
         assert k["gewinn"] == pytest.approx(aus - 1.05 * tickets, abs=0.02)
     assert any(k["tickets"] for k in erg)
+    t_ = {(f["art"], f["minw"], f["steller"], f["fair1_dazu"]): k["tickets"] for f, k in zip(filter_, erg)}
+    assert t_[("zwilling", 0, "wert", False)] < t_[("zwilling", 0, "", False)]      # Steller: weniger Kombinationen
+    assert t_[("zwilling", 0, "", True)] > t_[("zwilling", 0, "", False)]           # FQ 1 dazu: mehr
 
 
 def test_kombi_liste_js(tmp_path):

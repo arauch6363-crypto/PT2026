@@ -81,11 +81,17 @@ def daten_laden(base: Path, ab: str | None = START_DATUM, bis: str | None = None
     tage = set(karten)
     ru = _parquets(base / "parquet" / "pmu_runners", tage)
     if len(ru):
+        nr = pd.Series(False, index=ru.index)
+        for c in ("status", "incident"):                       # Nichtstarter nach dem Bau der Karte
+            if c in ru:
+                nr |= ru[c].astype("string").str.upper().fillna("").eq("NON_PARTANT")
         ru = ru.assign(race_id=ru["race_id"].astype(str), no=pd.to_numeric(ru["saddle_no"], errors="coerce"),
-                       odds=pd.to_numeric(ru["odds_final"], errors="coerce"))[["race_id", "no", "odds"]].dropna()
+                       odds=pd.to_numeric(ru["odds_final"], errors="coerce"), nr=nr)
+        ru = ru[["race_id", "no", "odds", "nr"]].dropna(subset=["race_id", "no"])
         feld = feld.merge(ru.drop_duplicates(["race_id", "no"]), on=["race_id", "no"], how="left")
+        feld["nr"] = feld["nr"].eq(True)
     else:
-        feld["odds"] = np.nan
+        feld["odds"], feld["nr"] = np.nan, False
     dv = _parquets(base / "parquet" / "pmu_dividends", tage)
     if len(dv):
         lab = dv["label"].astype(str)
@@ -465,14 +471,24 @@ def dashboard_daten(base: Path, pool: pd.DataFrame, ab: str | None = START_DATUM
                 continue
             w = np.array([werte[spw].get((str(rid), int(no)), np.nan) for no in nos], float)
             ok = np.where(np.isfinite(w) & (w >= -1e-9))[0]
-            if len(ok) < 2:
+            if len(ok) < 1:
                 continue
             ok = ok[np.argsort(-w[ok], kind="stable")][:DASH_MAX_KANDIDATEN]
             kand = np.zeros(len(g), bool)
             kand[ok] = True
+            # Faire Quote Nr. 1 (höchste Modellchance) – als Steller oder Zusatzpferd wählbar, auch ohne Wert;
+            # nach dem Bau der Karte Nichtstarter: keine Nr. 1 (die Wette entfiele)
+            i1 = int(np.argmax(g[sp].to_numpy(float)))
+            f1 = None if bool(g["nr"].iloc[i1]) else i1
+            if f1 is not None:
+                kand[f1] = True
+            if kand.sum() < 2:
+                continue
             alle |= kand
             E = einlauf.einlaeufe(g[sp].to_numpy(float), 4, lam["modell"], n_sim, rng)
-            r_out["c"][chance] = {"no": sorted(nos[ok].tolist()), "m": kombi_chancen(E, nos, kand)}
+            r_out["c"][chance] = {"no": sorted(nos[ok].tolist()), "m": kombi_chancen(E, nos, kand),
+                                  "f1": None if f1 is None else int(nos[f1]),
+                                  "f1n": None if f1 is None else g["horse"].iloc[f1]}
         if not r_out["c"]:
             continue
         fk = pd.to_numeric(g["fk_karte"], errors="coerce").to_numpy(float)
