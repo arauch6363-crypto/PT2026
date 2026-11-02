@@ -750,7 +750,14 @@ vergleicht beide Rechnungen über Node.
   „Woche für Woche“, „Bank & Ergebnis“, „Treffer kumuliert“ (echt gegen erwartet Modell und Festkurs), „Bank im
   Verlauf“ und die Liste der Kombi-Rennen. Die Chancen der Kombinationen rechnet `kombi.dashboard_daten` aus gezogenen
   Einläufen (Modell: faire Chance mit Modell-λ; Festkurs: 1/FK der Karte normiert mit Markt-λ) für die Pferde mit
-  Wert ≥ 0 (höchstens 8 je Rennen); `kombiSim` in der Seite (SIM-Block, mit Node gegen Python getestet).
+  Wert ≥ 0 (höchstens 8 je Rennen) plus die faire Quote Nr. 1 (auch ohne Wert; nach dem Kartenbau Nichtstarter: keine);
+  `kombiSim` in der Seite (SIM-Block, mit Node gegen Python getestet).
+  - **Steller** (im Filterblatt): keiner (Vollkombi), **Top-Wert**, **Top-Kelly** (höchster Kelly-Anteil Wert ÷
+    (Festkurs − 1), beide unter den qualifizierten) oder **faire Quote Nr. 1** – gespielt nur die Kombinationen mit dem
+    Steller (Dreier: an beliebiger Stelle). **„Faire Quote Nr. 1 immer dazu“** nimmt die Nr. 1 zusätzlich in die
+    Kombination (auch ohne Wert, über „max. Pferde“ hinaus); so reicht schon 1 qualifiziertes Pferd für einen Zwilling.
+    Die Tabelle **„Steller im Vergleich“** rechnet alle 7 Regeln (keiner/Top-Wert/Top-Kelly je mit und ohne FQ 1,
+    Steller FQ 1) mit derselben Qualifikation; Antippen übernimmt die Regel. In der Rennliste ★ = Steller, (FQ 1).
 - **Kombiwetten (Vorwärtstest):** `vb.start(BASE)` rechnet mit `kombi.vorwaertstest` je Karte Couplé Placé und 2sur4
   so, wie man sie wetten würde: unsere Chance **nur aus dem Modell** (ohne Tagesquoten) bzw. aus der Schattenversion
   mit Prognose-Schicht, Publikum aus den **Festkursen der Karte** (`publikum="fk"`, Vorgabe; wahlweise der Toto-Stand

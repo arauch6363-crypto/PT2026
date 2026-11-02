@@ -216,7 +216,7 @@ button.wz { min-height: 44px; cursor: pointer; }
   <header>
     <h1>Kombiwetten</h1>
     <p class="stand">Darüber: Siegwetten. Hier die Vollkombi aller Pferde, die sich qualifizieren, 1 € je Kombination, gegen
-      die PMU-Dividenden. 1 Pferd: keine Kombiwette · 2 Pferde: Zwilling, Platzzwilling, 2 aus 4 · ab 3: alle.</p>
+      die PMU-Dividenden. 1 Pferd: keine Kombiwette · 2 Pferde: Zwilling, Platzzwilling, 2 aus 4 · ab 3: alle. Mit Steller nur die Kombinationen, in denen er steht.</p>
   </header>
   <div class="seg" role="group" aria-label="Kombiwette" id="kb_art"></div>
   <p class="klein" id="kb_art_text"></p>
@@ -231,6 +231,10 @@ button.wz { min-height: 44px; cursor: pointer; }
       <label class="feld" title="0 = Wert über 0, sonst mindestens so hoch">Min. Wert <input type="number" id="kb_minw" min="0" max="3" step="0.1" inputmode="decimal"></label>
       <label class="feld" title="nur Pferde mit fairer Quote unter X; 0 = ohne">Fair unter <input type="number" id="kb_fair" min="0" max="100" step="1" inputmode="numeric"></label>
       <label class="feld" title="je Rennen höchstens so viele Pferde, die mit dem höchsten Wert; 0 = alle (Dreier mit 5 Pferden = 60 Kombinationen)">max. Pferde je Rennen <input type="number" id="kb_max" min="0" max="8" step="1" inputmode="numeric"></label>
+      <label class="feld" title="muss in jeder Kombination stehen (Dreier: an beliebiger Stelle); Top-Wert und Top-Kelly-Anteil (Wert ÷ (Festkurs − 1)) unter den qualifizierten, faire Quote Nr. 1 auch ohne Wert">Steller
+        <select id="kb_steller"><option value="">keiner (Vollkombi)</option><option value="wert">Top-Wert</option>
+          <option value="kelly">Top-Kelly</option><option value="fair1">Faire Quote Nr. 1</option></select></label>
+      <label class="feld" title="das Pferd mit der besten fairen Quote kommt immer mit in die Kombination, auch ohne Wert und über „max. Pferde“ hinaus">Faire Quote Nr. 1 immer dazu <input type="checkbox" id="kb_f1"></label>
       <label class="feld" title="5 % Wettsteuer auf den Einsatz wie bei den Siegwetten">5 % Steuer <input type="checkbox" id="kb_steuer"></label>
       <div class="knoepfe"><button type="button" class="knopf" id="kb_zurueck">Auf Vorgabe zurück</button>
         <button type="button" class="knopf primaer" id="kb_fertig">Fertig</button></div>
@@ -238,6 +242,9 @@ button.wz { min-height: 44px; cursor: pointer; }
   </section>
   <article class="card" id="kb_k_treffer"></article>
   <p class="hinweis" id="kb_hinweis"></p>
+  <h2>Steller im Vergleich</h2>
+  <p class="klein">Dieselbe Qualifikation und Wettart, alle Steller-Regeln. Antippen übernimmt die Zeile.</p>
+  <div class="tabelle" id="kb_vergleich"></div>
   <h2>Woche für Woche</h2>
   <div class="tabelle" id="kb_wochen"></div>
   <h2>Bank &amp; Ergebnis</h2>
@@ -502,6 +509,7 @@ function kombiBlick(rows, art, quelle, schwelle) {
 // Kombi-Bereich: Vollkombi aller Pferde, die sich qualifizieren (Wert > 0 bzw. ≥ Min. Wert, optional Fair < X und
 // höchstens N je Rennen mit dem höchsten Wert), 1 € je Kombination; nur Rennen, in denen die Wettart abgerechnet ist
 // (Dividenden aus kombi.dashboard_daten). Dreier = Reihenfolge zählt (alle Permutationen), sonst alle Kombinationen.
+// Mit Steller nur die Kombinationen, in denen er steht; ★ in der Rennliste = Steller, (FQ 1) = faire Quote Nr. 1.
 const KOMBI_ARTEN = {dreier: {n: 3, ord: true}, zwilling: {n: 2, ord: false}, drilling: {n: 3, ord: false},
                      platzzwilling: {n: 2, ord: false}, '2sur4': {n: 2, ord: false}};
 function kombiListe(nos, n, ord) {     // nos aufsteigend; Schlüssel wie kombi.kombi_schluessel
@@ -540,16 +548,29 @@ function kombiSim(pool, KW, f, start = 1000) {
                                 && (!f.fair_max || r.fair < f.fair_max - TOL));
     q.sort((a, b) => (b.wert - a.wert) || (a.no - b.no));
     if (f.max_pferde) q = q.slice(0, f.max_pferde);
-    if (q.length < A.n) continue;
-    const nos = q.map(r => r.no).sort((a, b) => a - b), div = Object.fromEntries(R.div[f.art]);
+    // Steller (muss in jeder Kombination stehen, bei Dreier an beliebiger Stelle): Top-Wert, Top-Kelly-Anteil
+    // (Wert ÷ (Festkurs − 1)) unter den qualifizierten oder die faire Quote Nr. 1; fair1_dazu: Nr. 1 immer mit dabei
+    const f1 = C.f1 === null || C.f1 === undefined ? null : C.f1;
+    const kel = r => r.fk_sieg > 1 ? r.wert / (r.fk_sieg - 1) : -Infinity;
+    let stl = null;
+    if (f.steller === 'wert') stl = q.length ? q[0].no : null;
+    else if (f.steller === 'kelly') stl = q.length ? q.slice().sort((a, b) => (kel(b) - kel(a)) || (b.wert - a.wert) || (a.no - b.no))[0].no : null;
+    else if (f.steller === 'fair1') stl = f1;
+    if (f.steller && stl === null) continue;
+    const menge = new Set(q.map(r => r.no));
+    if (f1 !== null && (f.fair1_dazu || f.steller === 'fair1')) menge.add(f1);
+    if (menge.size < A.n) continue;
+    const nos = [...menge].sort((a, b) => a - b), div = Object.fromEntries(R.div[f.art]);
     const pm = (C.m || {})[f.art] || {}, pf = R.f ? (R.f[f.art] || {}) : null, r0 = je[rid][0];
-    const ks = kombiListe(nos, A.n, A.ord);
+    const ks = kombiListe(nos, A.n, A.ord).filter(k => stl === null || k.split('-').map(Number).includes(stl));
+    const name = n => (q.find(r => r.no === n) || {}).horse || (n === f1 ? C.f1n || '' : '');
     const t = ks.map(k => ({date: r0.date, race_id: rid, kombi: k, div: div[k] || 0, treffer: (div[k] || 0) > 0,
                             p_modell: pm[k] || 0, p_fk: pf ? (pf[k] || 0) : null}));
     tickets.push(...t);
     const aus = _summe(t.map(x => x.div));
     races.push({date: r0.date, race_id: rid, race: r0.race, course: r0.course,
-                pferde: nos.map(n => `${n} ${(q.find(r => r.no === n) || {}).horse || ''}`.trim()).join(', '),
+                pferde: nos.map(n => `${n === stl ? '★ ' : ''}${n} ${name(n)}`.trim() + (n === f1 ? ' (FQ 1)' : '')).join(', '),
+                steller: stl,
                 n_pferde: nos.length, tickets: ks.length, einsatz: ks.length, steuer: rhu(st * ks.length, 2),
                 auszahlung: rhu(aus, 2), profit: rhu(aus - ks.length - st * ks.length, 2),
                 treffer: t.filter(x => x.treffer).length, gewinner: t.filter(x => x.treffer).map(x => x.kombi).join(' · '),
@@ -960,12 +981,30 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
     drilling: 'Drilling: die ersten drei, Reihenfolge egal (4 Pferde = 4 Kombinationen).',
     platzzwilling: 'Platzzwilling: zwei unter den ersten drei (3 Pferde = 3 Kombinationen).',
     '2sur4': '2 aus 4: zwei unter den ersten vier (3 Pferde = 3 Kombinationen).'};
-  const KB_VORGABE = {kb_chance: 'karte', kb_minw: '0', kb_fair: '0', kb_max: '0', kb_steuer: true};
-  const KB_FELDER = Object.keys(KB_VORGABE);
+  const KB_VORGABE = {kb_chance: 'karte', kb_minw: '0', kb_fair: '0', kb_max: '0', kb_steller: '', kb_f1: false, kb_steuer: true};
+  const KB_FELDER = Object.keys(KB_VORGABE), KB_HAKEN = ['kb_steuer', 'kb_f1'], KB_TEXTF = ['kb_chance', 'kb_steller'];
+  const KB_STELLER = {'': 'keiner', wert: 'Top-Wert', kelly: 'Top-Kelly', fair1: 'Faire Quote Nr. 1'};
+  const KB_VARIANTEN = [['', false, 'Vollkombi'], ['', true, 'Vollkombi + FQ 1'], ['wert', false, 'Steller Top-Wert'],
+    ['wert', true, 'Top-Wert + FQ 1'], ['kelly', false, 'Steller Top-Kelly'], ['kelly', true, 'Top-Kelly + FQ 1'],
+    ['fair1', false, 'Steller FQ 1']];
   let kbArt = 'dreier';
   try { const a = localStorage.getItem('vd-kb-art'); if (KOMBI_ARTEN[a]) kbArt = a; } catch (e) {}
-  const kbSetze = w => { for (const k of KB_FELDER) $(k)[k === 'kb_steuer' ? 'checked' : 'value'] = w[k]; };
-  const kbLese = () => Object.fromEntries(KB_FELDER.map(k => [k, k === 'kb_steuer' ? $(k).checked : $(k).value]));
+  const kbSetze = w => { for (const k of KB_FELDER) $(k)[KB_HAKEN.includes(k) ? 'checked' : 'value'] = w[k]; };
+  const kbLese = () => Object.fromEntries(KB_FELDER.map(k => [k, KB_HAKEN.includes(k) ? $(k).checked : $(k).value]));
+  function kbVergleich(f) {
+    const zeile = ([st, d, name]) => {
+      const k = kombiSim(pool, KW, {...f, steller: st, fair1_dazu: d}, 1000).kpi;
+      const an = f.steller === st && (st === 'fair1' || f.fair1_dazu === d);
+      return `<button type="button" class="wz${an ? ' an' : ''}" data-st="${st}" data-d="${d ? 1 : 0}" aria-pressed="${an}">`
+        + `<span>${name} <span class="n">· ${k.rennen}</span></span><span>${k.treffer} / ${nf(k.erw_fk, 1)}</span>`
+        + `<span class="${klasse(k.gewinn)}">${sg(k.gewinn ?? 0, 0)} €</span>`
+        + `<span class="${klasse(k.roi)}">${ok(k.roi) ? sg(100 * k.roi, 0) + ' %' : '–'}</span></button>`;
+    };
+    $('kb_vergleich').innerHTML = '<div class="wz kopfz"><span>Regel · Rennen</span><span>Treffer / erw.</span><span>Gewinn</span><span>ROI</span></div>'
+      + KB_VARIANTEN.map(zeile).join('');
+    for (const b of $('kb_vergleich').querySelectorAll('button.wz')) b.onclick = () => {
+      $('kb_steller').value = b.dataset.st; $('kb_f1').checked = b.dataset.d === '1'; kbNeu(); };
+  }
   function kbTrefferKarte(k, t) {
     const v = _summe(t.filter(x => ok(x.p_fk)).map(x => x.p_fk * (1 - x.p_fk))), z = v > 0 && ok(k.erw_fk) ? (k.treffer - k.erw_fk) / Math.sqrt(v) : null;
     const max = Math.max(k.treffer, k.erw_fk || 0, k.erw_modell, 1) * 1.3;
@@ -1062,16 +1101,19 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
   }
   function kbNeu() {
     if (!KW.rennen || !Object.keys(KW.rennen).length) { $('kb_bereich').style.display = 'none'; return; }
-    const w = kbLese(), gleich = KB_FELDER.every(k => k === 'kb_steuer' || k === 'kb_chance' ? w[k] === KB_VORGABE[k] : zahl(w[k]) === zahl(KB_VORGABE[k]));
+    const w = kbLese(), gleich = KB_FELDER.every(k => KB_HAKEN.includes(k) || KB_TEXTF.includes(k) ? w[k] === KB_VORGABE[k] : zahl(w[k]) === zahl(KB_VORGABE[k]));
     segment($('kb_art'), KB_ARTEN, kbArt, a => { kbArt = a; try { localStorage.setItem('vd-kb-art', a); } catch (e) {} kbNeu(); });
     $('kb_art_text').textContent = KB_TEXT[kbArt];
     const f = {art: kbArt, chance: w.kb_chance, minw: Math.max(0, zahl(w.kb_minw)), fair_max: Math.max(0, zahl(w.kb_fair)),
-               max_pferde: Math.max(0, Math.floor(zahl(w.kb_max))), steuer: w.kb_steuer};
+               max_pferde: Math.max(0, Math.floor(zahl(w.kb_max))), steuer: w.kb_steuer, steller: w.kb_steller,
+               fair1_dazu: w.kb_f1};
     $('kb_strat_titel').textContent = gleich ? 'Qualifikation' : 'Eigene Qualifikation';
     $('kb_strat_text').textContent = [f.minw ? `Wert ≥ ${kurz(f.minw)}` : 'Wert > 0', f.fair_max ? `Fair < ${kurz(f.fair_max)}` : null,
-      f.max_pferde ? `≤ ${f.max_pferde} Pferde je Rennen` : 'alle Pferde', f.chance === 'schatten' ? 'Schatten' : null,
+      f.max_pferde ? `≤ ${f.max_pferde} Pferde je Rennen` : 'alle Pferde', f.steller ? `Steller ${KB_STELLER[f.steller]}` : null,
+      f.fair1_dazu && f.steller !== 'fair1' ? '+ FQ 1' : null, f.chance === 'schatten' ? 'Schatten' : null,
       f.steuer ? '5 % Steuer' : 'ohne Steuer', '1 € je Kombination'].filter(Boolean).join(' · ');
     const S = kombiSim(pool, KW, f, 1000);
+    kbVergleich(f);
     kbTrefferKarte(S.kpi, S.tickets);
     $('kb_hinweis').textContent = S.kpi.hinweis || '';
     kbWochen(S);
