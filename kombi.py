@@ -89,7 +89,7 @@ def daten_laden(base: Path, ab: str | None = START_DATUM, bis: str | None = None
                        odds=pd.to_numeric(ru["odds_final"], errors="coerce"), nr=nr)
         ru = ru[["race_id", "no", "odds", "nr"]].dropna(subset=["race_id", "no"])
         feld = feld.merge(ru.drop_duplicates(["race_id", "no"]), on=["race_id", "no"], how="left")
-        feld["nr"] = feld["nr"].eq(True)
+        feld["nr"] = feld["nr"].eq(True).fillna(False).to_numpy(dtype=bool)    # ohne pmu_runners-Zeile: kein NR
     else:
         feld["odds"], feld["nr"] = np.nan, False
     dv = _parquets(base / "parquet" / "pmu_dividends", tage)
