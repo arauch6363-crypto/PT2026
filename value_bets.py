@@ -324,6 +324,32 @@ def _nichtstarter(starter_path: str | Path | None) -> set[tuple[str, int]]:
     return {(str(r), int(n)) for r, n, x in zip(s["race_id"], no, nr) if x and pd.notna(n)}
 
 
+# Rennen nicht für Vollblüter: Araber (Stud-Book arabe, WAHO, ACCAF), Anglo-Araber, AQPS („n'étant pas de race
+# pur-sang“) – das Modell kennt nur Vollblüter, solche Rennen zählen im Dashboard nicht
+NICHT_VOLLBLUT = re.compile(
+    r"stud[- ]?book\s+(?:anglo[- ])?arabe|anglo[- ]arabe|sang\s+arabe|pur[- ]sang\s+arabe|\bWAHO\b|\bACCAF\b|"
+    r"\bAQPS\b|autres?\s+que\s+de\s+pur[- ]sang|(?:n'[ée]tant\s+pas|non)\s+(?:de\s+race\s+)?pur[- ]sang|"
+    r"\bARABIAN\b|\bpur[- ]sang\s+arabes?\b", re.I)
+
+
+def ist_nicht_vollblut(*texte: Any) -> bool:
+    """True, wenn Bedingungen, Kategorie oder Rennname auf ein Rennen für Araber/Anglo-Araber/AQPS deuten."""
+    return any(NICHT_VOLLBLUT.search(str(t)) for t in texte if t is not None and not (isinstance(t, float) and math.isnan(t)))
+
+
+def _nicht_vollblut(parquet_path: str | Path | None) -> set[str]:
+    """race_id der Rennen nicht für Vollblüter laut pmu_races des Tages (c_conditions, categorie, race_name)."""
+    if parquet_path is None or not Path(parquet_path).exists():
+        return set()
+    import pyarrow.parquet as pq
+    sp = [c for c in ("race_id", "c_conditions", "categorie", "c_categorieParticularite", "race_name")
+          if c in pq.read_schema(parquet_path).names]
+    if "race_id" not in sp or len(sp) < 2:
+        return set()
+    r = pd.read_parquet(parquet_path, columns=sp)
+    return {str(rid) for rid, *t in r[sp].itertuples(index=False) if ist_nicht_vollblut(*t)}
+
+
 def load_day(json_path: str | Path, parquet_path: str | Path | None,
              starter_path: str | Path | None = None, einlauf_lambda=None) -> pd.DataFrame:
     """Pool eines Renntags: alle Starter mit Festkurs und Wert ≥ 0, samt Ergebnis.
@@ -363,6 +389,7 @@ def load_day(json_path: str | Path, parquet_path: str | Path | None,
     lv = np.log(pool["fk_sieg"].astype(float) / pool["toto_end"])
     pool["fk_toto"] = np.exp(lv)
     pool["kurs_rel"] = lv - lv.groupby(pool["race_id"]).transform("mean")       # alle Starter des Rennens
+    pool = pool[~pool["race_id"].astype(str).isin(_nicht_vollblut(parquet_path))]     # Araber/AQPS: nicht werten
     pool = pool[pool["fk_sieg"].notna() & ((pool["wert"] >= -TOP_TOL)
                                            | (pd.to_numeric(pool["wert_sh"], errors="coerce") >= -TOP_TOL))].copy()
 

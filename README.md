@@ -666,6 +666,9 @@ vergleicht beide Rechnungen über Node.
 - **Pool:** alle Starter mit Festkurs Sieg und Wert ≥ 0. **Nichtstarter** (nach dem Bau der Karte zurückgezogen, `pmu_runners.status` bzw. `incident`
   NON_PARTANT): die Wette gilt als erstattet – kein Einsatz, kein Verlust; der Pick belegt seinen Platz in der Auswahl
   trotzdem (kein anderes Pferd rückt nach), bei den Kombiwetten zählt er nicht als qualifiziert.
+- **Nur Vollblutrennen:** Rennen für Araber, Anglo-Araber und AQPS fallen ganz aus dem Pool (Sieg und Kombi) – erkannt
+  am Bedingungstext in `pmu_races` (`c_conditions`: Stud-Book arabe/Anglo-Arabe, WAHO, sang arabe, „n'étant pas de
+  race pur-sang“), an der Kategorie (`QUALIFICATION_ACCAF`) oder am Rennnamen (ARABIAN); `vb.ist_nicht_vollblut`.
 - **Ansicht (für das Handy, eine Spalte):** oben der **Zeitraum** (Gesamt oder eine der letzten drei
   ISO-Kalenderwochen; jede Zeile in „Woche für Woche“ lässt sich ebenso antippen) und die **Strategie** (antippen
   klappt die Filter auf). Danach in dieser Reihenfolge: die Signale „Modell → Toto“ und „Sieger gegen

@@ -691,3 +691,24 @@ def test_nichtstarter_ohne_einsatz(tmp_path):
     # kein Einsatz auf die Nichtstarter, kein anderes Pferd rückt nach, die übrigen Picks bleiben dieselben
     assert len(b1) == len(b0) - 2 and not set(zip(b1["race_id"], b1["no"])) & set(weg)
     assert set(zip(b1["race_id"], b1["no"])) == set(zip(b0["race_id"], b0["no"])) - set(weg)
+
+
+def test_nicht_vollblut_rennen(tmp_path):
+    """Araber-, Anglo-Araber- und AQPS-Rennen (Bedingungstext pmu_races) werden erkannt, Vollblutrennen nicht."""
+    texte = {
+        "A": ("Pour chevaux de 4 ans et au-dessus inscrits à la naissance au Stud-Book arabe de leur pays d'origine "
+              "affilié à la WAHO.", "INCONNU", "FRENCH ARABIAN BREEDERS' CHALLENGE"),
+        "B": ("Pour pouliches de 3 ans inscrites au Stud-Book arabe.", "QUALIFICATION_ACCAF", "PRIX HAYYAN"),
+        "C": ("Pour chevaux nés et élevés en France, inscrits au Stud-Book Anglo-Arabe, comptant au moins 37, 5 % de "
+              "sang arabe.", "COURSE_A_CONDITIONS", "PRIX DE LA GIRONDE"),
+        "D": ("Pour poulains de 4 ans n'étant pas de race pur-sang, nés et élevés en France.", "COURSE_A_CONDITIONS",
+              "PRIX YVES PRIOUZEAU"),
+        "E": ("Pour chevaux de 4 ans et au-dessus. La référence applicable sera +26.", "HANDICAP", "HANDICAP DE LA MAINE"),
+        "F": ("Pour poulains entiers et hongres de 2 ans n'ayant jamais gagné.", "COURSE_A_CONDITIONS", "PRIX NONOALCO"),
+    }
+    df = pd.DataFrame([{"race_id": k, "c_conditions": c, "categorie": kat, "race_name": n, "finish_order": None}
+                       for k, (c, kat, n) in texte.items()])
+    pfad = tmp_path / "20261101.parquet"
+    df.to_parquet(pfad)
+    assert vb._nicht_vollblut(pfad) == {"A", "B", "C", "D"}
+    assert vb._nicht_vollblut(None) == set()
