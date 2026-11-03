@@ -45,6 +45,7 @@ import numpy as np
 import pandas as pd
 
 import bahn_orte
+import bahn_profil
 import kommentare as km
 import prognose_basis as pb_prog
 import racecard as rc
@@ -68,7 +69,7 @@ PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schr
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
 SCHLUESSEL_DATEI = "merkmale_schluessel.parquet"   # je Zeile des Zwischenspeichers: race_id, horse_id
-MERKMAL_VERSION = 20                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+MERKMAL_VERSION = 21                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
@@ -99,6 +100,7 @@ FORM_TREND_N = 6            # Formtrend: Steigung über so viele letzte Läufe (
 FORM_ZEIT_N = 10            # zeitgewichtete Form: höchstens so viele letzte Läufe …
 FORM_HWZ = 90               # … mit Gewicht 0,5 ^ (Tage / FORM_HWZ)
 FORM_ZEIT_K = 1.0           # … und zum Ausgangswert hin geschrumpft wie mit so vielen Läufen von heute
+LAYOUT_K = 3               # Layout-/Richtungs-Vorliebe des Pferdes zum eigenen Ø geschrumpft wie mit so vielen Läufen
 JK_PFERD_K = 2             # Jockey × Pferd: Bilanz mit / ohne diesen Jockey zum Ø des Pferdes geschrumpft (wie 2 Läufe)
 FORM_ZEIT_PRIOR = {"pos": 0.5, "ue": 0.0}   # Ausgangswerte (Pos: Feldmitte, über Erwartung: 0); ARR ungeschrumpft
 FORM_TOP = 0.75             # „Spitzenlauf“: Pos ab hier
@@ -165,7 +167,10 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("going_pref", "Boden-Vorliebe (Penetrometer)"), ("going_pass", "Boden-Passung (Penetrometer)"),
            ("going_value", "Penetrometer heute"), ("sire_going_pass", "Vater: Boden-Passung"),
            ("dam_sire_going_pass", "Muttervater: Boden-Passung"), ("vmax_", "Höchsttempo"),
-           ("bahn_", "Bahn-Eigenschaften"), ("stil_x_vorne", "Laufstil × Vorne-Vorteil der Bahn"),
+           ("bahn_", "Bahn-Eigenschaften"), ("bahn_layout", "Bahn-Layout"), ("bahn_gerade_stufe", "Bahn-Layout"),
+           ("bahn_rechts", "Laufrichtung"), ("layout_", "Pferd: Bahn-Layout"), ("richtung_", "Pferd: Laufrichtung"),
+           ("jockey_layout", "Jockey: Bahn-Layout"), ("jockey_richtung", "Jockey: Laufrichtung"),
+           ("jockey_feld", "Jockey: Feldgröße"), ("stil_x_vorne", "Laufstil × Vorne-Vorteil der Bahn"),
            ("endspeed_x_", "Endspeed × Bahn"), ("box_x_groesse", "Startbox × Bahngröße"), ("trk_wert", "Tracking-Wert"), ("m_", "Morgenquote"), ("abst_", "Abstammungs-Passung"),
            ("cgd_", "Bilanz Kurs/Boden/Distanz (CGD)"), ("erst_", "erstmals Kurs/Boden/Distanz/Belag"), ("feld_val", "Klasse des Feldes"),
            ("lgo_", "letzter Lauf auf heutigem Boden"), ("ldi_", "letzter Lauf auf heutiger Distanz"),
@@ -475,6 +480,11 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     box_n = pd.Series(werte["draw"]).notna().groupby(rid).transform("sum").to_numpy(dtype=float)
     F["draw_rel"] = np.where(box_n > 1, box_rang0 / np.maximum(box_n - 1, 1), np.nan)
     F["going_value"] = werte["going_value"]                            # Penetrometer heute (vor dem Rennen bekannt)
+    # Bahn-Layout (bahn_layout.csv): eng 0 … weit 2, Zielgerade kurz 0 … lang 2, Rechtskurs 1 / Linkskurs 0
+    lay_, ger_, ric_ = _text(h, "bahn_layout"), _text(h, "bahn_gerade"), _text(h, "bahn_richtung")
+    F["bahn_layout"] = np.array([bahn_profil.LAYOUT_STUFE.get(x, np.nan) for x in lay_], dtype=float)
+    F["bahn_gerade_stufe"] = np.array([bahn_profil.GERADE_STUFE.get(x, np.nan) for x in ger_], dtype=float)
+    F["bahn_rechts"] = np.array([{"right": 1.0, "left": 0.0}.get(x, np.nan) for x in ric_], dtype=float)
     typ3 = np.array([renntyp3(t) for t in _text(h, "racetype")], dtype=object)
     a_min = pd.Series(werte["age"]).groupby(rid).transform("min").to_numpy(dtype=float)
     a_max = pd.Series(werte["age"]).groupby(rid).transform("max").to_numpy(dtype=float)
@@ -521,7 +531,8 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
               "formz_pos_vb", "laeufe_seit_trainerwechsel", "tage_seit_trainerwechsel", "form_neuer_trainer",
               "form_neuer_trainer_n", "chg_owner", "laeufe_seit_besitzerwechsel", "tage_seit_besitzerwechsel",
               "besitzer_ohne_trainer", "hcp_spielraum", "arr_neue_best", "going_pref", "f1_vmax_rel", "f2_vmax_rel",
-              "f3_vmax_rel", "vmax_best", "vmax_z", "vmax_dist", "going_pass"]:
+              "f3_vmax_rel", "vmax_best", "vmax_z", "vmax_dist", "going_pass", "layout_pos_rel", "layout_runs",
+              "richtung_pos_rel", "richtung_runs"]:
         feld(c)
     for c in ["runs", "runs365", "lgo_pos", "lgo_arr", "ldi_pos", "ldi_arr", "days", "rtr", "arr", "tr", "dl600", "db200", "early", "epr365",
               "won_course", "won_dist", "won_going", "placed_course", "placed_dist", "placed_going", "best_dist", "best_going"]:
@@ -670,6 +681,17 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 F["going_pref"][i] = vorliebe
                 if np.isfinite(pen[i]):
                     F["going_pass"][i] = vorliebe * (pen[i] - m_alle)
+            # Vorliebe für Bahn-Layout und Laufrichtung: Ø Pos+ auf Bahnen wie heute minus Ø aller Läufe, geschrumpft
+            mit_rp = [j for j in vor if np.isfinite(rp0[j])]
+            if mit_rp:
+                m_rp = float(np.mean(rp0[mit_rp]))
+                for name, arr in (("layout", lay_), ("richtung", ric_)):
+                    if arr[i] is None:
+                        continue
+                    gl = [j for j in mit_rp if arr[j] == arr[i]]
+                    F[f"{name}_runs"][i] = len(gl)
+                    if gl:
+                        F[f"{name}_pos_rel"][i] = (float(np.sum(rp0[gl])) + LAYOUT_K * m_rp) / (len(gl) + LAYOUT_K) - m_rp
             # Höchsttempo (Tracking): Bestwert 365 Tage, zeitgewichtetes Ø, Ø auf der heutigen Distanzgruppe
             vm = [j for j in vor if np.isfinite(werte["vmax_rel"][j]) and not ausg[j]]
             if vm:
@@ -903,6 +925,8 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
         "trainer_30": tr_, "jockey_30": jo_,                                        # Form im kurzen Fenster
         "trainer_typ": paar(tr_, typ3), "trainer_kurs": paar(tr_, course), "jockey_trainer": paar(jo_, tr_),
         "jockey_kurs": paar(jo_, course),                                           # Jockey auf dieser Bahn
+        "jockey_layout": paar(jo_, lay_), "jockey_richtung": paar(jo_, ric_),      # Bahn-Layout, Laufrichtung
+        "jockey_feld": paar(jo_, _text(h, "feld_klasse")),                          # Feldgröße klein/normal/groß
         "trainer_alter": paar(tr_, np.array([rc.alter_gruppe(a) for a in werte["age"]], dtype=object)),  # 2j/3j/4j+
         "trainer_debuet": np.where(erst_l, tr_, None), "trainer_pause": np.where(pause_l, tr_, None)})
     fenster = {"trainer_30": KURZ_TAGE, "jockey_30": KURZ_TAGE}
@@ -1144,7 +1168,6 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
 
     F.pop("f1_tage", None)                               # identisch mit days
     # Bahn-Eigenschaften aus bahn_profil.PROFIL (geprüfte Recherche; leer, solange eine Bahn nicht eingetragen ist)
-    import bahn_profil
     pcs = _text(h, "parcours_norm")
     prof_cache: dict = {}
     for c in ("bahn_umfang", "bahn_zielgerade", "bahn_kurve_rechts", "bahn_wellig", "bahn_ziel_ansteigend",

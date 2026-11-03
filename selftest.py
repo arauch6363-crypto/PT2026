@@ -702,6 +702,33 @@ def power_modell_pruefen() -> None:
            and pm._gruppe("trainer_alter_score") == "Trainer mit dem Alter",
            f"Power-Modell: Jockey × Pferd (Ritte, Siege, Rückkehr {X['jockey_rueckkehr'].mean():.0%}, Bilanz mit/ohne ihn) "
            f"nachgerechnet; Jockey auf der Bahn und Trainer mit dem Alter als Scores")
+    # Bahn-Layout und Laufrichtung (bahn_layout.csv): Merkmale, Vorliebe des Pferdes, Jockey-Scores
+    hl_ = h.copy()
+    hl_["hippodrome"] = np.where(hl_["race_id"].str[-1].astype(int) % 2, "CHANTILLY", "LE CROISE LAROCHE")
+    hl_["hippodrome"] = np.where(hl_["race_id"].str[-1] == "3", "SAINT-CLOUD", hl_["hippodrome"])     # weit, links
+    hl_["feld_klasse"] = hl_["n_runners"].map(pm.rc.feld_klasse)
+    hl_ = pm.rc.bahn_layout_spalten(hl_)
+    with contextlib.redirect_stdout(io.StringIO()):
+        Xl_ = pm.merkmale(hl_, log=print)
+    rpl_ = pm.ziel(hl_)
+    hls_ = hl_.sort_values(["date", "saddle_no"])
+    ok_l = (Xl_.loc[hl_["hippodrome"].eq("CHANTILLY"), ["bahn_layout", "bahn_rechts", "bahn_gerade_stufe"]].eq([2, 1, 2]).all().all()
+            and Xl_.loc[hl_["hippodrome"].eq("LE CROISE LAROCHE"), ["bahn_layout", "bahn_rechts"]].eq([0, 0]).all().all())
+    for i_ in Xl_.index[Xl_["runs"] >= 3][::11][:40]:
+        vor = hls_[(hls_["horse_id"] == hl_.at[i_, "horse_id"]) & (hls_["date"] < hl_.at[i_, "date"])]
+        vor = vor[rpl_[vor.index].notna()]
+        for name, sp in (("layout", "bahn_layout"), ("richtung", "bahn_richtung")):
+            gl = vor[vor[sp] == hl_.at[i_, sp]]
+            m_ = rpl_[vor.index].mean()
+            erw = (rpl_[gl.index].sum() + pm.LAYOUT_K * m_) / (len(gl) + pm.LAYOUT_K) - m_ if len(gl) else np.nan
+            ist = Xl_.at[i_, f"{name}_pos_rel"]
+            ok_l &= Xl_.at[i_, f"{name}_runs"] == len(gl) and ((np.isnan(erw) and np.isnan(ist)) or abs(erw - ist) < 1e-9)
+    pruefe(ok_l and pm.rc.feld_klasse(7) == "klein" and pm.rc.feld_klasse(8) == "normal" and pm.rc.feld_klasse(13) == "groß"
+           and Xl_[["jockey_layout_score", "jockey_richtung_score", "jockey_feld_score"]].notna().any().all()
+           and pm.bahn_profil.layout("ANGERS EVENTARD")["layout"] == "normal" and pm.bahn_profil.layout("PAUILLAC") is None,
+           "Bahn-Layout: Layout/Zielgerade/Richtung aus bahn_layout.csv (Name auch mit Zusatz, z. B. ANGERS EVENTARD), "
+           "Vorliebe des Pferdes (Ø Pos+ auf gleichem Layout bzw. gleicher Richtung minus Ø, geschrumpft) nachgerechnet, "
+           "Jockey-Scores für Layout, Richtung und Feldgröße (klein ≤ 7, normal 8–12, groß 13+)")
     h2 = h.copy()
     letzt = h2["date"] == h2["date"].max()
     h2.loc[letzt, "finish_pos"] = h2.loc[letzt, "finish_pos"].to_numpy()[::-1]          # Ergebnis des letzten Tages ändern
