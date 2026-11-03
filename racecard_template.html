@@ -972,6 +972,7 @@ const LEGEND = [
 const PV_TITEL = { trainer_jockey: ['Trainer', 'alle Jockeys', 'jt'], trainer_course: ['Trainer', 'alle Bahnen', 'jt'],
   trainer_type: ['Trainer', 'alle Renntypen', 'jt'], trainer_age: ['Trainer', 'alle Altersgruppen', 'jt'],
   jockey_course: ['Jockey', 'alle Bahnen', 'jt'], jockey_trainer: ['Jockey', 'alle Trainer', 'jt'], jockey_horse: ['Jockey', 'alle Pferde', 'ges'],
+  jockey_layout: ['Jockey', 'alle Bahn-Layouts', 'jt'], jockey_richtung: ['Jockey', 'Rechts- und Linkskurs', 'jt'], jockey_feld: ['Jockey', 'alle Feldgrößen', 'jt'],
   sire_dist: ['Vater', 'alle Distanzen', 'ges'], sire_going: ['Vater', 'alle Böden', 'ges'], sire_age: ['Vater', 'alle Altersgruppen', 'ges'],
   dam_sire_dist: ['Muttervater', 'alle Distanzen', 'ges'], dam_sire_going: ['Muttervater', 'alle Böden', 'ges'], dam_sire_age: ['Muttervater', 'alle Altersgruppen', 'ges'] };
 // Beste Kategorie: höchstes A/E Platz, zum Gesamt-A/E hin geschrumpft ((Plätze + 5 × A/E) / (erwartet + 5)), ab 5 Läufen
@@ -1491,10 +1492,14 @@ class Component extends DCLogic {
     const T = PF.trainer || {}, J = PF.jockey || {};
     const prefGroups = [
       { title: 'Trainer · ' + (tc(x.trainer) || '–'), note: yrs + ' Jahre', rows: [prow('mit ' + tc(x.jockey), T.jockey, true, PR.trainer?.jockey), prow('in ' + tc(rd.course), T.course, true, PR.trainer?.course), prow('Typ ' + (rd.type || '–'), T.racetype, true, PR.trainer?.racetype), prow('Alter ' + (T.age_label || '–'), T.age, true, PR.trainer?.age)].filter(Boolean) },
-      { title: 'Jockey · ' + (tc(x.jockey) || '–'), note: yrs + ' Jahre', rows: [prow('in ' + tc(rd.course), J.course, true, PR.jockey?.course), prow('für ' + tc(x.trainer), J.trainer, true, PR.jockey?.trainer), prow('auf ' + tc(x.horse), J.horse, true, PR.jockey?.horse)].filter(Boolean) },
+      { title: 'Jockey · ' + (tc(x.jockey) || '–'), note: yrs + ' Jahre', rows: [prow('in ' + tc(rd.course), J.course, true, PR.jockey?.course), prow('für ' + tc(x.trainer), J.trainer, true, PR.jockey?.trainer), prow('auf ' + tc(x.horse), J.horse, true, PR.jockey?.horse),
+        J.layout_label ? prow(J.layout_label, J.layout, true, PR.jockey?.layout) : null, J.richtung_label ? prow(J.richtung_label, J.richtung, true, PR.jockey?.richtung) : null,
+        J.feld_label ? prow(J.feld_label, J.feld, true, PR.jockey?.feld) : null].filter(Boolean) },
       arr(PF.horse?.going, 'Keine Daten.', 'Pferd nach Boden'),
       arr(PF.horse?.distance, 'Keine Daten.', 'Pferd nach Distanz'),
       arr(PF.horse?.course, 'Noch nicht auf ' + tc(rd.course) + ' gelaufen.', 'Pferd auf dieser Bahn'),
+      arr(PF.horse?.layout, 'Keine Daten.', 'Pferd nach Bahn-Layout'),
+      arr(PF.horse?.richtung, 'Keine Daten.', 'Pferd nach Laufrichtung'),
       arr(PF.horse?.blinkers, 'Keine Daten.', 'Pferd nach Scheuklappen'),
       arr(PF.horse?.trainer, 'Keine Daten.', 'Pferd nach Trainer'),
     ].map(g => ({ note: '', ...g, empty: !g.rows.length, emptyTxt: g.emptyTxt || 'Keine Daten.' }));

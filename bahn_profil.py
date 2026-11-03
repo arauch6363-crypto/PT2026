@@ -138,3 +138,53 @@ def profil(bahn: str, parcours: str | None = None) -> dict | None:
     u = p.get("umfang_m")
     groesse = None if u is None else next((name for grenze, name in GROESSE if u < grenze), "groß")
     return {**{k: v for k, v in p.items() if k != "pisten"}, "groesse": groesse}
+
+
+# --------------------------------------------------------------------------
+# Layout, Zielgerade, Laufrichtung (bahn_layout.csv: Tabelle hippodrome, layout, lingeDroite, direction)
+# --------------------------------------------------------------------------
+LAYOUT_DATEI = "bahn_layout.csv"
+LAYOUT_STUFE = {"tight": 0, "normal": 1, "generous": 2}       # eng … weit
+GERADE_STUFE = {"short": 0, "normal": 1, "long": 2}           # kurze … lange Zielgerade
+LAYOUT_LAB = {"tight": "eng", "normal": "normal", "generous": "weit"}
+GERADE_LAB = {"short": "kurz", "normal": "normal", "long": "lang"}
+RICHTUNG_LAB = {"right": "rechts", "left": "links"}
+_LAYOUT: dict | None = None
+_LAYOUT_CACHE: dict = {}
+
+
+def _norm(name) -> str:
+    s = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode().upper()
+    return re.sub(r"\s+", " ", re.sub(r"[^A-Z0-9 ]", " ", s)).strip()
+
+
+def layout_tabelle(pfad: Path | None = None) -> dict:
+    """{normierter Bahnname: {"layout", "gerade", "richtung"}} aus bahn_layout.csv (neben diesem Modul)."""
+    global _LAYOUT
+    if _LAYOUT is None or pfad is not None:
+        import csv
+        datei = Path(pfad) if pfad else Path(__file__).parent / LAYOUT_DATEI
+        t = {}
+        if datei.exists():
+            for z in csv.DictReader(datei.open(encoding="utf-8")):
+                t[_norm(z["hippodrome"])] = {"layout": (z.get("layout") or "").strip() or None,
+                                             "gerade": (z.get("lingeDroite") or "").strip() or None,
+                                             "richtung": (z.get("direction") or "").strip() or None}
+        _LAYOUT = t
+        _LAYOUT_CACHE.clear()
+    return _LAYOUT
+
+
+def layout(bahn) -> dict | None:
+    """Layout (tight/normal/generous), Zielgerade (short/normal/long) und Richtung (right/left) einer Bahn; der Name
+    darf länger sein als in der Tabelle (ANGERS EVENTARD → ANGERS, NANCY BRABOIS → NANCY): längster Tabellenname, mit
+    dem der Bahnname wortweise beginnt. None, wenn die Bahn fehlt."""
+    if bahn is None or (isinstance(bahn, float) and bahn != bahn):
+        return None
+    if bahn in _LAYOUT_CACHE:
+        return _LAYOUT_CACHE[bahn]
+    t, n = layout_tabelle(), _norm(bahn)
+    treffer = [k for k in t if n == k or n.startswith(k + " ")]
+    erg = t[max(treffer, key=len)] if treffer else None
+    _LAYOUT_CACHE[bahn] = erg
+    return erg

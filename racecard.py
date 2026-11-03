@@ -53,6 +53,7 @@ import numpy as np
 import pandas as pd
 import requests
 
+import bahn_profil
 import einlauf
 import pmu
 import rtr_arr
@@ -413,6 +414,26 @@ def harville_platz(p, plaetze: int, l2: float = HARVILLE_L2, l3: float = HARVILL
     return np.clip(P, 0.0, 1.0)
 
 
+def bahn_layout_spalten(h: pd.DataFrame) -> pd.DataFrame:
+    """bahn_layout (tight/normal/generous), bahn_gerade (short/normal/long), bahn_richtung (right/left) je Zeile aus
+    bahn_layout.csv über den Bahnnamen; Bahnen, die dort fehlen, bleiben leer."""
+    if "hippodrome" not in h:
+        return h
+    lay = [bahn_profil.layout(b) or {} for b in h["hippodrome"]]
+    for spalte, k in (("bahn_layout", "layout"), ("bahn_gerade", "gerade"), ("bahn_richtung", "richtung")):
+        h[spalte] = pd.Series([x.get(k) for x in lay], index=h.index, dtype=object)
+    return h
+
+
+FELD_KLASSEN = ((7, "klein"), (12, "normal"))   # Starter: bis 7 klein, 8–12 normal, ab 13 groß
+
+
+def feld_klasse(n) -> str | None:
+    """Feldgröße für die Jockey-Vorliebe: klein (≤ 7 Starter), normal (8–12), groß (13+)."""
+    n = _num(n)
+    return None if n is None else next((name for grenze, name in FELD_KLASSEN if n <= grenze), "groß")
+
+
 def platz_erwartung(h: pd.DataFrame, lam=None) -> pd.Series:
     """Erwartete Platzwahrscheinlichkeit je Starter aus den Endquoten seines Rennens (Harville mit Korrektur).
     Marge herausgerechnet über die Starter mit Quote; ohne Quote (oder < 2 Quoten im Rennen) NaN.
@@ -613,6 +634,7 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     mit_ergebnis = h["finish_pos"].notna().groupby(h["race_id"]).transform("any")
     h = h[mit_ergebnis | (h["date"] >= pd.Timestamp.now().normalize())].copy()
     h["n_runners"] = h.groupby("race_id")["saddle_no"].transform("count")
+
     h["won"] = (h["finish_pos"] == 1).astype(int)
     # Platz: bis PLATZ_GRENZE Starter 1.–2., ab 8 Startern 1.–3.
     h["is_place"] = (h["finish_pos"] <= np.where(h["n_runners"] <= PLATZ_GRENZE, 2, 3)).astype(int)
@@ -714,6 +736,8 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
             with warnings.catch_warnings():                 # leere Spalten der externen Zeilen sind gewollt
                 warnings.simplefilter("ignore", FutureWarning)
                 h = pd.concat([h, ex], ignore_index=True, sort=False)
+    h["feld_klasse"] = h["n_runners"].map(feld_klasse)          # Feldgröße für die Jockey-Vorliebe
+    h = bahn_layout_spalten(h)                                  # Layout, Zielgerade, Richtung (auch externe Läufe)
     return h.sort_values(["date", "race_id", "finish_pos"]).reset_index(drop=True)
 
 
@@ -1357,6 +1381,21 @@ KPI_FENSTER = {"arr": 5, "tr": 10}   # schlechtere Läufe anderer Pferde nur bis
 PREF_ALLE_MAX = 30       # Vorlieben-Overlay: so viele Zeilen je Person (nach Läufen), die heutige kommt immer dazu
 
 
+def layout_anzeige(k) -> str:
+    """tight/normal/generous -> Bahn eng/normal/weit."""
+    return "Bahn " + bahn_profil.LAYOUT_LAB.get(k, str(k))
+
+
+def richtung_anzeige(k) -> str:
+    """right/left -> Rechtskurs/Linkskurs."""
+    return {"right": "Rechtskurs", "left": "Linkskurs"}.get(k, str(k))
+
+
+def feld_anzeige(k) -> str:
+    """klein/normal/groß -> Feld mit Starterzahl."""
+    return {"klein": "Feld klein (≤ 7)", "normal": "Feld normal (8–12)", "groß": "Feld groß (13+)"}.get(k, str(k))
+
+
 def _name_lab(k) -> str:
     return str(k).title()
 
@@ -1367,6 +1406,9 @@ PREF_ALLE = {
     "trainer_type": ("trainer_type", 0, str), "trainer_age": ("trainer_age", 0, str),
     "jockey_course": ("jockey_course", 0, _name_lab), "jockey_trainer": ("trainer_jockey", 1, _name_lab),
     "jockey_horse": ("jockey_horse", 0, lambda k: str(k).split("|")[0].title()),
+    "jockey_layout": ("jockey_layout", 0, lambda k: layout_anzeige(k)),
+    "jockey_richtung": ("jockey_richtung", 0, lambda k: richtung_anzeige(k)),
+    "jockey_feld": ("jockey_feld", 0, lambda k: feld_anzeige(k)),
     "sire_dist": ("sire_dist", 0, lambda d: f"{d} m"), "sire_going": ("sire_going", 0, going_anzeige),
     "sire_age": ("sire_age", 0, str),
     "dam_sire_dist": ("dam_sire_dist", 0, lambda d: f"{d} m"), "dam_sire_going": ("dam_sire_going", 0, going_anzeige),
@@ -2415,6 +2457,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         "sire_age": gruppen(h, ["sire_key", "age_grp"]),
         "dam_sire_age": gruppen(h, ["dam_sire_key", "age_grp"]),
         "jockey_course": gruppen(h_jt, ["jockey_key", "course_key"]),
+        "jockey_layout": gruppen(h_jt, ["jockey_key", "bahn_layout"]) if "bahn_layout" in h_jt else {},
+        "jockey_richtung": gruppen(h_jt, ["jockey_key", "bahn_richtung"]) if "bahn_richtung" in h_jt else {},
+        "jockey_feld": gruppen(h_jt, ["jockey_key", "feld_klasse"]) if "feld_klasse" in h_jt else {},
         "sire_dist": gruppen(h_ohne2, ["sire_key", "dist_group"]),
         "sire_going": gruppen(h, ["sire_key", "going_pmu"]),
         "dam_sire_dist": gruppen(h_ohne2, ["dam_sire_key", "dist_group"]),
@@ -2503,6 +2548,9 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
         feld_heute = ru[ru["race_id"] == r["race_id"]]
         nr_heute = (feld_heute["status"].astype("string").str.upper().fillna("").eq("NON_PARTANT")
                     if "status" in feld_heute else pd.Series(False, index=feld_heute.index))
+        lay_heute = bahn_profil.layout(r.get("hippodrome")) or {}           # Layout, Richtung (bahn_layout.csv)
+        lay_h, ric_h = lay_heute.get("layout"), lay_heute.get("richtung")
+        feld_h = feld_klasse(int((~nr_heute).sum()))                        # Feldgröße heute (ohne Nichtstarter)
         # Heutige Gegner, die schon früher gegeneinander liefen: Rennen mit mindestens zwei heutigen Startern
         heute_gew = {z["horse_id"]: {"weight": _num(z.get("weight_kg"), 1), "no": _num(z.get("saddle_no"), 0)}
                      for _, z in feld_heute[~nr_heute].iterrows()}
@@ -2707,6 +2755,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                               "course": [z for z in _tabelle(vorher, "course_key", course, lambda c: str(c).title())
                                          if z["today"]],                           # nur die heutige Bahn
                               "trainer": _trainer_tabelle(vorher, tk),
+                              "layout": _tabelle(vorher, "bahn_layout", lay_h, layout_anzeige),
+                              "richtung": _tabelle(vorher, "bahn_richtung", ric_h, richtung_anzeige),
                               "blinkers": _tabelle(vorher.assign(blink_grp=vorher["blinkers"].map(scheuklappen_gruppe))
                                                    if len(vorher) and "blinkers" in vorher else vorher, "blink_grp",
                                                    scheuklappen_gruppe(p.get("blinkers")), str)},
@@ -2717,6 +2767,12 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                                 "age_label": alter_gruppe(p.get("age"))},
                     "jockey": {"course": q("jockey_course", (jk, course), "jockey"),
                                "trainer": q("trainer_jockey", (tk, jk), "jockey"),
+                               "layout": q("jockey_layout", (jk, lay_h), "jockey"),
+                               "richtung": q("jockey_richtung", (jk, ric_h), "jockey"),
+                               "feld": q("jockey_feld", (jk, feld_h), "jockey"),
+                               "layout_label": layout_anzeige(lay_h) if lay_h else None,
+                               "richtung_label": richtung_anzeige(ric_h) if ric_h else None,
+                               "feld_label": feld_anzeige(feld_h) if feld_h else None,
                                "horse": {**jockey_pferd, "dev": ae_abweichung(
                                    jockey_pferd, pref["jockey"].get(jk) if _txt(jk) else None)}},
                     "sire": {"distance": q("sire_dist", (sk, dg), "sire", "sire_ohne2"), "going": q("sire_going", (sk, gb), "sire"),
@@ -2736,7 +2792,8 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
                                 "racetype": pref_ref("trainer_type", tk, rt),
                                 "age": pref_ref("trainer_age", tk, alter_gruppe(p.get("age")))},
                     "jockey": {"course": pref_ref("jockey_course", jk, course), "trainer": pref_ref("jockey_trainer", jk, tk),
-                               "horse": pref_ref("jockey_horse", jk, hid)},
+                               "horse": pref_ref("jockey_horse", jk, hid), "layout": pref_ref("jockey_layout", jk, lay_h),
+                               "richtung": pref_ref("jockey_richtung", jk, ric_h), "feld": pref_ref("jockey_feld", jk, feld_h)},
                     "sire": {"distance": pref_ref("sire_dist", sk, dg), "going": pref_ref("sire_going", sk, gb),
                              "age": pref_ref("sire_age", sk, alter_gruppe(p.get("age")))},
                     "dam_sire": {"distance": pref_ref("dam_sire_dist", dk, dg), "going": pref_ref("dam_sire_going", dk, gb),

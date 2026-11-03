@@ -1,4 +1,4 @@
-# Merkmale des Power- und Value-Modells (Version 20)
+# Merkmale des Power- und Value-Modells (Version 21)
 
 Übersicht aller Eingangsgrößen von `power_modell.merkmale` mit kurzer Definition und Berechnung. Die Angaben sind
 bewusst knapp gehalten; maßgeblich ist der Code.
@@ -55,6 +55,20 @@ bewusst knapp gehalten; maßgeblich ist der Code.
   (0 klein < 1.600 m, 1 mittel, 2 groß ≥ 2.000 m); Wechselwirkungen `endspeed_x_zielgerade` (`dl600` × Zielgerade
   ÷ 100) und `box_x_groesse` (`draw_rel` × (2 − Größe): außen auf kleiner Bahn groß).
 - Die Bahn als Kategorie ist noch nicht drin (Vergleich offen, siehe unten).
+
+## Bahn-Layout und Laufrichtung (Version 21)
+
+Aus `bahn_layout.csv` (Bahn, layout tight/normal/generous, lingeDroite short/normal/long, direction right/left;
+Zuordnung über den Bahnnamen, auch mit Zusatz wie ANGERS EVENTARD → ANGERS; fehlende Bahnen bleiben leer):
+
+- `bahn_layout` (0 eng … 2 weit), `bahn_gerade_stufe` (0 kurze … 2 lange Zielgerade), `bahn_rechts` (1 Rechtskurs).
+- `layout_pos_rel` / `layout_runs` – Pferd: Ø Pos+ auf Bahnen mit heutigem Layout minus Ø aller Läufe, zum eigenen Ø
+  geschrumpft wie mit 3 Läufen (`LAYOUT_K`); `richtung_pos_rel` / `richtung_runs` dasselbe für die Laufrichtung.
+- `jockey_layout_score`, `jockey_richtung_score`, `jockey_feld_score` (+ `_runs`) – Verbindungs-Scores des Jockeys
+  (365 Tage, wie `jockey_kurs_score`) auf diesem Layout, in dieser Richtung und bei dieser Feldgröße (klein ≤ 7,
+  normal 8–12, groß 13+ Starter).
+- Auf der Karte (Vorlieben): beim Jockey „Bahn eng/normal/weit“, „Rechts-/Linkskurs“, „Feld klein/normal/groß“
+  (2 Jahre, antippen: alle Gruppen), beim Pferd „nach Bahn-Layout“ und „nach Laufrichtung“.
 
 ## Pferd: Stammdaten, Gewicht, Rating
 
