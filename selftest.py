@@ -562,6 +562,20 @@ def hypothesen_pruefen() -> None:
     _, mo7 = hb.h7(h7)
     k7 = hb.clogit(*[(d_, sp_) for nm_, d_, sp_ in mo7 if nm_ == "H7B zeitgewichtet"][0]).set_index("variable")
     pruefe(k7.loc["ue_z_zg", "z"] > 2, "H7: übersehene Form (zeitgewichteter z-Wert) im bedingten Logit gefunden")
+    # H8: Jockey kennt das Pferd – Pferd A: J1 (Sieg), J1, J2, J1, J3; Pferd B nur Füllfeld
+    seq = [("J1", 1), ("J1", 3), ("J2", 2), ("J1", 2), ("J3", 1)]
+    z8 = []
+    for t_, (j_, pos_) in enumerate(seq):
+        for i, (hz, jz, pz) in enumerate([("A", j_, pos_), ("B", "JB", 1 if pos_ != 1 else 2), ("C", "JC", 3)]):
+            z8.append({"date": T + pd.Timedelta(days=10 * t_), "race_id": f"R{t_}", "saddle_no": i + 1, "horse_id": hz,
+                       "jockey_key": jz, "n_runners": 3, "finish_pos": pz, "rel_place": (3 - pz) / 2,
+                       "won": int(pz == 1), "p_mkt": 1 / 3, "test": False})
+    h8 = pd.DataFrame(z8)
+    m8 = hb.h8_merkmale(h8)[h8["horse_id"].eq("A").to_numpy()].reset_index(drop=True)
+    pruefe(m8["ritte_paar"].tolist() == [0, 1, 0, 2, 0] and m8["wechsel"].tolist()[1:] == [0, 1, 1, 1]
+           and np.isnan(m8.loc[0, "wechsel"]) and m8["rueckkehr"].tolist()[1:] == [0, 0, 1, 0]
+           and m8["sieg_paar"].tolist() == [0, 1, 0, 1, 0],
+           "H8: gemeinsame Ritte, Wechsel, Rückkehr des früheren Reiters und Sieg mit dem Pferd aus früheren Läufen")
     pruefe(bool(hb.PECH.search("A été enfermé dans la ligne droite")) and bool(hb.PECH.search("a manqué de place"))
            and not hb.PECH.search("a fini fort"), "Pech im Kommentar erkannt (enfermé, manqué de place)")
 
@@ -662,6 +676,32 @@ def power_modell_pruefen() -> None:
            and X["kennt_jockey"].isin([0.0, 1.0]).any() and X.loc[X["runs"] == 0, "kennt_jockey"].fillna(0).eq(0).all(),
            f"Power-Modell: kennt_jockey ({X['kennt_jockey'].mean():.0%} ja) und Trainerwechsel in den letzten 5 Starts "
            f"({X['trainerwechsel5'].mean():.0%} ja)")
+    # Jockey × Pferd, Jockey auf der Bahn, Trainer mit dem Alter – Nachrechnung aus den Vorläufen
+    rp_ = pm.ziel(h)
+    fehler_jp = 0
+    for i_ in X.index[X["runs"] >= 2][::7][:60]:
+        pid, jk_ = h.loc[i_, "horse_id"], h.loc[i_, "jockey_key"]
+        if pd.isna(jk_):                                 # ohne Jockey: Merkmale leer
+            fehler_jp += not X.loc[i_, ["jockey_pferd_ritte", "jockey_rueckkehr"]].isna().all()
+            continue
+        vor = hs[(hs["horse_id"] == pid) & (hs["date"] < h.loc[i_, "date"])].iloc[::-1]
+        mit, ohne = vor[vor["jockey_key"] == jk_], vor[vor["jockey_key"] != jk_]
+        rk = (np.nan if pd.isna(vor["jockey_key"].iloc[0])           # letzter Jockey unbekannt: leer
+              else float(vor["jockey_key"].iloc[0] != jk_ and len(mit) > 0))
+        erw = np.nan
+        if len(mit) and len(ohne):
+            m0, K = rp_[vor.index].mean(), pm.JK_PFERD_K
+            erw = (rp_[mit.index].sum() + K * m0) / (len(mit) + K) - (rp_[ohne.index].sum() + K * m0) / (len(ohne) + K)
+        ok_ = (X.loc[i_, "jockey_pferd_ritte"] == len(mit) and X.loc[i_, "jockey_pferd_siege"] == float(h.loc[mit.index, "won"].sum())
+               and (X.loc[i_, "jockey_rueckkehr"] == rk or np.isnan(rk) and np.isnan(X.loc[i_, "jockey_rueckkehr"]))
+               and (np.isnan(erw) and np.isnan(X.loc[i_, "jockey_pferd_pos_rel"]) or abs(X.loc[i_, "jockey_pferd_pos_rel"] - erw) < 1e-9))
+        fehler_jp += not ok_
+    pruefe(fehler_jp == 0 and X["jockey_rueckkehr"].eq(1).any() and X["jockey_pferd_pos_rel"].notna().any()
+           and X["jockey_kurs_score"].notna().any() and X["trainer_alter_score"].notna().any()
+           and pm._gruppe("jockey_pferd_pos_rel") == "Jockey kennt Pferd" and pm._gruppe("jockey_kurs_score") == "Jockey auf der Bahn"
+           and pm._gruppe("trainer_alter_score") == "Trainer mit dem Alter",
+           f"Power-Modell: Jockey × Pferd (Ritte, Siege, Rückkehr {X['jockey_rueckkehr'].mean():.0%}, Bilanz mit/ohne ihn) "
+           f"nachgerechnet; Jockey auf der Bahn und Trainer mit dem Alter als Scores")
     h2 = h.copy()
     letzt = h2["date"] == h2["date"].max()
     h2.loc[letzt, "finish_pos"] = h2.loc[letzt, "finish_pos"].to_numpy()[::-1]          # Ergebnis des letzten Tages ändern
@@ -1061,8 +1101,16 @@ def power_modell_pruefen() -> None:
         erw_sp = hn_.at[i, "valeur"] - a_.max() if len(a_) else np.nan
         erw_nb = fr_["arr"].iloc[0] - fr_["arr"].iloc[1:].max() if pd.notna(fr_["arr"].iloc[0]) and fr_["arr"].iloc[1:].notna().any() else np.nan
         best_ = fr_.assign(_rp=rp_[fr_.index]).sort_values("_rp", ascending=False, kind="stable").head(3)
-        erw_gp = hn_.at[i, "going_value"] - best_["going_value"].mean()
-        for erw_, spalte_ in ((erw_sp, "hcp_spielraum"), (erw_nb, "arr_neue_best"), (erw_gp, "going_pref")):
+        m_a_ = fr_["going_value"].mean()
+        erw_gp = (best_["going_value"].mean() - m_a_) * len(fr_) / (len(fr_) + pm.GOING_PREF_K)
+        erw_gs = erw_gp * (hn_.at[i, "going_value"] - m_a_)
+        vm_ = fr_.loc[~fr_.get("ausgeritten", pd.Series(False, index=fr_.index)).eq(True), "vmax_rel"].dropna().iloc[:pm.FORM_ZEIT_N]
+        w_ = 0.5 ** ((dn_[i] - fr_.loc[vm_.index, "_d"]).dt.days / pm.FORM_HWZ)
+        erw_vz = float((w_ * vm_).sum() / w_.sum()) if len(vm_) else np.nan
+        erw_f2 = fr_["vmax_rel"].iloc[1]
+        for erw_, spalte_ in ((erw_sp, "hcp_spielraum"), (erw_nb, "arr_neue_best"), (erw_gp, "going_pref"),
+                              (erw_gs, "going_pass"), (hn_.at[i, "going_value"], "going_value"), (erw_vz, "vmax_z"),
+                              (erw_f2, "f2_vmax_rel")):
             ist_ = Xn_.at[i, spalte_]
             if not ((np.isnan(erw_) and np.isnan(ist_)) or abs(erw_ - ist_) < 1e-9):
                 ok_n = False; print("abw", i, spalte_, erw_, ist_)
@@ -1072,7 +1120,8 @@ def power_modell_pruefen() -> None:
             ok_n &= (np.isnan(a1) and np.isnan(b1)) or a1 == b1
     pruefe(ok_n and Xn_["hcp_spielraum"].notna().any() and Xn_["arr_neue_best"].gt(0).any() and Xn_["arr_neue_best"].lt(0).any(),
            "Handicap-Spielraum (Rating − bester ARR 365), neue Bestleistung im letzten Lauf (ARR − bester davor), "
-           "Boden-Vorliebe (Penetrometer heute − Ø der besten drei Läufe), Schritt/Vmax des letzten Laufs relativ zum Feld")
+           "Boden-Vorliebe (Ø Penetrometer der besten drei Läufe − Ø aller, geschrumpft) und Passung (× heute − Ø), "
+           "Penetrometer heute, Schritt/Vmax der letzten Läufe, Höchsttempo zeitgewichtet")
     # Geschlecht im Feld, Meeting, Stall, Erlaubnis
     ok_g = True
     for i in Xn_.index[::53]:
@@ -1114,7 +1163,8 @@ def power_modell_pruefen() -> None:
     # Box × Laufstil und Penetrometer der Spitzenläufe des Vaters
     def stil_(e):
         return -1 if np.isnan(e) else 0 if e <= pm.rc.VERLAUF_VORNE else 2 if e >= pm.rc.VERLAUF_HINTEN else 1
-    dr_ = np.minimum(np.floor((hn_["draw"] - 1) / hn_["n_runners"] * 3), 2)
+    rang_ = hn_.groupby("race_id")["draw"].rank(method="first") - 1                  # Box als Rang unter den Startern
+    dr_ = np.minimum(np.floor(rang_ / hn_.groupby("race_id")["draw"].transform("count") * 3), 2)
     ok_b = True
     for i in Xn_.index[::29]:
         s_h = stil_(Xn_.at[i, "early"])
@@ -1129,13 +1179,44 @@ def power_modell_pruefen() -> None:
     for i in Xn_.index[::31]:
         vor_ = hn_[(dn_ < dn_[i]) & (rp_ >= pm.FORM_TOP)]
         eig_ = vor_[vor_["sire_key"] == hn_.at[i, "sire_key"]]
+        alle_ = hn_[(dn_ < dn_[i]) & rp_.notna() & (hn_["sire_key"] == hn_.at[i, "sire_key"])]
         if len(eig_) < gp_min_:
             ok_v &= np.isnan(Xn_.at[i, "sire_going_pref"]); continue
-        erw_ = hn_.at[i, "going_value"] - (eig_["going_value"].sum() + pm.ABST_K * vor_["going_value"].mean()) / (len(eig_) + pm.ABST_K)
-        ok_v &= abs(erw_ - Xn_.at[i, "sire_going_pref"]) < 1e-9
+        m_a_ = alle_["going_value"].mean()
+        erw_ = (eig_["going_value"].mean() - m_a_) * len(eig_) / (len(eig_) + pm.ABST_K)
+        ok_v &= (abs(erw_ - Xn_.at[i, "sire_going_pref"]) < 1e-9
+                 and abs(erw_ * (hn_.at[i, "going_value"] - m_a_) - Xn_.at[i, "sire_going_pass"]) < 1e-9)
+    ok_v &= Xn_["draw_rel"].between(0, 1).all() and "f1_tage" not in Xn_
     pruefe(ok_b and ok_v and Xn_["box_stil_dev"].notna().any() and Xn_["sire_going_pref"].notna().any(),
            "Box × Laufstil (Boxdrittel, Stil: Stand mit dem tatsächlichen frühen Platz, heute der erwartete Stil; "
-           "geschrumpft) und Penetrometer der Spitzenläufe des Vaters (zum Schnitt aller Spitzenläufe geschrumpft)")
+           "geschrumpft), Box als Rang unter den Startern und Boden-Vorliebe des Vaters (Ø Penetrometer der Spitzenläufe − "
+           "Ø aller Läufe, geschrumpft) samt Passung; f1_tage entfällt")
+    # Bahn-Eigenschaften: Vorne-Vorteil und Endspurt-Gewicht je Konfiguration (nur Läufe vor dem Tag), Profil
+    ok_bahn = True
+    for i in Xn_.index[::23]:
+        vk_ = hn_[(dn_ < dn_[i]) & (hn_["konfig"] == hn_.at[i, "konfig"]) & rp_.notna()]
+        vo_ = vk_[vk_["early_pct"] <= pm.rc.VERLAUF_VORNE]
+        erw_v = (rp_[vo_.index].sum() + pm.BAHN_K * 0.5) / (len(vo_) + pm.BAHN_K) - 0.5
+        ok_bahn &= abs(erw_v - Xn_.at[i, "bahn_vorne"]) < 1e-9 and Xn_.at[i, "bahn_vorne_runs"] == len(vo_)
+        ve_ = vk_[vk_["d_L600_A"].notna()]
+        if len(ve_) >= pm.ENDSPURT_MIN:
+            ok_bahn &= abs(np.corrcoef(ve_["d_L600_A"], rp_[ve_.index])[0, 1] - Xn_.at[i, "bahn_endspurt"]) < 1e-9
+        else:
+            ok_bahn &= np.isnan(Xn_.at[i, "bahn_endspurt"])
+    import bahn_profil as bp_
+    bp_.PROFIL["CHANTILLY"] = {"umfang_m": 2400, "zielgerade_m": 600, "kurve": "rechts", "profil": "flach",
+                               "ziel_ansteigend": False, "gerade_bahn": True}
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            Xb_ = pm.merkmale(hn_, log=print)
+    finally:
+        bp_.PROFIL.pop("CHANTILLY", None)
+    ch_ = hn_["course_key"].eq("CHANTILLY").to_numpy()
+    ok_bahn &= (Xb_.loc[ch_, "bahn_groesse"].eq(2).all() and Xb_.loc[~ch_, "bahn_umfang"].isna().all()
+                and Xb_.loc[ch_, "bahn_kurve_rechts"].eq(1).all() and Xb_.loc[ch_, "box_x_groesse"].fillna(0).eq(0).all())
+    pruefe(ok_bahn and Xn_["bahn_endspurt"].notna().any(),
+           "Bahn-Eigenschaften: Vorne-Vorteil (Ø Pos+ der Läufe von vorn, geschrumpft) und Endspurt-Gewicht (Korrelation "
+           "ΔL600 A mit Pos+) je Konfiguration aus früheren Tagen; Profil (Umfang, Größe, Kurve) aus bahn_profil.PROFIL")
     sc_ = pm._score(1.0, 1e-17, 0.5, 5.0, 1, 0.5, 5.0)
     pruefe(abs(sc_ - 100) < 1e-9 and abs(pm._score(1.0, 0.5, 0.5, 5.0, 1, 0.5, 5.0) - 400 / 3) < 1e-9,
            "Verbindungs-Score: Rundungsrest der Erwartung (1e-17) zählt nicht als A/E (kein Wert wie 1e16)")

@@ -53,6 +53,7 @@ import numpy as np
 import pandas as pd
 import requests
 
+import einlauf
 import pmu
 import rtr_arr
 import speedfig
@@ -412,9 +413,12 @@ def harville_platz(p, plaetze: int, l2: float = HARVILLE_L2, l3: float = HARVILL
     return np.clip(P, 0.0, 1.0)
 
 
-def platz_erwartung(h: pd.DataFrame) -> pd.Series:
+def platz_erwartung(h: pd.DataFrame, lam=None) -> pd.Series:
     """Erwartete Platzwahrscheinlichkeit je Starter aus den Endquoten seines Rennens (Harville mit Korrektur).
-    Marge herausgerechnet über die Starter mit Quote; ohne Quote (oder < 2 Quoten im Rennen) NaN."""
+    Marge herausgerechnet über die Starter mit Quote; ohne Quote (oder < 2 Quoten im Rennen) NaN.
+    lam: geschätzte Markt-Exponenten des Einlauf-Modells (Liste ab λ_1, einlauf.laden(BASE)["markt"]) – die Vorgabe
+    0,8 / 0,65 überschätzt die Platzchance von Außenseitern um etwa 6 %."""
+    l2, l3 = (float(lam[1]), float(lam[2])) if lam is not None and len(lam) >= 3 else (HARVILLE_L2, HARVILLE_L3)
     out = pd.Series(np.nan, index=h.index)
     if h.empty:
         return out
@@ -429,7 +433,7 @@ def platz_erwartung(h: pd.DataFrame) -> pd.Series:
         if b - a < 2:
             continue
         n_ = int(n[a]) if not np.isnan(n[a]) else b - a
-        werte[pos[a:b]] = harville_platz(p[a:b], 2 if n_ <= PLATZ_GRENZE else 3)
+        werte[pos[a:b]] = harville_platz(p[a:b], 2 if n_ <= PLATZ_GRENZE else 3, l2, l3)
     out[:] = werte
     return out
 
@@ -546,8 +550,10 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
                 trk_runners: pd.DataFrame | None = None, trk_sections: pd.DataFrame | None = None,
                 trk_leader: pd.DataFrame | None = None,
                 standards: pd.DataFrame | None = None, extern: pd.DataFrame | None = None,
-                extern_runners: pd.DataFrame | None = None) -> pd.DataFrame:
+                extern_runners: pd.DataFrame | None = None, platz_lambda=None) -> pd.DataFrame:
     """Eine Zeile je Starter und Rennen, mit Renndaten und Tracking-Kennzahlen.
+    platz_lambda: Exponenten des Einlauf-Modells für die Platzerwartung aus der Endquote (einlauf.laden(BASE)["markt"],
+    Liste ab λ_1); ohne: HARVILLE_L2 / HARVILLE_L3.
     extern: frühere Läufe aus performances-detaillees (pmu.perf_zeilen, Tabelle pmu_laeufe_extern) – Flachrennen,
     die nicht in der Historie stehen (PMH-Provinzrennen, Ausland), kommen als Zeilen mit extern=True dazu
     (extern_zeilen); extern_runners: weitere Starter zur Zuordnung der Quelle (z. B. die heutigen).
@@ -623,7 +629,7 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     fav = h.groupby("race_id")["odds_final"].transform("min")
     h["odds_rank"] = h.groupby("race_id")["odds_final"].rank(method="min")   # Rang der Eventualquote
     h["favourite"] = (h["odds_final"] == fav) & h["odds_final"].notna()
-    h["exp_place"] = platz_erwartung(h)
+    h["exp_place"] = platz_erwartung(h, platz_lambda)
     # relative Platzierung: 1 = Sieger, 0 = Letzter (für die Startbox-Abweichung)
     h["draw"] = pd.to_numeric(h["draw"], errors="coerce") if "draw" in h else np.nan
     h["rel_place"] = ((h["n_runners"] - h["finish_pos"]) / (h["n_runners"] - 1)).where(h["n_runners"] > 1).clip(0, 1)
@@ -2917,7 +2923,8 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     hist = vorbereiten(tp.lade("pmu_races", base), tp.lade("pmu_runners", base),
                        tp.lade("tracking_races", base), tp.lade("tracking_runners", base),
                        tp.lade("tracking_sections", base), tp.lade("tracking_leader", base),
-                       standards=std_rennen, extern=ext, extern_runners=runners_heute)
+                       standards=std_rennen, extern=ext, extern_runners=runners_heute,
+                       platz_lambda=einlauf.laden(base)["markt"])
     if "extern" in hist:
         print(f"Externe Läufe (PMH/Ausland, nicht im PMU-Programm) in der Historie: {int(hist['extern'].eq(True).sum()):,}")
     silks = trikots(runners_heute.get("silks_url", pd.Series(dtype=str)).dropna())
@@ -2942,7 +2949,6 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     pmod = power_modell.laden(base)
     print("Power-Modell geladen." if pmod else "Kein Power-Modell (power_modell.trainieren) – Power aus sechs Kennzahlen.")
     daten = baue_daten(hist, races_heute, runners_heute, tag, silks, prognosen, power=pmod)
-    import einlauf                                        # Exponenten des Einlauf-Modells (Platz-/Kombichancen)
     daten.setdefault("params", {})["einlauf"] = einlauf.laden(base)
     if festkurse is not False:                            # Festkurse Sieg/Platz (Wettstar) je Starter: x["fk"]
         import wettstar

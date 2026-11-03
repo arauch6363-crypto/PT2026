@@ -33,10 +33,12 @@ def laden(base: Path) -> pd.DataFrame:
     import pipeline as tp
     import standardzeiten
     import prognose_basis
+    import einlauf
     h = rc.vorbereiten(tp.lade("pmu_races", base), tp.lade("pmu_runners", base),
                        tp.lade("tracking_races", base), tp.lade("tracking_runners", base),
                        tp.lade("tracking_sections", base), tp.lade("tracking_leader", base),
-                       standards=standardzeiten.je_rennen(base), extern=tp.lade("pmu_laeufe_extern", base))
+                       standards=standardzeiten.je_rennen(base), extern=tp.lade("pmu_laeufe_extern", base),
+                       platz_lambda=einlauf.laden(base)["markt"])     # Platzerwartung mit den Markt-λ
     return prognose_basis.anfuegen(h, tp.lade(prognose_basis.TABELLE, base)) if len(h) else h   # PMU-Prognosen
 
 
