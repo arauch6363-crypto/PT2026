@@ -34,13 +34,27 @@ bewusst knapp gehalten; maßgeblich ist der Code.
 - `dist_group` – Distanzgruppe (200-m-Stufen), kategorisch.
 - `age_group` – Altersgruppe des Rennens (2yo, 3yo, 3yo+, 4yo+), kategorisch.
 - `season_doy` – Tag im Jahr (Reifung über die Saison).
-- `draw` – Startbox. `draw_rel` – Box ÷ Starterzahl (0 innen … 1 außen).
+- `draw` – Startbox. `draw_rel` – Rang der Box unter den tatsächlichen Startern (0 innen … 1 außen; ab Version 20 –
+  Boxen werden nach Nichtstartern nicht neu nummeriert). Das Boxdrittel in `box_stil_dev` ebenso.
 - `box_mean` / `box_runs` – Ø Pos+ und Zahl früherer Starts aus dieser Box auf derselben Bahnkonfiguration
   (Kurs + Distanz + Bahnart).
 - `box_dev` – dieselbe Box, zur Feldmitte hin geschrumpft: (Σ Pos+ + 30 × 0,5) ÷ (n + 30) − 0,5.
 - `box_stil_dev` / `box_stil_runs` – Box × Laufstil: Ø Pos+ je Bahnkonfiguration, Boxdrittel (innen/Mitte/außen) und
   Stil (vorne ≤ 0,25 / Mitte / hinten ≥ 0,6 frühe Position), geschrumpft wie `box_dev`. Im Stand zählt der
   tatsächliche frühe Platz des damaligen Laufs, heute der erwartete Stil (`early`). Nur mit Tracking.
+
+## Bahn-Eigenschaften (Version 20)
+
+- `bahn_vorne` / `bahn_vorne_runs` – Vorne-Vorteil der Konfiguration: Ø Pos+ der früheren Läufe von vorn (frühe
+  Position ≤ 0,25) minus 0,5, geschrumpft wie mit 30 Läufen (`BAHN_K`); nur Tage davor. `stil_x_vorne` – ×
+  (0,5 − `early`): > 0 für ein Pferd von vorn auf einer Bahn, die vorn begünstigt.
+- `bahn_endspurt` / `bahn_endspurt_runs` – Endspurt-Gewicht: Korrelation ΔL600 A mit Pos+ in der Konfiguration (ab 100
+  Läufen mit Tracking, `ENDSPURT_MIN`). `endspeed_x_endspurt` – `dl600` × Endspurt-Gewicht.
+- Aus `bahn_profil.PROFIL` (geprüfte Recherche; leer, bis eine Bahn eingetragen ist): `bahn_umfang`,
+  `bahn_zielgerade`, `bahn_kurve_rechts`, `bahn_wellig`, `bahn_ziel_ansteigend`, `bahn_gerade`, `bahn_groesse`
+  (0 klein < 1.600 m, 1 mittel, 2 groß ≥ 2.000 m); Wechselwirkungen `endspeed_x_zielgerade` (`dl600` × Zielgerade
+  ÷ 100) und `box_x_groesse` (`draw_rel` × (2 − Größe): außen auf kleiner Bahn groß).
+- Die Bahn als Kategorie ist noch nicht drin (Vergleich offen, siehe unten).
 
 ## Pferd: Stammdaten, Gewicht, Rating
 
@@ -105,7 +119,7 @@ Trend und Klasse:
 - `f_fi` / `f_g800` / `f_weg` – Tracking: Finish-Index, Positionsgewinn ab 800 m, Wegfaktor (gelaufene Strecke).
 - `f_odds` / `f_orank` / `f_pm` – Endquote, Quotenrang relativ (0 Favorit … 1 Außenseiter), Marktchance damals.
 - `f_verlauf` – Rennverlauf: +1 gegen, −1 mit, 0 neutral (zeitlich sauber berechnet).
-- `f_tage` – Tage zwischen diesem Lauf und heute.
+- `f_tage` – Tage zwischen diesem Lauf und heute (nur `f2_`/`f3_`; `f1_tage` = `days`, ab Version 20 gestrichen).
 - `f_same_going` / `f_same_dist` – gleiche Bodengruppe bzw. Distanzgruppe wie heute.
 - `f_gegner` – Gegner-Score: wie die Gegner aus diesem Rennen danach gegen ihren Quotenrang gelaufen sind (nur Starts
   vor heute).
@@ -117,7 +131,9 @@ Trend und Klasse:
   minus Ø des damaligen Feldes.
 - `f_stride_change` – Tracking: Schrittlänge der letzten 400 m gegen die Rennmitte in % (< 0: Schritt wird im Finish
   kürzer – Ermüdung).
-- `f1_vmax_rel` – Tracking: Höchsttempo im letzten Lauf minus Ø des damaligen Feldes (km/h).
+- `f_vmax_rel` – Tracking: Höchsttempo in diesem Lauf minus Ø des damaligen Feldes (km/h; `f2_`/`f3_` ab Version 20).
+- `vmax_best` / `vmax_z` / `vmax_dist` – Höchsttempo: Bestwert der 365 Tage, zeitgewichtetes Ø (bis 10 Läufe,
+  0,5^(Tage ÷ 90)), Ø auf der heutigen Distanzgruppe (Version 20; ohne ausgerittene Läufe).
 - `f_typ` – Renntyp dieses Laufs, kategorisch.
 
 ## Leistungskennzahlen (Kacheln)
@@ -131,7 +147,7 @@ Trend und Klasse:
   prüft die Rückfall-Hypothese nach einer Spitzenleistung).
 - `dl600` / `db200` – Tracking: Δ letzte 600 m bzw. erste 200 m gegen das Feld (Ø, gewichtet).
 - `early` – Ø frühe Position (Laufstil; klein = vorne).
-- `epr365` – €/Lauf der letzten 365 Tage (Index).
+- `epr365` – €/Lauf der letzten 365 Tage, ab Version 20 als log(1 + €/Lauf).
 - `lgo_pos` / `lgo_arr` – Pos+ und ARR im letzten Lauf auf heutiger Bodengruppe.
 - `ldi_pos` / `ldi_arr` – dasselbe für die heutige Distanzgruppe.
 
@@ -143,8 +159,10 @@ Trend und Klasse:
 - `cgd_sieg` / `cgd_platz` / `cgd_neu` – CGD-Bilanz vor heute (Siege bzw. Plätze auf Kurs/Boden/Distanz; neu = noch nie).
 - `erst_kurs` / `erst_boden` / `erst_dist` / `erst_belag` – heute erstmals auf diesem Kurs / Boden / Distanz /
   Belag (Gras ↔ PSF).
-- `going_pref` – Boden-Vorliebe über den Penetrometer: heutiger Wert minus Ø Penetrometer der drei besten Läufe
-  (nach Pos+, ab 3 Läufen mit Wert; > 0: heute weicher als in den besten Läufen). Ergänzt die Bodengruppen.
+- `going_pref` – Boden-Vorliebe über den Penetrometer (ab Version 20): Ø Penetrometer der drei besten Läufe (nach
+  Pos+) minus Ø aller Läufe mit Wert, ab 3 Läufen, × n ÷ (n + 3) (> 0: läuft weicher am besten).
+  `going_pass` – Passung: Vorliebe × (heute − eigener Ø; > 0: heute nach seinem Geschmack). `going_value` – der
+  Penetrometer heute selbst. Bis Version 19 war `going_pref` heute − Ø der besten Läufe (fast nur der heutige Wert).
 
 ## Tempo im heutigen Rennen
 
@@ -206,8 +224,10 @@ Trend und Klasse:
   Richtung, in der das Rennen liegt.
 - `abst_pass_sire` / `abst_pass_dam_sire` – nur Vater bzw. Muttervater.
 - `abst_pass_dist` / `_boden` / `_belag` / `_reife` / `_wechsel` – die einzelnen Skalen (Boden auf PSF leer).
-- `sire_going_pref` / `dam_sire_going_pref` – heutiger Penetrometer minus Ø Penetrometer der Spitzenläufe (Pos+ ≥ 0,75)
-  der Nachkommen, zum Ø aller Spitzenläufe geschrumpft (wie mit 20 Läufen), ab 10 Spitzenläufen.
+- `sire_going_pref` / `dam_sire_going_pref` – Boden-Vorliebe der Linie (ab Version 20): Ø Penetrometer der
+  Spitzenläufe (Pos+ ≥ 0,75) der Nachkommen minus Ø aller ihrer Läufe, × n ÷ (n + 20), ab 10 Spitzenläufen.
+  `sire_going_pass` / `dam_sire_going_pass` – Vorliebe × (heute − Ø aller Läufe der Linie). Bis Version 19: heute
+  minus Ø der Spitzenläufe (r = 0,98 mit dem heutigen Penetrometer).
 
 ## Duelle
 
@@ -223,7 +243,7 @@ Trend und Klasse:
 ## Tracking-Wert (Teilmodell)
 
 - `trk_wert` – vorhergesagter Platzanteil aus einem eigenen LightGBM-Modell, das nur die Tracking-Merkmale (`dl600`,
-  `db200`, `early`, `tr`, `f_tr`/`f_fi`/`f_g800`/`f_weg`/`f_stride_*`, `f1_vmax_rel`, Tempo und Box × Stil des Feldes)
+  `db200`, `early`, `tr`, `f_tr`/`f_fi`/`f_g800`/`f_weg`/`f_stride_*`, `f_vmax_rel`, `vmax_*`, Tempo und Box × Stil des Feldes)
   und den Rennrahmen (Starter, Distanz, Boden, Renntyp, Altersgruppe) kennt und nur auf Startern mit
   Tracking-Vorgeschichte lernt. `trk_wert_rk` / `trk_wert_dz` – Rang und Abstand im Feld.
 - Ohne Blick in die Zukunft: je Quartal ein Teilmodell aus allen früheren Quartalen (ab 5.000 Startern mit Tracking);
@@ -308,29 +328,15 @@ Trend und Klasse:
 
 ## Offen für den nächsten Neubau (Version 21)
 
-Gesammelt, nicht dringend – beim nächsten ohnehin fälligen Neubau der Merkmale in einem Rutsch umsetzen:
+Mit Version 20 umgesetzt: Box als Rang unter den Startern, Penetrometer neu gefasst, `epr365` logarithmisch, `f1_tage`
+gestrichen, Höchsttempo ausgebaut, Weglass-Tests (`pm.trainieren(…, ohne=[…], speichern=False)`, ebenso
+`pm.trainieren_wert`), Platzerwartung mit den Markt-λ (`rc.vorbereiten(…, platz_lambda=einlauf.laden(BASE)["markt"])`,
+in `rb.laden` und der Karte), Bahn-Eigenschaften (siehe oben). Offen:
 
-1. **`draw_rel` korrigieren:** Boxen werden nach Nichtstartern nicht neu nummeriert (Box > Starterzahl in ~3 % der
-   Zeilen, Werte bis 3,5). Stattdessen Rang der Box unter den tatsächlichen Startern (0 innen … 1 außen); dasselbe
-   für das Boxdrittel in `box_stil_dev`.
-2. **Penetrometer neu fassen:** `sire_going_pref` / `dam_sire_going_pref` (r = 0,98) messen fast nur den heutigen
-   Penetrometer. Neu: `going_value` heute als eigenes Merkmal; Vorliebe von Linie und Pferd als Ø Penetrometer der
-   Spitzenläufe minus Ø aller Läufe (geschrumpft); Passung = Vorliebe × (heute − Schnitt).
-3. **`epr365` logarithmisch** (log(1 + €/Lauf)), damit Ausreißer `epr365_dz` nicht verzerren.
-4. **`f1_tage` streichen** (identisch mit `days`).
-5. **Höchsttempo ausbauen:** `f2_vmax_rel`, `f3_vmax_rel`, zeitgewichtetes Ø und Bestwert von `vmax_rel`, `vmax_rel` auf
-   heutiger Distanzgruppe (`f1_vmax_rel` war im Value-Modell das stärkste neue Merkmal, Rang 16).
-6. **Weglass-Tests:** `pm.trainieren(…, ohne=[…], speichern=False)` – Merkmalsgruppen ohne Neubau weglassen (z. B.
-   `formz_pos_vb`/`formz_pos_pmu`, `form5_`-Dubletten, Rating-Varianten); behalten, was den Test-Log-Loss nicht
-   verschlechtert.
-7. **Platzerwartung der A/E-Werte mit den geschätzten Markt-λ** (`einlauf.laden(BASE)["markt"]` statt 0,8 / 0,65 in
-   `racecard.platz_erwartung`): die Vorgabe überschätzt die Platzerwartung von Außenseitern um etwa 6 % (Prüfung
-   Oktober 2026: 5.143 erwartet gegen 4.869 echt unter 10 % Siegchance; geschätzt 4.860), ihre Trainer, Jockeys und
-   Linien stehen dadurch zu schlecht da. Ändert alle A/E-Merkmale – deshalb erst mit dem Neubau.
-8. **Bahn-Eigenschaften statt Bahnname** (überträgt Muster auch auf seltene Bahnen): aus `bahn_profil.PROFIL` (geprüfte
-   Recherche, je Piste) Umfang, Größenklasse (klein/eng < 1.600 m, mittel, groß ≥ 2.000 m), Zielgerade, Kurve,
-   Profil, ansteigendes Ziel, gerade Bahn; dazu aus den eigenen Daten je Konfiguration, zeitlich sauber (nur Rennen
-   vor dem Tag): Vorne-Vorteil (Siegquote von der Spitze) und Endspurt-Gewicht (Anteil der letzten 600 m am
-   Ergebnis, aus dem Tracking). Wirkung vor allem über Wechselwirkungen mit dem Pferd – Laufstil × Vorne-Vorteil,
-   Endspeed × Zielgerade, Box × Größe. Vergleichsweise auch die Bahn als Kategorie (seltene Bahnen zusammengefasst).
-   Übernahme nur mit gepaartem Test.
+1. **`bahn_profil.PROFIL` füllen:** `bp.recherche(BASE)` in Colab, Werte prüfen und eintragen – bis dahin bleiben die
+   Profil-Merkmale leer.
+2. **Bahn als Kategorie** (seltene Bahnen zusammengefasst) im Vergleich zu den Bahn-Eigenschaften, mit gepaartem Test.
+3. **Weglass-Tests durchführen** (z. B. `formz_pos_vb`/`formz_pos_pmu`, `form5_`-Dubletten, Rating-Varianten) und
+   behalten, was den Test-Log-Loss nicht verschlechtert.
+4. **Merkmal-Zwischenspeicher und λ:** Werden die Markt-λ neu geschätzt (`einlauf.aus_historie`), ändern sich die
+   A/E-Merkmale – dann mit `neu=True` neu bauen.

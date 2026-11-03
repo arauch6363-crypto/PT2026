@@ -1191,6 +1191,32 @@ def power_modell_pruefen() -> None:
            "Box × Laufstil (Boxdrittel, Stil: Stand mit dem tatsächlichen frühen Platz, heute der erwartete Stil; "
            "geschrumpft), Box als Rang unter den Startern und Boden-Vorliebe des Vaters (Ø Penetrometer der Spitzenläufe − "
            "Ø aller Läufe, geschrumpft) samt Passung; f1_tage entfällt")
+    # Bahn-Eigenschaften: Vorne-Vorteil und Endspurt-Gewicht je Konfiguration (nur Läufe vor dem Tag), Profil
+    ok_bahn = True
+    for i in Xn_.index[::23]:
+        vk_ = hn_[(dn_ < dn_[i]) & (hn_["konfig"] == hn_.at[i, "konfig"]) & rp_.notna()]
+        vo_ = vk_[vk_["early_pct"] <= pm.rc.VERLAUF_VORNE]
+        erw_v = (rp_[vo_.index].sum() + pm.BAHN_K * 0.5) / (len(vo_) + pm.BAHN_K) - 0.5
+        ok_bahn &= abs(erw_v - Xn_.at[i, "bahn_vorne"]) < 1e-9 and Xn_.at[i, "bahn_vorne_runs"] == len(vo_)
+        ve_ = vk_[vk_["d_L600_A"].notna()]
+        if len(ve_) >= pm.ENDSPURT_MIN:
+            ok_bahn &= abs(np.corrcoef(ve_["d_L600_A"], rp_[ve_.index])[0, 1] - Xn_.at[i, "bahn_endspurt"]) < 1e-9
+        else:
+            ok_bahn &= np.isnan(Xn_.at[i, "bahn_endspurt"])
+    import bahn_profil as bp_
+    bp_.PROFIL["CHANTILLY"] = {"umfang_m": 2400, "zielgerade_m": 600, "kurve": "rechts", "profil": "flach",
+                               "ziel_ansteigend": False, "gerade_bahn": True}
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            Xb_ = pm.merkmale(hn_, log=print)
+    finally:
+        bp_.PROFIL.pop("CHANTILLY", None)
+    ch_ = hn_["course_key"].eq("CHANTILLY").to_numpy()
+    ok_bahn &= (Xb_.loc[ch_, "bahn_groesse"].eq(2).all() and Xb_.loc[~ch_, "bahn_umfang"].isna().all()
+                and Xb_.loc[ch_, "bahn_kurve_rechts"].eq(1).all() and Xb_.loc[ch_, "box_x_groesse"].fillna(0).eq(0).all())
+    pruefe(ok_bahn and Xn_["bahn_endspurt"].notna().any(),
+           "Bahn-Eigenschaften: Vorne-Vorteil (Ø Pos+ der Läufe von vorn, geschrumpft) und Endspurt-Gewicht (Korrelation "
+           "ΔL600 A mit Pos+) je Konfiguration aus früheren Tagen; Profil (Umfang, Größe, Kurve) aus bahn_profil.PROFIL")
     sc_ = pm._score(1.0, 1e-17, 0.5, 5.0, 1, 0.5, 5.0)
     pruefe(abs(sc_ - 100) < 1e-9 and abs(pm._score(1.0, 0.5, 0.5, 5.0, 1, 0.5, 5.0) - 400 / 3) < 1e-9,
            "Verbindungs-Score: Rundungsrest der Erwartung (1e-17) zählt nicht als A/E (kein Wert wie 1e16)")

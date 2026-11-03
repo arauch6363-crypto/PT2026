@@ -114,6 +114,8 @@ ABST_K = 20                 # dasselbe für Vater/Muttervater
 ABST_MIN = 30               # beste Gruppe von Vater/Muttervater erst ab so vielen Läufen in der Gruppe
 VB_MIN = 300               # Verlauf-Korrektur der Form erst, wenn die Klasse (gegen/mit/neutral) so viele Läufe hat
 WECHSEL_MAX_LAEUFE, WECHSEL_MAX_TAGE = 10, 730   # Trainer-/Besitzerwechsel: Läufe bzw. Tage seitdem, gedeckelt
+BAHN_K = 30                # Vorne-Vorteil der Konfiguration zur 0 hin geschrumpft wie mit so vielen Läufen
+ENDSPURT_MIN = 100          # Endspurt-Gewicht der Konfiguration erst ab so vielen Läufen mit ΔL600 A
 BOX_K = 30                 # box_dev: Box-Schnitt zur Feldmitte hin geschrumpft wie mit so vielen Läufen
 GOING_PREF_N, GOING_PREF_MIN = 3, 3   # Penetrometer-Vorliebe: Ø der besten so vielen Läufe, ab so vielen mit Wert
 GOING_PREF_K = 3            # ... zur 0 hin geschrumpft wie mit so vielen Läufen mehr
@@ -162,7 +164,9 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("trainer_reise", "Reise des Trainers"), ("stall_", "Stallgefährten"), ("box_stil", "Startbox × Laufstil"),
            ("going_pref", "Boden-Vorliebe (Penetrometer)"), ("going_pass", "Boden-Passung (Penetrometer)"),
            ("going_value", "Penetrometer heute"), ("sire_going_pass", "Vater: Boden-Passung"),
-           ("dam_sire_going_pass", "Muttervater: Boden-Passung"), ("vmax_", "Höchsttempo"), ("trk_wert", "Tracking-Wert"), ("m_", "Morgenquote"), ("abst_", "Abstammungs-Passung"),
+           ("dam_sire_going_pass", "Muttervater: Boden-Passung"), ("vmax_", "Höchsttempo"),
+           ("bahn_", "Bahn-Eigenschaften"), ("stil_x_vorne", "Laufstil × Vorne-Vorteil der Bahn"),
+           ("endspeed_x_", "Endspeed × Bahn"), ("box_x_groesse", "Startbox × Bahngröße"), ("trk_wert", "Tracking-Wert"), ("m_", "Morgenquote"), ("abst_", "Abstammungs-Passung"),
            ("cgd_", "Bilanz Kurs/Boden/Distanz (CGD)"), ("erst_", "erstmals Kurs/Boden/Distanz/Belag"), ("feld_val", "Klasse des Feldes"),
            ("lgo_", "letzter Lauf auf heutigem Boden"), ("ldi_", "letzter Lauf auf heutiger Distanz"),
            ("won_", "Sieg-Vorlieben"), ("placed_", "Platz-Vorlieben"), ("best_", "beste Gruppe Pferd"),
@@ -918,6 +922,8 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             feld(f"{l_}_{c}")
     feld("box_mean"), feld("box_runs"), feld("box_dev"), feld("chg_jockey_score")
     feld("trainer_sprung"), feld("besitzer_sprung"), feld("trainer_reise_km"), feld("box_stil_dev"), feld("box_stil_runs")
+    for c in ("bahn_vorne", "bahn_vorne_runs", "bahn_endspurt", "bahn_endspurt_runs", "stil_x_vorne", "endspeed_x_endspurt"):
+        feld(c)
     for l_ in ("sire", "dam_sire"):
         feld(f"{l_}_going_pref"), feld(f"{l_}_going_pass")
     # Box × Laufstil: Boxdrittel (innen/Mitte/außen) und Stil – im Stand der tatsächliche frühe Platz des Laufs, für
@@ -942,6 +948,8 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     pop_kat = {"dist": {}, "going": {}}                  # Gruppe -> [n, rp, lp] aller Läufe
     g_all = [0, 0.0, 0.0, 0, 0.0]                        # alle Läufe: n, rp, lp, n3, val3
     box: dict = {}
+    bahn_vorne: dict = {}                                # Konfiguration -> [n, Σ Pos+] der Läufe von vorn (frühe Position)
+    bahn_end: dict = {}                                  # Konfiguration -> [n, Σx, Σy, Σx², Σy², Σxy], x = ΔL600 A, y = Pos+
     alter = werte["age"]
     tage_pos = pd.Series(np.arange(n)).groupby(tag).apply(lambda s: s.to_numpy())
 
@@ -1033,6 +1041,20 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             if konfig[i] is not None and not np.isnan(werte["draw"][i]):  # geschrumpft: wenige Läufe ≈ 0 (Feldmitte)
                 n_b, s_b = (bs[0], bs[1]) if bs else (0, 0.0)
                 F["box_dev"][i] = (s_b + BOX_K * 0.5) / (n_b + BOX_K) - 0.5
+            if konfig[i] is not None:
+                # Vorne-Vorteil der Konfiguration: Ø Pos+ der Läufe von vorn minus 0,5 (geschrumpft); × Laufstil heute
+                n_v, s_v = bahn_vorne.get(konfig[i], (0, 0.0))
+                F["bahn_vorne"][i], F["bahn_vorne_runs"][i] = (s_v + BAHN_K * 0.5) / (n_v + BAHN_K) - 0.5, n_v
+                if np.isfinite(F["early"][i]):
+                    F["stil_x_vorne"][i] = F["bahn_vorne"][i] * (0.5 - F["early"][i])
+                # Endspurt-Gewicht: Korrelation Schlusstempo (ΔL600 A) mit Pos+ in dieser Konfiguration; × Endspeed
+                e_ = bahn_end.get(konfig[i])
+                if e_ and e_[0] >= ENDSPURT_MIN:
+                    vx, vy = e_[3] - e_[1] ** 2 / e_[0], e_[4] - e_[2] ** 2 / e_[0]
+                    if vx > 0 and vy > 0:
+                        F["bahn_endspurt"][i] = (e_[5] - e_[1] * e_[2] / e_[0]) / np.sqrt(vx * vy)
+                        F["endspeed_x_endspurt"][i] = F["dl600"][i] * F["bahn_endspurt"][i]
+                F["bahn_endspurt_runs"][i] = e_[0] if e_ else 0
         # Tag fertig: Ergebnisse in den Stand übernehmen (heutige Zeilen nie)
         for i in pos[~hm[pos] & (ext_[pos] == 0)]:          # externe Läufe zählen nicht für Verbindungen/Basis
             pl_, ex_, rp_, lp_ = (np.nan_to_num(placed[i]), np.nan_to_num(expp[i]), np.nan_to_num(rp0[i]),
@@ -1073,6 +1095,13 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             if konfig[i] is not None and not np.isnan(werte["draw"][i]):
                 bs = box.setdefault((konfig[i], werte["draw"][i]), [0, 0.0])
                 bs[0] += 1; bs[1] += rp_
+            if konfig[i] is not None and stil_lauf[i] == 0:
+                bv = bahn_vorne.setdefault(konfig[i], [0, 0.0])
+                bv[0] += 1; bv[1] += rp_
+            if konfig[i] is not None and np.isfinite(werte["d_L600_A"][i]):
+                x_ = werte["d_L600_A"][i]
+                be = bahn_end.setdefault(konfig[i], [0, 0.0, 0.0, 0.0, 0.0, 0.0])
+                be[0] += 1; be[1] += x_; be[2] += rp_; be[3] += x_ * x_; be[4] += rp_ * rp_; be[5] += x_ * rp_
             if konfig[i] is not None and drittel[i] >= 0 and stil_lauf[i] >= 0:
                 k_bs = (konfig[i], drittel[i], stil_lauf[i])
                 n_b, s_b = box_stil.get(k_bs, (0, 0.0))
@@ -1114,6 +1143,29 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
         log(f"  Duelle: {time.time() - t2:.0f} s")
 
     F.pop("f1_tage", None)                               # identisch mit days
+    # Bahn-Eigenschaften aus bahn_profil.PROFIL (geprüfte Recherche; leer, solange eine Bahn nicht eingetragen ist)
+    import bahn_profil
+    pcs = _text(h, "parcours_norm")
+    prof_cache: dict = {}
+    for c in ("bahn_umfang", "bahn_zielgerade", "bahn_kurve_rechts", "bahn_wellig", "bahn_ziel_ansteigend",
+              "bahn_gerade", "bahn_groesse", "endspeed_x_zielgerade", "box_x_groesse"):
+        feld(c)
+    for i in np.flatnonzero(zm):
+        k_ = (course[i], pcs[i])
+        if k_ not in prof_cache:
+            prof_cache[k_] = bahn_profil.profil(course[i], pcs[i]) if course[i] is not None else None
+        pr = prof_cache[k_]
+        if not pr:
+            continue
+        ja = lambda v: np.nan if v is None else float(bool(v))
+        F["bahn_umfang"][i] = pr.get("umfang_m") if pr.get("umfang_m") is not None else np.nan
+        F["bahn_zielgerade"][i] = pr.get("zielgerade_m") if pr.get("zielgerade_m") is not None else np.nan
+        F["bahn_kurve_rechts"][i] = np.nan if pr.get("kurve") is None else float(pr["kurve"] == "rechts")
+        F["bahn_wellig"][i] = np.nan if pr.get("profil") is None else float(pr["profil"] == "wellig")
+        F["bahn_ziel_ansteigend"][i], F["bahn_gerade"][i] = ja(pr.get("ziel_ansteigend")), ja(pr.get("gerade_bahn"))
+        F["bahn_groesse"][i] = {"klein": 0.0, "mittel": 1.0, "groß": 2.0}.get(pr.get("groesse"), np.nan)
+        F["endspeed_x_zielgerade"][i] = F["dl600"][i] * F["bahn_zielgerade"][i] / 100
+        F["box_x_groesse"][i] = F["draw_rel"][i] * (2.0 - F["bahn_groesse"][i])    # außen auf kleiner Bahn: groß
     out = pd.DataFrame(F, index=idx)
     kat.update({f"f{k}_typ": v for k, v in f_typ.items()})
     for c, v in kat.items():
@@ -1834,10 +1886,21 @@ def aufteilung(tage: pd.Series, beginn, ab: str | None = None, aufwaermen: int |
             "test_ab": t(g2)}
 
 
+def weglassen(X: pd.DataFrame, ohne: list[str] | str | None, log=print) -> pd.DataFrame:
+    """Weglass-Test: Spalten, deren Name einem Eintrag gleicht oder mit ihm beginnt (auch _rk/_dz), entfernen."""
+    if not ohne:
+        return X
+    ohne = [ohne] if isinstance(ohne, str) else list(ohne)
+    weg = [c for c in X.columns if any(c == o or c.startswith(o) for o in ohne)]
+    unbekannt = [o for o in ohne if not any(c == o or c.startswith(o) for c in X.columns)]
+    log(f"Weglass-Test: {len(weg)} Spalten ohne {', '.join(ohne)}" + (f" (nicht gefunden: {', '.join(unbekannt)})" if unbekannt else ""))
+    return X.drop(columns=weg)
+
+
 def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, out: Path | None = None,
                X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
                ab: str | None = None, neu: bool = False, art: str = "alle", aufwaermen: int | None = None,
-               segmente: str | None = None, speichern: bool = True,
+               segmente: str | None = None, speichern: bool = True, ohne: list[str] | str | None = None,
                abbruch: str = "standard", tracking: bool = False, zweitmodell: bool = True, catboost: bool = True,
                log=print) -> dict:
     """Einmal trainieren: Merkmale über die ganze Historie; das erste Jahr (AUFWAERM_TAGE) dient nur als Vorgeschichte,
@@ -1856,6 +1919,8 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
          lernt; behalten nur, wo es auf der Validierung die Rangkorrelation um SEG_MIN_GEWINN verbessert. Der Bericht
          zeigt je Segment gemeinsam gegen mit Segment-Modell (Validierung und Test).
     speichern=False: nur prüfen und berichten.
+    ohne: Merkmale weglassen (Weglass-Test ohne Neubau) – Namen oder Präfixe, z. B. ["formz_pos_vb", "formz_pos_pmu"];
+         trifft auch die abgeleiteten _rk/_dz. Mit speichern=False vergleichen, ob der Test-Log-Loss schlechter wird.
     abbruch: wonach das Lernen auf der Validierung abbricht (beste Baumzahl) – "standard" (Regression: quadratischer
          Fehler, Rang/Vorn: NDCG@3 von LightGBM), "sieg" (Log-Loss der Siegchance, dasselbe Maß wie die Modellwahl)
          oder "ndcg" (NDCG@3 mit den Gewinnen von „vorn“: nur die Spitze zählt, auch für die Regression).
@@ -1878,6 +1943,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     ok = y.notna()
     X, y = X[ok], y[ok]
     X = feld_relativ(X, hist.loc[X.index, "race_id"], hist.loc[X.index, "date"])
+    X = weglassen(X, ohne, log)
     trk = None
     if tracking:
         X, trk = tracking_wert(X, y, hist.loc[X.index, "date"], hist.loc[X.index, "race_id"], log=log)
@@ -2289,7 +2355,7 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
                     X: pd.DataFrame | None = None, params: dict | None = None, runden: int = LGB_RUNDEN,
                     ab: str | None = None, neu: bool = False, ziel_art: str = "platz", aufwaermen: int | None = None,
                     segmente: str | None = None, tracking: bool = False, speichern: bool = True,
-                    log=print) -> dict:
+                    ohne: list[str] | str | None = None, log=print) -> dict:
     """Value-Modell: lernt, wann ein Pferd öfter platziert ist, als seine Endquote erwarten lässt.
     ziel_art="platz": Ziel platziert 0/1 gegen die Platzchance des Marktes (binär, Faktor ≈ A/E Platz).
     ziel_art="kombi": Ziel Sieg + Platz (Sieger = 2, Platzierter = 1, sonst 0) gegen Siegchance + Platzchance des
@@ -2302,7 +2368,7 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     tracking: Tracking-Wert als Merkmal wie bei Power (Teilmodell auf den Platzanteil, je Quartal aus den früheren).
     Value in der fairen Quote: liegt BASE/modelle/power_oos.parquet vor (von pm.trainieren gespeichert), wird geprüft,
     ob p_fair · exp(κ · Value) besser ist (value_fair_mix); übernommen nur nach Likelihood-Quotienten-Test.
-    speichern=False: nur prüfen und berichten."""
+    speichern=False: nur prüfen und berichten. ohne: Merkmale weglassen wie bei trainieren."""
     import lightgbm as lgb
     import hypothesen_backtest as hb
     if segmente is not None and segmente not in SEGMENT_SPALTEN:
@@ -2320,6 +2386,7 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
     if ziel_art == "kombi":
         ok &= ps.notna() & wn.notna()
     X = feld_relativ(X[ok], hist.loc[X.index[ok], "race_id"], hist.loc[X.index[ok], "date"])
+    X = weglassen(X, ohne, log)
     trk = None
     if tracking:
         X, trk = tracking_wert(X, ziel(hist).reindex(X.index), hist.loc[X.index, "date"], hist.loc[X.index, "race_id"],

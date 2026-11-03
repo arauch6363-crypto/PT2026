@@ -756,3 +756,19 @@ def test_kombi_dashboard_ohne_runners_zeile(tmp_path):
     pool = f.assign(wert=f["p"] * fk - 1, wert_sh=f["p_sh"] * fk - 1)
     kw = kombi.dashboard_daten(tmp_path, pool, ab=None, n_sim=500, log=lambda *a: None)
     assert kw["rennen"]
+
+
+def test_weglassen_und_platz_lambda():
+    """pm.weglassen trifft Namen und Präfixe samt _rk/_dz; Platzerwartung mit Markt-λ wie einlauf.platz_chance."""
+    import einlauf
+    import power_modell as pm
+    import racecard as rc
+    X = pd.DataFrame({c: [1.0] for c in ["formz_pos_vb", "formz_pos_vb_rk", "formz_pos", "arr", "arr_dz"]})
+    assert list(pm.weglassen(X, ["formz_pos_vb", "arr"], log=lambda *a: None).columns) == ["formz_pos"]
+    assert pm.weglassen(X, None) is X
+    q = [2.5, 4.0, 6.0, 9.0, 12.0, 20.0, 25.0, 40.0]
+    h = pd.DataFrame({"race_id": "R", "odds_final": q, "n_runners": len(q)})
+    lam = [1.0, 0.83, 0.70, 0.7, 0.7]
+    p = (1 / np.array(q)) / (1 / np.array(q)).sum()
+    assert np.allclose(rc.platz_erwartung(h, lam).to_numpy(), einlauf.platz_chance(p, 3, lam))
+    assert np.allclose(rc.platz_erwartung(h).to_numpy(), einlauf.platz_chance(p, 3, einlauf.VORGABE))
