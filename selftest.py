@@ -1101,8 +1101,16 @@ def power_modell_pruefen() -> None:
         erw_sp = hn_.at[i, "valeur"] - a_.max() if len(a_) else np.nan
         erw_nb = fr_["arr"].iloc[0] - fr_["arr"].iloc[1:].max() if pd.notna(fr_["arr"].iloc[0]) and fr_["arr"].iloc[1:].notna().any() else np.nan
         best_ = fr_.assign(_rp=rp_[fr_.index]).sort_values("_rp", ascending=False, kind="stable").head(3)
-        erw_gp = hn_.at[i, "going_value"] - best_["going_value"].mean()
-        for erw_, spalte_ in ((erw_sp, "hcp_spielraum"), (erw_nb, "arr_neue_best"), (erw_gp, "going_pref")):
+        m_a_ = fr_["going_value"].mean()
+        erw_gp = (best_["going_value"].mean() - m_a_) * len(fr_) / (len(fr_) + pm.GOING_PREF_K)
+        erw_gs = erw_gp * (hn_.at[i, "going_value"] - m_a_)
+        vm_ = fr_.loc[~fr_.get("ausgeritten", pd.Series(False, index=fr_.index)).eq(True), "vmax_rel"].dropna().iloc[:pm.FORM_ZEIT_N]
+        w_ = 0.5 ** ((dn_[i] - fr_.loc[vm_.index, "_d"]).dt.days / pm.FORM_HWZ)
+        erw_vz = float((w_ * vm_).sum() / w_.sum()) if len(vm_) else np.nan
+        erw_f2 = fr_["vmax_rel"].iloc[1]
+        for erw_, spalte_ in ((erw_sp, "hcp_spielraum"), (erw_nb, "arr_neue_best"), (erw_gp, "going_pref"),
+                              (erw_gs, "going_pass"), (hn_.at[i, "going_value"], "going_value"), (erw_vz, "vmax_z"),
+                              (erw_f2, "f2_vmax_rel")):
             ist_ = Xn_.at[i, spalte_]
             if not ((np.isnan(erw_) and np.isnan(ist_)) or abs(erw_ - ist_) < 1e-9):
                 ok_n = False; print("abw", i, spalte_, erw_, ist_)
@@ -1112,7 +1120,8 @@ def power_modell_pruefen() -> None:
             ok_n &= (np.isnan(a1) and np.isnan(b1)) or a1 == b1
     pruefe(ok_n and Xn_["hcp_spielraum"].notna().any() and Xn_["arr_neue_best"].gt(0).any() and Xn_["arr_neue_best"].lt(0).any(),
            "Handicap-Spielraum (Rating − bester ARR 365), neue Bestleistung im letzten Lauf (ARR − bester davor), "
-           "Boden-Vorliebe (Penetrometer heute − Ø der besten drei Läufe), Schritt/Vmax des letzten Laufs relativ zum Feld")
+           "Boden-Vorliebe (Ø Penetrometer der besten drei Läufe − Ø aller, geschrumpft) und Passung (× heute − Ø), "
+           "Penetrometer heute, Schritt/Vmax der letzten Läufe, Höchsttempo zeitgewichtet")
     # Geschlecht im Feld, Meeting, Stall, Erlaubnis
     ok_g = True
     for i in Xn_.index[::53]:
@@ -1154,7 +1163,8 @@ def power_modell_pruefen() -> None:
     # Box × Laufstil und Penetrometer der Spitzenläufe des Vaters
     def stil_(e):
         return -1 if np.isnan(e) else 0 if e <= pm.rc.VERLAUF_VORNE else 2 if e >= pm.rc.VERLAUF_HINTEN else 1
-    dr_ = np.minimum(np.floor((hn_["draw"] - 1) / hn_["n_runners"] * 3), 2)
+    rang_ = hn_.groupby("race_id")["draw"].rank(method="first") - 1                  # Box als Rang unter den Startern
+    dr_ = np.minimum(np.floor(rang_ / hn_.groupby("race_id")["draw"].transform("count") * 3), 2)
     ok_b = True
     for i in Xn_.index[::29]:
         s_h = stil_(Xn_.at[i, "early"])
@@ -1169,13 +1179,18 @@ def power_modell_pruefen() -> None:
     for i in Xn_.index[::31]:
         vor_ = hn_[(dn_ < dn_[i]) & (rp_ >= pm.FORM_TOP)]
         eig_ = vor_[vor_["sire_key"] == hn_.at[i, "sire_key"]]
+        alle_ = hn_[(dn_ < dn_[i]) & rp_.notna() & (hn_["sire_key"] == hn_.at[i, "sire_key"])]
         if len(eig_) < gp_min_:
             ok_v &= np.isnan(Xn_.at[i, "sire_going_pref"]); continue
-        erw_ = hn_.at[i, "going_value"] - (eig_["going_value"].sum() + pm.ABST_K * vor_["going_value"].mean()) / (len(eig_) + pm.ABST_K)
-        ok_v &= abs(erw_ - Xn_.at[i, "sire_going_pref"]) < 1e-9
+        m_a_ = alle_["going_value"].mean()
+        erw_ = (eig_["going_value"].mean() - m_a_) * len(eig_) / (len(eig_) + pm.ABST_K)
+        ok_v &= (abs(erw_ - Xn_.at[i, "sire_going_pref"]) < 1e-9
+                 and abs(erw_ * (hn_.at[i, "going_value"] - m_a_) - Xn_.at[i, "sire_going_pass"]) < 1e-9)
+    ok_v &= Xn_["draw_rel"].between(0, 1).all() and "f1_tage" not in Xn_
     pruefe(ok_b and ok_v and Xn_["box_stil_dev"].notna().any() and Xn_["sire_going_pref"].notna().any(),
            "Box × Laufstil (Boxdrittel, Stil: Stand mit dem tatsächlichen frühen Platz, heute der erwartete Stil; "
-           "geschrumpft) und Penetrometer der Spitzenläufe des Vaters (zum Schnitt aller Spitzenläufe geschrumpft)")
+           "geschrumpft), Box als Rang unter den Startern und Boden-Vorliebe des Vaters (Ø Penetrometer der Spitzenläufe − "
+           "Ø aller Läufe, geschrumpft) samt Passung; f1_tage entfällt")
     sc_ = pm._score(1.0, 1e-17, 0.5, 5.0, 1, 0.5, 5.0)
     pruefe(abs(sc_ - 100) < 1e-9 and abs(pm._score(1.0, 0.5, 0.5, 5.0, 1, 0.5, 5.0) - 400 / 3) < 1e-9,
            "Verbindungs-Score: Rundungsrest der Erwartung (1e-17) zählt nicht als A/E (kein Wert wie 1e16)")

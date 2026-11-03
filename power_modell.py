@@ -116,6 +116,7 @@ VB_MIN = 300               # Verlauf-Korrektur der Form erst, wenn die Klasse (g
 WECHSEL_MAX_LAEUFE, WECHSEL_MAX_TAGE = 10, 730   # Trainer-/Besitzerwechsel: Läufe bzw. Tage seitdem, gedeckelt
 BOX_K = 30                 # box_dev: Box-Schnitt zur Feldmitte hin geschrumpft wie mit so vielen Läufen
 GOING_PREF_N, GOING_PREF_MIN = 3, 3   # Penetrometer-Vorliebe: Ø der besten so vielen Läufe, ab so vielen mit Wert
+GOING_PREF_K = 3            # ... zur 0 hin geschrumpft wie mit so vielen Läufen mehr
 GOING_PREF_ABST_MIN = 10   # ... für Vater/Muttervater ab so vielen Spitzenläufen (Pos ≥ FORM_TOP) der Nachkommen
 VERLAUF_MIN_VORHER = 200   # Rennverlauf (zeitlich): Klassengrenzen erst ab so vielen früheren Rennen
 PFERD_MIN = 2               # beste Gruppe des Pferdes erst ab so vielen Läufen in der Gruppe
@@ -159,7 +160,9 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("stute_gegen", "Geschlecht im Feld"), ("feld_anteil_maennlich", "Geschlecht im Feld"),
            ("jockey_ritte_meeting", "Meeting"), ("trainer_starter_meeting", "Meeting"),
            ("trainer_reise", "Reise des Trainers"), ("stall_", "Stallgefährten"), ("box_stil", "Startbox × Laufstil"),
-           ("going_pref", "Boden-Vorliebe (Penetrometer)"), ("trk_wert", "Tracking-Wert"), ("m_", "Morgenquote"), ("abst_", "Abstammungs-Passung"),
+           ("going_pref", "Boden-Vorliebe (Penetrometer)"), ("going_pass", "Boden-Passung (Penetrometer)"),
+           ("going_value", "Penetrometer heute"), ("sire_going_pass", "Vater: Boden-Passung"),
+           ("dam_sire_going_pass", "Muttervater: Boden-Passung"), ("vmax_", "Höchsttempo"), ("trk_wert", "Tracking-Wert"), ("m_", "Morgenquote"), ("abst_", "Abstammungs-Passung"),
            ("cgd_", "Bilanz Kurs/Boden/Distanz (CGD)"), ("erst_", "erstmals Kurs/Boden/Distanz/Belag"), ("feld_val", "Klasse des Feldes"),
            ("lgo_", "letzter Lauf auf heutigem Boden"), ("ldi_", "letzter Lauf auf heutiger Distanz"),
            ("won_", "Sieg-Vorlieben"), ("placed_", "Platz-Vorlieben"), ("best_", "beste Gruppe Pferd"),
@@ -462,7 +465,12 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     F["rating_adj"] = werte["valeur"] - gew + rc.GEWICHT_REF
     F["gew_erlaubnis"] = werte["weight_assigned_kg"] - gew              # Erlaubnis des Reiters (zugeteilt − getragen)
     F["age"], F["draw"] = werte["age"], werte["draw"]
-    F["draw_rel"] = werte["draw"] / nrun
+    # Box als Rang unter den tatsächlichen Startern (0 innen … 1 außen): Boxen werden nach Nichtstartern nicht neu
+    # nummeriert, die rohe Box / Starter lag in ~3 % der Zeilen über 1
+    box_rang0 = (pd.Series(werte["draw"]).groupby(rid).rank(method="first") - 1).to_numpy(dtype=float)
+    box_n = pd.Series(werte["draw"]).notna().groupby(rid).transform("sum").to_numpy(dtype=float)
+    F["draw_rel"] = np.where(box_n > 1, box_rang0 / np.maximum(box_n - 1, 1), np.nan)
+    F["going_value"] = werte["going_value"]                            # Penetrometer heute (vor dem Rennen bekannt)
     typ3 = np.array([renntyp3(t) for t in _text(h, "racetype")], dtype=object)
     a_min = pd.Series(werte["age"]).groupby(rid).transform("min").to_numpy(dtype=float)
     a_max = pd.Series(werte["age"]).groupby(rid).transform("max").to_numpy(dtype=float)
@@ -508,7 +516,8 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
               "f1_ausland", "formz_pos_pmu", "verlauf5_gegen", "verlauf5_mit", "form5_pos_gegen", "form5_pos_mit",
               "formz_pos_vb", "laeufe_seit_trainerwechsel", "tage_seit_trainerwechsel", "form_neuer_trainer",
               "form_neuer_trainer_n", "chg_owner", "laeufe_seit_besitzerwechsel", "tage_seit_besitzerwechsel",
-              "besitzer_ohne_trainer", "hcp_spielraum", "arr_neue_best", "going_pref", "f1_vmax_rel"]:
+              "besitzer_ohne_trainer", "hcp_spielraum", "arr_neue_best", "going_pref", "f1_vmax_rel", "f2_vmax_rel",
+              "f3_vmax_rel", "vmax_best", "vmax_z", "vmax_dist", "going_pass"]:
         feld(c)
     for c in ["runs", "runs365", "lgo_pos", "lgo_arr", "ldi_pos", "ldi_arr", "days", "rtr", "arr", "tr", "dl600", "db200", "early", "epr365",
               "won_course", "won_dist", "won_going", "placed_course", "placed_dist", "placed_going", "best_dist", "best_going"]:
@@ -646,12 +655,30 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 a_vor = [werte["arr"][j] for j in vor[1:] if not ausg[j] and not np.isnan(werte["arr"][j])]
                 if a_vor:
                     F["arr_neue_best"][i] = werte["arr"][vor[0]] - max(a_vor)
-            # Boden-Vorliebe: heutiger Penetrometer minus Ø Penetrometer der besten Läufe (> 0: heute weicher)
+            # Boden-Vorliebe: Ø Penetrometer der besten Läufe minus Ø aller Läufe (> 0: läuft weicher am besten),
+            # geschrumpft; Passung = Vorliebe × (heute − eigener Schnitt) (> 0: heute nach seinem Geschmack)
             pen = werte["going_value"]
             mit_pen = [j for j in vor if np.isfinite(pen[j]) and np.isfinite(rp0[j]) and not ausg[j]]
-            if len(mit_pen) >= GOING_PREF_MIN and np.isfinite(pen[i]):
+            if len(mit_pen) >= GOING_PREF_MIN:
                 beste = sorted(mit_pen, key=lambda j: -rp0[j])[:GOING_PREF_N]   # stabil: bei Gleichstand jüngere zuerst
-                F["going_pref"][i] = pen[i] - float(np.mean(pen[beste]))
+                m_alle = float(np.mean(pen[mit_pen]))
+                vorliebe = (float(np.mean(pen[beste])) - m_alle) * len(mit_pen) / (len(mit_pen) + GOING_PREF_K)
+                F["going_pref"][i] = vorliebe
+                if np.isfinite(pen[i]):
+                    F["going_pass"][i] = vorliebe * (pen[i] - m_alle)
+            # Höchsttempo (Tracking): Bestwert 365 Tage, zeitgewichtetes Ø, Ø auf der heutigen Distanzgruppe
+            vm = [j for j in vor if np.isfinite(werte["vmax_rel"][j]) and not ausg[j]]
+            if vm:
+                v365 = [werte["vmax_rel"][j] for j in vm if tag[i] - tag[j] <= 365]
+                if v365:
+                    F["vmax_best"][i] = max(v365)
+                vz = vm[:FORM_ZEIT_N]
+                wv = 0.5 ** ((tag[i] - tag[vz]) / FORM_HWZ)
+                F["vmax_z"][i] = float(np.sum(wv * werte["vmax_rel"][vz]) / np.sum(wv))
+                if dgrp[i] is not None:
+                    vd = [werte["vmax_rel"][j] for j in vm if dgrp[j] == dgrp[i]]
+                    if vd:
+                        F["vmax_dist"][i] = float(np.mean(vd))
             if dgrp[i] is not None:
                 ad = [werte["arr"][j] for j in vor if dgrp[j] == dgrp[i] and not ausg[j] and not np.isnan(werte["arr"][j])]
                 if ad:
@@ -803,7 +830,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 F["early"][i] = float(np.mean(fr))
             j365 = [prize[j] for j in vor if tag[i] - tag[j] <= 365]
             if j365:
-                F["epr365"][i] = float(np.mean(j365))
+                F["epr365"][i] = float(np.log1p(max(np.mean(j365), 0.0)))   # log(1 + €/Lauf): Ausreißer dämpfen
             sieg = [j for j in vor if won[j] == 1]
             platz = [j for j in vor if placed[j] == 1]
             for name, menge in (("won", sieg), ("placed", platz)):
@@ -828,8 +855,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 F[f"f{k}_cgd_sieg"][i], F[f"f{k}_cgd_platz"][i], F[f"f{k}_cgd_neu"][i] = cgd_z[j]
                 F[f"f{k}_extern"][i] = ekz_[j]
                 F[f"f{k}_stride_rel"][i], F[f"f{k}_stride_change"][i] = werte["stride_rel"][j], werte["stride_change_pct"][j]
-                if k == 1:
-                    F["f1_vmax_rel"][i] = werte["vmax_rel"][j]
+                F[f"f{k}_vmax_rel"][i] = werte["vmax_rel"][j]
                 f_pos[i, k - 1] = j
                 f_typ[k][i] = typ3[j]
                 feld_j = rennen_pos.get(rid[j], np.array([], dtype=int))
@@ -893,12 +919,12 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     feld("box_mean"), feld("box_runs"), feld("box_dev"), feld("chg_jockey_score")
     feld("trainer_sprung"), feld("besitzer_sprung"), feld("trainer_reise_km"), feld("box_stil_dev"), feld("box_stil_runs")
     for l_ in ("sire", "dam_sire"):
-        feld(f"{l_}_going_pref")
+        feld(f"{l_}_going_pref"), feld(f"{l_}_going_pass")
     # Box × Laufstil: Boxdrittel (innen/Mitte/außen) und Stil – im Stand der tatsächliche frühe Platz des Laufs, für
     # die Zielzeile der erwartete Stil (Ø frühe Position der letzten Läufe)
     def stil3(e):
         return np.where(np.isnan(e), -1, np.where(e <= rc.VERLAUF_VORNE, 0, np.where(e >= rc.VERLAUF_HINTEN, 2, 1)))
-    q_box = np.nan_to_num((werte["draw"] - 1) / np.maximum(nrun, 1), nan=-1.0)          # 0 = innen … < 1 = außen
+    q_box = np.nan_to_num(box_rang0 / np.maximum(box_n, 1), nan=-1.0)            # Rang unter den Startern: 0 … < 1
     drittel = np.where(q_box >= 0, np.minimum(np.floor(q_box * 3), 2), -1).astype(int)
     stil_lauf, stil_heute = stil3(werte["early_pct"]), stil3(F["early"])
     box_stil: dict = {}
@@ -908,6 +934,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
     pen = werte["going_value"]
     pen_top = {l_: {} for l_ in ("sire", "dam_sire")}    # Schlüssel -> [Summe Penetrometer, Anzahl] der Spitzenläufe
     pen_pop = [0.0, 0]                                   # dasselbe über alle Spitzenläufe
+    pen_all = {l_: {} for l_ in ("sire", "dam_sire")}    # Schlüssel -> [Summe Penetrometer, Anzahl] aller Läufe
     verb = {r_: {} for r_ in rollen}                     # Schlüssel -> [deque, n, placed, exp, rp, lp]
     glob = [deque(), 0, 0.0, 0.0]                        # 365-Tage-Schnitt aller Läufe: n, rp, lp
     abst = {l_: {} for l_ in linien}                     # Schlüssel -> [n, placed, exp, rp, lp, n3, val3]
@@ -953,12 +980,16 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 heim = max(tb[1].items(), key=lambda kv: kv[1], default=(None, 0))
                 if heim[1] > 0 and course[i] is not None:
                     F["trainer_reise_km"][i] = bahn_orte.km(lage.get(heim[0]), lage.get(course[i]))
-            if np.isfinite(pen[i]) and pen_pop[1]:            # Penetrometer der Spitzenläufe der Nachkommen
-                g_pen = pen_pop[0] / pen_pop[1]
-                for l_ in ("sire", "dam_sire"):
-                    st_ = pen_top[l_].get(linien[l_][i])
-                    if st_ and st_[1] >= GOING_PREF_ABST_MIN:
-                        F[f"{l_}_going_pref"][i] = pen[i] - (st_[0] + ABST_K * g_pen) / (st_[1] + ABST_K)
+            # Boden-Vorliebe der Linie: Ø Penetrometer der Spitzenläufe der Nachkommen minus Ø aller ihrer Läufe,
+            # geschrumpft (ABST_K); Passung = Vorliebe × (heute − Ø aller Läufe der Linie)
+            for l_ in ("sire", "dam_sire"):
+                st_, sa_ = pen_top[l_].get(linien[l_][i]), pen_all[l_].get(linien[l_][i])
+                if st_ and sa_ and st_[1] >= GOING_PREF_ABST_MIN:
+                    m_a = sa_[0] / sa_[1]
+                    vl = (st_[0] / st_[1] - m_a) * st_[1] / (st_[1] + ABST_K)
+                    F[f"{l_}_going_pref"][i] = vl
+                    if np.isfinite(pen[i]):
+                        F[f"{l_}_going_pass"][i] = vl * (pen[i] - m_a)
             if konfig[i] is not None and drittel[i] >= 0 and stil_heute[i] >= 0:
                 n_b, s_b = box_stil.get((konfig[i], drittel[i], stil_heute[i]), (0, 0.0))
                 F["box_stil_dev"][i] = (s_b + BOX_K * 0.5) / (n_b + BOX_K) - 0.5
@@ -1049,6 +1080,11 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
             if tr_[i] is not None and course[i] is not None:
                 tb = trainer_bahn.setdefault(tr_[i], [deque(), Counter()])
                 tb[0].append((d_, course[i])); tb[1][course[i]] += 1
+            if np.isfinite(pen[i]) and np.isfinite(rp0[i]):
+                for l_ in ("sire", "dam_sire"):
+                    if linien[l_][i] is not None:
+                        sa_ = pen_all[l_].setdefault(linien[l_][i], [0.0, 0])
+                        sa_[0] += pen[i]; sa_[1] += 1
             if np.isfinite(pen[i]) and rp0[i] >= FORM_TOP:
                 pen_pop[0] += pen[i]; pen_pop[1] += 1
                 for l_ in ("sire", "dam_sire"):
@@ -1077,6 +1113,7 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
         F["duel_weight"] = dm["duel_weight"].to_numpy(dtype=float)
         log(f"  Duelle: {time.time() - t2:.0f} s")
 
+    F.pop("f1_tage", None)                               # identisch mit days
     out = pd.DataFrame(F, index=idx)
     kat.update({f"f{k}_typ": v for k, v in f_typ.items()})
     for c, v in kat.items():
@@ -1572,7 +1609,7 @@ TRACKING_PARAMS = dict(objective="regression", learning_rate=0.05, num_leaves=31
                        feature_fraction=0.8, bagging_fraction=0.8, bagging_freq=1, lambda_l2=1.0, verbosity=-1)
 TRACKING_KONTEXT = ["n_runners", "distance_m", "dist_group", "going", "racetype", "age_group"]
 _TRACKING_MUSTER = re.compile(r"^(dl600|db200|early|early_rel|pace_front|pace_early_mean|tr|f[123]_(tr|fi|g800|weg|"
-                              r"stride_rel|stride_change)|f1_vmax_rel|box_stil_dev|box_stil_runs)(_rk|_dz)?$")
+                              r"stride_rel|stride_change|vmax_rel)|vmax_best|vmax_z|vmax_dist|box_stil_dev|box_stil_runs)(_rk|_dz)?$")
 
 
 def _gruppen_z(pred, G, cnt) -> np.ndarray:
