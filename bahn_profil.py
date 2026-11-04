@@ -184,7 +184,8 @@ def layout(bahn) -> dict | None:
     if bahn in _LAYOUT_CACHE:
         return _LAYOUT_CACHE[bahn]
     t, n = layout_tabelle(), _norm(bahn)
-    treffer = [k for k in t if n == k or n.startswith(k + " ")]
+    ohne = lambda x: re.sub(r"^(LE|LA|LES|L|HIPPODROME DE|HIPPODROME D) ", "", x)    # Artikel: LE MANS = MANS
+    treffer = [k for k in t if any(m == q or m.startswith(q + " ") for m in (n, ohne(n)) for q in (k, ohne(k)))]
     erg = t[max(treffer, key=len)] if treffer else None
     _LAYOUT_CACHE[bahn] = erg
     return erg

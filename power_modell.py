@@ -78,7 +78,8 @@ RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_l
            "form_pos_hoeher", "abst_pass", "formz_pos_pmu", "formz_pos_vb", "hcp_spielraum", "going_pref",
            "gew_erlaubnis"]
 # Segment-Modelle: lernen je Rennart nur die Korrektur zum gemeinsamen Modell (Ausgangswert = dessen Vorhersage)
-SEGMENT_SPALTEN = ("racetype", "age_group")
+SEGMENT_SPALTEN = ("racetype", "age_group", "belag")
+SEGMENT_NAMEN = {"racetype": "Renntyp", "age_group": "Altersgruppe", "belag": "Belag"}
 SEG_PARAMS = dict(learning_rate=0.02, num_leaves=15, min_data_in_leaf=200, feature_fraction=0.7, bagging_fraction=0.8,
                   bagging_freq=1, lambda_l2=10.0)
 SEG_MIN_STARTER = 2000      # Segment-Modell erst ab so vielen Lern-Startern im Segment
@@ -1794,7 +1795,42 @@ def _lgb_daten(lgb, Xk, y, rennen, art, ref=None, init=None):
 
 
 def _seg_text(X: pd.DataFrame, spalte: str) -> np.ndarray:
+    if spalte == "belag" and "going" in X:                 # PSF (Kunststoff) gegen Gras, aus der Bodengruppe
+        g = X["going"].astype(object)
+        return np.where(g.isna(), None, np.where(g.astype(str).str.upper() == "PSF", "PSF", "Gras")).astype(object)
     return X[spalte].astype(object).where(X[spalte].notna(), None).to_numpy() if spalte in X else np.full(len(X), None)
+
+
+def markt_je_segment(p_fair, odds, won, rennen, segment) -> pd.DataFrame:
+    """Faire Siegchance gegen den Markt je Segment (Testtage): Log-Loss des Siegers (fair, Markt aus 1/Endquote je
+    Rennen normiert), Abstand fair − Markt (kleiner = näher am Markt) und im bedingten Logit (ln p_Markt, ln p_fair)
+    der Koeffizient der fairen Chance mit z – > 0 und z ≥ 2: das Modell weiß in diesem Segment etwas, das die
+    Endquote nicht enthält."""
+    import hypothesen_backtest as hb
+    q = pd.to_numeric(pd.Series(np.asarray(odds, dtype=float)), errors="coerce")
+    d = pd.DataFrame({"race_id": np.asarray(rennen).astype(str), "p": np.asarray(p_fair, dtype=float),
+                      "won": np.nan_to_num(np.asarray(won, dtype=float)), "seg": np.asarray(segment, dtype=object)})
+    inv = (1 / q).where(q > 1)
+    d["pm"] = (inv / inv.groupby(d["race_id"]).transform("sum")).to_numpy()
+    d["seg"] = d.groupby("race_id")["seg"].transform("first")
+    voll = d.groupby("race_id")["pm"].transform(lambda x: x.notna().all()) & (d.groupby("race_id")["won"].transform("sum") == 1)
+    d = d[voll & (d["p"] > 0)].copy()
+    d["ln_p"], d["x"] = np.log(d["pm"]), np.log(d["p"])
+    zeilen = []
+    for s_, t in d.groupby("seg", sort=True):
+        if s_ is None:
+            continue
+        sg = t[t["won"] == 1]
+        z = {"segment": s_, "rennen": int(t["race_id"].nunique()),
+             "logloss_fair": round(float(-np.log(sg["p"]).mean()), 4), "logloss_markt": round(float(-np.log(sg["pm"]).mean()), 4)}
+        z["abstand"] = round(z["logloss_fair"] - z["logloss_markt"], 4)
+        try:
+            k = hb.clogit(t, ["x"]).set_index("variable")
+            z["fair_koef"], z["fair_z"] = float(k.loc["x", "koef"]), float(k.loc["x", "z"])
+        except Exception:
+            z["fair_koef"] = z["fair_z"] = None
+        zeilen.append(z)
+    return pd.DataFrame(zeilen)
 
 
 def _seg_datei(stamm: str, s_: str) -> str:
@@ -2206,6 +2242,10 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
                                    "teil": teil_, "p_fair": d_x["p1"].to_numpy(dtype=float)}))
     oos = pd.concat(teile, ignore_index=True)
     bericht["je_rennen"] = je_rennen
+    # faire Siegchance gegen den Markt je Segment (Renntyp, Altersgruppe, Belag PSF/Gras)
+    odds_t = hist.loc[X.index[test], "odds_final"].to_numpy()
+    bericht["markt_je_segment"] = {sp: markt_je_segment(pb_t, odds_t, w_test, rt_, _seg_text(X, sp)[test]).to_dict("records")
+                                   for sp in SEGMENT_SPALTEN}
     # Rote Starter (Power ≤ 95): wie oft gewinnen / platzieren sie sich? (fürs Weglassen in der Claude-JSON)
     st_t = np.log(np.clip(pb_t, 1e-12, 1))                # z im Rennen wie die Stärke der Power-Mischung
     pw_test = 100 + 10 * _z_im_rennen(st_t, pt["race_id"].to_numpy())
@@ -2222,10 +2262,14 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
         log(f"  {k}: {v}")
     log("Test (unberührt, je Rennen):")
     for k, v in bericht.items():
-        if k not in ("validierung", "aufteilung", "segmente", "je_rennart", "je_rennen"):
+        if k not in ("validierung", "aufteilung", "segmente", "je_rennart", "je_rennen", "markt_je_segment"):
             log(f"  {k}: {v}")
     for sp, zeilen in je_art.items():
-        log(f"  Test je {'Renntyp' if sp == 'racetype' else 'Altersgruppe'} (Modell gegen Endquote):")
+        log(f"  Test je {SEGMENT_NAMEN.get(sp, sp)} (Modell gegen Endquote):")
+        log(pd.DataFrame(zeilen).to_string(index=False))
+    for sp, zeilen in (bericht.get("markt_je_segment") or {}).items():
+        log(f"  Test je {SEGMENT_NAMEN.get(sp, sp)}: faire Siegchance gegen den Markt (Abstand = Log-Loss fair − Markt; "
+            f"fair_koef/z = Zusatzinfo neben der Endquote):")
         log(pd.DataFrame(zeilen).to_string(index=False))
     if segmente:
         log(f"  Segment-Modelle je {segmente} (Rangkorrelation gemeinsam → mit Segment-Modell):")
@@ -2566,7 +2610,7 @@ def trainieren_wert(base: Path | None = None, *, hist: pd.DataFrame | None = Non
         if k2 not in ("fuenftel", "rendite", "rendite_top10", "je_rennart", "segmente"):
             log(f"  {k2}: {v2}")
     for sp, zeilen in je_art.items():
-        log(f"  Test je {'Renntyp' if sp == 'racetype' else 'Altersgruppe'} (A/E unterstes/oberstes Fünftel, Gold):")
+        log(f"  Test je {SEGMENT_NAMEN.get(sp, sp)} (A/E unterstes/oberstes Fünftel, Gold):")
         log(pd.DataFrame(zeilen).to_string(index=False))
     if segmente:
         log(f"  Segment-Modelle je {segmente} (Verlust gemeinsam → mit Segment-Modell, kleiner = besser):")

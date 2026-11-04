@@ -1564,7 +1564,7 @@ def power_modell_pruefen() -> None:
            "Claude-JSON: Verlässlichkeit im heutigen Renntyp/Altersgruppe (blind Power, Markt Value), gold nur bis "
            "Prognose-Cote 10, Warnsignal je Starter")
     mi2 = pm.modell_info(mw)
-    pruefe(set(mi2["power"]["je_rennart"]) == {"racetype", "age_group"} and set(mi2["value"]["je_rennart"]) == {"racetype", "age_group"}
+    pruefe(set(mi2["power"]["je_rennart"]) == set(pm.SEGMENT_SPALTEN) and set(mi2["value"]["je_rennart"]) == set(pm.SEGMENT_SPALTEN)
            and all(isinstance(w["warn"], bool) for w in vw.values())
            and sum(w["warn"] for w in vw.values()) <= len(vw),
            "Modell-Info je Rennart aus dem Bericht; Value-Warnsignal (unterstes Fünftel) je Starter in der Vorhersage")

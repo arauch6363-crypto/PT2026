@@ -269,6 +269,17 @@ Trend und Klasse:
   (Mischung 2,0854 statt 2,0827), im Test etwas besser (1,9951 statt 1,9964) – beides im Rauschen. Einschalten
   mit `pm.trainieren(…, tracking=True)`; mit mehr Tracking-Historie erneut prüfen.
 
+## Training: Bericht je Segment (Renntyp, Altersgruppe, Belag)
+
+- `SEGMENT_SPALTEN` = Renntyp, Altersgruppe und **Belag** (PSF gegen Gras, aus der Bodengruppe `going`).
+- „Test je … (Modell gegen Endquote)“: Rangkorrelation und Sieger getroffen je Segment.
+- „Test je …: faire Siegchance gegen den Markt“ (`markt_je_segment`): Log-Loss des Siegers fair und Markt, Abstand
+  (fair − Markt; kleiner = näher am Markt) und `fair_koef`/`fair_z` aus dem bedingten Logit (ln p_Markt, ln p_fair):
+  > 0 mit z ≥ 2 = das Modell weiß im Segment etwas, das die Endquote nicht enthält.
+- Value-Bericht ebenso je Belag (A/E unterstes/oberstes Fünftel, Gold-Rendite).
+- `pm.trainieren(BASE, segmente="belag")`: Zusatzmodell je Belag (lernt nur die Korrektur zum gemeinsamen Modell),
+  behalten nur, wo es die Validierung verbessert.
+
 ## Training: Abbruch
 
 - `pm.trainieren(…, abbruch=…)`: wonach das Lernen auf der Validierung abbricht – `"standard"` (Regression:

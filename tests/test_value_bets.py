@@ -772,3 +772,23 @@ def test_weglassen_und_platz_lambda():
     p = (1 / np.array(q)) / (1 / np.array(q)).sum()
     assert np.allclose(rc.platz_erwartung(h, lam).to_numpy(), einlauf.platz_chance(p, 3, lam))
     assert np.allclose(rc.platz_erwartung(h).to_numpy(), einlauf.platz_chance(p, 3, einlauf.VORGABE))
+
+
+def test_markt_je_segment():
+    """Faire Chance mit Zusatzinfo nur im Segment B: dort fair_koef > 0 und kleinerer Abstand zum Markt."""
+    import power_modell as pm
+    rng = np.random.default_rng(4)
+    zeilen = []
+    for r in range(1200):
+        seg = "A" if r % 2 else "B"
+        q = rng.dirichlet(np.ones(8) * 2)
+        x = rng.normal(0, 1, 8)
+        u = np.log(q) + (0.8 * x if seg == "B" else 0)
+        w = rng.choice(8, p=np.exp(u) / np.exp(u).sum())
+        fair = np.exp(np.log(q) + (0.8 * x if seg == "B" else 0.3 * rng.normal(0, 1, 8)))
+        fair /= fair.sum()
+        zeilen += [{"r": f"R{r}", "p": fair[i], "q": 1 / q[i], "w": int(i == w), "s": seg} for i in range(8)]
+    d = pd.DataFrame(zeilen)
+    t = pm.markt_je_segment(d["p"], d["q"], d["w"], d["r"], d["s"]).set_index("segment")
+    assert t.loc["B", "fair_z"] > 4 and t.loc["B", "abstand"] < 0 < t.loc["A", "abstand"]
+    assert t.loc["A", "rennen"] == 600
