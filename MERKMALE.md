@@ -66,7 +66,9 @@ Zuordnung über den Bahnnamen, auch mit Zusatz wie ANGERS EVENTARD → ANGERS; f
   geschrumpft wie mit 3 Läufen (`LAYOUT_K`); `richtung_pos_rel` / `richtung_runs` dasselbe für die Laufrichtung.
 - `jockey_layout_score`, `jockey_richtung_score`, `jockey_feld_score` (+ `_runs`) – Verbindungs-Scores des Jockeys
   (365 Tage, wie `jockey_kurs_score`) auf diesem Layout, in dieser Richtung und bei dieser Feldgröße (klein ≤ 7,
-  normal 8–12, groß 13+ Starter).
+  normal 8–12, groß 13+ Starter). Maßstab für Pos+ und €/Lauf ist dabei der Schnitt derselben Kategorie (ab Version
+  22): in kleinen Feldern gibt es mehr Preisgeld je Starter, auf engen Bahnen oft kleinere Felder – sonst sähe ein
+  Jockey dort automatisch besser aus. A/E Platz ist ohnehin über die Quoten des Rennens bereinigt.
 - Auf der Karte (Vorlieben): beim Jockey „Bahn eng/normal/weit“, „Rechts-/Linkskurs“, „Feld klein/normal/groß“
   (2 Jahre, antippen: alle Gruppen), beim Pferd „nach Bahn-Layout“ und „nach Laufrichtung“.
 

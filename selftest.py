@@ -729,6 +729,17 @@ def power_modell_pruefen() -> None:
            "Bahn-Layout: Layout/Zielgerade/Richtung aus bahn_layout.csv (Name auch mit Zusatz, z. B. ANGERS EVENTARD), "
            "Vorliebe des Pferdes (Ø Pos+ auf gleichem Layout bzw. gleicher Richtung minus Ø, geschrumpft) nachgerechnet, "
            "Jockey-Scores für Layout, Richtung und Feldgröße (klein ≤ 7, normal 8–12, groß 13+)")
+    # Jockey-Vorliebe Feldgröße: Pos+ und €/Lauf gegen den Schnitt derselben Feldklasse (kleine Felder: mehr Preisgeld)
+    hf_ = h.copy()
+    kl_ = hf_["race_id"].str[-1].astype(int) % 2 == 1
+    hf_["feld_klasse"] = np.where(kl_, "klein", "normal")
+    hf_["prize_won"] = hf_["prize_won"] * np.where(kl_, 3.0, 1.0)
+    with contextlib.redirect_stdout(io.StringIO()):
+        Xf_ = pm.merkmale(hf_, log=print)
+    mf_ = Xf_.groupby(hf_["feld_klasse"].to_numpy())["jockey_feld_score"].mean()
+    pruefe(abs(mf_["klein"] - mf_["normal"]) < 1.0,
+           f"Jockey nach Feldgröße gegen den Schnitt derselben Feldklasse: dreifaches Preisgeld in kleinen Feldern hebt "
+           f"den Score nicht (Ø klein {mf_['klein']:.1f}, normal {mf_['normal']:.1f})")
     # Form auf dem heutigen Belag (PSF/Gras), Belag-Spezialist, Anteil passender Läufe, Tage seit Lauf auf dem Belag
     hb_ = h.copy()
     hb_["going_pmu"] = np.where(hb_["race_id"].str[-1].astype(int) % 2, "PSF", "FAST")
