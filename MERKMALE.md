@@ -1,4 +1,4 @@
-# Merkmale des Power- und Value-Modells (Version 21)
+# Merkmale des Power- und Value-Modells (Version 22)
 
 Übersicht aller Eingangsgrößen von `power_modell.merkmale` mit kurzer Definition und Berechnung. Die Angaben sind
 bewusst knapp gehalten; maßgeblich ist der Code.
@@ -66,7 +66,9 @@ Zuordnung über den Bahnnamen, auch mit Zusatz wie ANGERS EVENTARD → ANGERS; f
   geschrumpft wie mit 3 Läufen (`LAYOUT_K`); `richtung_pos_rel` / `richtung_runs` dasselbe für die Laufrichtung.
 - `jockey_layout_score`, `jockey_richtung_score`, `jockey_feld_score` (+ `_runs`) – Verbindungs-Scores des Jockeys
   (365 Tage, wie `jockey_kurs_score`) auf diesem Layout, in dieser Richtung und bei dieser Feldgröße (klein ≤ 7,
-  normal 8–12, groß 13+ Starter).
+  normal 8–12, groß 13+ Starter). Maßstab für Pos+ und €/Lauf ist dabei der Schnitt derselben Kategorie (ab Version
+  22): in kleinen Feldern gibt es mehr Preisgeld je Starter, auf engen Bahnen oft kleinere Felder – sonst sähe ein
+  Jockey dort automatisch besser aus. A/E Platz ist ohnehin über die Quoten des Rennens bereinigt.
 - Auf der Karte (Vorlieben): beim Jockey „Bahn eng/normal/weit“, „Rechts-/Linkskurs“, „Feld klein/normal/groß“
   (2 Jahre, antippen: alle Gruppen), beim Pferd „nach Bahn-Layout“ und „nach Laufrichtung“.
 
@@ -117,6 +119,16 @@ Zeitgewichtet über bis zu 10 Läufe, Gewicht 0,5^(Tage ÷ 90) (`formz_…`):
 - `formz_pos_pmu` – `formz_pos` nur aus PMU-Läufen (ohne PMH/Ausland).
 - `formz_pos_vb` – `formz_pos` um den Rennverlauf bereinigt: Läufe gegen den Verlauf bekommen einen Zuschlag, mit dem
   Verlauf einen Abzug (Ø Pos+ aller minus Ø Pos+ der Klasse, laufend aus früheren Tagen).
+
+Form auf dem heutigen Belag (Version 22; PSF gegen Gras – im Herbst und Frühjahr wechselt der Belag, die Form stammt
+dann meist vom anderen):
+- `formz_pos_belag` / `formz_arr_belag` – zeitgewichtete Form wie `formz_pos` / `formz_arr`, nur aus Läufen auf dem
+  heutigen Belag (bis 10, Pos geschrumpft wie `formz_pos`); auch relativ zum Feld (`_rk`/`_dz`). `formz_belag_n` –
+  Zahl dieser Läufe (0 = noch nie auf dem Belag).
+- `belag_diff` – Belag-Spezialist: Ø Pos+ auf dem heutigen Belag minus auf dem anderen, beide zum eigenen Ø
+  geschrumpft wie mit 3 Läufen (auf PSF also PSF − Gras; > 0: liegt ihm heute besser).
+- `anteil_belag5` – Anteil der letzten 5 Läufe auf dem heutigen Belag (wie viel der Form passt).
+- `tage_seit_belag` – Tage seit dem letzten Lauf auf dem heutigen Belag.
 
 Trend und Klasse:
 - `form_steig_pos` / `_arr` / `_lb` / `_ue` – Steigung je Lauf über die letzten 6 (> 0: wird besser bzw. mehr Längen).

@@ -729,6 +729,53 @@ def power_modell_pruefen() -> None:
            "Bahn-Layout: Layout/Zielgerade/Richtung aus bahn_layout.csv (Name auch mit Zusatz, z. B. ANGERS EVENTARD), "
            "Vorliebe des Pferdes (Ø Pos+ auf gleichem Layout bzw. gleicher Richtung minus Ø, geschrumpft) nachgerechnet, "
            "Jockey-Scores für Layout, Richtung und Feldgröße (klein ≤ 7, normal 8–12, groß 13+)")
+    # Jockey-Vorliebe Feldgröße: Pos+ und €/Lauf gegen den Schnitt derselben Feldklasse (kleine Felder: mehr Preisgeld)
+    hf_ = h.copy()
+    kl_ = hf_["race_id"].str[-1].astype(int) % 2 == 1
+    hf_["feld_klasse"] = np.where(kl_, "klein", "normal")
+    hf_["prize_won"] = hf_["prize_won"] * np.where(kl_, 3.0, 1.0)
+    with contextlib.redirect_stdout(io.StringIO()):
+        Xf_ = pm.merkmale(hf_, log=print)
+    mf_ = Xf_.groupby(hf_["feld_klasse"].to_numpy())["jockey_feld_score"].mean()
+    pruefe(abs(mf_["klein"] - mf_["normal"]) < 1.0,
+           f"Jockey nach Feldgröße gegen den Schnitt derselben Feldklasse: dreifaches Preisgeld in kleinen Feldern hebt "
+           f"den Score nicht (Ø klein {mf_['klein']:.1f}, normal {mf_['normal']:.1f})")
+    # Form auf dem heutigen Belag (PSF/Gras), Belag-Spezialist, Anteil passender Läufe, Tage seit Lauf auf dem Belag
+    hb_ = h.copy()
+    hb_["going_pmu"] = np.where(hb_["race_id"].str[-1].astype(int) % 2, "PSF", "FAST")
+    with contextlib.redirect_stdout(io.StringIO()):
+        Xb_ = pm.merkmale(hb_, log=print)
+    rpb_ = pm.ziel(hb_)
+    hbs_ = hb_.assign(_d=pd.to_datetime(hb_["date"])).sort_values(["_d", "saddle_no"])
+    ok_b2, n_b2 = True, 0
+    for i_ in Xb_.index[Xb_["runs"] >= 3][::9][:50]:
+        vor = hbs_[(hbs_["horse_id"] == hb_.at[i_, "horse_id"]) & (hbs_["_d"] < pd.to_datetime(hb_.at[i_, "date"]))].iloc[::-1]
+        if vor["_d"].duplicated().any():
+            continue
+        bl = hb_.at[i_, "going_pmu"]
+        gl = vor[vor["going_pmu"] == bl]
+        an = vor[vor["going_pmu"] != bl]
+        tz = (pd.to_datetime(hb_.at[i_, "date"]) - gl["_d"]).dt.days
+        g10 = gl.iloc[:pm.FORM_ZEIT_N]
+        w_ = 0.5 ** ((pd.to_datetime(hb_.at[i_, "date"]) - g10["_d"]).dt.days / pm.FORM_HWZ)
+        y_ = rpb_[g10.index]
+        erw_f = ((w_ * y_).sum() + pm.FORM_ZEIT_K * 0.5) / (w_.sum() + pm.FORM_ZEIT_K) if len(g10) else np.nan
+        mi_, oh_ = rpb_[gl.index].dropna(), rpb_[an.index].dropna()
+        m0 = pd.concat([mi_, oh_]).mean()
+        erw_d = ((mi_.sum() + pm.LAYOUT_K * m0) / (len(mi_) + pm.LAYOUT_K) - (oh_.sum() + pm.LAYOUT_K * m0) / (len(oh_) + pm.LAYOUT_K)
+                 if len(mi_) and len(oh_) else np.nan)
+        erw = {"formz_pos_belag": erw_f, "formz_belag_n": float(len(g10)), "belag_diff": erw_d,
+               "anteil_belag5": float((vor["going_pmu"].iloc[:pm.FORM_VERDICHTET] == bl).mean()),
+               "tage_seit_belag": float(tz.iloc[0]) if len(tz) else np.nan}
+        for k_, e_ in erw.items():
+            ist = Xb_.at[i_, k_]
+            if not ((np.isnan(e_) and np.isnan(ist)) or abs(e_ - ist) < 1e-9):
+                ok_b2 = False; print("abw", i_, k_, e_, ist)
+        n_b2 += 1
+    pruefe(ok_b2 and n_b2 >= 20 and Xb_["belag_diff"].notna().any() and Xb_["tage_seit_belag"].notna().any(),
+           f"Belag-Form ({n_b2} Zeilen nachgerechnet): zeitgewichtete Form nur auf heutigem Belag samt Anzahl, Belag-"
+           "Spezialist (Ø Pos+ heutiger minus anderer Belag, geschrumpft), Anteil der letzten 5 auf heutigem Belag, Tage "
+           "seit dem letzten Lauf auf heutigem Belag")
     h2 = h.copy()
     letzt = h2["date"] == h2["date"].max()
     h2.loc[letzt, "finish_pos"] = h2.loc[letzt, "finish_pos"].to_numpy()[::-1]          # Ergebnis des letzten Tages ändern
