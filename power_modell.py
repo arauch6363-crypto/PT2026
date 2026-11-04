@@ -69,14 +69,14 @@ PROTOKOLL = "auswertung/value_protokoll.csv"   # Vorwärts-Test: jede Karte schr
 WERT_STUFEN = 5             # Prüfung: Starter nach vorhergesagtem Value-Faktor in so viele gleich große Gruppen
 MERKMAL_DATEI = "merkmale.parquet"   # Zwischenspeicher der Merkmale (Bauen dauert ~30 min)
 SCHLUESSEL_DATEI = "merkmale_schluessel.parquet"   # je Zeile des Zwischenspeichers: race_id, horse_id
-MERKMAL_VERSION = 21                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
+MERKMAL_VERSION = 22                   # hochzählen, wenn merkmale() neue Spalten bekommt -> Zwischenspeicher wird neu gebaut
 # Merkmale, die zusätzlich relativ zum heutigen Feld eingehen: Rang im Feld (0..1) und Abstand zum Feldschnitt
 RELATIV = ["rating_adj", "weight", "epr365", "rtr", "arr", "tr", "f1_pos", "f1_lb", "f1_pm", "f2_pos", "trainer_score",
            "jockey_score", "owner_score", "duel_score", "sire_score", "lgo_pos", "ldi_pos",
            "form5_pos", "form5_best", "form5_lb", "form5_arr", "runs", "age", "arr_best365", "trainer_30_score",
            "dam_score", "form5_ue", "formz_pos", "formz_arr", "formz_ue", "form_steig_pos", "form_steig_arr",
            "form_pos_hoeher", "abst_pass", "formz_pos_pmu", "formz_pos_vb", "hcp_spielraum", "going_pref",
-           "gew_erlaubnis"]
+           "gew_erlaubnis", "formz_pos_belag", "formz_arr_belag"]
 # Segment-Modelle: lernen je Rennart nur die Korrektur zum gemeinsamen Modell (Ausgangswert = dessen Vorhersage)
 SEGMENT_SPALTEN = ("racetype", "age_group", "belag")
 SEGMENT_NAMEN = {"racetype": "Renntyp", "age_group": "Altersgruppe", "belag": "Belag"}
@@ -142,7 +142,10 @@ GRUPPEN = [("f1_", "letzter Lauf"), ("f2_", "vorletzter Lauf"), ("f3_", "Lauf da
            ("db200", "ΔB200 A"), ("duel", "Duell"), ("box", "Startbox"), ("early", "Laufstil"), ("pace", "Tempo-Szenario"),
            ("form5_", "Form letzte 5"), ("formz_", "Form zeitgewichtet"), ("form_steig", "Formtrend"),
            ("verlauf5", "Rennverlauf"), ("form5_pos_gegen", "Rennverlauf"), ("form5_pos_mit", "Rennverlauf"),
-           ("formz_pos_vb", "Form zeitgewichtet (Verlauf bereinigt)"),
+           ("formz_pos_vb", "Form zeitgewichtet (Verlauf bereinigt)"), ("formz_pos_belag", "Form auf heutigem Belag"),
+           ("formz_arr_belag", "Form auf heutigem Belag"), ("formz_belag_n", "Form auf heutigem Belag"),
+           ("anteil_belag5", "Form auf heutigem Belag"), ("tage_seit_belag", "Form auf heutigem Belag"),
+           ("belag_diff", "Belag-Spezialist (PSF/Gras)"),
            ("laeufe_seit_trainer", "Trainerwechsel"), ("tage_seit_trainer", "Trainerwechsel"),
            ("trainer_sprung", "Trainerwechsel"), ("form_neuer_trainer", "Trainerwechsel"),
            ("chg_owner", "Besitzerwechsel"), ("laeufe_seit_besitzer", "Besitzerwechsel"),
@@ -533,7 +536,8 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
               "form_neuer_trainer_n", "chg_owner", "laeufe_seit_besitzerwechsel", "tage_seit_besitzerwechsel",
               "besitzer_ohne_trainer", "hcp_spielraum", "arr_neue_best", "going_pref", "f1_vmax_rel", "f2_vmax_rel",
               "f3_vmax_rel", "vmax_best", "vmax_z", "vmax_dist", "going_pass", "layout_pos_rel", "layout_runs",
-              "richtung_pos_rel", "richtung_runs"]:
+              "richtung_pos_rel", "richtung_runs", "formz_pos_belag", "formz_arr_belag", "formz_belag_n", "belag_diff",
+              "anteil_belag5", "tage_seit_belag"]:
         feld(c)
     for c in ["runs", "runs365", "lgo_pos", "lgo_arr", "ldi_pos", "ldi_arr", "days", "rtr", "arr", "tr", "dl600", "db200", "early", "epr365",
               "won_course", "won_dist", "won_going", "placed_course", "placed_dist", "placed_going", "best_dist", "best_going"]:
@@ -803,6 +807,36 @@ def merkmale(h: pd.DataFrame, ziel_maske: pd.Series | None = None, heute: pd.Ser
                 yv = rp0[vz] + zu
                 F["formz_pos_vb"][i] = float(((wz[m_] * yv[m_]).sum() + FORM_ZEIT_K * FORM_ZEIT_PRIOR["pos"])
                                              / (wz[m_].sum() + FORM_ZEIT_K))
+            # Form auf dem heutigen Belag (PSF / Gras): im Herbst und Frühjahr wechselt der Belag, die Form stammt dann
+            # meist vom anderen
+            if belag[i] is not None:
+                vbl = [j for j in vor if belag[j] == belag[i]]
+                vbz = np.array(vbl[:FORM_ZEIT_N], dtype=int)
+                if len(vbz):
+                    wb = 0.5 ** ((tag[i] - tag[vbz]) / FORM_HWZ)
+                    yb = rp0[vbz]
+                    mb = np.isfinite(yb)
+                    F["formz_belag_n"][i] = float(mb.sum())
+                    if mb.any():
+                        F["formz_pos_belag"][i] = float(((wb[mb] * yb[mb]).sum() + FORM_ZEIT_K * FORM_ZEIT_PRIOR["pos"])
+                                                        / (wb[mb].sum() + FORM_ZEIT_K))
+                    ya = werte["arr"][vbz] - gew[i] + rc.GEWICHT_REF
+                    ma = np.isfinite(ya)
+                    if ma.any():
+                        F["formz_arr_belag"][i] = float((wb[ma] * ya[ma]).sum() / wb[ma].sum())
+                    F["tage_seit_belag"][i] = float(tag[i] - tag[vbz[0]])
+                else:
+                    F["formz_belag_n"][i] = 0.0
+                b5 = [j for j in vor[:FORM_VERDICHTET] if belag[j] is not None]
+                if b5:
+                    F["anteil_belag5"][i] = float(np.mean([belag[j] == belag[i] for j in b5]))
+                # Belag-Spezialist: Ø Pos+ auf dem heutigen Belag minus auf dem anderen, je zum eigenen Ø geschrumpft
+                mit_ = [j for j in vbl if np.isfinite(rp0[j])]
+                ohne_ = [j for j in vor if belag[j] is not None and belag[j] != belag[i] and np.isfinite(rp0[j])]
+                if mit_ and ohne_:
+                    m0 = float(np.mean(rp0[mit_ + ohne_]))
+                    F["belag_diff"][i] = ((float(np.sum(rp0[mit_])) + LAYOUT_K * m0) / (len(mit_) + LAYOUT_K)
+                                          - (float(np.sum(rp0[ohne_])) + LAYOUT_K * m0) / (len(ohne_) + LAYOUT_K))
             for name, y, h_ in (("klasse", feld_val[vz], feld_val[i]), ("preis", preis[vz], preis[i])):
                 m_ = np.isfinite(y)
                 if m_.any() and not np.isnan(h_):           # > 0: zuletzt (zeitgewichtet) in stärkeren Rennen als heute
