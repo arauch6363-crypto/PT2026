@@ -794,3 +794,19 @@ def test_markt_je_segment():
     t = pm.markt_je_segment(d["p"], d["q"], d["w"], d["r"], d["s"]).set_index("segment")
     assert t.loc["B", "fair_z"] > 4 and t.loc["B", "abstand"] < 0 < t.loc["A", "abstand"]
     assert t.loc["A", "rennen"] == 600
+
+
+def test_toto_ergebnis_js(tmp_path):
+    """Zum Toto statt FK: Sieg-Bein mit Toto-Endquote, Einsätze und Steuer unverändert, ohne Toto bleibt der FK."""
+    import shutil
+    import subprocess
+    if not shutil.which("node"):
+        pytest.skip("node fehlt")
+    t = vb.TEMPLATE.read_text(encoding="utf-8")
+    sim = t[t.index("// SIM-START"):t.index("// SIM-END")]
+    bets = [{"won": True, "stake_win": 10, "stake_place": 0, "fk_sieg": 5.0, "toto_end": 4.0, "profit_win": 39.5, "profit_place": 0},
+            {"won": False, "stake_win": 10, "stake_place": 0, "fk_sieg": 8.0, "toto_end": 9.0, "profit_win": -10.5, "profit_place": 0},
+            {"won": True, "stake_win": 5, "stake_place": 0, "fk_sieg": 3.0, "toto_end": None, "profit_win": 9.75, "profit_place": 0}]
+    (tmp_path / "t.js").write_text(sim + f"\nconsole.log(JSON.stringify(totoErgebnis({json.dumps(bets)})));", encoding="utf-8")
+    r = json.loads(subprocess.run(["node", str(tmp_path / "t.js")], capture_output=True, text=True, check=True).stdout)
+    assert r["diff"] == -10 and r["profit"] == pytest.approx(28.75) and r["ohne"] == 1 and r["roi"] == pytest.approx(28.75 / 25)

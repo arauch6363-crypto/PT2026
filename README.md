@@ -684,6 +684,9 @@ vergleicht beide Rechnungen über Node.
   Veranstaltung (0 = alle), höchstens 1 je Rennen und Toto-Abzug. Vorgabe ist die Tipp-Strategie: ⅛ Kelly, nur Sieg,
   Wert ≥ 0,2, Kelly-Anteil ≥ 5 %, höchstens 7 je Veranstaltung und 1 je Rennen; „Auf Vorgabe zurück“ stellt sie
   wieder her. Modus (`max`/`rank`/`rel`) und Top-Wert gibt es nur noch in Python (`vb.FilterConfig`).
+- **Zum Toto ausgezahlt** (Kachel in „Bank & Ergebnis“): dieselben Picks, Einsätze und Steuer, aber das Sieg-Bein
+  zur Toto-Endquote statt zum Festkurs (`totoErgebnis`); Gewinn, ROI und Unterschied zum FK. Ohne Toto-Endquote
+  zählt der Festkurs, das Platz-Bein (Each-Way) bleibt beim Festkurs (keine Toto-Platzquoten im Pool).
 - **Modell-Rang:** Filter „Modell-Rang bis“ (`max_rang`, Vorgabe 0 = alle): nur Pferde, die das Modell im Rennen
   höchstens auf diesem Rang sieht (Rang der fairen Quote). Die Tabelle „Modell-Rang der Picks“ zeigt dieselbe
   Auswahl ohne Rang-Filter aufgeteilt in Rang 1–2, Rang ≥ 3 und Festkurs > 25 (Siege gegen Modell-Erwartung mit z,
