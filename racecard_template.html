@@ -241,7 +241,7 @@ input{color:inherit}
               <sc-if value="{{ r.isTip }}" hint-placeholder-val="{{ false }}"><span title="{{ r.tipTip }}" style="font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;background:var(--tip-bg);color:var(--tip-gold);border-radius:3px;padding:2px 5px">Tipp {{ r.tipRang }} · {{ r.tipEinsatz }}</span></sc-if>
             </div>
             <div title="{{ r.karTip }}" style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#57534B;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.karTxt }} · <span style="color:{{ r.valFg }}">{{ r.valTxt }}</span> · <span style="color:{{ r.pauseFg }}">{{ r.pauseTxt }}</span></div>
-            <div style="font-size:12px;color:#57534B;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.jt }}</div>
+            <div style="font-size:12px;color:#57534B;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">J {{ r.jName }}<span title="{{ r.jTrTip }}" style="color:{{ r.jTrFg }};font-size:10px;margin-left:2px">{{ r.jTr }}</span> · T {{ r.tName }}<span title="{{ r.tTrTip }}" style="color:{{ r.tTrFg }};font-size:10px;margin-left:2px">{{ r.tTr }}</span></div>
             <div style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#8C877C;margin-top:2px;display:flex;flex-wrap:wrap;align-items:center;gap:0 4px"><span>{{ r.meta }}</span></div>
           </div>
         </div>
@@ -1300,6 +1300,9 @@ class Component extends DCLogic {
     const out = {
       no, horse: x.horse, silk: x.silk || '', silkBg: x.silk ? 'url("' + x.silk + '")' : 'none', ageSex: x.age + 'j ' + (SEX[x.sex] || ''),
       jt: 'J ' + tc(x.jockey) + ' · T ' + tc(x.trainer),
+      ...(() => { const tr = a => a?.trend === 'hot' ? ['▲', C.good, 'heiß: A/E Platz der letzten 30 Tage deutlich über dem 365-Tage-Schnitt'] : a?.trend === 'cold' ? ['▼', C.bad, 'kalt: A/E Platz der letzten 30 Tage deutlich unter dem 365-Tage-Schnitt'] : ['', C.ink3, ''];
+        const J = tr(x.ae?.jockey), T = tr(x.ae?.trainer);
+        return { jName: tc(x.jockey), tName: tc(x.trainer), jTr: J[0], jTrFg: J[1], jTrTip: J[2], tTr: T[0], tTrFg: T[1], tTrTip: T[2] }; })(),
       ...(() => { const KA = x.career?.all || {}, va = x.rating_adj ?? x.rating;
         // Form (letzte 7), CGD und Kennzeichen sowie Box-Abweichung in der Übersicht
         const formTop = []; const re7 = /(\d|[A-Z])[a-z]/g; let m7; const fs7 = (x.form || '').replace(/\(\d+\)/g, '');
