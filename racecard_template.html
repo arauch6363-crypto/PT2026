@@ -219,15 +219,29 @@ input{color:inherit}
       </sc-if>
       <div onClick="{{ r.cycle }}" style="padding:12px 16px 10px;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) 52px;gap:6px 10px">
         <div style="display:flex;gap:10px;align-items:flex-start;min-width:0">
-          <span style="flex:none;width:32px;height:36px;border-radius:5px;background:#0B4D3C;color:#FEFEFE;font-weight:800;font-stretch:62%;font-size:24px;display:grid;place-items:center">{{ r.no }}</span>
+          <span style="flex:none;display:flex;flex-direction:column;align-items:center;gap:3px">
+            <span style="width:32px;height:36px;border-radius:5px;background:#0B4D3C;color:#FEFEFE;font-weight:800;font-stretch:62%;font-size:24px;display:grid;place-items:center">{{ r.no }}</span>
+            <sc-if value="{{ r.hasBoxDev }}" hint-placeholder-val="{{ false }}">
+              <span title="{{ r.boxDevTip }}" style="font-family:'Spline Sans Mono',monospace;font-size:9.5px;font-weight:600;line-height:1.3;white-space:nowrap;color:{{ r.boxDevFg }};background:{{ r.boxDevBg }};border-radius:3px;padding:0 {{ r.boxDevPad }}">{{ r.boxDevTxt }}</span>
+            </sc-if>
+          </span>
           <span style="flex:none;width:30px;height:30px;margin-top:3px;background-image:{{ r.silkBg }};background-size:contain;background-repeat:no-repeat;background-position:center"></span>
           <div style="min-width:0;flex:1">
             <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap">
               <span style="font-weight:800;font-stretch:72%;font-size:18px;line-height:1.05;text-transform:uppercase;letter-spacing:.01em;text-decoration:{{ r.strike }}">{{ r.horse }}</span>
               <span style="font-size:11.5px;color:#8C877C">{{ r.ageSex }}</span>
+              <sc-for list="{{ r.kzTop }}" as="kz" hint-placeholder-count="1">
+                <span title="{{ kz.tip }}" style="font-family:{{ kz.ff }};font-size:10.5px;font-weight:700;color:{{ kz.fg }};background:{{ kz.bg }};border-radius:3px;padding:0 {{ kz.pad }}">{{ kz.t }}</span>
+              </sc-for>
+              <span style="display:inline-flex;gap:2px;align-self:center">
+                <sc-for list="{{ r.formTop }}" as="q" hint-placeholder-count="6">
+                  <span style="width:14px;height:14px;border-radius:3px;display:grid;place-items:center;font-family:'Spline Sans Mono',monospace;font-size:9px;font-weight:600;background:{{ q.bg }};color:{{ q.fg }};border:1px solid {{ q.bd }};box-sizing:border-box">{{ q.c }}</span>
+                </sc-for>
+              </span>
               <sc-if value="{{ r.isTip }}" hint-placeholder-val="{{ false }}"><span title="{{ r.tipTip }}" style="font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;background:var(--tip-bg);color:var(--tip-gold);border-radius:3px;padding:2px 5px">Tipp {{ r.tipRang }} · {{ r.tipEinsatz }}</span></sc-if>
             </div>
-            <div style="font-size:12px;color:#57534B;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.jt }}</div>
+            <div title="{{ r.karTip }}" style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#57534B;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.karTxt }} · <span style="color:{{ r.valFg }}">{{ r.valTxt }}</span> · <span style="color:{{ r.pauseFg }}">{{ r.pauseTxt }}</span></div>
+            <div style="font-size:12px;color:#57534B;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">J {{ r.jName }}<span title="{{ r.jTrTip }}" style="color:{{ r.jTrFg }};font-size:10px;margin-left:2px">{{ r.jTr }}</span> · T {{ r.tName }}<span title="{{ r.tTrTip }}" style="color:{{ r.tTrFg }};font-size:10px;margin-left:2px">{{ r.tTr }}</span></div>
             <div style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#8C877C;margin-top:2px;display:flex;flex-wrap:wrap;align-items:center;gap:0 4px"><span>{{ r.meta }}</span></div>
           </div>
         </div>
@@ -258,14 +272,6 @@ input{color:inherit}
       <sc-if value="{{ r.isMid }}" hint-placeholder-val="{{ false }}">
         <div style="padding:0 16px 14px">
           <div style="display:grid;gap:6px">
-            <div style="display:grid;grid-template-columns:78px minmax(0,1fr);gap:8px;align-items:center">
-              <span style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#8C877C">Form</span>
-              <span style="display:flex;gap:3px;flex-wrap:wrap">
-                <sc-for list="{{ r.formSq }}" as="q" hint-placeholder-count="6">
-                  <span style="width:20px;height:20px;border-radius:4px;display:grid;place-items:center;font-family:'Spline Sans Mono',monospace;font-size:11px;font-weight:600;background:{{ q.bg }};color:{{ q.fg }};border:1px solid {{ q.bd }}">{{ q.c }}</span>
-                </sc-for>
-              </span>
-            </div>
             <sc-for list="{{ r.steck }}" as="st" hint-placeholder-count="4">
               <div style="display:grid;grid-template-columns:78px minmax(0,1fr);gap:8px;align-items:baseline;font-size:12.5px">
                 <span style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#8C877C">{{ st.k }}</span>
@@ -297,13 +303,25 @@ input{color:inherit}
               </div>
             </sc-for>
           </div>
-          <div style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#8C877C;margin:14px 0 2px">Kennzahlen · Rang im Feld</div>
+          <div style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#8C877C;margin:14px 0 2px">Kennzahlen · im Feld <span style="font-weight:500;letter-spacing:0;text-transform:none">· grün = dieser Starter, rechts besser</span></div>
           <div style="display:grid;border-top:1px solid #DCD8CE">
             <sc-for list="{{ r.metrics }}" as="k" hint-placeholder-count="7">
               <div title="{{ k.tip }}" style="display:grid;grid-template-columns:78px minmax(0,1fr) auto;gap:2px 8px;align-items:baseline;padding:6px 0;border-bottom:1px solid #EEEBE4">
                 <span style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#8C877C">{{ k.k }}</span>
                 <span style="min-width:0"><b style="font-family:'Spline Sans Mono',monospace;font-size:14px;font-weight:600;color:{{ k.fg }}">{{ k.v }}</b> <span style="font-family:'Spline Sans Mono',monospace;font-size:10.5px;color:#8C877C">{{ k.sub }}</span></span>
                 <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#57534B;white-space:nowrap">{{ k.rk }}</span>
+                <sc-if value="{{ k.hasPts }}" hint-placeholder-val="{{ true }}">
+                  <span style="grid-column:2/-1;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px;align-items:center;margin-top:3px">
+                    <span style="font-family:'Spline Sans Mono',monospace;font-size:9.5px;color:#8C877C">{{ k.loTxt }}</span>
+                    <span style="position:relative;height:14px">
+                      <span style="position:absolute;left:0;right:0;top:6px;height:2px;border-radius:1px;background:#EEEBE4"></span>
+                      <sc-for list="{{ k.pts }}" as="pt" hint-placeholder-count="8">
+                        <span title="{{ pt.tip }}" style="position:absolute;left:{{ pt.l }}%;top:7px;width:{{ pt.sz }}px;height:{{ pt.sz }}px;margin-left:{{ pt.mt }}px;margin-top:{{ pt.mt }}px;border-radius:50%;background:{{ pt.bg }};border:2px solid {{ pt.bd }};opacity:{{ pt.op }};z-index:{{ pt.z }};box-sizing:border-box"></span>
+                      </sc-for>
+                    </span>
+                    <span style="font-family:'Spline Sans Mono',monospace;font-size:9.5px;color:#8C877C">{{ k.hiTxt }}</span>
+                  </span>
+                </sc-if>
               </div>
             </sc-for>
           </div>
@@ -1282,6 +1300,23 @@ class Component extends DCLogic {
     const out = {
       no, horse: x.horse, silk: x.silk || '', silkBg: x.silk ? 'url("' + x.silk + '")' : 'none', ageSex: x.age + 'j ' + (SEX[x.sex] || ''),
       jt: 'J ' + tc(x.jockey) + ' · T ' + tc(x.trainer),
+      ...(() => { const tr = a => a?.trend === 'hot' ? ['▲', C.good, 'heiß: A/E Platz der letzten 30 Tage deutlich über dem 365-Tage-Schnitt'] : a?.trend === 'cold' ? ['▼', C.bad, 'kalt: A/E Platz der letzten 30 Tage deutlich unter dem 365-Tage-Schnitt'] : ['', C.ink3, ''];
+        const J = tr(x.ae?.jockey), T = tr(x.ae?.trainer);
+        return { jName: tc(x.jockey), tName: tc(x.trainer), jTr: J[0], jTrFg: J[1], jTrTip: J[2], tTr: T[0], tTrFg: T[1], tTrTip: T[2] }; })(),
+      ...(() => { const KA = x.career?.all || {}, va = x.rating_adj ?? x.rating;
+        // Form (letzte 7), CGD und Kennzeichen sowie Box-Abweichung in der Übersicht
+        const formTop = []; const re7 = /(\d|[A-Z])[a-z]/g; let m7; const fs7 = (x.form || '').replace(/\(\d+\)/g, '');
+        while ((m7 = re7.exec(fs7)) && formTop.length < 7) { const c = m7[1];
+          formTop.push(c === '1' ? { c, bg: C.green, fg: C.onGreen, bd: C.green } : (c === '2' || c === '3') ? { c, bg: C.mid, fg: C.ink, bd: C.mid } : { c, bg: 'transparent', fg: C.ink2, bd: C.line }); }
+        const kzTop = (x.badges || []).filter(b => !(x.cgd && ['C', 'D', 'CD'].includes(b))).map(b => ({ t: b, ff: 'Archivo,sans-serif', fg: b === 'BF' ? C.bad : C.ink, bg: b === 'BF' ? C.badBg : C.soft, pad: '3px', tip: BADGE[b] }));
+        if (x.cgd) kzTop.push({ t: x.cgd, ff: "'Spline Sans Mono',monospace", fg: C.ink, bg: 'transparent', pad: '0', tip: 'Bilanz vor heute je Buchstabe: C = Kurs, G = Bodengruppe, D = Distanzgruppe · groß = schon gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = noch nie gelaufen' });
+        const D = x.draw_stat, bd = D && x.draw != null && D.dev != null;
+        return { karTxt: 'K ' + (KA.runs ? KA.runs + '/' + KA.wins + '/' + KA.places : '–'), valTxt: 'V ' + (va != null ? kurz(va) : '–'),
+          valFg: rkTone(x.rating_rank, x.rating_n), pauseTxt: 'P ' + (x.days ?? '–'), pauseFg: x.days > 60 ? C.bad : C.ink,
+          karTip: 'K = Karriere Starts/Siege/Plätze · V = Valeur aufs heutige Gewicht bereinigt' + (x.rating != null ? ' (roh ' + kurz(x.rating) + ')' : '') + ', Farbe nach Rang im Feld · P = Tage seit dem letzten Lauf (rot ab 60)',
+          formTop, kzTop, hasBoxDev: !!bd, boxDevTxt: bd ? sgn(D.dev, 2) + (D.sig ? '✱' : '') : '',
+          boxDevFg: bd && D.sig ? (D.dev > 0 ? C.good : C.bad) : C.ink3, boxDevBg: bd && D.sig ? (D.dev > 0 ? C.goodBg : C.badBg) : 'transparent', boxDevPad: bd && D.sig ? '3px' : '0',
+          boxDevTip: bd ? 'Box ' + x.draw + ': Ø-Wert ' + fx(D.mean, 2) + ', Abweichung ' + sgn(D.dev, 2) + ' (z ' + sgn(D.z, 1) + ') aus ' + D.n + ' Läufen' + (D.sig ? ' – signifikant' : '') : '' }; })(),
       meta: kurz(x.weight) + ' kg · Box ' + (x.draw ?? '–'), draw: x.draw ?? '–', days: x.days ?? '–', daysFg: x.days > 60 ? C.bad : C.ink,
       ...(() => { const D = x.draw_stat; if (!D || x.draw == null || D.dev == null) return { hasBox: false };
         return { hasBox: true, boxDev: sgn(D.dev, 2) + (D.sig ? '✱' : ''), boxBg: D.sig ? (D.dev > 0 ? C.goodBg : C.badBg) : 'transparent', boxFg: D.sig ? (D.dev > 0 ? C.good : C.bad) : C.ink3,
@@ -1309,7 +1344,7 @@ class Component extends DCLogic {
     if (!isMid) return out;
 
     // ---- mittlere Stufe
-    // Steckbrief: Stil, Ausrüstung, Änderungen, Box, Pause, Kennzeichen (je Zeile Bezeichnung links, Werte rechts)
+    // Steckbrief: Stil, Ausrüstung, Änderungen, Abstammung (Form, Karriere, Pause, Box und Kennzeichen stehen oben) (je Zeile Bezeichnung links, Werte rechts)
     const it = (t, o = {}) => ({ t, tip: '', fg: C.ink, bg: 'transparent', pad: '0', fw: 500, ff: 'Archivo,sans-serif', ...o });
     const mono = { ff: "'Spline Sans Mono',monospace", fw: 600 }, gold = { bg: C.goldBg, pad: '4px', fw: 600 };
     const steck = [], bl = blinkTxt(x.blinkers), aend = x.changes || [];
@@ -1317,17 +1352,8 @@ class Component extends DCLogic {
     if (x.style) steck.push({ k: 'Stil', items: [it(x.style_label), it('früh Ø ' + Math.round((x.early ?? 0) * 100) + ' %', { fg: C.ink2, tip: 'Laufstil aus ' + x.early_runs + ' Läufen' })] });
     if (bl || aendBl.length) steck.push({ k: 'Ausrüstung', items: aendBl.length ? aendBl.map(c => it(c.text, gold)) : [it(bl, { tip: x.blinkers })] });
     if (aendSonst.length) steck.push({ k: 'Änderung', items: aendSonst.map(c => it(c.text, gold)) });
-    const D = x.draw_stat;
-    steck.push({ k: 'Box · Pause', items: [it(String(x.draw ?? '–'), mono),
-      ...(D && x.draw != null && D.dev != null ? [it(sgn(D.dev, 2) + (D.sig ? '✱' : ''), { ...mono, fg: D.sig ? (D.dev > 0 ? C.good : C.bad) : C.ink3,
-        bg: D.sig ? (D.dev > 0 ? C.goodBg : C.badBg) : 'transparent', pad: D.sig ? '4px' : '0',
-        tip: 'Box ' + x.draw + ': Ø-Wert ' + fx(D.mean, 2) + ', Abweichung ' + sgn(D.dev, 2) + ' (z ' + sgn(D.z, 1) + ') aus ' + D.n + ' Läufen' + (D.sig ? ' – signifikant' : '') })] : []),
-      it('·', { fg: C.ink3 }), it(x.days != null ? x.days + ' Tage' : '–', { ...mono, fg: x.days > 60 ? C.bad : C.ink, tip: 'Tage seit dem letzten Lauf' })] });
-    const kz = (x.badges || []).filter(b => !(x.cgd && ['C', 'D', 'CD'].includes(b))).map(b => it(b, { fw: 700, fg: b === 'BF' ? C.bad : C.ink, bg: b === 'BF' ? C.badBg : C.soft, pad: '4px', tip: BADGE[b] }));
-    if (x.cgd) kz.push(it(x.cgd, { ...mono, tip: 'Bilanz vor heute je Buchstabe: C = Kurs, G = Bodengruppe, D = Distanzgruppe · groß = schon gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = noch nie gelaufen' }));
     if (x.abst_pass && x.abst_pass.gesamt != null && Math.abs(x.abst_pass.gesamt) >= 15)
-      kz.push(it('Abst ' + arrow(x.abst_pass.gesamt) + ' ' + sgn(x.abst_pass.gesamt, 0), { fw: 600, fg: pTone(x.abst_pass.gesamt), tip: 'Abstammungs-Passung heute' }));
-    if (kz.length) steck.push({ k: 'Kennzeichen', items: kz });
+      steck.push({ k: 'Abstammung', items: [it(arrow(x.abst_pass.gesamt) + ' ' + sgn(x.abst_pass.gesamt, 0), { fw: 600, fg: pTone(x.abst_pass.gesamt), tip: 'Abstammungs-Passung heute (auffällig ab ±15)' })] });
     const formSq = []; const re = /(\d|[A-Z])[a-z]/g; let m; const fs = (x.form || '').replace(/\(\d+\)/g, '');
     while ((m = re.exec(fs)) && formSq.length < 10) { const c = m[1];
       formSq.push(c === '1' ? { c, bg: C.green, fg: C.onGreen, bd: C.green } : (c === '2' || c === '3') ? { c, bg: C.mid, fg: C.ink, bd: C.mid } : { c, bg: 'transparent', fg: C.ink2, bd: C.line }); }
@@ -1351,11 +1377,25 @@ class Component extends DCLogic {
       { k: 'ΔL600', v: sgn(S.dl600_a, 2), sub: '±' + fx(S.dl600_a_sd, 2) + ' · ' + (S.runs ?? 0) + ' L', rk: rk(S.dl600_a_rank, S.dl600_a_n), fg: rkTone(S.dl600_a_rank, S.dl600_a_n), tip: 'Tempo letzte 600 m gegen Erwartung (km/h)' },
       { k: 'ΔB200', v: sgn(S.db200_a, 2), sub: '±' + fx(S.db200_a_sd, 2) + ' · ' + (S.runs ?? 0) + ' L', rk: rk(S.db200_a_rank, S.db200_a_n), fg: rkTone(S.db200_a_rank, S.db200_a_n), tip: 'Schnellstes 200-m-Segment gegen Erwartung (km/h)' },
     ].map(m => ({ ws: 'nowrap', ...m }));
+    // Punktdiagramm je Kennzahl: alle Starter des Rennens, dieser hervorgehoben (rechts = besser)
+    const KZ_WERT = { Valeur: y => y.rating_adj ?? y.rating, RTR: y => y.rtr?.adj, ARR: y => y.arr?.adj, TR: y => y.tr?.heute,
+      Duell: y => y.duel_rank?.score_l, 'ΔL600': y => y.summary?.dl600_a, 'ΔB200': y => y.summary?.db200_a };
+    const feldKz = (rd.runners || []).filter(y => !y.nr);
+    for (const m of metrics) {
+      const f = KZ_WERT[m.k], wv = f ? feldKz.map(y => ({ no: y.no, v: f(y) })).filter(o => o.v != null && isFinite(o.v)) : [];
+      const lo = Math.min(...wv.map(o => o.v)), hi = Math.max(...wv.map(o => o.v)), sp = hi - lo;
+      m.pts = wv.map(o => ({ o, sel: o.no === no })).sort((a, b) => a.sel - b.sel).map(({ o, sel }) => ({
+        l: sp > 0 ? 3 + 94 * (o.v - lo) / sp : 50, sz: sel ? 12 : 7, mt: sel ? -6 : -3.5,
+        bg: sel ? C.green : C.ink3, bd: sel ? C.card : 'transparent', op: sel ? 1 : .45, z: sel ? 2 : 1,
+        tip: 'Nr. ' + o.no + ': ' + (Math.abs(o.v) < 10 ? fx(o.v, 2) : kurz(o.v)) }));
+      m.hasPts = wv.length >= 2 && wv.some(o => o.no === no);
+      m.loTxt = wv.length ? (Math.abs(lo) < 10 ? fx(lo, 1) : kurz(lo)) : ''; m.hiTxt = wv.length ? (Math.abs(hi) < 10 ? fx(hi, 1) : kurz(hi)) : '';
+    }
     const drvMax = Math.max(3, ...(pw?.treiber || []).map(([, v]) => Math.abs(v)));
     const drv = (pw?.treiber || []).map(([n, v]) => { const w = Math.abs(v) / drvMax * 50; return { n, t: sgn(v), w, l: v >= 0 ? 50 : 50 - w, c: v >= 0 ? C.good : C.bad }; });
     Object.assign(out, { steck, formSq, conn, metrics, drv, hasDrv: drv.length > 0,
       // Karriere und letzte 365 Tage: Läufe · Siege · Plätze, Gewinn je Lauf (Farbe im Verhältnis zum Median des Feldes), Rang
-      careerRows: [['Karriere', K, medEpr], ['365 Tage', x.career?.d365 || {}, ctx.medEpr365]].map(([lab, Q, med]) => {
+      careerRows: [['365 Tage', x.career?.d365 || {}, ctx.medEpr365]].map(([lab, Q, med]) => {
         const rl = Q.epr != null && med ? Q.epr / med : null;
         const st = rl == null ? null : rl >= 2 ? ['#2F8A55', '#FFFFFF'] : rl >= 1.25 ? ['#BFE0C9', C.ink] : rl >= 1.1 ? ['#E2F1E6', C.ink] : rl > 0.9 ? null : rl > 0.8 ? ['#F6E3DC', C.ink] : rl > 0.5 ? ['#EDC3B5', C.ink] : ['#B9533D', '#FFFFFF'];
         return { lab, rec: Q.runs ? Q.runs + ' L · ' + Q.wins + ' S · ' + Q.places + ' P' : 'keine Läufe', epr: Q.epr != null ? eur(Q.epr) + '/L' : '', rank: Q.rank ? '#' + Q.rank + '/' + Q.n : '',
