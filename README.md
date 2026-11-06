@@ -687,6 +687,7 @@ vergleicht beide Rechnungen über Node.
 - **Zum Toto ausgezahlt** (Kachel in „Bank & Ergebnis“): dieselben Picks, Einsätze und Steuer, aber das Sieg-Bein
   zur Toto-Endquote statt zum Festkurs (`totoErgebnis`); Gewinn, ROI und Unterschied zum FK. Ohne Toto-Endquote
   zählt der Festkurs, das Platz-Bein (Each-Way) bleibt beim Festkurs (keine Toto-Platzquoten im Pool).
+  „Bank im Verlauf“ lässt sich ebenso auf „zum Toto“ umschalten (`totoVerlauf`: dieselben Wetten, Bank neu aufsummiert).
 - **Modell-Rang:** Filter „Modell-Rang bis“ (`max_rang`, Vorgabe 0 = alle): nur Pferde, die das Modell im Rennen
   höchstens auf diesem Rang sieht (Rang der fairen Quote). Die Tabelle „Modell-Rang der Picks“ zeigt dieselbe
   Auswahl ohne Rang-Filter aufgeteilt in Rang 1–2, Rang ≥ 3 und Festkurs > 25 (Siege gegen Modell-Erwartung mit z,

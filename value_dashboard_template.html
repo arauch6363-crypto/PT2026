@@ -207,6 +207,7 @@ button.wz { min-height: 44px; cursor: pointer; }
 
 <article class="card diagramm">
   <div class="kopf bl"><h3>Bank im Verlauf</h3><span class="klein" id="bank_hinweis"></span></div>
+  <div class="seg" role="group" aria-label="Auszahlung" id="bank_quelle" style="margin-bottom:8px"></div>
   <div id="c_bank"></div>
   <p class="info" id="i_bank"></p>
   <div class="seg" role="group" aria-label="x-Achse" id="xachse"></div>
@@ -361,6 +362,23 @@ function totoErgebnis(bets) {
     profit += b.profit_win + b.profit_place + plus; fk += b.profit_win + b.profit_place; einsatz += b.stake_win + b.stake_place;
   }
   return {n: bets.length, profit: rhu(profit, 2), diff: rhu(profit - fk, 2), roi: einsatz ? profit / einsatz : null, ohne};
+}
+
+// Bank-Verlauf mit Auszahlung zum Toto: dieselben Wetten und Einsätze (in Reihenfolge), Gewinn je Wette wie in
+// totoErgebnis; Tage und Bankstand daraus neu aufsummiert
+function totoVerlauf(bets, days, start = 1000) {
+  let bank = start;
+  const je = {}, b2 = [];
+  for (const r of bets) {
+    const toto = r.toto_end > 1 ? r.toto_end : null;
+    const profit = rhu(r.profit + (r.won && r.stake_win > 0 && toto !== null ? r.stake_win * (toto - r.fk_sieg) : 0), 2);
+    if (!(r.date in je)) je[r.date] = {bank_start: bank, profit: 0};
+    b2.push({...r, profit, bank_start: je[r.date].bank_start});
+    bank = rhu(bank + profit, 2); je[r.date].profit = rhu(je[r.date].profit + profit, 2); je[r.date].bank = bank;
+  }
+  let lauf = start;
+  const d2 = days.map(x => { const t = je[x.date]; if (t) lauf = t.bank; return {...x, profit: t ? t.profit : 0, bank: lauf}; });
+  return [b2, d2];
 }
 
 const _cmpK = (a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
@@ -696,7 +714,7 @@ function simulieren(pool, f, variant, start = 1000, wettart = 'ew') {
 }
 // SIM-END
 
-if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlick, isoWoche, kombiBlick, kombiSim, kombiListe, totoErgebnis};
+if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlick, isoWoche, kombiBlick, kombiSim, kombiListe, totoErgebnis, totoVerlauf};
 </script>
 <script>
 (function () {
@@ -908,7 +926,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
       : 'Start', $('i_sieg'), 'Antippen zeigt die Werte.');
   }
 
-  let xModus = 'tag';
+  let xModus = 'tag', bankQuelle = 'fk';
   function bankChart(b, d, start) {
     const box = $('c_bank'), erster = mitErg[0];
     const P = [[start, 'Start', `Start: Bank ${eur(start, 2)}`]], marken = [];
@@ -939,7 +957,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
       }
     }
     $('bank_hinweis').textContent = {wette: 'nach jeder Wette', tag: 'am Ende jedes Renntags', woche: 'am Ende jeder Woche',
-      monat: 'am Ende jedes Monats'}[xModus] + (marken.length ? ' · ◆ faire Quote geändert' : '');
+      monat: 'am Ende jedes Monats'}[xModus] + (bankQuelle === 'toto' ? ' · Sieg zum Toto' : '') + (marken.length ? ' · ◆ faire Quote geändert' : '');
     if (P.length < 2) { box.innerHTML = '<p class="leer">Keine Wette bei diesem Filter.</p>'; $('i_bank').textContent = ''; return; }
     const v = P.map(p => p[0]), lo = Math.min(...v), hi = Math.max(...v), pad = Math.max(10, (hi - lo) * 0.12);
     const yMin = lo - pad, yMax = hi + pad, L = P.length - 1, X0 = 40, X1 = 322;
@@ -1014,7 +1032,9 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
     siegerChart(b);
     segment($('xachse'), [['wette', 'Wette'], ['tag', 'Tag'], ['woche', 'Woche'], ['monat', 'Monat']], xModus,
       x => { xModus = x; neu(); });
-    bankChart(b, d, start);
+    segment($('bank_quelle'), [['fk', 'zum Festkurs'], ['toto', 'zum Toto']], bankQuelle, q => { bankQuelle = q; neu(); });
+    const [bq, dq] = bankQuelle === 'toto' ? totoVerlauf(b, d, start) : [b, d];
+    bankChart(bq, dq, start);
     aenderungen(d);
     letzte = b;
     picksKnopf();
