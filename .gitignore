@@ -8,3 +8,6 @@ fortschritt.json
 track_codes.csv
 racecards/
 racecard_2*.html
+
+# PMU-Lernschleife: Rennkarten unter data/ gehören ins Repository
+!data/racecards/
