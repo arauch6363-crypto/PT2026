@@ -684,6 +684,11 @@ vergleicht beide Rechnungen über Node.
   Veranstaltung (0 = alle), höchstens 1 je Rennen und Toto-Abzug. Vorgabe ist die Tipp-Strategie: ⅛ Kelly, nur Sieg,
   Wert ≥ 0,2, Kelly-Anteil ≥ 5 %, höchstens 7 je Veranstaltung und 1 je Rennen; „Auf Vorgabe zurück“ stellt sie
   wieder her. Modus (`max`/`rank`/`rel`) und Top-Wert gibt es nur noch in Python (`vb.FilterConfig`).
+- **Modell-Rang:** Filter „Modell-Rang bis“ (`max_rang`, Vorgabe 0 = alle): nur Pferde, die das Modell im Rennen
+  höchstens auf diesem Rang sieht (Rang der fairen Quote). Die Tabelle „Modell-Rang der Picks“ zeigt dieselbe
+  Auswahl ohne Rang-Filter aufgeteilt in Rang 1–2, Rang ≥ 3 und Festkurs > 25 (Siege gegen Modell-Erwartung mit z,
+  ROI 1 € Sieg zum Festkurs vor Steuer, beide Hälften) – Vorwärtstest der Regel „Value nur bei Modell-Rang 1–2“
+  (Auswertung 18.10.–05.11.: Rang 1–2 34 Siege bei 32,9 erwartet, +67 %; Rang ≥ 3 9 bei 19,5, −49 %).
 - **Kelly-Schwelle und je Veranstaltung (Tipps):** nur Starter mit Kelly-Anteil Wert ÷ (Festkurs − 1) ≥ Schwelle
   (`min_kelly`; bei ⅛ Kelly = Einsatz ≥ ⅛ der Schwelle von der Bank, 5 % ≙ 0,625 %) – so hängt die Zahl der Tipps
   davon ab, wie viel Value eine Veranstaltung bietet; danach mit „max. 1 je Rennen“ der beste je Rennen und höchstens

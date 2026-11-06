@@ -254,6 +254,8 @@ def test_html_simulation_gleich_python(tmp_path):
     faelle += [(vb.FilterConfig(minw=0.2, mode="none", min_kelly=0.05, je_veranstaltung=6, eins_je_rennen=True), "kelly8", "sieg"),
                (vb.FilterConfig(minw=0.0, mode="none", min_kelly=0.02), "level10", "ew"),
                (vb.FilterConfig(minw=0.2, mode="none", je_veranstaltung=4, eins_je_rennen=True), "kelly8", "sieg"),
+               (vb.FilterConfig(minw=0.2, mode="none", min_kelly=0.05, max_rang=2), "kelly8", "sieg"),
+               (vb.FilterConfig(minw=0.0, mode="none", max_rang=1, je_veranstaltung=3), "level10", "ew"),
                (vb.FilterConfig(minw=0.0, mode="none", je_veranstaltung=3), "level10", "sieg"),
                (vb.FilterConfig(minw=0.3, mode="max", mode_value=15, eins_je_rennen=True), "kelly4", "ew")]
     faelle = [(x[0], x[1], x[2] if len(x) > 2 else "ew") for x in faelle]

@@ -101,6 +101,7 @@ button.wz { min-height: 44px; cursor: pointer; }
 .wz.an > :first-child { font-weight: 600; }
 .wz:last-child { border-bottom: 0; }
 .wz .n { color: var(--muted); font-weight: 400; }
+#rang_tab .wz { grid-template-columns: 1.15fr .9fr .75fr 1fr; white-space: nowrap; }
 
 .kacheln { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line);
   border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
@@ -164,6 +165,7 @@ button.wz { min-height: 44px; cursor: pointer; }
     <label class="feld" title="Kelly-Anteil = Wert ÷ (Festkurs − 1); 0 = ohne Schwelle">Kelly-Anteil ≥ (%) <input type="number" id="mk" min="0" max="50" step="0.5" inputmode="decimal"></label>
     <label class="feld" title="die mit dem höchsten Kelly-Anteil; 0 = alle">max. je Veranstaltung <input type="number" id="jv" min="0" max="30" step="1" inputmode="numeric"></label>
     <label class="feld">höchstens 1 je Rennen <input type="checkbox" id="ejr"></label>
+    <label class="feld" title="nur Pferde, die das Modell im Rennen höchstens auf diesem Rang sieht (Rang der fairen Quote); 0 = alle">Modell-Rang bis <input type="number" id="mr" min="0" max="10" step="1" inputmode="numeric"></label>
     <label class="feld" title="für FK/Toto-Schwelle und Sieger-Erwartung">Toto-Abzug (%) <input type="number" id="abzug" min="5" max="40" step="0.5" inputmode="decimal"></label>
     <div class="knoepfe"><button type="button" class="knopf" id="zurueck">Auf Vorgabe zurück</button>
       <button type="button" class="knopf primaer" id="fertig">Fertig</button></div>
@@ -184,6 +186,12 @@ button.wz { min-height: 44px; cursor: pointer; }
 
 <h2>Woche für Woche</h2>
 <div class="tabelle" id="wochen"></div>
+
+<h2>Modell-Rang der Picks</h2>
+<p class="klein">Dieselbe Auswahl ohne Rang-Filter, aufgeteilt nach dem Rang, auf den das Modell das Pferd im Rennen setzt.
+  Siege gegen die Erwartung des Modells (antippen: z); ROI = 1 € Sieg zum Festkurs, vor Steuer; Hälften nach Renntagen; FK = Festkurs.</p>
+<div class="tabelle" id="rang_tab"></div>
+<p class="klein" id="rang_text"></p>
 
 <h2>Bank &amp; Ergebnis</h2>
 <div class="kacheln" id="kacheln"></div>
@@ -322,6 +330,7 @@ function auswahl(pool, f) {
     if (f.top === 'ja' && r.is_top !== 1) return false;
     if (f.top === 'nein' && r.is_top !== 0) return false;
     if (f.min_kelly && !(r.wert / (r.fk_sieg - 1) >= f.min_kelly - TOL)) return false;
+    if (f.max_rang && !(r.rank_fq <= f.max_rang)) return false;      // Modell-Rang (Rang der fairen Quote im Rennen)
     return true;
   }), f.je_veranstaltung || 0, !!f.eins_je_rennen);
 }
@@ -708,8 +717,8 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
   const wocheName = k => 'KW ' + Number(k.split('-W')[1]);
 
   // ---- Strategie (Vorgabe = Tipp-Strategie der Karte)
-  const VORGABE = {st: 'kelly8', wa: 'sieg', chance: 'karte', minw: '0.2', mk: '5', jv: '7', ejr: true, abzug: '23'};
-  const FELDER = Object.keys(VORGABE), ZAHLEN = ['minw', 'mk', 'jv', 'abzug'];
+  const VORGABE = {st: 'kelly8', wa: 'sieg', chance: 'karte', minw: '0.2', mk: '5', jv: '7', ejr: true, mr: '0', abzug: '23'};
+  const FELDER = Object.keys(VORGABE), ZAHLEN = ['minw', 'mk', 'jv', 'mr', 'abzug'];
   const EINSATZ = {kelly8: '⅛ Kelly', kelly4: '¼ Kelly', kelly2: '½ Kelly', kelly1: '1/1 Kelly', level10: '10 € fest', level1p: '1 % der Bank'};
   const setzeFelder = w => { for (const k of FELDER) $(k)[k === 'ejr' ? 'checked' : 'value'] = w[k]; };
   const leseFelder = () => Object.fromEntries(FELDER.map(k => [k, k === 'ejr' ? $(k).checked : $(k).value]));
@@ -719,6 +728,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
     $('strat_titel').textContent = gleich ? 'Tipp-Strategie' : 'Eigene Auswahl';
     $('strat_text').textContent = [EINSATZ[w.st], w.wa === 'ew' ? 'Each-Way' : 'nur Sieg', `Wert ≥ ${kurz(zahl(w.minw))}`,
       `Kelly ≥ ${kurz(zahl(w.mk))} %`, jv ? `≤ ${jv} je Veranst.` : 'alle je Veranst.', w.ejr ? '1 je Rennen' : null,
+      Math.floor(zahl(w.mr)) > 0 ? `Modell-Rang ≤ ${Math.floor(zahl(w.mr))}` : null,
       w.chance === 'schatten' ? 'Schatten' : null, zahl(w.abzug) !== 23 ? `Toto-Abzug ${kurz(zahl(w.abzug))} %` : null]
       .filter(Boolean).join(' · ');
   }
@@ -772,6 +782,26 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
   }
 
   // ---- Woche für Woche (Zeile antippen = Zeitraum)
+  // Modell-Rang der Picks: Rang 1–2 gegen ≥ 3 und Außenseiter (Festkurs > 25) – Vorwärtstest der Regel
+  // „Value nur, wenn das Modell das Pferd selbst vorn sieht“
+  function rangTabelle(sel, mr) {
+    const tage = [...new Set(sel.map(r => r.date))].sort(), mitte = tage[Math.floor(tage.length / 2)] || '';
+    const werte = rs => { const n = rs.length, w = rs.filter(r => r.won).length, e = _summe(rs.map(r => r.p || 0)),
+      v = _summe(rs.map(r => (r.p || 0) * (1 - (r.p || 0)))), roi = n ? _summe(rs.map(r => r.won ? r.fk_sieg - 1 : -1)) / n : null;
+      return {n, w, e, z: v > 0 ? (w - e) / Math.sqrt(v) : null, roi}; };
+    const gruppen = [['Rang 1–2', r => r.rank_fq <= 2], ['Rang ≥ 3', r => r.rank_fq >= 3], ['FK > 25', r => r.fk_sieg > 25]];
+    const roiTxt = x => ok(x) ? sg(100 * x, 0) + ' %' : '–';
+    const zeilen = gruppen.map(([name, f]) => { const rs = sel.filter(f), a = werte(rs), h1 = werte(rs.filter(r => r.date < mitte)), h2 = werte(rs.filter(r => r.date >= mitte));
+      const hz = x => ok(x) ? sg(100 * x, 0) : '–';
+      return `<div class="wz" title="${ok(a.z) ? 'Siege gegen Modell-Erwartung: z ' + sg(a.z, 1) : ''}"><span>${name} <span class="n">· ${a.n}</span></span><span>${a.w} / ${nf(a.e, 1)}</span>`
+        + `<span class="${klasse(a.roi)}">${roiTxt(a.roi)}</span><span class="n">${hz(h1.roi)} / ${hz(h2.roi)}</span></div>`; });
+    $('rang_tab').innerHTML = '<div class="wz kopfz"><span>Gruppe · Wetten</span><span>Siege / erw.</span><span>ROI</span><span>Hälften %</span></div>'
+      + (sel.length ? zeilen.join('') : '<p class="leer">keine Picks bei diesem Filter</p>');
+    const a = werte(sel.filter(r => r.rank_fq <= 2)), b = werte(sel.filter(r => r.rank_fq >= 3));
+    $('rang_text').textContent = !sel.length ? '' : (mr ? `Filter aktiv: nur Modell-Rang ≤ ${mr}. ` : 'Filter „Modell-Rang bis“ steht auf alle – die Tabelle läuft als Vorwärtstest mit. ')
+      + (ok(b.z) && b.z <= -2 ? `Rang ≥ 3 gewinnt klar seltener als vom Modell erwartet (z ${sg(b.z, 1)}): dort ist der Value meist nur scheinbar.`
+        : ok(b.z) ? `Rang ≥ 3: ${b.w} Siege bei ${nf(b.e, 1)} erwartet (z ${sg(b.z, 1)}) – noch kein klarer Unterschied.` : '');
+  }
   function wochenTabelle(W) {
     const zeile = (key, name, o) => `<button type="button" class="wz${zeitraum === key ? ' an' : ''}" data-z="${key}" `
       + `aria-pressed="${zeitraum === key}"><span>${name} <span class="n">· ${o.n}</span></span>`
@@ -943,7 +973,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
     const abzug = Math.min(0.6, Math.max(0, (zahl(w.abzug) || 23) / 100));
     const F = {chance: w.chance, toto_abzug: abzug, minw: zahl(w.minw), mode: 'none', mode_value: 0, top: 'beides',
                min_kelly: Math.max(0, zahl(w.mk)) / 100, je_veranstaltung: Math.max(0, Math.floor(zahl(w.jv))),
-               eins_je_rennen: w.ejr};
+               eins_je_rennen: w.ejr, max_rang: Math.max(0, Math.floor(zahl(w.mr)))};
     const res = simulieren(pool, F, w.st, 1000, w.wa);
     const pSim = mitWert(chanceWaehlen(pool, F.chance)), selAlle = auswahl(pSim, F).filter(r => r.settled);
     if (zeitraum !== 'gesamt' && !wochen.includes(zeitraum)) zeitraum = 'gesamt';
@@ -962,6 +992,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
     $('lesart').textContent = lesart(sel.length, m, ww);
     $('hinweis').textContent = k.hinweis || '';
     wochenTabelle(res.woche);
+    rangTabelle(auswahl(pSim, {...F, max_rang: 0}).filter(r => r.settled && r.nr !== true).filter(inR), F.max_rang);
     kacheln(k, b);
     siegerChart(b);
     segment($('xachse'), [['wette', 'Wette'], ['tag', 'Tag'], ['woche', 'Woche'], ['monat', 'Monat']], xModus,
