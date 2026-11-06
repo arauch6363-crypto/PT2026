@@ -797,7 +797,7 @@ def test_markt_je_segment():
 
 
 def test_toto_ergebnis_js(tmp_path):
-    """Zum Toto statt FK: Sieg-Bein mit Toto-Endquote, Einsätze und Steuer unverändert, ohne Toto bleibt der FK."""
+    """Zum Toto statt FK: Sieg-Bein mit Toto-Endquote und ohne 5 % Steuer, Einsätze unverändert; ohne Toto bleibt FK."""
     import shutil
     import subprocess
     if not shutil.which("node"):
@@ -813,5 +813,7 @@ def test_toto_ergebnis_js(tmp_path):
     (tmp_path / "t.js").write_text(sim + f"\nconst b = {json.dumps(bets)}, d = {json.dumps(tage)};\n"
                                    "console.log(JSON.stringify([totoErgebnis(b), totoVerlauf(b, d, 1000)]));", encoding="utf-8")
     r, (b2, d2) = json.loads(subprocess.run(["node", str(tmp_path / "t.js")], capture_output=True, text=True, check=True).stdout)
-    assert r["diff"] == -10 and r["profit"] == pytest.approx(28.75) and r["ohne"] == 1 and r["roi"] == pytest.approx(28.75 / 25)
-    assert [x["bank"] for x in d2] == [1019.0, 1028.75] and b2[1]["bank_start"] == 1000 and b2[2]["bank_start"] == 1019.0
+    # Steuer 0,5 + 0,5 € zurück (Wette 3 ohne Toto: FK mit Steuer), Sieg 1 zum Toto 4,0 statt FK 5,0: −10 €
+    assert r["diff"] == pytest.approx(-9.0) and r["profit"] == pytest.approx(29.75) and r["ohne"] == 1
+    assert r["roi"] == pytest.approx(29.75 / 25)
+    assert [x["bank"] for x in d2] == [1020.0, 1029.75] and b2[1]["bank_start"] == 1000 and b2[2]["bank_start"] == 1020.0

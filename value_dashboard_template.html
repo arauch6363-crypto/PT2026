@@ -351,14 +351,19 @@ function bein(stake, quote, treffer) {
   return [rhu(brutto - steuer, 2), steuer];
 }
 
-// Dieselben Wetten (Picks, Einsätze, Steuer), aber das Sieg-Bein zur Toto-Endquote statt zum Festkurs ausgezahlt;
-// ohne Toto-Endquote zählt der Festkurs. Das Platz-Bein (Each-Way) bleibt beim Festkurs – Toto-Platzquoten fehlen.
+// Dieselben Wetten (Picks, Einsätze), aber das Sieg-Bein zur Toto-Endquote statt zum Festkurs ausgezahlt und ohne
+// die 5 % Wettsteuer (beim Toto fällt keine an); ohne Toto-Endquote zählt der Festkurs samt Steuer. Das Platz-Bein
+// (Each-Way) bleibt beim Festkurs mit Steuer – Toto-Platzquoten fehlen.
+const _totoPlus = b => {
+  const toto = b.toto_end > 1 ? b.toto_end : null;
+  if (!(b.stake_win > 0) || toto === null) return 0;
+  return STEUER * b.stake_win + (b.won ? b.stake_win * (toto - b.fk_sieg) : 0);
+};
 function totoErgebnis(bets) {
   let profit = 0, fk = 0, einsatz = 0, ohne = 0;
   for (const b of bets) {
-    const toto = b.toto_end > 1 ? b.toto_end : null;
-    if (b.stake_win > 0 && toto === null) ohne++;
-    const plus = b.won && b.stake_win > 0 && toto !== null ? b.stake_win * (toto - b.fk_sieg) : 0;
+    if (b.stake_win > 0 && !(b.toto_end > 1)) ohne++;
+    const plus = _totoPlus(b);
     profit += b.profit_win + b.profit_place + plus; fk += b.profit_win + b.profit_place; einsatz += b.stake_win + b.stake_place;
   }
   return {n: bets.length, profit: rhu(profit, 2), diff: rhu(profit - fk, 2), roi: einsatz ? profit / einsatz : null, ohne};
@@ -370,8 +375,7 @@ function totoVerlauf(bets, days, start = 1000) {
   let bank = start;
   const je = {}, b2 = [];
   for (const r of bets) {
-    const toto = r.toto_end > 1 ? r.toto_end : null;
-    const profit = rhu(r.profit + (r.won && r.stake_win > 0 && toto !== null ? r.stake_win * (toto - r.fk_sieg) : 0), 2);
+    const profit = rhu(r.profit + _totoPlus(r), 2);
     if (!(r.date in je)) je[r.date] = {bank_start: bank, profit: 0};
     b2.push({...r, profit, bank_start: je[r.date].bank_start});
     bank = rhu(bank + profit, 2); je[r.date].profit = rhu(je[r.date].profit + profit, 2); je[r.date].bank = bank;
@@ -859,7 +863,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
       z('Trefferquote Sieg', pct(k.strike_rate), `${k.wins ?? 0} von ${k.bets}`),
       z('Trefferquote Platz', k.bets ? pct(platziert / k.bets) : '–', `${platziert} von ${k.bets} unter den ersten 3`),
       (() => { const T = totoErgebnis(bets);              // dieselben Picks und Einsätze, Sieg zum Toto statt zum Festkurs
-        return `<div class="kachel ganz"><div><div class="t">Zum Toto ausgezahlt</div><div class="u">dieselben Picks und Einsätze · `
+        return `<div class="kachel ganz"><div><div class="t">Zum Toto ausgezahlt</div><div class="u">dieselben Picks und Einsätze, ohne Steuer · `
           + (T.n ? `ROI ${sg(100 * T.roi)} % · ${sg(T.diff, 0)}&nbsp;€ gegen FK` + (T.ohne ? ` · ${T.ohne} ohne Toto, dort FK` : '') : 'keine Wette')
           + `</div></div><div class="num ${klasse(T.profit)}" style="font-size:22px;font-weight:500;white-space:nowrap">${T.n ? sg(T.profit, 0) + ' €' : '–'}</div></div>`; })(),
       `<div class="kachel ganz"><div><div class="t">Edge Sieg</div><div class="u">Σ 1/Fair ${nf(k.exp_wins_model, 1)} ÷ `
