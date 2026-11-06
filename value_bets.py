@@ -513,6 +513,7 @@ class FilterConfig:
     minw: Mindest-Wert (0–1,5); mode: genau einer von "max" (faire Quote < X), "rank" (rank_pct ≥ X),
     "rel" (rel ≥ X) oder "none"; top: "beides", "ja" (nur Top-Wert) oder "nein";
     min_kelly: nur Starter mit Kelly-Anteil Wert ÷ (Festkurs − 1) ≥ min_kelly (0 = ohne Schwelle);
+    max_rang: nur Starter, die das Modell im Rennen höchstens auf diesem Rang sieht (Rang der fairen Quote; 0 = alle);
     je_veranstaltung: danach nur die so vielen Starter je Veranstaltung (Tag + Reunion) mit dem höchsten
     Kelly-Anteil (0 = alle); eins_je_rennen: davor nur der beste je Rennen;
     chance: "karte" (faire Quote der Karte), "karte_schatten_tage" (dieselbe, nur Tage mit Schattenversion) oder
@@ -527,6 +528,7 @@ class FilterConfig:
     eins_je_rennen: bool = False
     min_kelly: float = 0.0
     chance: str = "karte"
+    max_rang: int = 0           # nur Starter mit Modell-Rang (Rang der fairen Quote im Rennen) ≤ max_rang; 0 = alle
 
     def __post_init__(self) -> None:
         if self.chance not in CHANCEN:
@@ -580,6 +582,8 @@ def auswahl(pool: pd.DataFrame, f: FilterConfig) -> pd.DataFrame:
         ok &= pool["is_top"] == 0
     if f.min_kelly:
         ok &= kelly_anteil(pool) >= f.min_kelly - TOL
+    if f.max_rang:
+        ok &= pd.to_numeric(pool["rank_fq"], errors="coerce") <= f.max_rang
     return beste_je_veranstaltung(pool[ok], f.je_veranstaltung, f.eins_je_rennen)
 
 
