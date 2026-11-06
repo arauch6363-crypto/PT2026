@@ -7,12 +7,12 @@ Ablauf: `/pmu-iteration` (`.claude/commands/pmu-iteration.md`).
 
 | Feld | Wert |
 |---|---|
-| Iteration | 0 |
+| Iteration | 1 |
 | Skill-Version | v0.1 (seit 2026-11-06) |
 | Letzte Skill-Änderung | 2026-11-06, Iteration 0 |
 | Wetten ausgewertet seit der letzten Skill-Änderung | 0 |
 | Wetten gesamt (ausgewertet / offen) | 0 / 0 |
-| Letzter Lauf (UTC) | – (Einrichtung 2026-11-06) |
+| Letzter Lauf (UTC) | 2026-11-06T18:13:43Z (Iteration 1: A/B nichts zu tun, C ohne Daten) |
 
 ## Offene Rennen (festgeschrieben, noch nicht ausgewertet)
 
@@ -97,6 +97,7 @@ Netzwerkeinstellungen der Umgebung freigegeben sein. Danach erneut prüfen und d
 | Zeit (UTC) | Schritt | Fehler | Folge |
 |---|---|---|---|
 | 2026-11-06 18:08 | Einrichtung | Alle Rennsport-Hosts blockiert (Proxy-403) | Schleife kann nicht starten |
+| 2026-11-06 18:13 | Iteration 1, C | Programm nicht ladbar: turfinfo-API (online/offline), pmu.fr, geny, zone-turf, equidia weiterhin blockiert (CONNECT 403) | Keine Rennkarte, keine Prognose; nächstes Rennen unbekannt |
 
 ## Hypothesen-Notizen (Beobachtungen ohne Skill-Änderung)
 
