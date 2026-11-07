@@ -817,3 +817,20 @@ def test_toto_ergebnis_js(tmp_path):
     assert r["diff"] == pytest.approx(-9.0) and r["profit"] == pytest.approx(29.75) and r["ohne"] == 1
     assert r["roi"] == pytest.approx(29.75 / 25)
     assert [x["bank"] for x in d2] == [1020.0, 1029.75] and b2[1]["bank_start"] == 1000 and b2[2]["bank_start"] == 1020.0
+
+
+def test_festkurse_uebernehmen(tmp_path):
+    """Zweiter Kartenlauf: Festkurse je Rennen und Startnummer aus der gespeicherten Karte übernehmen."""
+    import racecard as rc
+    alt = {"festkurse_stand": "10:12", "festkurse_bahnen": {"DEAUVILLE": "10:12"},
+           "races": {"R1": {"runners": [{"no": 1, "fk": {"sieg": 4.5, "toto": 5.0}}, {"no": 2, "fk": {"sieg": 9.0}}]},
+                     "R2": {"runners": [{"no": 1, "fk": {"toto": 3.1}}]}}}
+    p = tmp_path / "racecard_20261107_daten.json"
+    p.write_text(json.dumps(alt), encoding="utf-8")
+    neu = {"races": {"R1": {"runners": [{"no": 1}, {"no": 2}, {"no": 3}]}, "R2": {"runners": [{"no": 1}]},
+                     "R3": {"runners": [{"no": 1}]}}}
+    mit = rc.festkurse_uebernehmen(neu, p)
+    r1 = {x["no"]: x.get("fk") for x in neu["races"]["R1"]["runners"]}
+    assert mit == {"R1"} and r1 == {1: {"sieg": 4.5, "toto": 5.0}, 2: {"sieg": 9.0}, 3: None}
+    assert neu["races"]["R2"]["runners"][0]["fk"] == {"toto": 3.1} and neu["festkurse_stand"] == "10:12"
+    assert rc.festkurse_uebernehmen({"races": {}}, tmp_path / "fehlt.json") == set()
