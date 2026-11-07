@@ -510,6 +510,10 @@ Je Starter:
   Tag (oder späteren Rennen ohne Festkurse am Morgen) holt ein zweiter Aufruf nur die fehlenden nach. `nur_fehlende=False` holt alle Kurse neu. Oben in der Karte steht „Kurse HH:MM“, bei
   verschiedenen Zeiten je Bahn („Kurse Deauville 09:40, Vichy 13:05“). Optionen: `festkurse=df` (fertige Tabelle),
   `nichtstarter=False`, `tag="JJJJ-MM-TT"`.
+* **Karte am selben Tag neu rechnen, Festkurse behalten** (z. B. nach korrigierter Bodenangabe in
+  `boden_manuell.json`): `racecard.run(BASE, festkurse_behalten=True)` rechnet alles neu, übernimmt aber die Festkurse/Toto
+  der gespeicherten Karte je Rennen und Startnummer samt Stand; von Wettstar geholt werden nur Rennen, die dort noch
+  keinen Festkurs hatten (`festkurse=False` zusätzlich: gar nichts holen).
 * **Abstammungsprofil** (Detailseite, ersetzt Vater/Muttervater in den Vorlieben und den „optimalen Bereich“):
   vier Skalen je Linie als Perzentil gegen alle Väter bzw. alle Muttervater mit ≥ 50 Läufen in der Dimension –
   Distanz Sprinter (bis 1400 m) / Mitteldistanz / Steher (über 2400 m), Boden Slow / Fast (nur Gras), Belag Gras /

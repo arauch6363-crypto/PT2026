@@ -2948,11 +2948,14 @@ def html(daten: dict, template: Path = TEMPLATE, *, eigenstaendig: bool = True) 
 
 
 def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True,
-        uebersetzen_aktiv: bool = True, claude: bool = True, festkurse=True) -> Path:
+        uebersetzen_aktiv: bool = True, claude: bool = True, festkurse=True, festkurse_behalten: bool = False) -> Path:
     """Race Card für `tag` (Vorgabe: heute) bauen und als HTML speichern; mit claude=True zusätzlich die kompakte
     Claude-Version racecard_JJJJMMTT_claude.json daneben (claude_export).
     festkurse: True = Festkurse Sieg/Platz und Toto von Wettstar holen (wettstar, braucht Playwright), eine fertige
-    Tabelle aus wettstar.festkurse(...) übernehmen oder False = ohne."""
+    Tabelle aus wettstar.festkurse(...) übernehmen oder False = ohne.
+    festkurse_behalten=True: zweiter Lauf am selben Tag (z. B. nach korrigierter Bodenangabe) – die Festkurse/Toto der
+    schon gespeicherten Karte (racecard_JJJJMMTT_daten.json) werden je Rennen und Startnummer übernommen, samt Stand;
+    von Wettstar geholt werden nur Rennen, die dort noch keinen Festkurs hatten (mit festkurse=False: keine)."""
     import pipeline as tp
     base = Path(base)
     tag = pd.to_datetime(tag).date() if tag else pmu.heute()
@@ -3007,9 +3010,15 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     print("Power-Modell geladen." if pmod else "Kein Power-Modell (power_modell.trainieren) – Power aus sechs Kennzahlen.")
     daten = baue_daten(hist, races_heute, runners_heute, tag, silks, prognosen, power=pmod)
     daten.setdefault("params", {})["einlauf"] = einlauf.laden(base)
+    out = Path(out) if out else base / "racecards" / f"racecard_{tag:%Y%m%d}.html"
+    uebernommen = festkurse_uebernehmen(daten, daten_pfad(out)) if festkurse_behalten else set()
     if festkurse is not False:                            # Festkurse Sieg/Platz (Wettstar) je Starter: x["fk"]
         import wettstar
-        if wettstar.anhaengen(daten, None if festkurse is True else festkurse, tag=tag):
+        offen = [k for k in daten.get("races", {}) if k not in uebernommen]
+        if not offen:
+            print("Festkurse: alle Rennen aus der gespeicherten Karte übernommen – nichts neu geholt.")
+        elif wettstar.anhaengen(daten, None if festkurse is True else festkurse, tag=tag,
+                                rennen=offen if uebernommen else None):
             wettstar.stand_merken(daten, datetime.now(pmu.PARIS).strftime("%H:%M"))
     tipps_setzen(daten)
     if pmod and pmod.get("wert"):                         # Vorwärts-Test: Value-Faktoren der Karte protokollieren
@@ -3023,7 +3032,6 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     mit_k = sum(1 for r in daten["races"].values() for x in r["runners"] for f in x["form_lines"] if f.get("comment"))
     if uebersetzen_aktiv and (mit_k or prognosen):       # Übersetzung: DeepL (DEEPL_API_KEY) -> Google -> MyMemory
         print(f"Kommentare in den Formzeilen: {mit_k}, davon auf Deutsch: {kommentare_uebersetzen(daten, base)}")
-    out = Path(out) if out else base / "racecards" / f"racecard_{tag:%Y%m%d}.html"
     out.parent.mkdir(parents=True, exist_ok=True)
     sp = daten_pfad(out)                                   # fertig berechnete Daten für festkurse_aktualisieren
     sp.write_text(json.dumps(daten, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
@@ -3041,6 +3049,31 @@ def tipps_setzen(daten: dict) -> None:
         print(f"Tipps je Veranstaltung: {n}")
     except Exception as e:                                 # Tipps dürfen die Karte nie verhindern
         print(f"Tipps nicht gesetzt: {e}")
+
+
+def festkurse_uebernehmen(daten: dict, pfad: Path) -> set:
+    """Festkurse/Toto (x["fk"]) je Rennen und Startnummer aus gespeicherten Kartendaten in neue übernehmen, samt
+    festkurse_stand und festkurse_bahnen. Rückgabe: race_ids, in denen ein Festkurs Sieg übernommen wurde."""
+    pfad = Path(pfad)
+    if not pfad.exists():
+        print(f"Festkurse behalten: keine gespeicherte Karte {pfad.name} – Festkurse werden neu geholt.")
+        return set()
+    alt = json.loads(pfad.read_text(encoding="utf-8"))
+    alt_r, mit = alt.get("races") or {}, set()
+    n = 0
+    for rid, r in (daten.get("races") or {}).items():
+        fk = {x.get("no"): x.get("fk") for x in (alt_r.get(rid) or {}).get("runners") or [] if x.get("fk")}
+        for x in r.get("runners") or []:
+            if x.get("no") in fk:
+                x["fk"] = fk[x["no"]]
+                n += 1
+                if (fk[x["no"]] or {}).get("sieg") is not None:
+                    mit.add(rid)
+    for k in ("festkurse_stand", "festkurse_bahnen"):
+        if alt.get(k) is not None:
+            daten[k] = alt[k]
+    print(f"Festkurse behalten: {n} Starter in {len(mit)} Rennen aus {pfad.name} (Stand {alt.get('festkurse_stand', '?')})")
+    return mit
 
 
 def daten_pfad(out: Path) -> Path:
