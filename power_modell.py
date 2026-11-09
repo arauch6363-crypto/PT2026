@@ -1347,6 +1347,20 @@ def _z_im_rennen(pred, rennen) -> np.ndarray:
     return ((s - g.transform("mean")) / sd.where(sd > 0)).fillna(0.0).to_numpy()
 
 
+UMRECHNUNG = "roh"          # Vorhersage -> Siegchance: Softmax(a × Skala im Rennen). "roh" = Vorhersage minus Rennmittel
+#                             (die Streuung im Rennen bleibt erhalten: ein klar überlegenes Pferd bekommt mehr Chance als
+#                             der Beste eines ausgeglichenen Feldes); "z" = früherer Stand (jedes Rennen auf Streuung 1).
+#                             Rollierende Prüfung 11/2026 (8.582 Rennen): Log-Loss der Mischung 2,0695 -> 2,0494 (z −10).
+
+
+def _skala_im_rennen(pred, rennen, umrechnung: str | None = None) -> np.ndarray:
+    """Vorhersage auf die Skala bringen, aus der die Siegchance entsteht: "roh" = minus Rennmittel, "z" = z-Wert."""
+    if (umrechnung or UMRECHNUNG) == "z":
+        return _z_im_rennen(pred, rennen)
+    s_ = pd.Series(np.asarray(pred, dtype=float))
+    return (s_ - s_.groupby(np.asarray(rennen)).transform("mean")).to_numpy()
+
+
 def _softmax_im_rennen(eta, rennen) -> np.ndarray:
     g = pd.factorize(np.asarray(rennen))[0]
     eta = np.asarray(eta, dtype=float)
@@ -1377,13 +1391,14 @@ def _a_schaetzen(z, won, rennen, iter_max: int = 50) -> float:
     return float(a)
 
 
-def markt_test(pred, rennen, won, odds, a: float | None = None) -> dict:
-    """Siegchance aus Power (Softmax(a × z), a geschätzt) gegen den Markt (1/Quote, je Rennen normiert):
-    mittlerer Log-Loss des Siegers (kleiner = besser) und bedingtes Logit mit ln(Marktchance) und Power-z.
-    power_koef > 0 mit |z| ≥ 2: Power weiß etwas, das die Endquote noch nicht enthält."""
+def markt_test(pred, rennen, won, odds, a: float | None = None, umrechnung: str | None = None) -> dict:
+    """Siegchance aus Power (Softmax(a × Skala im Rennen), a geschätzt; Skala siehe UMRECHNUNG) gegen den Markt
+    (1/Quote, je Rennen normiert): mittlerer Log-Loss des Siegers (kleiner = besser) und bedingtes Logit mit
+    ln(Marktchance) und der Power-Skala. power_koef > 0 mit |z| ≥ 2: Power weiß etwas, das die Endquote noch nicht
+    enthält (power_koef: bei "roh" der Exponent auf die Power-Siegchance neben dem Markt, bei "z" je Streuung im Rennen)."""
     import hypothesen_backtest as hb
     rennen = np.asarray(rennen).astype(str)
-    z = _z_im_rennen(pred, rennen)
+    z = _skala_im_rennen(pred, rennen, umrechnung)
     won = np.asarray(won, dtype=float)
     inv = pd.Series(np.where(np.asarray(odds, dtype=float) > 1, 1.0 / np.asarray(odds, dtype=float), np.nan))
     p_mkt = (inv / inv.groupby(rennen).transform("sum")).to_numpy()
@@ -1395,6 +1410,8 @@ def markt_test(pred, rennen, won, odds, a: float | None = None) -> dict:
     a = _a_schaetzen(d["z"], d["won"], d["race_id"]) if a is None else float(a)   # a vorgegeben: aus der Validierung
     p_mod = _softmax_im_rennen(a * d["z"].to_numpy(), d["race_id"])
     sieger = d["won"].to_numpy() == 1
+    if (umrechnung or UMRECHNUNG) != "z":                # "roh": a × Skala = ln Siegchance (bis auf eine Konstante je
+        d["z"] = a * d["z"]                              # Rennen) -> power_koef ist der Exponent auf die Power-Chance
     d["ln_p"] = np.log(d["p_mkt"])
     cl = hb.clogit(d, ["z"]).set_index("variable")
     return {"rennen": int(d["race_id"].nunique()), "a": round(a, 3),
@@ -1749,15 +1766,15 @@ def _gruppen_z(pred, G, cnt) -> np.ndarray:
     return np.divide(pred - mu[G], sd[G], out=np.zeros(len(pred)), where=sd[G] > 0)
 
 
-def sieg_logloss_np(pred, rennen, won, iter_max: int = 30) -> float:
-    """Log-Loss des Siegers der Siegchance Softmax(a × z) je Rennen, a per Maximum-Likelihood (wie markt_test, nur
-    schneller) – über Rennen mit genau einem Sieger."""
+def sieg_logloss_np(pred, rennen, won, iter_max: int = 30, umrechnung: str | None = None) -> float:
+    """Log-Loss des Siegers der Siegchance Softmax(a × Skala im Rennen) je Rennen, a per Maximum-Likelihood (wie
+    markt_test, nur schneller) – über Rennen mit genau einem Sieger."""
     G = pd.factorize(np.asarray(rennen))[0]
     pred, won = np.asarray(pred, dtype=float), np.nan_to_num(np.asarray(won, dtype=float))
     cnt = np.bincount(G).astype(float)
     r_ok = np.bincount(G, won) == 1                    # Rennen mit genau einem Sieger
     ok = r_ok[G]
-    z = _gruppen_z(pred, G, cnt)
+    z = _gruppen_z(pred, G, cnt) if (umrechnung or UMRECHNUNG) == "z" else pred - (np.bincount(G, pred) / cnt)[G]
     a = 1.0
     for _ in range(iter_max):
         eta = a * z
@@ -2184,16 +2201,16 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
     rv, rt_ = pv["race_id"].to_numpy(), pt["race_id"].to_numpy()
     wv, w_test = hist.loc[X.index[valid], "won"].to_numpy(), hist.loc[X.index[test], "won"].to_numpy()
     a_ = mv.get("a", 1.0)
-    p1_v = _softmax_im_rennen(a_ * _z_im_rennen(pv[spalte_p].to_numpy(), rv), rv)
-    p1_t = _softmax_im_rennen(a_ * _z_im_rennen(pt[spalte_p].to_numpy(), rt_), rt_)
+    p1_v = _softmax_im_rennen(a_ * _skala_im_rennen(pv[spalte_p].to_numpy(), rv), rv)
+    p1_t = _softmax_im_rennen(a_ * _skala_im_rennen(pt[spalte_p].to_numpy(), rt_), rt_)
     power_mix, zweit, p2_v, p2_t = {}, None, None, None
     if zweitmodell and spalte_p not in ("sieg", "segment"):
         if "sieg" not in modelle:
             log("Zweites Power-Modell (Lern-Ziel „sieg“) für die Mischung …")
             lerne("sieg")
         a2 = a_je_art["sieg"]
-        p2_v = _softmax_im_rennen(a2 * _z_im_rennen(pv["sieg"].to_numpy(), rv), rv)
-        p2_t = _softmax_im_rennen(a2 * _z_im_rennen(pt["sieg"].to_numpy(), rt_), rt_)
+        p2_v = _softmax_im_rennen(a2 * _skala_im_rennen(pv["sieg"].to_numpy(), rv), rv)
+        p2_t = _softmax_im_rennen(a2 * _skala_im_rennen(pt["sieg"].to_numpy(), rt_), rt_)
         power_mix = power_mix_schaetzen(p1_v, p2_v, rv, wv)
         if power_mix:
             validierung["power_mix (Power × Power-sieg, ohne Markt)"] = power_mix
@@ -2232,8 +2249,8 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
             a3 = mv3.get("a", 1.0)
             validierung["modell (catboost)"] = {**_bewerten(pv, "cat"), "logloss": mv3.get("logloss_power"), "baeume": best3}
             bericht["modell (catboost)"] = {**_bewerten(pt, "cat"), "logloss": mt3.get("logloss_power"), "baeume": best3}
-            p3_v = _softmax_im_rennen(a3 * _z_im_rennen(pv["cat"].to_numpy(), rv), rv)
-            p3_t = _softmax_im_rennen(a3 * _z_im_rennen(pt["cat"].to_numpy(), rt_), rt_)
+            p3_v = _softmax_im_rennen(a3 * _skala_im_rennen(pv["cat"].to_numpy(), rv), rv)
+            p3_t = _softmax_im_rennen(a3 * _skala_im_rennen(pt["cat"].to_numpy(), rt_), rt_)
             cat_mix = power_mix_cat_schaetzen(p1_v, p2_v, p3_v, rv, wv, power_mix)
             if cat_mix:
                 titel = "power_mix mit CatBoost (ohne Markt)"
@@ -2310,7 +2327,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
                       "anteil_sieger": round(float(rot[w_t].mean()), 3) if w_t.any() else None,
                       "anteil_platz": round(float(rot[p_t].mean()), 3) if p_t.any() else None}
     bericht.update({"gewaehlt": sieger, "test_ab": auf["test_ab"], "aufteilung": gr, "ab": ab, "abbruch": abbruch,
-                    "tracking": bool(trk), "validierung": validierung})
+                    "tracking": bool(trk), "umrechnung": UMRECHNUNG, "validierung": validierung})
     log("Validierung (Abbruch, Modellwahl, Siegchance-a):")
     for k, v in validierung.items():
         log(f"  {k}: {v}")
@@ -2385,7 +2402,7 @@ def trainieren(base: Path | None = None, *, hist: pd.DataFrame | None = None, ou
             "prognose_schicht": prog.get("gewichte") if prog.get("uebernommen") else None,
             "bericht": {k: v for k, v in bericht.items() if k != "je_rennen"},
             "tracking": _tracking_speichern(trk, ordner, m_datei),
-            "sieg_a": mv.get("a", 1.0),
+            "sieg_a": mv.get("a", 1.0), "umrechnung": UMRECHNUNG,
             "wichtig": {k: round(float(v / imp.sum()), 4) for k, v in imp.head(30).items()},
             "trainiert": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"), "starter": int(len(X))}
     (ordner / m_meta).write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -2809,7 +2826,8 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
     df = pd.DataFrame({"race_id": hz["race_id"].astype(str).to_numpy(), "no": hz["saddle_no"].to_numpy(), "pred": pred})
     rid_ = df["race_id"].to_numpy()
     a1 = meta.get("sieg_a", 1.0)
-    df["sieg"] = _softmax_im_rennen(a1 * _z_im_rennen(df["pred"], rid_), rid_)
+    um = meta.get("umrechnung", "z")                      # Modelle vor 11/2026: z im Rennen
+    df["sieg"] = _softmax_im_rennen(a1 * _skala_im_rennen(df["pred"], rid_, um), rid_)
     df["staerke"] = df["pred"]                            # Grundlage von Power (z im Rennen)
     pmx = meta.get("power_mix")
     zw, cb = modell.get("zweit"), modell.get("cat")
@@ -2817,28 +2835,30 @@ def vorhersage(hist: pd.DataFrame, heute_zeilen: pd.DataFrame, modell: dict, log
     if pmx and not braucht:
         log("  Power-Mischung: Teilmodell fehlt (power_sieg / CatBoost) – Power ohne Mischung")
     if braucht:                                          # Power-Mischung ohne Markt: Power, Siegchance, Treiber
-        # Treiber in Power-Punkten: Stärke = Σ b·a·z je Quelle (+ je Rennen gleich), z = (Vorhersage − Ø) / sd
+        # Treiber in Power-Punkten: Stärke = Σ b·a·Skala je Quelle (+ je Rennen gleich); Skala = Vorhersage − Ø
+        # ("roh") bzw. (Vorhersage − Ø) / sd ("z", ältere Modelle)
         quellen = []                                     # (Exponent, a, Vorhersage, Beiträge)
         p2_ = p3_ = None
         if pmx.get("sieg"):                              # zweites Power-Modell „sieg“
             pred2 = zw["booster"].predict(Xk)
-            p2_ = _softmax_im_rennen(zw["sieg_a"] * _z_im_rennen(pred2, rid_), rid_)
+            p2_ = _softmax_im_rennen(zw["sieg_a"] * _skala_im_rennen(pred2, rid_, um), rid_)
             quellen.append((pmx["sieg"], zw["sieg_a"], pred2, zw["booster"].predict(Xk, pred_contrib=True)[:, :-1]))
         if pmx.get("cat"):                               # CatBoost (Platzanteil)
             from catboost import Pool
             Xc = _cat_matrix(Xk)
             pc = Pool(Xc, cat_features=_cat_spalten(Xc))
             pred3 = cb["modell"].predict(pc)
-            p3_ = _softmax_im_rennen(cb["sieg_a"] * _z_im_rennen(pred3, rid_), rid_)
+            p3_ = _softmax_im_rennen(cb["sieg_a"] * _skala_im_rennen(pred3, rid_, um), rid_)
             quellen.append((pmx["cat"], cb["sieg_a"], pred3,
                             cb["modell"].get_feature_importance(pc, type="ShapValues")[:, :-1]))
         df["staerke"] = power_mix_staerke(df["sieg"], p2_, pmx["power"], pmx.get("sieg", 0.0), p3_, pmx.get("cat", 0.0))
         df["sieg"] = _softmax_im_rennen(df["staerke"].to_numpy(), rid_)
         sd = lambda v: pd.Series(np.asarray(v, dtype=float)).groupby(rid_).transform("std", ddof=0).replace(0, np.nan).to_numpy()
         sd_s = sd(df["staerke"])
-        beitr = np.nan_to_num(10 * pmx["power"] * a1 / (sd(pred) * sd_s))[:, None] * beitr
+        sd_q = (lambda v: sd(v)) if um == "z" else (lambda v: 1.0)       # "roh": Vorhersage geht ungeteilt ein
+        beitr = np.nan_to_num(10 * pmx["power"] * a1 / (sd_q(pred) * sd_s))[:, None] * beitr
         for b_, a_q, pr_q, bt_q in quellen:
-            beitr = beitr + np.nan_to_num(10 * b_ * a_q / (sd(pr_q) * sd_s))[:, None] * bt_q
+            beitr = beitr + np.nan_to_num(10 * b_ * a_q / (sd_q(pr_q) * sd_s))[:, None] * bt_q
         einheit = "power"
     else:
         beitr = beitr * 100                              # Prozentpunkte des Platzanteils

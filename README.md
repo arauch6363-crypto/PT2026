@@ -294,9 +294,9 @@ Lagen (mit Debütanten, nach Pause ≥ 60 Tage, im heutigen Renntyp, auf dem Kur
 (Leistung der Geschwister ohne das Pferd selbst, wie Vater), Rating seit dem letzten Lauf und Abstand zur letzten
 Sieg-/Platzmarke im Handicap, Bestform (bester ARR 365 Tage und auf heutiger Distanzgruppe, letzter Lauf gegen Bestform),
 Läufe seit der letzten Pause und erstmals als Wallach.
-`markt_test` im Bericht: Siegchance = Softmax(a × Power-z) je Rennen (a auf der Validierung geschätzt, auf den Testtagen geprüft, steht in der
+`markt_test` im Bericht: Siegchance = Softmax(a × (Vorhersage − Rennmittel)) je Rennen (`pm.UMRECHNUNG = "roh"`, seit 11/2026; vorher z im Rennen – a auf der Validierung geschätzt, auf den Testtagen geprüft, steht in der
 Meta-Datei; die Karte zeigt Siegchance und faire Quote im Power-Tooltip), Log-Loss des Siegers gegen die Endquote und
-bedingtes Logit mit ln(Marktchance) + Power-z – `power_koef` > 0 mit `power_z` ≥ 2 heißt: Power weiß etwas, das die
+bedingtes Logit mit ln(Marktchance) + ln(Power-Siegchance) – `power_koef` (Exponent auf die Power-Chance) > 0 mit `power_z` ≥ 2 heißt: Power weiß etwas, das die
 Quote noch nicht enthält.
 
 Zweites Modell (Value): `pm.trainieren_wert(BASE)` bzw. `pm.trainieren_wert(BASE, ziel_art="kombi")` (Ziel Sieg + Platz gegen Sieg- + Platzchance des Marktes, Poisson – ein Sieg zählt doppelt) (Minuten, Merkmale aus dem Zwischenspeicher). Ziel platziert ja/nein,

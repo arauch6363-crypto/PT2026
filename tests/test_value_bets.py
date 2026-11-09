@@ -834,3 +834,22 @@ def test_festkurse_uebernehmen(tmp_path):
     assert mit == {"R1"} and r1 == {1: {"sieg": 4.5, "toto": 5.0}, 2: {"sieg": 9.0}, 3: None}
     assert neu["races"]["R2"]["runners"][0]["fk"] == {"toto": 3.1} and neu["festkurse_stand"] == "10:12"
     assert rc.festkurse_uebernehmen({"races": {}}, tmp_path / "fehlt.json") == set()
+
+
+def test_umrechnung_roh():
+    """Siegchance aus Rohwerten: die Streuung im Rennen bleibt erhalten (klarer Favorit > Bester im engen Feld)."""
+    import numpy as np
+    import power_modell as pm
+    rennen = np.array(["a"] * 4 + ["b"] * 4)
+    pred = np.array([0.9, 0.5, 0.4, 0.2, 0.55, 0.5, 0.48, 0.47])       # a: einer ragt heraus, b: eng
+    roh = pm._skala_im_rennen(pred, rennen, "roh")
+    z = pm._skala_im_rennen(pred, rennen, "z")
+    assert abs(roh[:4].sum()) < 1e-12 and abs(roh[0] - 0.4) < 1e-12
+    assert abs(z[:4].std() - 1) < 1e-9 and abs(z[4:].std() - 1) < 1e-9
+    p_roh = pm._softmax_im_rennen(5 * roh, rennen)
+    p_z = pm._softmax_im_rennen(1.0 * z, rennen)
+    assert p_roh[0] > 0.6 and p_roh[4] < 0.35                      # roh: Favorit in a klar vor Favorit in b
+    assert abs(p_z[0] - p_z[4]) < 0.12                             # z: beide Favoriten fast gleich
+    assert pm.UMRECHNUNG == "roh"
+    w = np.array([1, 0, 0, 0, 0, 1, 0, 0.0])
+    assert abs(pm.sieg_logloss_np(pred, rennen, w) - pm.markt_test(pred, rennen, w, np.full(8, 4.0))["logloss_power"]) < 1e-3

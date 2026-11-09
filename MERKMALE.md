@@ -344,7 +344,13 @@ Trend und Klasse:
 
 ## Faire Quote (Karte und Value-Dashboard)
 
-- Siegchance Power allein = Softmax(a × z) der Power-Vorhersage je Rennen (a auf der Validierung geschätzt).
+- Siegchance Power allein = Softmax(a × (Vorhersage − Rennmittel)) je Rennen (a auf der Validierung geschätzt;
+  `pm.UMRECHNUNG = "roh"`, seit 11/2026). Die Streuung der Vorhersagen im Rennen bleibt erhalten: ein klar überlegenes
+  Pferd bekommt mehr Chance als der Beste eines ausgeglichenen Feldes. Vorher wurde jedes Rennen auf Streuung 1
+  gebracht (z im Rennen); rollierende Prüfung über 8.582 Rennen: Log-Loss der Power-Mischung 2,0695 → 2,0494
+  (gepaart z = −10), Exponent neben der Endquote 0,148 → 0,205. Gilt für Power, Power-sieg und CatBoost; Modelle
+  ohne `umrechnung` in der Meta-Datei (älter) rechnen weiter mit z. Die Power-Zahl der Karte (100 ± 10 je Streuung
+  der Stärke im Rennen) ist davon unberührt.
 - **Keine Marktquote:** Die Morgenquote ist ausgebaut – die Karte sah um 10 Uhr einen anderen Stand als den später
   gespeicherten, Training und Karte ließen sich nicht gleich rechnen.
 - **Power-Mischung** (`zweitmodell=True`, Vorgabe): zusätzlich ein zweites Power-Modell mit Lern-Ziel „sieg“;
