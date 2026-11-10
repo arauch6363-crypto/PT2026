@@ -15,10 +15,10 @@
     "SLOW": ["Souple", "Très souple"],
     "VERY SLOW": ["Collant", "Lourd", "Très lourd"]
   },
-  "datum": "2026-11-09",
+  "datum": "2026-11-10",
   "bahnen": {
     "AGEN": "Bon",
-    "AMIENS": "Collant",
+    "AMIENS": "Très souple",
     "ANGERS": "Bon",
     "ARGENTAN": "Très souple",
     "BEAUMONT DE LOMAGNE": "Bon",
@@ -34,7 +34,7 @@
     "DEAUVILLE": "PSF",
     "DIEPPE": "Bon",
     "DURTAL": "Bon",
-    "FONTAINEBLEAU": "Souple",
+    "FONTAINEBLEAU": "Très souple",
     "LA TESTE DE BUCH": "Bon",
     "LE CROISE LAROCHE": "Bon souple",
     "LE LION D ANGERS": "Bon",
