@@ -56,7 +56,8 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
    „Nase im Wind“/ohne Deckung, am Rand galoppiert; Blatt: gegen den Verlauf, Zwischenfall) nicht für bare Münze
    nehmen – sie unterschätzen das Pferd. Kein Referenzlauf ist selbst ein Fragezeichen. Ist der Referenzlauf schlecht
    und gibt es kein Argument, warum es heute besser sein sollte, ist das ein starkes Gegenargument.
-4. **Vorlieben (Gesamtbilanz), dann Abstammung.** Boden, Distanz, Bahn, Richtung, Ausrüstung aus den **Vorlieben**
+4. **Vorlieben (Gesamtbilanz), dann Abstammung.** (Abstammung differenziert lesen: z. B. Frankels mögen sehr
+   weichen Boden manchmal nicht – Souple ist dafür nicht weich genug.) Boden, Distanz, Bahn, Richtung, Ausrüstung aus den **Vorlieben**
    des Blatts – nie nur aus den letzten Formzeilen (die zeigen höchstens sieben Läufe). Bei Très souple und weicher
    zählt die **genaue Bodenangabe**: ein Lauf genau auf diesem Boden ist ein starkes Argument. Abstammung nur ergänzend,
    vor allem bei dünner eigener Bilanz.
@@ -86,7 +87,9 @@ nicht einzuordnende Auslandsformen.
 Hinterer Modell-Rang · schwacher Referenzlauf ohne Grund zur Steigerung · ARR deutlich unter den Besten im Feld ·
 selten gewinnend (viele Plätze, kaum Siege) · kalter Trainer (abgestuft) · Ausrüstung fällt weg, mit der die besten
 Läufe kamen · in der heutigen Richtung klar schlechter · signifikant schlechte Box · Höchstgewicht auf sehr weichem
-Boden · dichte Startfolge · Formen „weit weg von dem, was benötigt wird“ · vorne laufend gegen schnelles Tempo.
+Boden · dichte Startfolge · Formen „weit weg von dem, was benötigt wird“ · vorne laufend gegen schnelles Tempo · Stute
+gegen Hengste (bei jungen Pferden, leicht) · Sieg, bei dem das Rennen den Vorderen half und das Pferd vorne lief
+(etwas weniger wert) · im direkten Vergleich hinter einem heutigen Gegner.
 
 ### Typische Pro-Argumente
 
