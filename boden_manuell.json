@@ -15,7 +15,7 @@
     "SLOW": ["Souple", "Très souple"],
     "VERY SLOW": ["Collant", "Lourd", "Très lourd"]
   },
-  "datum": "2026-11-10",
+  "datum": "2026-11-11",
   "bahnen": {
     "AGEN": "Bon",
     "AMIENS": "Très souple",
@@ -62,7 +62,7 @@
     "SAINT MALO": "Collant",
     "SALON DE PROVENCE": "Bon",
     "SEGRE": "Bon",
-    "STRASBOURG": "Bon",
+    "STRASBOURG": "Souple",
     "TARBES": "Bon",
     "TOULOUSE": "Souple",
     "VICHY": "Bon",
