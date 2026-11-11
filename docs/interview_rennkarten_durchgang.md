@@ -78,6 +78,12 @@ Arbeitsnotizen aus dem /grill-with-docs-Interview (Start 11.11.2026). Wird beim 
 | Q46 | Platziert / im Geld | Platziert: Top 3 bei ≥ 8 Startern, Top 2 bei ≤ 7. „Gut gelaufen“ = im Geld = Top 5 |
 | Q47 | Gestörter Lauf | Quellen: Rennkommentar und Rennverlauf (z. B. weit hinten, Rennen von vorne entschieden = gegen den Verlauf) |
 
+### Karte 11.11.2026 (Ergebnisse dem Nutzer unbekannt)
+
+- **R2C1 Strasbourg Dublin Calling (3)**: FK 3,2, Modell 31,4 % (Rang 1/10), Value +0 % → **keine Wette** („sehr dünner Wert, da muss schon was Überzeugendes dabei sein“). Pro: guter Trainer (A. Botti) – in Strasbourg 2 Jahre ohne Sieg, aber 5 von 7 platziert, stark mit 2-Jährigen in Conditions-Rennen; Referenzlauf Clairefontaine Très souple 3. mit bestem ARR, in einem **aufgewerteten Rennen** (4 Gegner aufgewertet, 2 nicht) vergleichbarer Klasse; Bahn bekannt und gut gelaufen. Gegen: Jockey in Strasbourg wenig erfolgreich. Fazit: wird realistisch gut laufen, aber nicht mehr wert als 3,2; kein Grund, deutlich unter das Modell zu gehen – nur kein Value.
+- **R2C1 Matinera (9)**: Debütantin, FK 30, Value +20 % → **keine Wette**. Abstammung recht gut (gute 2-Jährige), aber Trainerin (Mme Y. Vollmer) bringt Zweijährige nicht siegfertig: letzte 20 Starts ohne Sieg, 2 Plätze, mit 2-Jährigen wenig erfolgreich („spricht Bände“). Bestätigt Q50: bei Debütanten entscheiden Abstammung und vor allem der Trainer mit (Zwei-)Jährigen/Debütanten.
+- Vorhersage Claude für R2C1 (keine Wette, beide) stimmte.
+
 ## Offen
 
 - Wie groß ist eine Korrektur (Skala für modellfremde Argumente)?

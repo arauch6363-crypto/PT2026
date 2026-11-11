@@ -46,6 +46,10 @@ _Avoid_: platziert
 Wie ein früheres Rennen gelaufen ist (Tempo, Positionen, wo es entschieden wurde). Lief ein Pferd weit hinten und wurde das Rennen von vorne entschieden, lief es gegen den Verlauf; sein Ergebnis unterschätzt dann seine Leistung.
 _Avoid_: Laufbild, Rennbild
 
+**Aufgewertetes Rennen**:
+Ein früheres Rennen, dessen Gegner danach überwiegend besser liefen als erwartet; eine gute Leistung darin wiegt mehr.
+_Avoid_: starkes Rennen, Formrennen
+
 **Aufgewicht**:
 Die heutige Handicap-Marke liegt über der Marke des letzten Siegs. Ein Fragezeichen, umso größer, je exposed das Pferd ist.
 _Avoid_: Strafe, Mehrgewicht
