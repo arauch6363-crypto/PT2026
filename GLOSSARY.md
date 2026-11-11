@@ -14,6 +14,24 @@ _Avoid_: FK (nur als Spaltenkürzel), Kurs (mehrdeutig mit der Bahnkonfiguration
 Die Siegchance eines Pferdes nach dem Power-Modell, wie sie die Karte ausweist.
 _Avoid_: Power-Chance, Modellchance, Siegchance ohne Zusatz
 
+**Modell-Rang**:
+Der Platz eines Starters im Feld nach der Power-Zahl des Modells (1 = stärkster). Gelesen wird er relativ zur Feldgröße: Rang 3 von 16 wiegt anders als Rang 3 von 7.
+_Avoid_: Rang ohne Zusatz, Power-Rang
+
+**Modellfremdes Argument**:
+Ein Grund für oder gegen ein Pferd, den das Power-Modell nicht als Merkmal kennt. Nur solche Argumente dürfen die eigene Siegchance von der Modell-Siegchance wegbewegen.
+_Avoid_: Angle (wenn das Modell den Grund schon kennt), Bestätigung
+
+### Boden
+
+**Bodenangabe**:
+Die genaue PMU-Bodenbezeichnung des Tages (Bon, Bon souple, Souple, Très souple, Collant, Lourd …).
+_Avoid_: Boden ohne Zusatz, Going
+
+**Bodengruppe**:
+Die grobe Einteilung der Karte (Very slow, Slow, Fast, Very fast, PSF), in der z. B. Souple und Très souple zusammenfallen.
+_Avoid_: Bodenangabe
+
 **Value**:
 Festkurs × Modell-Siegchance − 1, also der erwartete Gewinn je 1 € Einsatz auf Sieg.
 _Avoid_: Wert, Value-Lücke, EV, Edge
