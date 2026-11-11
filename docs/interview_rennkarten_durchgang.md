@@ -52,6 +52,16 @@ Arbeitsnotizen aus dem /grill-with-docs-Interview (Start 11.11.2026). Wird beim 
 
 - **R1C4 Interactiv (2)**: FK 35, Modell 6,7 % (Rang 6/16), Value +135 % → **keine Wette** („Boden zu großes Fragezeichen, dass er sein Aufgewicht vom letzten Sieg verteidigen kann“). Fragezeichen: nach Handicap-Sieg auf Bon 3 kg höher (Marke 40 → 43), heute Très souple statt guter Bahn; auf schwerem Boden einmal schlecht (Collant 9/12), auf weichem einmal ordentlich; Abstammung ohne Plus. Kaum Pro-Argumente (ARR Rang 14/16). Nutzer liest auch das Crible (Pressenotiz) als Quelle.
 
+- **R1C4 Grand Scoop (3)**: FK 16, Modell 13,6 % (Rang 2/16), Value +118 % → **Wette** („Fragezeichen nicht groß genug, um bei diesem Value gegen eine Wette zu opponieren“). Prüfreihenfolge des Nutzers:
+  1. Letzter Lauf im Kontext (6. im Rennen, das Interactiv gewann, auf guter Bahn) → Form okay.
+  2. Lauf unter heutigen Bedingungen gesucht: 22.08. Deauville 1200 m Collant, 3. → **Referenzlauf**; Marke damals ähnlich wie heute.
+  3. Bodenvorlieben (Bilanz) bestätigen Neigung für schweren Boden; Abstammung ohne Signal; Distanz passt.
+  4. Trainerform 30 Tage (G. Mossé): kalt, nicht extrem → notiert.
+  5. Referenzlauf vertieft: ARR dort 38,1; über diesen Lauf direkt vor 5 heutigen Gegnern und indirekt vorne → starkes Pro. Aber: 38,1 gehört nicht zu den Top-Formen im Feld.
+  6. Startbox: gut (Box-Abweichung +0,06).
+  7. Bahnerfahrung Fontainebleau (schwierige Bahn): einmal gelaufen, unplatziert → nicht hart angekreidet.
+  8. Gesamturteil gegen Value und Modell-Rang.
+
 ## Offen
 
 - Wie groß ist eine Korrektur (Skala für modellfremde Argumente)?
