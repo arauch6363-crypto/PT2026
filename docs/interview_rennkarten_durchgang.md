@@ -48,6 +48,8 @@ Arbeitsnotizen aus dem /grill-with-docs-Interview (Start 11.11.2026). Wird beim 
 - **R1C3 La Belle Isola (1)**: FK 4,5, Modell 39,8 % (Rang 1/11), Value +79 % → **Wette** („starker Vorteil“). Fragezeichen: ARR gewichtsbereinigt nur Rang 5 (60 kg Höchstgewicht; modellbekannt), nie auf Très souple gelaufen, Abstammung Boden ohne Aussage (Vater mit 36 Läufen). Distanz bewährt (1001–1200 m: 4 Läufe, 2 Siege).
 - **R1C3 Ozark James (3)**: FK 11, Modell 12,0 % (Rang 3/11), Value +32 %, Value-Faktor gold → **keine Wette**, „zu viele Fragezeichen“: erstmals Scheuklappen („warum heute?“), erstmals 1200 m (bisher nur 1201–1600 m), Bewährung auf Très souple nur im Claimer, Abstammung ohne Beleg für den Boden. Dafür sprachen: ARR gewichtsbereinigt Rang 1, indirekt +3,3 L, einziger Führender.
 
+- **R1C4 Interactiv (2)**: FK 35, Modell 6,7 % (Rang 6/16), Value +135 % → **keine Wette** („Boden zu großes Fragezeichen, dass er sein Aufgewicht vom letzten Sieg verteidigen kann“). Fragezeichen: nach Handicap-Sieg auf Bon 3 kg höher (Marke 40 → 43), heute Très souple statt guter Bahn; auf schwerem Boden einmal schlecht (Collant 9/12), auf weichem einmal ordentlich; Abstammung ohne Plus. Kaum Pro-Argumente (ARR Rang 14/16). Nutzer liest auch das Crible (Pressenotiz) als Quelle.
+
 ## Offen
 
 - Wie groß ist eine Korrektur (Skala für modellfremde Argumente)?
