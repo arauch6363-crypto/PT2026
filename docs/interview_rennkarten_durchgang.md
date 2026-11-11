@@ -71,6 +71,13 @@ Arbeitsnotizen aus dem /grill-with-docs-Interview (Start 11.11.2026). Wird beim 
 | Q43 | Bahn | Plus nur, wenn auf der Bahn schon gewonnen oder platziert; sonst neutral (kein Fragezeichen) |
 | Q44 | Rang-Wording | „vorderer/hinterer“ Modell-Rang |
 
+- **R1C4 Laith (10)**: FK 11, Modell 11,2 % (Rang 3/16), Value +23 % → **keine Wette** (im Rennvergleich Rang 3 von 4 Kandidaten). Kein Referenzlauf: letzte Läufe über 1400 m+ auf Bon souple; erstmals unter 1201 m (Fragezeichen, gemildert: läuft meist vorne mit). Weicher Boden: Lourd/Collant 2025 in Saint-Cloud und Bordeaux, einmal 2. → kann es. Abstammung ohne Hinweis. Trainer in Form (Pro), Box okay. Nicht viel dagegen, aber schwächere Beweislage als Grand Scoop und Mister Chang.
+- **R1C4 Rennvergleich**: Bei mehreren Kandidaten im selben Rennen entscheidet der Nutzer **relativ**: Kandidaten nach Beweislage ordnen (Grand Scoop, Mister Chang > Laith > Interactiv) und eine Grenze ziehen; hier nach Platz 2.
+
+| Q45 | Exposed | Eine Skala, keine feste Grenze; wenige Starts und jung = unexposed |
+| Q46 | Platziert / im Geld | Platziert: Top 3 bei ≥ 8 Startern, Top 2 bei ≤ 7. „Gut gelaufen“ = im Geld = Top 5 |
+| Q47 | Gestörter Lauf | Quellen: Rennkommentar und Rennverlauf (z. B. weit hinten, Rennen von vorne entschieden = gegen den Verlauf) |
+
 ## Offen
 
 - Wie groß ist eine Korrektur (Skala für modellfremde Argumente)?

@@ -34,12 +34,24 @@ _Avoid_: Vergleichslauf, Formlauf
 Das Pferd hat auf der heutigen Bahn schon gewonnen oder ist platziert gelaufen. Ein Pro-Argument; bloße Bahnerfahrung ohne Platzierung zählt nicht.
 _Avoid_: Bahnerfahrung, Kursform
 
+**Platziert**:
+Unter den ersten drei bei 8 oder mehr Startern, unter den ersten zwei bei bis zu 7 Startern.
+_Avoid_: im Geld (das ist weiter gefasst)
+
+**Im Geld**:
+Unter den ersten fünf; in Frankreich in der Regel die Plätze mit Preisgeld. Gilt als „gut gelaufen“, auch wenn nicht platziert.
+_Avoid_: platziert
+
+**Rennverlauf**:
+Wie ein früheres Rennen gelaufen ist (Tempo, Positionen, wo es entschieden wurde). Lief ein Pferd weit hinten und wurde das Rennen von vorne entschieden, lief es gegen den Verlauf; sein Ergebnis unterschätzt dann seine Leistung.
+_Avoid_: Laufbild, Rennbild
+
 **Aufgewicht**:
 Die heutige Handicap-Marke liegt über der Marke des letzten Siegs. Ein Fragezeichen, umso größer, je exposed das Pferd ist.
 _Avoid_: Strafe, Mehrgewicht
 
 **Exposed**:
-Ein Pferd mit vielen Starts und eher höherem Alter, von dem kaum noch Steigerung zu erwarten ist. Gegenteil: **unexposed** (wenige Starts, jung, Steigerung möglich).
+Ein Pferd mit vielen Starts und eher höherem Alter, von dem kaum noch Steigerung zu erwarten ist. Eine Skala, keine Grenze. Gegenteil: **unexposed** (wenige Starts, jung, Steigerung möglich).
 _Avoid_: ausgereizt, erfahren
 
 ### Boden
