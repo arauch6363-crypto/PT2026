@@ -22,6 +22,14 @@ _Avoid_: Rang ohne Zusatz, Power-Rang
 Ein Grund für oder gegen ein Pferd, den das Power-Modell nicht als Merkmal kennt. Nur solche Argumente dürfen die eigene Siegchance von der Modell-Siegchance wegbewegen.
 _Avoid_: Angle (wenn das Modell den Grund schon kennt), Bestätigung
 
+**Gegenargument**:
+Ein Grund, warum ein Pferd heute schwächer ist, als die Modell-Siegchance sagt. Senkt die eigene Siegchance.
+_Avoid_: Fragezeichen (das ist Ungewissheit, keine Schwäche), Minus ohne Zusatz
+
+**Fragezeichen**:
+Eine Bedingung, unter der sich ein Pferd heute noch nicht bewiesen hat (z. B. erstmals diese Distanz, diese Bodenangabe, Scheuklappen). Senkt nicht die Siegchance, sondern hebt die Value-Schwelle für eine Wette.
+_Avoid_: Gegenargument, Risiko, Zweifel
+
 ### Boden
 
 **Bodenangabe**:

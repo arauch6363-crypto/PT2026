@@ -24,6 +24,10 @@ Arbeitsnotizen aus dem /grill-with-docs-Interview (Start 11.11.2026). Wird beim 
 | Q22 | Reise-Argument | Britische Trainer: Plus (lange Reise, höheres Durchschnittsniveau GB-Flachrennen). Spanische, deutsche, (weit reisende) französische Trainer: nur begrenzt |
 | Q23 | Boden | Bei sehr weichem Boden zählt die genaue Bodenangabe; Bewährung genau auf dieser Angabe ist ein starkes Argument (hier für die Favoritin, gegen Kenergy) |
 
+| Q26 | Fragezeichen | Zum Ausprobieren: Fragezeichen (unbewiesene Bedingung) heben die Schwelle (Startwert +15 Punkte je Fragezeichen), Gegenargumente senken die Chance |
+| Q27 | Hinterer Modell-Rang | Kein Fragezeichen, sondern ein Gegenargument |
+| Q21 (revidiert) | modellfremd/modellbekannt | Nutzer will **keine** Unterscheidung: auch Argumente, die das Modell kennt, bewegen die eigene Siegchance (Doppelzählung bewusst; Details offen) |
+
 ## Fakten zum Modell (für „modellfremd“)
 
 - Kennt: Startzahl, ARR/TR/RTR (auch feldrelativ), Duelle und indirekte Vergleiche, Bodenbilanz und Abstammung je Bodengruppe, Klasse, Trainer/Jockey-Statistik, Pausen, Wallach/Scheuklappen, Tempo/Laufstil/Box.
