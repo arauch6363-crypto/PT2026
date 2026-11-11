@@ -26,6 +26,14 @@ _Avoid_: Fragezeichen (das ist Ungewissheit, keine Schwäche), Minus ohne Zusatz
 Eine Bedingung, unter der sich ein Pferd heute noch nicht bewiesen hat (z. B. erstmals diese Distanz, diese Bodenangabe, Scheuklappen). Je höher der Value, desto mehr Fragezeichen trägt eine Wette.
 _Avoid_: Gegenargument, Risiko, Zweifel
 
+**Referenzlauf**:
+Der jüngste frühere Lauf, der den heutigen Bedingungen (Bodenangabe, Distanz, Marke/Klasse) am nächsten kommt. Ein älterer Lauf auf derselben Bahn kann vorgehen; ein gestörter Lauf taugt nur eingeschränkt als Referenz.
+_Avoid_: Vergleichslauf, Formlauf
+
+**Bahnbewährung**:
+Das Pferd hat auf der heutigen Bahn schon gewonnen oder ist platziert gelaufen. Ein Pro-Argument; bloße Bahnerfahrung ohne Platzierung zählt nicht.
+_Avoid_: Bahnerfahrung, Kursform
+
 **Aufgewicht**:
 Die heutige Handicap-Marke liegt über der Marke des letzten Siegs. Ein Fragezeichen, umso größer, je exposed das Pferd ist.
 _Avoid_: Strafe, Mehrgewicht

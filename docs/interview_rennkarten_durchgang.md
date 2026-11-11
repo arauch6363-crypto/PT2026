@@ -62,6 +62,15 @@ Arbeitsnotizen aus dem /grill-with-docs-Interview (Start 11.11.2026). Wird beim 
   7. Bahnerfahrung Fontainebleau (schwierige Bahn): einmal gelaufen, unplatziert → nicht hart angekreidet.
   8. Gesamturteil gegen Value und Modell-Rang.
 
+- **R1C4 Mister Chang (4)**: FK 25, Modell 5,9 % (Rang 7/16), Value +47 % → **Wette** (mit Grand Scoop die Value-Wetten des Rennens). Pro: CGD-Kennzeichen (auf Bahn, Distanz und Boden gewonnen); Formen auf weichem Boden mit höherer Marke nah dran (Chantilly Souple 5/8 bei 1,5 kg höherer Marke, ARR gewichtsbereinigt 39,5 – weit vorne im Feld; Deauville Collant 9/16 bei 2 kg höherer Marke, 5 L geschlagen); Fontainebleau: 5 Läufe, 1 Sieg, 2 Plätze (u. a. 17.03. Souple 4/15); derselbe Jockey (H. Journiac) mit zwei Siegen auf dem Pferd. Fragezeichen: 1,5 kg über letzter Siegmarke (bei „relativ jungem“ Pferd leicht). Letzter Lauf 14/16 auf Bon „außen vor gelassen“ (anderer Boden, nicht weit geschlagen). Trainer/Jockey-Form unauffällig. Nicht vom Nutzer genannt, aber auf der Karte: 12.05. Chantilly **Très souple** Hcp 3/16 bei Marke 38,5.
+- **R1C4 Interactiv**: Nutzer bestätigt am Ende (Satz abgebrochen) vermutlich „keine Wette“.
+
+| Q40 | Prüfliste | Ja; Nutzer erläutert beim nächsten Mal ausführlicher, evtl. 1–2 Schritte mehr |
+| Q41 | Referenzlauf | Der jüngste Lauf, der den heutigen Bedingungen am nächsten kommt. Ältere Läufe können Referenz sein, wenn auf derselben Bahn oder unter regulären Bedingungen gelaufen; ein gestörter Lauf (Behinderung o. Ä.) zählt nicht für bare Münze |
+| Q42 | Kalter Trainer | Gegenargument, abgestuft nach Stärke |
+| Q43 | Bahn | Plus nur, wenn auf der Bahn schon gewonnen oder platziert; sonst neutral (kein Fragezeichen) |
+| Q44 | Rang-Wording | „vorderer/hinterer“ Modell-Rang |
+
 ## Offen
 
 - Wie groß ist eine Korrektur (Skala für modellfremde Argumente)?
