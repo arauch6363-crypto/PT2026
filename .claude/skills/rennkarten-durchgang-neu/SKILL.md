@@ -117,6 +117,9 @@ kann reichen“ beantwortet ist. Mindestquote = unterer Rand der Spanne.
 - +5 % bis +50 %: höchstens ein Fragezeichen und kein gewichtiges Gegenargument.
 - Über +50 %: ein bis zwei Fragezeichen tragbar, **wenn genug für das Pferd spricht**. Viel Value ohne Pro-Argumente
   (Interactiv) oder mit Aufgewicht, Klassenfrage und Höchstgewicht auf schwerem Boden zusammen (Verdansk) reicht nicht.
+- **Sehr hoher Value (etwa über +100 %) ist ein Warnsignal**, wenn er auf Formen beruht, die das Modell schlecht
+  bewerten kann (Auslandsformen, externe Läufe, wenig Daten): Dann ist eher das Modell unsicher als der Markt falsch –
+  eher keine Wette (vorläufig, ein Fall: Arkansas).
 - Debütanten: nur wenn der Stall Debütanten bzw. Zweijährige siegfertig bringt **und** die Abstammung passt;
   ein Stall ohne Sieg in den letzten 20 Starts „spricht Bände“.
 
