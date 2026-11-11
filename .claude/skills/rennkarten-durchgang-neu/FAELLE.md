@@ -13,6 +13,7 @@ Entscheidungen des Nutzers mit dem Satz, der den Ausschlag gab. Neue Pferde mit 
 | Mister Chang (10.11. R1C4) | FK 25, Rang 7/16, +47 %, Hcp | CGD, Bahnbewährung, Jockey kennt das Pferd (2 Siege), nah dran mit höherer Marke auf weichem Boden; letzter Lauf auf anderem Boden übergangen |
 | Algeciras (11.11. R2C7) | FK 13, Rang 5/13, **+3 %**, schwaches Hcp | CGD, auf sehr weichem Boden gewonnen (aus den Vorlieben!), Marke unter letzter Platzmarke, solider Trainer/Jockey mit Bahnerfolg – „klarere Form“ |
 | Blue Blossom Cen (11.11. Toulouse R1C2) | FK 5,5, Rang 1/9, +96 %, Listed-Niveau 2j, Souple | **Nutzer bestätigt Claudes Wette.** Unexposed (2 Starts), starkes Gespann Trainer + Jockey (in Toulouse „nur grüne Balken“), Frankel-Abstammung top (Frankels mögen sehr weichen Boden manchmal nicht, Souple ist aber nicht zu weich); Debüt nur mit Kopf geschlagen hinter der heutigen Gegnerin Frissonante, indirekt über Sea Maze aber vorne; Collant-Sieg mit Valeur 38 (evtl. etwas vom Verlauf vorne profitiert). Gegen: Stute gegen Hengste. „Keine echten Gegenargumente, bei 5,5 okay.“ |
+| Knuckle (11.11. Toulouse R1C7) | FK 8,5, Rang 1/16, +62 %, Hcp | Trainerwechsel zu Olave Valdivielso „bestimmt kein Nachteil“ (Pro statt Fragezeichen); erstmals 2400 m, aber Vater (Zarak) trägt die Distanz und „je weiter, desto besser“ ist das Pferd bisher gelaufen – Distanzsteigerung eher Plus; letzter Sieg im Claimer hier, davor Handicap-Zweite mit Marke 34 (heute 33,5, nicht höher); Gegner aus dem letzten Rennen danach besser gelaufen; Trainer + Jockey H. Besnier in Toulouse sehr erfolgreich. „Viele positive Argumente – Wette.“ **Claude hatte nur kleine Wette** (Trainerwechsel, Claimer, Distanz als drei Fragezeichen gezählt). |
 | Cole Chop (11.11. R2C7), **klein** | FK 25, Rang 10/13, +12 % | Vorlieben weich und Distanz sehr gut, CGD, erster Ansatz nach vielen schwachen Läufen – „da fehlt einiges, vielleicht kleine Wette“ |
 
 ## Keine Wette
@@ -40,6 +41,7 @@ Entscheidungen des Nutzers mit dem Satz, der den Ausschlag gab. Neue Pferde mit 
 
 ## Abweichungen Claude ↔ Nutzer
 
+- **Toulouse R1C7 Knuckle:** Claude kleine Wette, Nutzer volle Wette – Fragezeichen mechanisch gezählt, obwohl Belege sie entkräften (starker neuer Trainer, Abstammung und Formtrend sprechen für die längere Distanz, Claimer-Sieg durch Handicap-Form gedeckt).
 - **Toulouse R1C6 Littoral Nord:** Claude Wette, Nutzer keine – das Blatt zeigte Belag/Reife der Abstammung gar nicht (Skript ergänzt); Abstieg aus „stärkeren Rennen“ zählt nicht, wenn diese Rennen abgewertet sind; Trainer-Spezialität (Rennart, Alter) übersehen.
 - **Toulouse R1C5 Arkansas:** Claude kleine Wette, Nutzer keine – sehr hoher Value auf Basis von Auslandsformen als Warnsignal gelesen statt als Argument.
 

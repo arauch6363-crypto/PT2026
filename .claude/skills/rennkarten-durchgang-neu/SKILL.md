@@ -84,6 +84,11 @@ langer Pause · erstmals Wallach · Trainerwechsel · **Aufgewicht** (umso grö�
 Bahn mit Eigenheiten (Strasbourg, Fontainebleau) · Klassenfrage (kleiner Stall, Formen nur aus schwachen Rennen) ·
 nicht einzuordnende Auslandsformen.
 
+Ein Fragezeichen ist **entkräftet** (zählt nicht oder wird zum Pro-Argument), wenn Belege dafür sprechen: erstmals
+eine längere Distanz, aber die Abstammung trägt sie und das Pferd lief bisher umso besser, je weiter der Weg war;
+Trainerwechsel zu einem klar starken Stall; Claimer-Sieg, aber vorher schon Handicap-Form auf ähnlicher Marke
+(Knuckle). Nicht mechanisch zählen.
+
 ### Typische Gegenargumente
 
 Hinterer Modell-Rang · schwacher Referenzlauf ohne Grund zur Steigerung · ARR deutlich unter den Besten im Feld ·
