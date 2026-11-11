@@ -114,6 +114,11 @@ Arbeitsnotizen aus dem /grill-with-docs-Interview (Start 11.11.2026). Wird beim 
   - Lehren: (1) Boden-/Distanz-/Bahnbelege aus den **Vorlieben (gesamte Bilanz)**, nicht nur aus den letzten Formzeilen; (2) der Nutzer bewertet den **Kurs gegen die eigene Einschätzung** (Afterglow 6,5 zu kurz trotz +29 % Modell-Value; Algeciras 13 wettbar trotz +3 %); (3) „kleine Wette“ als Einsatzstufe; (4) „erster Ansatz nach No-Shows“ als Pro; (5) Klasse der bisherigen Rennen/Bahnen und Stallgröße/-erfolg.
 - **R2C3** Lehren: Leitfrage ist **„reicht es für den Sieg?“**, nicht „läuft er solide“; Exposure relativ zum Alter; „nicht weit geschlagen in stärkerem Rennen“ zählt mehr als die Platzierung; ARR des Referenzlaufs gegen das heutige Feld (Farbe auf der Karte); Jockey-A/E als Pro.
 
+## Probelauf v1 (Skill allein, ohne Blick auf Ergebnisse)
+
+- **10.11. Fontainebleau R1C6–R1C9 und Amiens R4C1–R4C7:** 27 Kandidaten, 3 Wetten zu je 1 Einheit. Ergebnisse laut Nutzer: **Soif de Vivre (R1C8, FK 9) gewonnen, Vapoa (R4C3, FK 8,5) gewonnen, Bluff (R4C1, FK 2,8) Zweiter.** Bei 1 Einheit je Wette ergibt das zum Festkurs +14,5 Einheiten aus 3 Wetten (+8, +7,5, −1); Stichprobe viel zu klein für Schlüsse. Eine Durchsicht der übrigen Urteile durch den Nutzer entfällt, weil er die Ergebnisse kennt.
+- **11.11. Toulouse R1C1–R1C9:** 29 Kandidaten, 6 Wetten (Majestic Sky, Blue Blossom Cen, Xilofono, Littoral Nord je 1; Arkansas, Knuckle je ½). Ergebnisse offen.
+
 ## Stand
 
 Skill v1 geschrieben: `.claude/skills/rennkarten-durchgang-neu/` (SKILL.md, DATEN.md, FAELLE.md, scripts/blatt.py), parallel zum alten Skill.
