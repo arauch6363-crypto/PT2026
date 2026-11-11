@@ -25,13 +25,31 @@ _Avoid_: Value (ohne „-Faktor“), Wert
 ### Auswahl
 
 **Kandidat**:
-Ein Starter mit Value > 0. Nur Kandidaten werden in der Analyse angesehen.
+Ein Starter mit Value > 0. Nur Kandidaten werden in der Analyse angesehen; eine Kursgrenze gibt es nicht.
 _Avoid_: Value-Pferd, Tipp
+
+**Eigene Siegchance**:
+Die Modell-Siegchance, korrigiert um Argumente, die das Modell nicht kennt.
+_Avoid_: p_blind, korrigierte Chance, Siegchance ohne Zusatz
+
+**Eigener Value**:
+Festkurs × eigene Siegchance − 1.
+_Avoid_: korrigierter Value, Edge
+
+**Wette**:
+Ein Kandidat, dessen eigener Value mindestens +20 % beträgt; der Einsatz folgt mechanisch aus ⅛ Kelly auf die eigene Siegchance. Mehrere Wetten im selben Rennen sind erlaubt.
+_Avoid_: Tipp (das ist der mechanische Vorschlag der Karte), Pick
+
+**Tipp**:
+Der mechanische Vorschlag der Karte nach ihrer Kelly-Regel, ohne Analyse.
+_Avoid_: Wette
 
 ## Relationships
 
 - Ein **Kandidat** ist ein Starter, dessen **Value** größer als 0 ist.
 - **Value** entsteht aus **Festkurs** und **Modell-Siegchance**; der **Value-Faktor** geht nicht ein.
+- Die Analyse macht aus der **Modell-Siegchance** eines **Kandidaten** die **eigene Siegchance**; ist der **eigene Value** ≥ +20 %, wird er zur **Wette**.
+- Eine **Wette** kann zugleich ein **Tipp** der Karte sein, muss es aber nicht.
 
 ## Flagged ambiguities
 
