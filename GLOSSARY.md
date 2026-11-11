@@ -18,16 +18,12 @@ _Avoid_: Power-Chance, Modellchance, Siegchance ohne Zusatz
 Der Platz eines Starters im Feld nach der Power-Zahl des Modells (1 = stärkster). Gelesen wird er relativ zur Feldgröße: Rang 3 von 16 wiegt anders als Rang 3 von 7.
 _Avoid_: Rang ohne Zusatz, Power-Rang
 
-**Modellfremdes Argument**:
-Ein Grund für oder gegen ein Pferd, den das Power-Modell nicht als Merkmal kennt. Nur solche Argumente dürfen die eigene Siegchance von der Modell-Siegchance wegbewegen.
-_Avoid_: Angle (wenn das Modell den Grund schon kennt), Bestätigung
-
 **Gegenargument**:
-Ein Grund, warum ein Pferd heute schwächer ist, als die Modell-Siegchance sagt. Senkt die eigene Siegchance.
+Ein Grund, warum ein Pferd heute schwächer sein könnte, als die Modell-Siegchance sagt, gleich ob das Modell ihn kennt. Dazu zählt ein hinterer relativer Modell-Rang.
 _Avoid_: Fragezeichen (das ist Ungewissheit, keine Schwäche), Minus ohne Zusatz
 
 **Fragezeichen**:
-Eine Bedingung, unter der sich ein Pferd heute noch nicht bewiesen hat (z. B. erstmals diese Distanz, diese Bodenangabe, Scheuklappen). Senkt nicht die Siegchance, sondern hebt die Value-Schwelle für eine Wette.
+Eine Bedingung, unter der sich ein Pferd heute noch nicht bewiesen hat (z. B. erstmals diese Distanz, diese Bodenangabe, Scheuklappen). Je höher der Value, desto mehr Fragezeichen trägt eine Wette.
 _Avoid_: Gegenargument, Risiko, Zweifel
 
 ### Boden
@@ -54,17 +50,21 @@ _Avoid_: Value (ohne „-Faktor“), Wert
 Ein Starter mit Value > 0. Nur Kandidaten werden in der Analyse angesehen; eine Kursgrenze gibt es nicht.
 _Avoid_: Value-Pferd, Tipp
 
-**Eigene Siegchance**:
-Die Modell-Siegchance, korrigiert um Argumente, die das Modell nicht kennt.
-_Avoid_: p_blind, korrigierte Chance, Siegchance ohne Zusatz
+**Pro-Argument**:
+Ein Grund, der für ein Pferd spricht, gleich ob das Modell ihn schon kennt.
+_Avoid_: Angle, Plus ohne Zusatz
 
-**Eigener Value**:
-Festkurs × eigene Siegchance − 1.
-_Avoid_: korrigierter Value, Edge
+**Gesamturteil**:
+Die Entscheidung Wette ja oder nein über einen Kandidaten, abgewogen aus Value, Pro-Argumenten, Gegenargumenten und Fragezeichen, ohne eine eigene Siegchance zu berechnen.
+_Avoid_: eigene Siegchance, eigener Value, Score
 
 **Wette**:
-Ein Kandidat, dessen eigener Value mindestens +20 % beträgt; der Einsatz folgt mechanisch aus ⅛ Kelly auf die eigene Siegchance. Mehrere Wetten im selben Rennen sind erlaubt.
+Ein Kandidat, für den das Gesamturteil ja lautet. Mehrere Wetten im selben Rennen sind erlaubt. Einsatz: ⅛ Kelly auf die Modell-Siegchance.
 _Avoid_: Tipp (das ist der mechanische Vorschlag der Karte), Pick
+
+**Mindestquote**:
+Der niedrigste Festkurs, zu dem eine Wette noch abgegeben wird. Liegt der Festkurs beim Wetten darunter, wird nicht gewettet.
+_Avoid_: faire Quote (das ist 1 ÷ Modell-Siegchance), Mindestkurs
 
 **Tipp**:
 Der mechanische Vorschlag der Karte nach ihrer Kelly-Regel, ohne Analyse.
@@ -74,7 +74,8 @@ _Avoid_: Wette
 
 - Ein **Kandidat** ist ein Starter, dessen **Value** größer als 0 ist.
 - **Value** entsteht aus **Festkurs** und **Modell-Siegchance**; der **Value-Faktor** geht nicht ein.
-- Die Analyse macht aus der **Modell-Siegchance** eines **Kandidaten** die **eigene Siegchance**; ist der **eigene Value** ≥ +20 %, wird er zur **Wette**.
+- Über jeden **Kandidaten** fällt ein **Gesamturteil**; lautet es ja, ist er eine **Wette**.
+- Das **Gesamturteil** wägt **Value** gegen **Pro-Argumente**, **Gegenargumente** und **Fragezeichen** ab.
 - Eine **Wette** kann zugleich ein **Tipp** der Karte sein, muss es aber nicht.
 
 ## Flagged ambiguities

@@ -28,6 +28,12 @@ Arbeitsnotizen aus dem /grill-with-docs-Interview (Start 11.11.2026). Wird beim 
 | Q27 | Hinterer Modell-Rang | Kein Fragezeichen, sondern ein Gegenargument |
 | Q21 (revidiert) | modellfremd/modellbekannt | Nutzer will **keine** Unterscheidung: auch Argumente, die das Modell kennt, bewegen die eigene Siegchance (Doppelzählung bewusst; Details offen) |
 
+| Q29 | Rechnen? | **Nein.** Kein arithmetisches Verfahren; der Nutzer wettet, wenn ihn das Pferd insgesamt überzeugt. Ersetzt Q9 (eigene Siegchance), Q14 (Schwelle auf eigenen Value), Q24/Q28/Q30/Q32 (Faktoren) |
+| Q33 | Form der Entscheidung | Je Kandidat: Pro-Argumente, Gegenargumente, Fragezeichen → Gesamturteil Wette ja/nein mit einem Satz zum Ausschlag |
+| Q34 | Einsatz/Mindestquote | Mechanisch aus der Modell-Siegchance: ⅛ Kelly; Mindestquote = 1,2 ÷ Modell-Siegchance (ersetzt Q17) |
+| Q35 | Untergrenze +20 %? | Keine harte Untergrenze: auch unter +20 % Value wettbar, wenn sehr viel dafür spricht (Value > 0 bleibt Voraussetzung) |
+| Q36 | Faustregel | Ja, als Orientierung: +20–50 % höchstens ein Fragezeichen und kein gewichtiges Gegenargument; über +50 % ein bis zwei Fragezeichen tragbar. Dazu Fallsammlung im Skill; Abweichungen ausdrücklich nennen |
+
 ## Fakten zum Modell (für „modellfremd“)
 
 - Kennt: Startzahl, ARR/TR/RTR (auch feldrelativ), Duelle und indirekte Vergleiche, Bodenbilanz und Abstammung je Bodengruppe, Klasse, Trainer/Jockey-Statistik, Pausen, Wallach/Scheuklappen, Tempo/Laufstil/Box.
