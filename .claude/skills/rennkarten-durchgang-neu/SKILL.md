@@ -1,13 +1,14 @@
 ---
 name: rennkarten-durchgang-neu
-description: "Entwurf v1 (parallel zum alten rennkarten-durchgang): Wählt auf einer französischen Galopp-Racecard (Vollblut, PT2026-HTML-Karte) aus den Value-Kandidaten (Festkurs × Modell-Siegchance − 1 > 0) die Siegwetten aus, die der Nutzer tatsächlich spielen würde – je Kandidat Pro-Argumente, Gegenargumente und Fragezeichen, Gesamturteil mit Leitfrage „reicht es für den Sieg?“, Rennvergleich, eigene Kursspanne, Mindestquote und Einheiten. Verwenden, wenn eine Karte oder einzelne Rennen auf Wetten durchgegangen werden sollen."
+description: "Entwurf v1 (parallel zum alten rennkarten-durchgang): Wählt auf einer französischen Galopp-Racecard (Vollblut, PT2026-HTML-Karte) aus den Value-Kandidaten (Festkurs × Modell-Siegchance − 1 über 0) die Siegwetten aus, die der Nutzer tatsächlich spielen würde – je Kandidat Pro-Argumente, Gegenargumente und Fragezeichen, Gesamturteil mit Leitfrage „reicht es für den Sieg?“, Rennvergleich, eigene Kursspanne, Mindestquote und Einheiten. Verwenden, wenn eine Karte oder einzelne Rennen auf Wetten durchgegangen werden sollen."
 ---
 
 # Rennkarten-Durchgang (neu, v1)
 
-Aus dem Interview vom 10./11.11.2026 (`docs/interview_rennkarten_durchgang.md`). Begriffe stehen in `GLOSSARY.md` im
-Repo-Hauptordner und werden hier nicht wiederholt – vor dem ersten Durchgang lesen. Daten: `DATEN.md`. Beispiele:
-`FAELLE.md`. Der alte Skill `rennkarten-durchgang` bleibt bis zum Abschluss der Erprobung bestehen.
+Aus dem Interview vom 10./11.11.2026 (`docs/interview_rennkarten_durchgang.md`). Begriffe stehen in `GLOSSARY.md`
+(im Repo-Hauptordner; im hochgeladenen claude.ai-Skill im Skill-Ordner) und werden hier nicht wiederholt – vor dem
+ersten Durchgang lesen. Daten: `DATEN.md`. Beispiele: `FAELLE.md`. Der alte Skill `rennkarten-durchgang` bleibt bis
+zum Abschluss der Erprobung bestehen.
 
 ## Ziel und Leitfrage
 
@@ -25,8 +26,10 @@ genug.
 
 ## Ablauf
 
-1. **Fakten ziehen.** `python3 -I .claude/skills/rennkarten-durchgang-neu/scripts/blatt.py KARTE.html` zeigt die
-   Übersicht (Rennen mit Kandidaten, Festkurs-Stand). Mit Bahn oder Rennen (`STRASBOURG`, `R2C5`) als weiteres
+1. **Fakten ziehen.** `python3 -I <Skill-Ordner>/scripts/blatt.py KARTE.html` zeigt die Übersicht (Rennen mit
+   Kandidaten, Festkurs-Stand). Skill-Ordner: in Claude Code `.claude/skills/rennkarten-durchgang-neu`, in claude.ai
+   der Ordner, aus dem diese SKILL.md geladen wurde; die Karte ist die hochgeladene `racecard_JJJJMMTT.html`. Nie die
+   ganze Karte ausgeben oder einlesen – sie ist rund 10 MB groß; nur die Ausgabe des Skripts lesen. Mit Bahn oder Rennen (`STRASBOURG`, `R2C5`) als weiteres
    Argument druckt es je Rennen den Kopf und je Kandidat das Blatt. Uhrzeit gegen den Start prüfen (französische
    Zeit); ist ein Rennen schon gelaufen oder in wenigen Minuten, das sagen.
 2. **Rennen lesen** (Kopf des Blatts): Rennart, Klasse (Klassenindex), Feldgröße, Bodenangabe und Bodengruppe,
