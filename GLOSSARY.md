@@ -26,6 +26,14 @@ _Avoid_: Fragezeichen (das ist Ungewissheit, keine Schwäche), Minus ohne Zusatz
 Eine Bedingung, unter der sich ein Pferd heute noch nicht bewiesen hat (z. B. erstmals diese Distanz, diese Bodenangabe, Scheuklappen). Je höher der Value, desto mehr Fragezeichen trägt eine Wette.
 _Avoid_: Gegenargument, Risiko, Zweifel
 
+**Aufgewicht**:
+Die heutige Handicap-Marke liegt über der Marke des letzten Siegs. Ein Fragezeichen, umso größer, je exposed das Pferd ist.
+_Avoid_: Strafe, Mehrgewicht
+
+**Exposed**:
+Ein Pferd mit vielen Starts und eher höherem Alter, von dem kaum noch Steigerung zu erwarten ist. Gegenteil: **unexposed** (wenige Starts, jung, Steigerung möglich).
+_Avoid_: ausgereizt, erfahren
+
 ### Boden
 
 **Bodenangabe**:

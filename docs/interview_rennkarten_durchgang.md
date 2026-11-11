@@ -34,6 +34,8 @@ Arbeitsnotizen aus dem /grill-with-docs-Interview (Start 11.11.2026). Wird beim 
 | Q35 | Untergrenze +20 %? | Keine harte Untergrenze: auch unter +20 % Value wettbar, wenn sehr viel dafür spricht (Value > 0 bleibt Voraussetzung) |
 | Q36 | Faustregel | Ja, als Orientierung: +20–50 % höchstens ein Fragezeichen und kein gewichtiges Gegenargument; über +50 % ein bis zwei Fragezeichen tragbar. Dazu Fallsammlung im Skill; Abweichungen ausdrücklich nennen |
 
+| Q38 | Aufgewicht | Fragezeichen: Marke über der des letzten Siegs. Wiegt schwerer bei exposed Pferden (viele Starts, älter), leichter bei jungen/unexposed (Steigerung möglich) |
+
 ## Fakten zum Modell (für „modellfremd“)
 
 - Kennt: Startzahl, ARR/TR/RTR (auch feldrelativ), Duelle und indirekte Vergleiche, Bodenbilanz und Abstammung je Bodengruppe, Klasse, Trainer/Jockey-Statistik, Pausen, Wallach/Scheuklappen, Tempo/Laufstil/Box.
