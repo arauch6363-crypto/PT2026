@@ -191,10 +191,18 @@ def blatt(z: dict, r: dict, top_kg: float) -> None:
     if len(bl) > 1:
         print("- Ausrüstung: " + "; ".join(f"{e['label']}{' (heute)' if e.get('today') else ''} {bilanz(e)}" for e in bl))
     ab = x.get("abst") or {}
+    ap = x.get("abst_pass") or {}
+    if ap:
+        print(f"- Abstammung gesamt (Vater:Muttervater 2:1, ±15 Tendenz, ±40 deutlich): {ap.get('gesamt')} · "
+              + " · ".join(f"{k} {ap[k]}" for k in ("boden", "dist", "belag", "reife") if ap.get(k) is not None))
     for k, name in (("sire", "Vater"), ("dam_sire", "Muttervater")):
-        b, dd = ((ab.get(k) or {}).get("boden") or {}), ((ab.get(k) or {}).get("dist") or {})
-        if b or dd:
-            print(f"- Abstammung {name} ({x.get(k)}): Boden {b.get('passung') or '–'} ({b.get('runs')} L, sicher {b.get('sicher')}) · Distanz {dd.get('passung') or '–'}")
+        teile = []
+        for skala, label in (("boden", "Boden"), ("dist", "Distanz"), ("belag", "Belag"), ("reife", "Reife")):
+            e = (ab.get(k) or {}).get(skala) or {}
+            if e:
+                teile.append(f"{label} {e.get('passung') or '–'}" + (f" ({e.get('runs')} L)" if skala == "boden" else ""))
+        if teile:
+            print(f"- Abstammung {name} ({x.get(k)}): " + " · ".join(teile))
     t30, ttr = (ae.get("trainer") or {}).get("d30") or {}, (ae.get("trainer") or {}).get("trend")
     print(f"- Trainer {x.get('trainer')}: 30 Tage {bilanz(t30)}{f', Trend {ttr}' if ttr else ''} · Bahn {bilanz(pt.get('course'))} · "
           f"Rennart {bilanz(pt.get('racetype'))} · Alter {bilanz(pt.get('age'))} · mit diesem Pferd {bilanz(heute(ph.get('trainer')))}")

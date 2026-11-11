@@ -59,7 +59,9 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
 4. **Vorlieben (Gesamtbilanz), dann Abstammung.** (Abstammung differenziert lesen: z. B. Frankels mögen sehr
    weichen Boden manchmal nicht – Souple ist dafür nicht weich genug.) Boden, Distanz, Bahn, Richtung, Ausrüstung aus den **Vorlieben**
    des Blatts – nie nur aus den letzten Formzeilen (die zeigen höchstens sieben Läufe). Bei Très souple und weicher
-   zählt die **genaue Bodenangabe**: ein Lauf genau auf diesem Boden ist ein starkes Argument. Abstammung nur ergänzend,
+   zählt die **genaue Bodenangabe**: ein Lauf genau auf diesem Boden ist ein starkes Argument. Abstammung (alle Skalen: Boden, Distanz, Belag, Reife;
+   Gesamtwert) wiegt umso mehr, je dünner die eigene Bilanz unter den heutigen Bedingungen ist – bei wenig gelaufenen
+   Pferden kann eine klar unpassende Abstammung allein die Wette kippen (Littoral Nord). Sonst ergänzend,
    vor allem bei dünner eigener Bilanz.
 5. **Trainer und Jockey.** Trainer: Form 30 Tage (kalt = Gegenargument, abgestuft), Bilanz auf der Bahn (kann eine
    kalte Form ausgleichen), Spezialität (Rennart, Alter, Debütanten), Stallgröße und -erfolg (kleiner Stall ohne Sieg
@@ -96,7 +98,7 @@ gegen Hengste (bei jungen Pferden, leicht) · Sieg, bei dem das Rennen den Vorde
 Vorderer Modell-Rang mit solidem Value · CGD · Referenzlauf unter heutigen Bedingungen mit gutem ARR · Bahnbewährung
 (gewonnen oder platziert) · Bewährung genau auf der heutigen Bodenangabe · gegen den Verlauf gut gelaufen · gestörter
 letzter Lauf · Marke deutlich unter letzter Sieg-/Platzmarke · Trainer heiß oder auf der Bahn stark · Jockey kennt
-das Pferd · starkes Gespann · Abstieg in die Provinz · britischer Trainer · unexposed mit Steigerungspotenzial ·
+das Pferd · starkes Gespann · Abstieg in die Provinz · Abstieg aus stärkeren Rennen (nur wenn diese Rennen nicht abgewertet sind) · britischer Trainer · unexposed mit Steigerungspotenzial ·
 „erster Ansatz“ nach einer Reihe schwacher Läufe.
 
 ## Gesamturteil

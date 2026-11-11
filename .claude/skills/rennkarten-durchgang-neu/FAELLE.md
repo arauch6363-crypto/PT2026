@@ -33,12 +33,14 @@ Entscheidungen des Nutzers mit dem Satz, der den Ausschlag gab. Neue Pferde mit 
 | Fireman (11.11. R2C5) | FK 25, Rang 7/16, +55 % | Scheuklappen ab (beste Läufe mit), auf Rechtskursen schlechter, eher über weitere Wege |
 | Little Lady (11.11. R2C5) | FK 16, Rang 3/16, +36 % | Trainerin kalt, aber in Strasbourg stark; Boden kein Plus – „eher nicht“ |
 | Arkansas (11.11. Toulouse R1C5) | FK 12, Rang 2/10, **+106 %**, Gruppe 3 Stuten | Klasse ohne Zweifel (4. in Gr. 3), Box gut; aber letzte 3 Formen aus Italien (gut dotiert, aber nicht einzuschätzen), keine klare Form auf diesem Boden, neuer Trainer seit 2 Starts, in Gruppenrennen und in Toulouse wenig erfolgreich, Valeur nur Mittelfeld. „Das Modell hat bei so vielen Auslandsformen wahrscheinlich Schwierigkeiten – der Value ist mir zu hoch, zu viele Fragezeichen.“ **Claude hatte kleine Wette.** |
+| Littoral Nord (11.11. Toulouse R1C6) | FK 11, Rang 2/11, +75 %, Hcp 3j | Unexposed (6 Starts), Jockey stark, hoher ARR (aber auf Bon/Souple); aber **Vater mit schlechten Werten für Belag und Reife** (Abstammung gesamt −17) – „gefällt mir wirklich nicht“; Trainer in Handicaps und mit 3-Jährigen schwach; erster Handicap-Start mit hoher Marke; das Conditions-Rennen in Toulouse ist abgewertet (Gegner danach schwächer). **Claude hatte Wette** („Abstieg aus stärkeren Rennen“). |
 | Afterglow (11.11. R2C7) | FK 6,5, **Rang 1/13, +29 %** | Argumente nachvollziehbar, aber 7-jährig sehr exposed, Box signifikant schlecht – „der Festkurs bietet zu wenig“ |
 | Lady Madeira (11.11. R2C7) | FK 16, Rang 2/13, +76 % | Großes Fragezeichen Distanz (auf weiteren Wegen immer Probleme). **Claude hatte sie vorne gesehen.** |
 | Go For It (11.11. R2C7) | FK 16, Rang 7/13, +14 % | Formen weit weg vom Nötigen, letzter Sieg 6 kg tiefer auf kleiner Provinzbahn, Stall ohne Sieg in 2 Jahren – „fehlt die Klasse“ |
 
 ## Abweichungen Claude ↔ Nutzer
 
+- **Toulouse R1C6 Littoral Nord:** Claude Wette, Nutzer keine – das Blatt zeigte Belag/Reife der Abstammung gar nicht (Skript ergänzt); Abstieg aus „stärkeren Rennen“ zählt nicht, wenn diese Rennen abgewertet sind; Trainer-Spezialität (Rennart, Alter) übersehen.
 - **Toulouse R1C5 Arkansas:** Claude kleine Wette, Nutzer keine – sehr hoher Value auf Basis von Auslandsformen als Warnsignal gelesen statt als Argument.
 
 - **R2C3:** Ergebnis gleich (keine Wette), Reihenfolge falsch – Exposure relativ zum Alter und „nicht weit geschlagen
