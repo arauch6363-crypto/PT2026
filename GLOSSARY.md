@@ -91,11 +91,23 @@ Die Entscheidung Wette ja oder nein über einen Kandidaten, abgewogen aus Value,
 _Avoid_: eigene Siegchance, eigener Value, Score
 
 **Wette**:
-Ein Kandidat, für den das Gesamturteil ja lautet. Mehrere Wetten im selben Rennen sind erlaubt. Einsatz: ⅛ Kelly auf die Modell-Siegchance.
+Ein Kandidat, für den das Gesamturteil ja lautet; Einsatz 1 Einheit. Mehrere Wetten im selben Rennen sind erlaubt, in der Regel höchstens zwei.
 _Avoid_: Tipp (das ist der mechanische Vorschlag der Karte), Pick
 
+**Kleine Wette**:
+Ein Kandidat, der interessant ist, bei dem aber „einiges fehlt“; Einsatz ½ Einheit.
+_Avoid_: Mini-Wette, halbe Wette
+
+**Einheit**:
+Der feste Grundeinsatz einer Wette, den der Nutzer festlegt. Kelly dient nur noch als Hinweis.
+_Avoid_: Kelly-Einsatz, Stake
+
+**Kursspanne**:
+Die grobe eigene Einschätzung, welcher Festkurs für ein Pferd fair wäre („fair eher 8–10“), ohne Rechnung. Gewettet wird, wenn der Festkurs klar darüber liegt.
+_Avoid_: faire Quote (das ist 1 ÷ Modell-Siegchance), eigene Siegchance
+
 **Mindestquote**:
-Der niedrigste Festkurs, zu dem eine Wette noch abgegeben wird. Liegt der Festkurs beim Wetten darunter, wird nicht gewettet.
+Der untere Rand der Kursspanne: der niedrigste Festkurs, zu dem eine Wette noch abgegeben wird. Liegt der Festkurs beim Wetten darunter, wird nicht gewettet.
 _Avoid_: faire Quote (das ist 1 ÷ Modell-Siegchance), Mindestkurs
 
 **Tipp**:
@@ -107,7 +119,8 @@ _Avoid_: Wette
 - Ein **Kandidat** ist ein Starter, dessen **Value** größer als 0 ist.
 - **Value** entsteht aus **Festkurs** und **Modell-Siegchance**; der **Value-Faktor** geht nicht ein.
 - Über jeden **Kandidaten** fällt ein **Gesamturteil**; lautet es ja, ist er eine **Wette**.
-- Das **Gesamturteil** wägt **Value** gegen **Pro-Argumente**, **Gegenargumente** und **Fragezeichen** ab.
+- Das **Gesamturteil** wägt **Pro-Argumente**, **Gegenargumente** und **Fragezeichen** ab und vergleicht die **Kursspanne** mit dem **Festkurs**; **Value** entscheidet nur, wer **Kandidat** ist.
+- Die **Mindestquote** ist der untere Rand der **Kursspanne**.
 - Eine **Wette** kann zugleich ein **Tipp** der Karte sein, muss es aber nicht.
 
 ## Flagged ambiguities

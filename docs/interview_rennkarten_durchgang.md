@@ -84,6 +84,9 @@ Arbeitsnotizen aus dem /grill-with-docs-Interview (Start 11.11.2026). Wird beim 
 | Q58 | Gewicht auf schwerem Boden | Höchstgewicht bzw. ab ca. 62 kg auf Très souple oder schwerer = Gegenargument; bei Verdansk mit Aufgewicht und Klassenfrage der Ausschlag |
 | Q59 | Kursrichtung | Bilanz auf Rechts-/Linkskursen ist fester Prüfpunkt; klar schlechter in heutiger Richtung = Gegenargument |
 | Q60 | Ausrüstungswechsel | Läufe mit/ohne vergleichen: fällt weg, womit die besten Läufe kamen = Gegenargument; erstmals dazu = Fragezeichen |
+| Q61 | Einsatz | Feste Einheiten statt Kelly: Wette 1, kleine Wette ½ (ersetzt Q34 für den Einsatz); Kelly nur als Hinweis |
+| Q62 | Kurs | Je Kandidat eine grobe eigene Kursspanne; gewettet, wenn der Festkurs klar darüber liegt; Mindestquote = unterer Rand. Modell-Value nur Filter für Kandidaten |
+| Q63 | R2C7 | Algeciras Wette, Cole Chop kleine Wette, Rest keine |
 | Q47 | Gestörter Lauf | Quellen: Rennkommentar und Rennverlauf (z. B. weit hinten, Rennen von vorne entschieden = gegen den Verlauf) |
 
 ### Karte 11.11.2026 (Ergebnisse dem Nutzer unbekannt)
@@ -111,8 +114,13 @@ Arbeitsnotizen aus dem /grill-with-docs-Interview (Start 11.11.2026). Wird beim 
   - Lehren: (1) Boden-/Distanz-/Bahnbelege aus den **Vorlieben (gesamte Bilanz)**, nicht nur aus den letzten Formzeilen; (2) der Nutzer bewertet den **Kurs gegen die eigene Einschätzung** (Afterglow 6,5 zu kurz trotz +29 % Modell-Value; Algeciras 13 wettbar trotz +3 %); (3) „kleine Wette“ als Einsatzstufe; (4) „erster Ansatz nach No-Shows“ als Pro; (5) Klasse der bisherigen Rennen/Bahnen und Stallgröße/-erfolg.
 - **R2C3** Lehren: Leitfrage ist **„reicht es für den Sieg?“**, nicht „läuft er solide“; Exposure relativ zum Alter; „nicht weit geschlagen in stärkerem Rennen“ zählt mehr als die Platzierung; ARR des Referenzlaufs gegen das heutige Feld (Farbe auf der Karte); Jockey-A/E als Pro.
 
+## Stand
+
+Skill v1 geschrieben: `.claude/skills/rennkarten-durchgang-neu/` (SKILL.md, DATEN.md, FAELLE.md, scripts/blatt.py), parallel zum alten Skill.
+
 ## Offen
 
-- Wie groß ist eine Korrektur (Skala für modellfremde Argumente)?
-- Wie wird der relative Modell-Rang konkret gewichtet?
-- Weitere Rennen der Übungskarte.
+- Q37 (Mindestquote unter +20 %) durch Q62 ersetzt; Q49–Q52 (höchstens zwei Wetten je Rennen, Debütanten, Trainer/Jockey, aufgewertet) vorläufig wie vorgeschlagen übernommen, nicht ausdrücklich bestätigt.
+- Rückmeldung zu Claudes Vorhersagen in 10.11. R1C5 fehlt.
+- `tipp_auswertung.py` auf den neuen Protokoll-Block (`wetten`) umstellen.
+- Erprobung v1 an weiteren Rennen; danach alten Skill ersetzen und README anpassen.
