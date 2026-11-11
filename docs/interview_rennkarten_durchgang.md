@@ -76,6 +76,7 @@ Arbeitsnotizen aus dem /grill-with-docs-Interview (Start 11.11.2026). Wird beim 
 
 | Q45 | Exposed | Eine Skala, keine feste Grenze; wenige Starts und jung = unexposed |
 | Q46 | Platziert / im Geld | Platziert: Top 3 bei ≥ 8 Startern, Top 2 bei ≤ 7. „Gut gelaufen“ = im Geld = Top 5 |
+| Q53 | Leitfrage | „Reicht es für den Sieg?“ – beste zu heute passende Leistung (ARR im Referenzlauf) gegen das Niveau der Besten im Feld; sicher im Geld, aber selten siegreich ist für die Siegwette schwächer |
 | Q47 | Gestörter Lauf | Quellen: Rennkommentar und Rennverlauf (z. B. weit hinten, Rennen von vorne entschieden = gegen den Verlauf) |
 
 ### Karte 11.11.2026 (Ergebnisse dem Nutzer unbekannt)
