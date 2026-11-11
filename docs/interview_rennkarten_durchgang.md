@@ -81,6 +81,9 @@ Arbeitsnotizen aus dem /grill-with-docs-Interview (Start 11.11.2026). Wird beim 
 | Q55 | Dichte Startfolge | Gegenargument ab etwa 4 Starts in 6 Wochen, stärker je exposed |
 | Q56 | Bahnkategorie | Von großen Bahnen (Paris, Deauville) in die Provinz = Pro; umgekehrt = Gegen |
 | Q57 | Trainer-Jockey | Gemeinsame Bilanz des Gespanns zählt, mehr als Einzelbilanzen bei genug Starts |
+| Q58 | Gewicht auf schwerem Boden | Höchstgewicht bzw. ab ca. 62 kg auf Très souple oder schwerer = Gegenargument; bei Verdansk mit Aufgewicht und Klassenfrage der Ausschlag |
+| Q59 | Kursrichtung | Bilanz auf Rechts-/Linkskursen ist fester Prüfpunkt; klar schlechter in heutiger Richtung = Gegenargument |
+| Q60 | Ausrüstungswechsel | Läufe mit/ohne vergleichen: fällt weg, womit die besten Läufe kamen = Gegenargument; erstmals dazu = Fragezeichen |
 | Q47 | Gestörter Lauf | Quellen: Rennkommentar und Rennverlauf (z. B. weit hinten, Rennen von vorne entschieden = gegen den Verlauf) |
 
 ### Karte 11.11.2026 (Ergebnisse dem Nutzer unbekannt)
