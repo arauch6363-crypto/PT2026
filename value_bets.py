@@ -28,6 +28,7 @@ from typing import Any, Optional
 import numpy as np
 import pandas as pd
 
+import durchgang
 import einlauf
 
 TOL = 1e-6              # Toleranz für Filtervergleiche
@@ -389,9 +390,11 @@ def load_day(json_path: str | Path, parquet_path: str | Path | None,
     lv = np.log(pool["fk_sieg"].astype(float) / pool["toto_end"])
     pool["fk_toto"] = np.exp(lv)
     pool["kurs_rel"] = lv - lv.groupby(pool["race_id"]).transform("mean")       # alle Starter des Rennens
+    pool = claude_spalten(pool, durchgang.je_rennen(durchgang.dateien(json_path.parent, datum)))
     pool = pool[~pool["race_id"].astype(str).isin(_nicht_vollblut(parquet_path))]     # Araber/AQPS: nicht werten
-    pool = pool[pool["fk_sieg"].notna() & ((pool["wert"] >= -TOP_TOL)
-                                           | (pd.to_numeric(pool["wert_sh"], errors="coerce") >= -TOP_TOL))].copy()
+    pool = pool[(pool["fk_sieg"].notna() & ((pool["wert"] >= -TOP_TOL)
+                                            | (pd.to_numeric(pool["wert_sh"], errors="coerce") >= -TOP_TOL)))
+                | pool["claude"].notna()].copy()      # Kandidaten eines Durchgangs bleiben, auch wenn der Kurs fiel
 
     einl: dict[str, list[int]] = {}
     if parquet_path is not None and Path(parquet_path).exists():
@@ -420,7 +423,62 @@ def _leerer_pool() -> pd.DataFrame:
         "rank_pct", "rel", "fk_sieg", "fk_platz", "cote_dec", "wert", "ohne_morgenquote", "p_fk",
         "p_model", "p_blind", "p_pq", "p_platz", "fair_platz", "paid_places", "is_top", "festkurse_stand",
         "verfahren", "power_trainiert", "wert_trainiert", "toto_end", "fk_toto", "kurs_rel", "nr", "settled", "pos", "won",
-        "placed", *[f"{c}_sh" for c in CHANCE_SPALTEN]])
+        "placed", *CLAUDE_SPALTEN, *[f"{c}_sh" for c in CHANCE_SPALTEN]])
+
+
+# ---------------------------------------------------------------- Claude-Tipps (Durchgänge)
+
+CLAUDE_SPALTEN = ["claude", "claude_einh", "claude_fk", "claude_mq"]
+CLAUDE_TIPPS = ("wette", "klein")                  # NAP (1 Einheit) und BET (½ Einheit); „nein“ = abgelehnter Kandidat
+
+
+def claude_spalten(pool: pd.DataFrame, rennen: dict[str, dict]) -> pd.DataFrame:
+    """Urteile der Durchgänge (durchgang.je_rennen) als Spalten: claude (wette/klein/nein), claude_einh (Einheiten),
+    claude_fk (Festkurs beim Durchgang), claude_mq (Mindestquote). Starter ohne Urteil: leer."""
+    je = {(str(rid), int(k["no"])): k for rid, r in rennen.items() for k in r.get("kandidaten") or []}
+    ks = [je.get((str(r), int(n))) for r, n in zip(pool["race_id"], pool["no"])]
+    pool = pool.copy()
+    pool["claude"] = [k["urteil"] if k else None for k in ks]
+    pool["claude_einh"] = pd.to_numeric(pd.Series([k["einheiten"] if k else None for k in ks], index=pool.index, dtype=object))
+    pool["claude_fk"] = pd.to_numeric(pd.Series([k.get("fk") if k else None for k in ks], index=pool.index, dtype=object))
+    pool["claude_mq"] = pd.to_numeric(pd.Series([k.get("mq") if k else None for k in ks], index=pool.index, dtype=object))
+    return pool
+
+
+def _claude_gewinn(einsatz: float, fk: float, won: bool, toto: Optional[float]) -> tuple[float, float]:
+    """(Gewinn zum Festkurs nach 5 % Steuer, Gewinn zum Toto ohne Steuer; ohne Toto-Endquote: Festkurs)."""
+    g_fk, _ = _bein(einsatz, fk, won)
+    if toto is None or not toto > 1:
+        return g_fk, g_fk
+    return g_fk, round_half_up(einsatz * (toto - 1) if won else -einsatz, 2)
+
+
+def claude_auswertung(pool: pd.DataFrame) -> list[dict]:
+    """Claude-Tipps getrennt nach NAP und BET, dazu die abgelehnten Kandidaten (Urteil „nein“, gerechnet zu
+    1 Einheit). Nur abgerechnete Rennen, Nichtstarter erstattet. Je Gruppe: n, Siege, Einsatz (Einheiten), Gewinn und
+    ROI zum Festkurs beim Durchgang (5 % Steuer) und zum Toto (ohne Steuer)."""
+    gruppen = [("NAP", "wette", None), ("BET", "klein", None), ("Abgelehnt", "nein", 1.0)]
+    out = []
+    for name, urteil, fest in gruppen:
+        n = siege = 0
+        einsatz = g_fk = g_toto = 0.0
+        if not pool.empty and "claude" in pool:
+            rs = pool[(pool["claude"] == urteil) & pool["settled"].astype(bool)]
+            for _, r in rs.sort_values(["date", "race_id", "no"]).iterrows():
+                if bool(r.get("nr")) or pd.isna(r["claude_fk"]):
+                    continue
+                e = fest if fest is not None else float(r["claude_einh"])
+                toto = None if pd.isna(r["toto_end"]) else float(r["toto_end"])
+                a, b = _claude_gewinn(e, float(r["claude_fk"]), bool(r["won"]), toto)
+                n += 1
+                siege += int(bool(r["won"]))
+                einsatz += e
+                g_fk += a
+                g_toto += b
+        out.append({"gruppe": name, "n": n, "siege": siege, "einsatz": einsatz,
+                    "gewinn_fk": round_half_up(g_fk, 2), "roi_fk": g_fk / einsatz if einsatz else None,
+                    "gewinn_toto": round_half_up(g_toto, 2), "roi_toto": g_toto / einsatz if einsatz else None})
+    return out
 
 
 def _hat_endquote(pfad: Path) -> bool:
@@ -529,6 +587,7 @@ class FilterConfig:
     min_kelly: float = 0.0
     chance: str = "karte"
     max_rang: int = 0           # nur Starter mit Modell-Rang (Rang der fairen Quote im Rennen) ≤ max_rang; 0 = alle
+    claude: bool = False        # Strategie Claude-Tipps: nur NAP/BET der Durchgänge, alle übrigen Filter ohne Wirkung
 
     def __post_init__(self) -> None:
         if self.chance not in CHANCEN:
@@ -567,6 +626,8 @@ def auswahl(pool: pd.DataFrame, f: FilterConfig) -> pd.DataFrame:
     """Gefilterte Zeilen des Pools (ohne Rücksicht auf Ergebnis)."""
     if pool.empty:
         return pool.copy()
+    if f.claude:
+        return pool[pool["claude"].isin(CLAUDE_TIPPS)].copy() if "claude" in pool else pool.iloc[0:0].copy()
     w = pool["wert"].astype(float)
     ok = (w > TOL) & (w >= f.minw - TOL)
     x = f.mode_value
@@ -668,8 +729,11 @@ def simulate(pool: pd.DataFrame, filters: FilterConfig = None,
     """Wetten chronologisch durchspielen; Einsätze aus der Bank zu Tagesbeginn."""
     filters = filters or FilterConfig()
     staking = staking or StakingConfig()
-    pool = mit_wert(chance_waehlen(pool, filters.chance))
+    pool = chance_waehlen(pool, "karte") if filters.claude else mit_wert(chance_waehlen(pool, filters.chance))
     sel = auswahl(pool, filters)
+    if filters.claude and not sel.empty:   # Claude-Tipps: Festkurs beim Durchgang, Einsatz in Einheiten, nur Sieg
+        sel = sel[sel["claude_fk"].notna()].assign(fk_sieg=lambda d: d["claude_fk"].astype(float),
+                                                     p_fk=lambda d: 1 / d["claude_fk"].astype(float), fk_platz=np.nan)
     sel = sel[sel["settled"].astype(bool)] if not sel.empty else sel
     sel = sel.sort_values(["date", "race_id", "no"]) if not sel.empty else sel
 
@@ -683,11 +747,11 @@ def simulate(pool: pd.DataFrame, filters: FilterConfig = None,
         for _, r in sel[sel["date"] == tag].iterrows():
             if isinstance(r.get("nr"), (bool, np.bool_)) and r.get("nr"):   # Nichtstarter: Wette erstattet
                 continue
-            st = einsatz(bank_start, r["p"], r["fk_sieg"], staking)
+            st = float(r["claude_einh"]) if filters.claude else einsatz(bank_start, r["p"], r["fk_sieg"], staking)
             if st <= 0:
                 continue
             fk_platz = None if pd.isna(r["fk_platz"]) else float(r["fk_platz"])
-            q_platz = fk_platz if staking.wettart == "ew" else None            # nur Sieg: kein Platzbein
+            q_platz = fk_platz if staking.wettart == "ew" and not filters.claude else None   # nur Sieg: kein Platzbein
             g_s, t_s = _bein(st, float(r["fk_sieg"]), bool(r["won"]))
             g_p, t_p = _bein(st, q_platz, bool(r["placed"]))
             st_p = st if q_platz is not None else 0.0
@@ -970,7 +1034,7 @@ _HTML_SPALTEN = [
     "date", "race_id", "race", "course", "no", "horse", "n", "p", "fair", "rank_fq", "rank_pct",
     "rel", "fk_sieg", "fk_platz", "cote_dec", "wert", "is_top", "p_fk", "p_model", "p_pq",
     "p_platz", "fair_platz", "toto_end", "fk_toto", "kurs_rel", "p_blind", "nr", "settled", "pos", "won", "placed",
-    *[f"{c}_sh" for c in CHANCE_SPALTEN]]
+    *CLAUDE_SPALTEN, *[f"{c}_sh" for c in CHANCE_SPALTEN]]
 
 
 def _json_wert(v: Any) -> Any:

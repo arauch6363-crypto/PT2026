@@ -1784,6 +1784,10 @@ def festkurse_aktualisieren_pruefen() -> None:
         out = Path(tmp) / "racecards" / f"racecard_{tag:%Y%m%d}.html"
         out.parent.mkdir(parents=True)
         rc.daten_pfad(out).write_text(_json.dumps(d, default=str), encoding="utf-8")
+        import durchgang as _dg                            # Durchgang des Tages: Urteile müssen das Neuschreiben überstehen
+        (out.parent / f"durchgang_{tag:%Y%m%d}_1200.json").write_text(_json.dumps(_dg.zusammenfuehren(f"{tag}", [
+            {"race_id": rid, "status": "bearbeitet", "kandidaten": [
+                {"no": r["runners"][0]["no"], "urteil": "wette", "fk": 3.0, "mq": 2.5}]}])), encoding="utf-8")
         df = pd.DataFrame([dict(Veranstaltung=r["course"].title(), Rennen=str(r["race_no"]), Start=r["time"] or "",
                                 Nr=x["no"], Pferd=x["horse"].title(), Toto=3.5 + i, FK_Sieg=None if i else 2.5,
                                 FK_Platz=None, NS=False) for i, x in enumerate(r["runners"])])
@@ -1792,6 +1796,9 @@ def festkurse_aktualisieren_pruefen() -> None:
         neu = _json.loads(rc.daten_pfad(out).read_text(encoding="utf-8"))
         st = neu["races"][rid]["runners"]
         ok_dateien = out.exists() and out.with_name(out.stem + "_claude.json").exists()
+        html_urteil = _dg.laden(out)["races"][rid]["runners"][0].get("claude") or {}
+        ok_durchgang = (html_urteil.get("kennzeichen") == "NAP" and "claude" not in st[0]
+                        and '"kennzeichen"' not in out.with_name(out.stem + "_claude.json").read_text(encoding="utf-8"))
     nr_df = pd.DataFrame([{"race_id": rid, "saddle_no": st[1]["no"], "status": "NON_PARTANT", "incident": None}])
     neu_nr = rc.nichtstarter_nachtragen(neu, nr_df)
     pruefe(ok_dateien and st[0]["fk"]["sieg"] == 2.5 and st[1]["fk"]["toto"] == 4.5 and st[1]["fk"]["sieg"] is None
@@ -1800,6 +1807,8 @@ def festkurse_aktualisieren_pruefen() -> None:
            and neu["races"][rid]["runners"][0]["power"]["sieg"] == 1.0,
            "Festkurse nachträglich: gespeicherte Kartendaten + Wettstar-Kurse -> HTML und Claude-JSONs neu (ohne "
            "Neuberechnung); neue Nichtstarter markiert, Siegchancen der übrigen wieder auf 100 %")
+    pruefe(ok_durchgang, "Durchgang-Datei: NAP steht nach festkurse_aktualisieren in der HTML, nicht in Kartendaten "
+           "und blinder Claude-JSON")
     # Zwei Veranstaltungen: morgens nur die frühe mit Festkursen; der zweite Lauf ergänzt nur die späte
     import copy
     with contextlib.redirect_stdout(io.StringIO()):

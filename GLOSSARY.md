@@ -112,7 +112,27 @@ _Avoid_: faire Quote (das ist 1 ÷ Modell-Siegchance), Mindestkurs
 
 **Tipp**:
 Der mechanische Vorschlag der Karte nach ihrer Kelly-Regel, ohne Analyse.
-_Avoid_: Wette
+_Avoid_: Wette, Claude-Tipp
+
+**Durchgang**:
+Ein Lauf des Skills über die zu diesem Zeitpunkt offenen Rennen einer Karte mit Festkurs; er liefert je Kandidat das Gesamturteil. Ein Renntag kann mehrere Durchgänge haben; je Rennen gilt der jüngste.
+_Avoid_: Analyse ohne Zusatz, Lauf
+
+**Claude-Tipp**:
+Eine Wette oder Kleine Wette aus einem Durchgang. Immer mit „Claude“ zu schreiben, um sie vom Tipp der Karte zu trennen.
+_Avoid_: Tipp ohne Zusatz, Pick
+
+**NAP**:
+Das Kennzeichen eines Claude-Tipps, der eine Wette ist (1 Einheit).
+_Avoid_: volle Wette
+
+**BET**:
+Das Kennzeichen eines Claude-Tipps, der eine Kleine Wette ist (½ Einheit).
+_Avoid_: halbe Wette
+
+**Abgelehnter Kandidat**:
+Ein Kandidat, dessen Gesamturteil in einem Durchgang nein lautet. Er dient als Vergleichsgruppe für die Claude-Tipps.
+_Avoid_: keine Wette (als Substantiv), Verworfener
 
 ## Relationships
 
@@ -122,6 +142,8 @@ _Avoid_: Wette
 - Das **Gesamturteil** wägt **Pro-Argumente**, **Gegenargumente** und **Fragezeichen** ab und vergleicht die **Kursspanne** mit dem **Festkurs**; **Value** entscheidet nur, wer **Kandidat** ist.
 - Die **Mindestquote** ist der untere Rand der **Kursspanne**.
 - Eine **Wette** kann zugleich ein **Tipp** der Karte sein, muss es aber nicht.
+- Ein **Durchgang** macht aus jedem **Kandidaten** einen **Claude-Tipp** (**NAP** oder **BET**) oder einen **abgelehnten Kandidaten**.
+- Ein **Claude-Tipp** wird zum **Festkurs** beim **Durchgang** abgerechnet; sein Kennzeichen erlischt nicht, wenn der Festkurs später unter die **Mindestquote** fällt.
 
 ## Flagged ambiguities
 

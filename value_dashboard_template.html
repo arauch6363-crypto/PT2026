@@ -149,6 +149,7 @@ button.wz { min-height: 44px; cursor: pointer; }
 
 <div class="seg" role="group" aria-label="Zeitraum" id="zeitraum"></div>
 
+<div class="seg" role="group" aria-label="Strategie" id="strat_art"></div>
 <section class="strategie" aria-label="Strategie und Filter">
   <button type="button" id="strat_knopf" aria-expanded="false" aria-controls="blatt">
     <span><span class="t1" id="strat_titel">Tipp-Strategie</span><span class="t2" id="strat_text"></span></span>
@@ -183,6 +184,13 @@ button.wz { min-height: 44px; cursor: pointer; }
   <p><b>Lesart:</b> <span id="lesart"></span></p>
 </div>
 <p class="hinweis" id="hinweis"></p>
+
+<div id="claude_bereich" hidden>
+  <h2>Claude-Tipps</h2>
+  <p class="klein">NAP = Wette (1 Einheit), BET = Kleine Wette (½ Einheit) aus den Durchgängen; Abgelehnt = Kandidaten mit
+    Urteil „keine Wette“, zum Vergleich zu 1 Einheit. FK = Festkurs beim Durchgang mit 5 % Steuer, Toto = Endquote ohne Steuer.</p>
+  <div class="tabelle" id="claude_tab"></div>
+</div>
 
 <h2>Woche für Woche</h2>
 <div class="tabelle" id="wochen"></div>
@@ -320,7 +328,9 @@ function besteJeVeranstaltung(rows, n, eins) {   // wie value_bets.beste_je_vera
   return p;
 }
 
+const CLAUDE_TIPPS = ['wette', 'klein'];    // NAP (1 Einheit), BET (½ Einheit); „nein“ = abgelehnter Kandidat
 function auswahl(pool, f) {
+  if (f.claude) return pool.filter(r => CLAUDE_TIPPS.includes(r.claude));
   const x = f.mode_value;
   return besteJeVeranstaltung(pool.filter(r => {
     const w = r.wert;
@@ -685,9 +695,11 @@ function mitWert(pool) {                // nur Starter mit Wert ≥ 0 gegen den 
 }
 
 function simulieren(pool, f, variant, start = 1000, wettart = 'ew') {
-  pool = mitWert(chanceWaehlen(pool, f.chance));
+  pool = f.claude ? chanceWaehlen(pool, 'karte') : mitWert(chanceWaehlen(pool, f.chance));
   const cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
-  const sel = auswahl(pool, f).filter(r => r.settled)
+  // Claude-Tipps: Festkurs beim Durchgang, Einsatz in Einheiten, nur Sieg (wie value_bets.simulate)
+  const claudeKurs = rs => f.claude ? rs.filter(r => _da(r.claude_fk)).map(r => ({...r, fk_sieg: r.claude_fk, p_fk: 1 / r.claude_fk, fk_platz: null})) : rs;
+  const sel = claudeKurs(auswahl(pool, f)).filter(r => r.settled)
     .sort((a, b) => cmp(a.date, b.date) || cmp(a.race_id, b.race_id) || a.no - b.no);
   const tage = [...new Set(pool.filter(r => r.settled).map(r => r.date))].sort();
   let bank = start;
@@ -697,10 +709,10 @@ function simulieren(pool, f, variant, start = 1000, wettart = 'ew') {
     let gs = 0, gp = 0, n = 0;
     for (const r of sel.filter(r => r.date === tag)) {
       if (r.nr === true) continue;                                   // Nichtstarter: Wette erstattet
-      const st = einsatz(bs, r.p, r.fk_sieg, variant);
+      const st = f.claude ? r.claude_einh : einsatz(bs, r.p, r.fk_sieg, variant);
       if (st <= 0) continue;
       const [g_s, t_s] = bein(st, r.fk_sieg, r.won);
-      const qPlatz = wettart === 'ew' ? r.fk_platz : null;          // nur Sieg: kein Platzbein
+      const qPlatz = wettart === 'ew' && !f.claude ? r.fk_platz : null;   // nur Sieg: kein Platzbein
       const [g_p, t_p] = bein(st, qPlatz, r.placed);
       const stp = qPlatz !== null ? st : 0;
       gs += g_s; gp += g_p; n += 1;
@@ -716,9 +728,27 @@ function simulieren(pool, f, variant, start = 1000, wettart = 'ew') {
   return {bets, days, kpi: kpis(bets, days, start, pSim, sel), kurs: kursVerlauf(bets, pSim),
           mt: modellTotoVerlauf(sel), woche: wochenBlick(sel, f.toto_abzug ?? TOTO_ABZUG)};
 }
+
+// Claude-Tipps nach NAP / BET und abgelehnte Kandidaten (zu 1 Einheit) – wie value_bets.claude_auswertung
+function claudeAuswertung(pool) {
+  const cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+  return [['NAP', 'wette', null], ['BET', 'klein', null], ['Abgelehnt', 'nein', 1]].map(([gruppe, urteil, fest]) => {
+    let n = 0, siege = 0, einsatz = 0, gFk = 0, gToto = 0;
+    const rs = pool.filter(r => r.claude === urteil && r.settled)
+      .sort((a, b) => cmp(a.date, b.date) || cmp(a.race_id, b.race_id) || a.no - b.no);
+    for (const r of rs) {
+      if (r.nr === true || !_da(r.claude_fk)) continue;
+      const e = fest ?? r.claude_einh, [a] = bein(e, r.claude_fk, r.won);
+      const b = r.toto_end > 1 ? rhu(r.won ? e * (r.toto_end - 1) : -e, 2) : a;
+      n += 1; siege += r.won ? 1 : 0; einsatz += e; gFk += a; gToto += b;
+    }
+    return {gruppe, n, siege, einsatz, gewinn_fk: rhu(gFk, 2), roi_fk: einsatz ? gFk / einsatz : null,
+            gewinn_toto: rhu(gToto, 2), roi_toto: einsatz ? gToto / einsatz : null};
+  });
+}
 // SIM-END
 
-if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlick, isoWoche, kombiBlick, kombiSim, kombiListe, totoErgebnis, totoVerlauf};
+if (typeof module !== 'undefined') module.exports = {simulieren, claudeAuswertung, rhu, wochenBlick, isoWoche, kombiBlick, kombiSim, kombiListe, totoErgebnis, totoVerlauf};
 </script>
 <script>
 (function () {
@@ -730,6 +760,8 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
   const nf = (v, nk = 2) => ok(v) ? v.toLocaleString('de-DE', {minimumFractionDigits: nk, maximumFractionDigits: nk}) : '–';
   const sg = (v, nk = 1) => ok(v) ? (v > 0 ? '+' : v < 0 ? '−' : '') + nf(Math.abs(v), nk) : '–';
   const eur = (v, nk = 0) => ok(v) ? nf(v, nk) + ' €' : '–';
+  let EH = '€', ND = 0;                      // Siegwetten: Euro, bei Claude-Tipps Einheiten (E) mit einer Nachkommastelle
+  const ein = (v, nk = ND) => ok(v) ? nf(v, nk) + ' ' + EH : '–';
   const pct = v => ok(v) ? nf(100 * v, 1) + ' %' : '–';
   const fd = d => `${d.slice(6, 8)}.${d.slice(4, 6)}.${d.slice(0, 4)}`;
   const fdk = d => `${d.slice(6, 8)}.${d.slice(4, 6)}.`;
@@ -855,17 +887,17 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
     const platziert = bets.filter(b => b.placed).length;
     const z = (t, w, u, kl = '') => `<div class="kachel"><div class="t">${t}</div><div class="w num ${kl}">${w}</div><div class="u">${u}</div></div>`;
     $('kacheln').innerHTML = [
-      z('Bank', eur(k.bank), `Start ${eur(k.start_bank)}`),
-      z('Gewinn · ROI', `${sg(k.profit ?? 0, 0)} €`, k.bets ? `ROI ${sg(100 * k.roi)} %` : 'ROI –', klasse(k.profit)),
-      z('Wetten / Tage', `${k.bets} / ${k.days}`, k.bets ? `Einsatz ${eur(k.stake)} · Steuer ${eur(k.tax)}` : ''),
+      z('Bank', ein(k.bank), `Start ${ein(k.start_bank)}`),
+      z('Gewinn · ROI', `${sg(k.profit ?? 0, ND)} ${EH}`, k.bets ? `ROI ${sg(100 * k.roi)} %` : 'ROI –', klasse(k.profit)),
+      z('Wetten / Tage', `${k.bets} / ${k.days}`, k.bets ? `Einsatz ${ein(k.stake)} · Steuer ${ein(k.tax)}` : ''),
       z('Kurs bis Start', k.kurs_n ? `${sg(100 * k.clv_rel)} %` : '–',
         k.kurs_n ? `gegen Rennschnitt${ok(k.kurs_z) ? ` · z ${nf(k.kurs_z, 1)}` : ''}` : 'keine Toto-Endquote', klasse(k.clv_rel)),
       z('Trefferquote Sieg', pct(k.strike_rate), `${k.wins ?? 0} von ${k.bets}`),
       z('Trefferquote Platz', k.bets ? pct(platziert / k.bets) : '–', `${platziert} von ${k.bets} unter den ersten 3`),
       (() => { const T = totoErgebnis(bets);              // dieselben Picks und Einsätze, Sieg zum Toto statt zum Festkurs
         return `<div class="kachel ganz"><div><div class="t">Zum Toto ausgezahlt</div><div class="u">dieselben Picks und Einsätze, ohne Steuer · `
-          + (T.n ? `ROI ${sg(100 * T.roi)} % · ${sg(T.diff, 0)}&nbsp;€ gegen FK` + (T.ohne ? ` · ${T.ohne} ohne Toto, dort FK` : '') : 'keine Wette')
-          + `</div></div><div class="num ${klasse(T.profit)}" style="font-size:22px;font-weight:500;white-space:nowrap">${T.n ? sg(T.profit, 0) + ' €' : '–'}</div></div>`; })(),
+          + (T.n ? `ROI ${sg(100 * T.roi)} % · ${sg(T.diff, ND)}&nbsp;${EH} gegen FK` + (T.ohne ? ` · ${T.ohne} ohne Toto, dort FK` : '') : 'keine Wette')
+          + `</div></div><div class="num ${klasse(T.profit)}" style="font-size:22px;font-weight:500;white-space:nowrap">${T.n ? sg(T.profit, ND) + ' ' + EH : '–'}</div></div>`; })(),
       `<div class="kachel ganz"><div><div class="t">Edge Sieg</div><div class="u">Σ 1/Fair ${nf(k.exp_wins_model, 1)} ÷ `
         + `Σ 1/FK ${nf(k.exp_wins_fk, 1)}</div></div><div class="num" style="font-size:22px;font-weight:500">${nf(k.edge_win, 2)}</div></div>`,
     ].join('');
@@ -939,13 +971,13 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
       b.forEach((r, i) => {
         if (r.date !== tag) { tag = r.date; lauf = r.bank_start; if (aendTag[tag] && tag !== erster) marken.push(i + 1); }
         lauf = rhu(lauf + r.profit, 2);
-        P.push([lauf, String(i + 1), `${fdk(r.date)} ${r.race} · ${r.horse}: ${sg(r.profit, 2)} € → Bank ${eur(lauf, 2)}`]);
+        P.push([lauf, String(i + 1), `${fdk(r.date)} ${r.race} · ${r.horse}: ${sg(r.profit, 2)} ${EH} → Bank ${ein(lauf, 2)}`]);
       });
       if (P.length > 1) P[P.length - 1][1] = `${b.length} Wetten`;
     } else if (xModus === 'tag') {
       d.forEach((x, i) => {
         if (aendTag[x.date] && x.date !== erster) marken.push(i + 1);
-        P.push([x.bank, fdk(x.date), `${fd(x.date)}: Bank ${eur(x.bank, 2)} · Tag ${sg(x.profit, 2)} € · ${x.bets} Wetten`
+        P.push([x.bank, fdk(x.date), `${fd(x.date)}: Bank ${ein(x.bank, 2)} · Tag ${sg(x.profit, 2)} ${EH} · ${x.bets} Wetten`
           + (aendTag[x.date] ? ` · ◆ ${aendTag[x.date]}` : '')]);
       });
     } else {
@@ -957,7 +989,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
       for (const [k, x] of g) {
         const name = xModus === 'woche' ? wocheName(k) : `${MONAT[+k.slice(4, 6) - 1]} ${k.slice(0, 4)}`;
         P.push([x.bank, xModus === 'woche' ? name : MONAT[+k.slice(4, 6) - 1],
-          `${name}: Bank ${eur(x.bank, 2)} · ${sg(x.profit, 2)} € · ${x.bets} Wetten`]);
+          `${name}: Bank ${ein(x.bank, 2)} · ${sg(x.profit, 2)} ${EH} · ${x.bets} Wetten`]);
       }
     }
     $('bank_hinweis').textContent = {wette: 'nach jeder Wette', tag: 'am Ende jedes Renntags', woche: 'am Ende jeder Woche',
@@ -992,8 +1024,8 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
     const l = letzte.filter(r => !q || String(r.horse).toLowerCase().includes(q)).slice().reverse();
     $('liste').innerHTML = l.length ? l.map(r => `<div class="pick"><div style="min-width:0"><div class="n">${esc(r.horse)}</div>`
       + `<div class="u">${fdk(r.date)} · ${esc(r.race)}${r.course ? ' ' + esc(r.course) : ''} · FK ${nf(r.fk_sieg, 1)} · `
-      + `Wert ${nf(r.wert, 2)}${r.wert > 3 ? ' (Kursfehler?)' : ''} · ${eur(r.stake_win)}${r.stake_place ? ' EW' : ''}</div></div>`
-      + `<div class="r"><div class="num ${klasse(r.profit)}">${sg(r.profit, 2)} €</div>`
+      + `Wert ${nf(r.wert, 2)}${r.wert > 3 ? ' (Kursfehler?)' : ''} · ${ein(r.stake_win, ND)}${r.stake_place ? ' EW' : ''}</div></div>`
+      + `<div class="r"><div class="num ${klasse(r.profit)}">${sg(r.profit, 2)} ${EH}</div>`
       + `<div class="u">${r.pos === null || r.pos === undefined ? '–' : 'Platz ' + r.pos}`
       + `${ok(r.toto_end) ? ' · Toto ' + nf(r.toto_end, 1) : ''}</div></div></div>`).join('')
       : `<p class="leer">${q ? 'Kein Pick passt zur Suche.' : 'Keine Wette bei diesem Filter.'}</p>`;
@@ -1006,21 +1038,39 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
 
   // ---- Neu rechnen
   let zeitraum = 'gesamt';
+  let art = 'modell';                          // Strategie: Tipp-Strategie (Modell, Filter) oder Claude-Tipps (Durchgänge)
+  try { if (localStorage.getItem('vd-art') === 'claude') art = 'claude'; } catch (e) { /* ohne Speicher */ }
+  function claudeTabelle() {
+    const roi = x => ok(x) ? sg(100 * x, 0) + ' %' : '–';
+    const G = claudeAuswertung(pool.filter(r => zeitraum === 'gesamt' || isoWoche(r.date).key === zeitraum));
+    $('claude_tab').innerHTML = '<div class="wz kopfz"><span>Gruppe · Wetten</span><span>Siege</span><span>ROI FK</span><span>ROI Toto</span></div>'
+      + G.map(g => `<div class="wz" title="Einsatz ${nf(g.einsatz, 1)} E · Gewinn FK ${sg(g.gewinn_fk, 1)} E · Toto ${sg(g.gewinn_toto, 1)} E">`
+        + `<span>${g.gruppe} <span class="n">· ${g.n}</span></span><span>${g.siege}</span>`
+        + `<span class="${klasse(g.roi_fk)}">${roi(g.roi_fk)}</span><span class="${klasse(g.roi_toto)}">${roi(g.roi_toto)}</span></div>`).join('');
+  }
   function neu() {
     const w = leseFelder();
+    segment($('strat_art'), [['modell', 'Tipp-Strategie'], ['claude', 'Claude-Tipps']], art, a => {
+      art = a; try { localStorage.setItem('vd-art', a); } catch (e) { /* ohne Speicher */ } neu(); });
+    const cl = art === 'claude';
+    EH = cl ? 'E' : '€'; ND = cl ? 1 : 0;
     strategie(w);
+    if (cl) { $('strat_titel').textContent = 'Claude-Tipps'; $('strat_text').textContent = 'NAP 1 E · BET ½ E · Festkurs beim Durchgang · nur Sieg'; }
+    $('strat_knopf').disabled = cl;
+    $('claude_bereich').hidden = !cl;
     const abzug = Math.min(0.6, Math.max(0, (zahl(w.abzug) || 23) / 100));
-    const F = {chance: w.chance, toto_abzug: abzug, minw: zahl(w.minw), mode: 'none', mode_value: 0, top: 'beides',
+    const F = {chance: cl ? 'karte' : w.chance, toto_abzug: abzug, minw: zahl(w.minw), mode: 'none', mode_value: 0, top: 'beides',
                min_kelly: Math.max(0, zahl(w.mk)) / 100, je_veranstaltung: Math.max(0, Math.floor(zahl(w.jv))),
-               eins_je_rennen: w.ejr, max_rang: Math.max(0, Math.floor(zahl(w.mr)))};
-    const res = simulieren(pool, F, w.st, 1000, w.wa);
-    const pSim = mitWert(chanceWaehlen(pool, F.chance)), selAlle = auswahl(pSim, F).filter(r => r.settled);
+               eins_je_rennen: w.ejr, max_rang: Math.max(0, Math.floor(zahl(w.mr))), claude: cl};
+    const START = cl ? 100 : 1000;
+    const res = simulieren(pool, F, w.st, START, cl ? 'sieg' : w.wa);
+    const pSim = cl ? pool : mitWert(chanceWaehlen(pool, F.chance)), selAlle = auswahl(pSim, F).filter(r => r.settled);
     if (zeitraum !== 'gesamt' && !wochen.includes(zeitraum)) zeitraum = 'gesamt';
     const optionen = [['gesamt', 'Gesamt'], ...wochen.slice(-3).map(k => [k, wocheName(k)])];
     segment($('zeitraum'), optionen, zeitraum, k => { zeitraum = k; neu(); });
     const inR = zeitraum === 'gesamt' ? () => true : r => isoWoche(r.date).key === zeitraum;
     const b = res.bets.filter(inR), d = res.days.filter(inR), sel = selAlle.filter(inR);
-    const start = zeitraum === 'gesamt' || !d.length ? 1000 : d[0].bank_start;
+    const start = zeitraum === 'gesamt' || !d.length ? START : d[0].bank_start;
     const tage = new Set(d.map(x => x.date));
     const k = zeitraum === 'gesamt' ? res.kpi : kpis(b, d, start, pSim.filter(r => tage.has(r.date)), sel);
     const m = modellToto(sel), ww = _wocheWerte(sel, abzug);
@@ -1032,6 +1082,7 @@ if (typeof module !== 'undefined') module.exports = {simulieren, rhu, wochenBlic
     $('hinweis').textContent = k.hinweis || '';
     wochenTabelle(res.woche);
     rangTabelle(auswahl(pSim, {...F, max_rang: 0}).filter(r => r.settled && r.nr !== true).filter(inR), F.max_rang);
+    if (cl) claudeTabelle();
     kacheln(k, b);
     siegerChart(b);
     segment($('xachse'), [['wette', 'Wette'], ['tag', 'Tag'], ['woche', 'Woche'], ['monat', 'Monat']], xModus,
