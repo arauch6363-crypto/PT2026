@@ -220,10 +220,12 @@ def html(daten: dict, template: str | Path) -> str:
     return f'<!doctype html>\n<html lang="de">\n{seite}\n</html>\n'
 
 
-def markieren(karte: str | Path, aus: str | Path, template: str | Path, pfade) -> int:
+def markieren(karte: str | Path, aus: str | Path, template: str | Path, pfade, titel: str = "Racecard heute") -> int:
+    """Karte mit den Urteilen neu rendern (für das Artefakt „Racecard heute“; der Seitentitel wird zum Artefakt-Titel)."""
     daten = laden(karte)
     n = anwenden(daten, je_rennen(pfade))
-    Path(aus).write_text(html(daten, template), encoding="utf-8")
+    seite = re.sub(r"<title>.*?</title>", f"<title>{titel}</title>", html(daten, template), count=1, flags=re.S)
+    Path(aus).write_text(seite, encoding="utf-8")
     return n
 
 
