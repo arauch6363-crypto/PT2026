@@ -239,6 +239,7 @@ input{color:inherit}
                 </sc-for>
               </span>
               <sc-if value="{{ r.isTip }}" hint-placeholder-val="{{ false }}"><span title="{{ r.tipTip }}" style="font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;background:var(--tip-bg);color:var(--tip-gold);border-radius:3px;padding:2px 5px">Tipp {{ r.tipRang }} · {{ r.tipEinsatz }}</span></sc-if>
+              <sc-if value="{{ r.cIs }}" hint-placeholder-val="{{ false }}"><span title="{{ r.cTip }}" style="font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;background:{{ r.cBg }};color:{{ r.cFg }};border-radius:3px;padding:2px 5px;white-space:nowrap">{{ r.cTxt }}</span></sc-if>
             </div>
             <div title="{{ r.karTip }}" style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:#57534B;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.karTxt }} · <span style="color:{{ r.valFg }}">{{ r.valTxt }}</span> · <span style="color:{{ r.pauseFg }}">{{ r.pauseTxt }}</span></div>
             <div style="font-size:12px;color:#57534B;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">J {{ r.jName }}<span title="{{ r.jTrTip }}" style="color:{{ r.jTrFg }};font-size:10px;margin-left:2px">{{ r.jTr }}</span> · T {{ r.tName }}<span title="{{ r.tTrTip }}" style="color:{{ r.tTrFg }};font-size:10px;margin-left:2px">{{ r.tTr }}</span></div>
@@ -270,6 +271,19 @@ input{color:inherit}
       </div>
 
       <sc-if value="{{ r.isMid }}" hint-placeholder-val="{{ false }}">
+        <sc-if value="{{ r.cHat }}" hint-placeholder-val="{{ false }}">
+          <div style="margin:0 16px 10px;padding:10px 12px;border-radius:8px;background:var(--tip-bg);color:var(--tip-fg);font-size:12.5px;line-height:1.45">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:4px">
+              <span style="font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--tip-gold)">Claude-Durchgang · {{ r.cUrteil }}</span>
+              <span style="font-family:'Spline Sans Mono',monospace;font-size:10.5px;color:var(--tip-mute)">{{ r.cKurse }}</span>
+            </div>
+            <sc-for list="{{ r.cZeilen }}" as="cz" hint-placeholder-count="3">
+              <div style="display:grid;grid-template-columns:22px minmax(0,1fr);gap:4px;margin-top:2px"><span style="color:{{ cz.fg }};font-weight:700">{{ cz.k }}</span><span>{{ cz.t }}</span></div>
+            </sc-for>
+            <div style="margin-top:6px;color:var(--tip-mute)">{{ r.cAusschlag }}</div>
+            <div style="margin-top:4px;font-size:11px;color:var(--tip-mute)">{{ r.cVergleich }}</div>
+          </div>
+        </sc-if>
         <div style="padding:0 16px 14px">
           <div style="display:grid;gap:6px">
             <sc-for list="{{ r.steck }}" as="st" hint-placeholder-count="4">
@@ -928,7 +942,7 @@ function karteIndex(D){
       corde: r.corde, cls: r.class, pace: r.pace, bias: r.bias ? r.bias.bias : null,
       prono: P ? { sel: (P.selection || []).map(s => s.no), text: P.text_de || P.text, consensus: P.consensus || [] } : null,
       tips: r.runners.filter(x => !x.nr && x.power && x.power.tipp).map(x => ({ ...x.power.tipp, no: x.no, horse: x.horse })),
-      hasFK: r.runners.some(x => x.fk && x.fk.sieg != null) };
+      hasFK: r.runners.some(x => x.fk && x.fk.sieg != null), claude: r.claude || null };
     races[id] = { runners: r.runners.map(x => ({ ...x, silk: x.silks || "" })), course: r.course, type: r.type };
   }
   return { idx: { ...D, races: rennen }, races };
@@ -944,6 +958,27 @@ const fx = (v, d = 1) => v == null || isNaN(v) ? '–' : de(Number(v).toFixed(d)
 const sgn = (v, d = 1) => v == null ? '–' : (v > 0 ? '+' : v < 0 ? '−' : '±') + fx(Math.abs(v), d);
 const kurz = v => v == null ? '–' : fx(v, 1).replace(/,0$/, '');
 const fOdds = o => o == null ? '–' : o >= 100 ? '100+' : o < 10 ? fx(o, 1) : String(Math.round(o));
+// Claude-Durchgang (durchgang_JJJJMMTT_*.json, von racecard.py bzw. durchgang.py eingesetzt): Kennzeichen NAP (Wette,
+// 1 Einheit) / BET (Kleine Wette, ½ Einheit) mit Mindestquote; grau mit „FK < MQ“, wenn der aktuelle Festkurs darunter liegt
+function claudeVals(x, race) {
+  const c = x.claude;
+  if (!c) return { cIs: false, cHat: false };
+  const q = v => v == null ? '–' : fx(v, v < 10 ? 1 : 0).replace(/,0$/, '');
+  const fkJetzt = x.fk?.sieg ?? null, unter = c.mq != null && fkJetzt != null && fkJetzt < c.mq - 1e-9;
+  const wette = c.urteil === 'wette' || c.urteil === 'klein';
+  const urteil = c.urteil === 'wette' ? 'NAP · Wette 1 Einheit' : c.urteil === 'klein' ? 'BET · Kleine Wette ½ Einheit' : 'keine Wette';
+  const sp = c.spanne && c.spanne[0] != null ? q(c.spanne[0]) + '–' + q(c.spanne[1]) : '–';
+  const zeilen = [...(c.pro || []).map(t => ({ k: '+', t, fg: 'var(--tip-good)' })), ...(c.gegen || []).map(t => ({ k: '−', t, fg: '#F2A48F' })),
+    ...(c.fragen || []).map(t => ({ k: '?', t, fg: 'var(--tip-gold)' }))];
+  return {
+    cIs: wette, cHat: true, cUrteil: urteil,
+    cTxt: wette ? (c.kennzeichen || (c.urteil === 'wette' ? 'NAP' : 'BET')) + (unter ? ' · FK < MQ' : c.mq != null ? ' ≥ ' + q(c.mq) : '') : '',
+    cBg: unter ? '#8C877C' : c.urteil === 'wette' ? 'var(--tip-bg)' : '#E9B949', cFg: unter ? '#F6F4EF' : c.urteil === 'wette' ? 'var(--tip-gold)' : '#161512',
+    cTip: urteil + ' · Mindestquote ' + q(c.mq) + ' · Festkurs beim Durchgang ' + q(c.fk) + (fkJetzt != null ? ' · jetzt ' + q(fkJetzt) : '') + (c.stand ? ' · ' + String(c.stand).slice(11, 16) : ''),
+    cKurse: 'FK ' + q(c.fk) + ' · fair ' + sp + ' · MQ ' + q(c.mq) + (c.stand ? ' · ' + String(c.stand).slice(11, 16) : ''),
+    cZeilen: zeilen, cAusschlag: c.ausschlag ? 'Ausschlag: ' + c.ausschlag : '', cVergleich: race?.claude?.vergleich ? 'Rennvergleich: ' + race.claude.vergleich : '',
+  };
+}
 const eur = v => v == null ? '–' : '€' + Math.round(v).toLocaleString('de-DE');
 const kEur = v => v == null ? '–' : '€' + (v >= 1000 ? Math.round(v / 1000) + 'k' : Math.round(v));
 const dt = s => { if (!s) return '–'; const d = s.split('-'); return d[2] + '.' + d[1] + '.' + d[0].slice(2); };
@@ -1338,6 +1373,7 @@ class Component extends DCLogic {
       ...(() => { const T = pw?.tipp, TR = ctx.tipR; const ok = !!(T && TR && T.rang <= tippN(TR) && T.kelly >= tippK(TR) / 100 - 1e-6);
         const e = ok ? Math.round(ctx.bank * (TR.kelly || 0.125) * T.kelly) : 0;
         return { isTip: ok, tipRang: ok ? T.rang : '', tipEinsatz: ok ? e + ' €' : '', tipTip: ok ? 'Festkurs ' + fx(T.fk, 1) + ' · Wert +' + Math.round(T.wert * 100) + ' % · Kelly-Anteil ' + fx(T.kelly * 100, 1) + ' % · Einsatz auf Sieg' : '' }; })(),
+      ...claudeVals(x, ctx.race),
       tip: x.prono?.konsens ? '· Tipp ' + x.prono.konsens.pos + '/' + x.prono.konsens.of : '',
       cycle: () => this.cycle(no), zu: () => this.zuklappen(no), isMid, isOpen,
     };

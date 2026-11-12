@@ -657,6 +657,36 @@ Je Starter:
   geschätzt; mehr Starter = schnelleres Tempo). Beim Scrollen bleibt eine Kurzzeile des Rennens oben fixiert.
 * Racing-Post-Kürzel **C / D / CD / BF**, Tage seit dem letzten Lauf, Gewicht, Rating, Startbox.
 
+## Durchgänge und Claude-Tipps (`durchgang.py`)
+
+Die geplante Aufgabe „Racecard-Durchgang“ (von Hand gestartet, sobald Festkurse auf der Karte stehen) geht mit dem
+Skill `rennkarten-durchgang-neu` alle offenen Rennen der heutigen Karte durch, je Rennen ein eigener Subagent, und legt
+das Ergebnis als `racecards/durchgang_JJJJMMTT_HHMM.json` ab (warum nicht in der HTML: `docs/adr/0001-durchgang-in-eigener-datei.md`).
+Ein zweiter Start am selben Tag bearbeitet nur Rennen, die noch in keinem Durchgang stehen.
+
+- **Karte:** `racecard.run` und `festkurse_aktualisieren` setzen die Urteile aller Durchgänge des Tages in die HTML ein
+  (je Rennen der jüngste): Kennzeichen **NAP ≥ MQ** (Wette, 1 Einheit) bzw. **BET ≥ MQ** (Kleine Wette, ½ Einheit) neben
+  dem Namen, grau mit „FK < MQ“, wenn der Festkurs inzwischen unter der Mindestquote liegt; aufgeklappt Pro, Gegen,
+  Fragezeichen, Ausschlag und Rennvergleich, auch für abgelehnte Kandidaten. Kartendaten und Claude-JSONs bleiben
+  ohne Urteile.
+- **Sofort ansehen:** die Aufgabe rendert die markierte Karte selbst (`durchgang.py markieren`) und veröffentlicht sie
+  im privaten Claude-Artefakt „Racecard heute“.
+- **Dashboard:** Strategie **Claude-Tipps** (Umschalter über dem Strategie-Kasten): nur NAP/BET, Einsatz in Einheiten,
+  Festkurs beim Durchgang mit 5 % Steuer, nur Sieg; „Bank im Verlauf“ und „Zum Toto ausgezahlt“ zeigen dieselben Wetten
+  zum Toto. Tabelle **Claude-Tipps**: NAP, BET und abgelehnte Kandidaten (zu 1 Einheit) mit ROI zum Festkurs und zum
+  Toto. Kandidaten eines Durchgangs bleiben im Pool, auch wenn ihr Kurs danach unter Value 0 fiel.
+- **Format** einer Durchgang-Datei: `{"datum", "stand", "skill", "rennen": [{"race_id", "status" (bearbeitet,
+  kein_festkurs, gelaufen, araber, keine_kandidaten, fehler), "vergleich", "hinweis", "kandidaten": [{"no", "horse",
+  "urteil" (wette, klein, nein), "einheiten", "fk", "mq", "spanne", "p_modell", "value", "pro", "gegen", "fragen",
+  "ausschlag"}]}]}`.
+
+```
+python3 -I durchgang.py plan racecard_20261112.html durchgang_20261112_*.json    # welche Rennen offen sind
+python3 -I durchgang.py zusammenfuehren durchgang_20261112_1505.json --datum 2026-11-12 rennen_*.json
+python3 -I durchgang.py markieren racecard_20261112.html markiert.html durchgang_20261112_*.json
+python3 -I durchgang.py tabelle durchgang_20261112_*.json
+```
+
 ## Value-Wetten-Dashboard (`value_bets.py`)
 
 Simuliert die Value-Wetten über alle Renntage seit dem 18.10.2026 (`START_DATUM`, ab dann gibt es

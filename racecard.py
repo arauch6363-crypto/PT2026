@@ -3082,8 +3082,10 @@ def daten_pfad(out: Path) -> Path:
 
 
 def _ausgeben(daten: dict, out: Path, claude: bool = True) -> None:
-    """HTML und (mit claude=True) die beiden Claude-JSONs schreiben."""
-    out.write_text(html(daten), encoding="utf-8")
+    """HTML und (mit claude=True) die beiden Claude-JSONs schreiben. Die HTML bekommt die Urteile der Durchgänge des
+    Tages (durchgang_JJJJMMTT_*.json im selben Ordner); Kartendaten und Claude-JSONs bleiben ohne sie."""
+    import durchgang
+    out.write_text(html(durchgang.mit_durchgaengen(daten, out.parent)), encoding="utf-8")
     print(f"Race Card gespeichert: {out}  ({daten['history']['runs']} historische Läufe, "
           f"davon {daten['history']['tracked']} mit Tracking)")
     if claude:                                            # kompakte JSON für den Skill rennkarten-durchgang
