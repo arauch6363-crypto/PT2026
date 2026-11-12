@@ -125,6 +125,33 @@ input{color:inherit}
         </div>
       </sc-if>
     </div>
+    <sc-if value="{{ ct.has }}" hint-placeholder-val="{{ false }}">
+    <div style="background:var(--tip-bg);color:var(--tip-fg);border-radius:10px;overflow:hidden">
+      <button onClick="{{ toggleCt }}" style="width:100%;border:0;background:none;color:inherit;display:flex;align-items:center;gap:10px;padding:10px 12px;min-height:48px;cursor:pointer;text-align:left">
+        <span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#D9A43A;width:68px;flex:none">Claude R{{ race.reunion }}</span>
+        <span style="flex:1;display:flex;gap:4px;flex-wrap:wrap;align-items:center;min-width:0">
+          <sc-for list="{{ ct.chips }}" as="cq" hint-placeholder-count="2">
+            <span style="height:24px;padding:0 6px;border-radius:5px;background:{{ cq.bg }};color:{{ cq.fg }};font-family:'Spline Sans Mono',monospace;font-size:11px;font-weight:600;display:flex;align-items:center;text-decoration:{{ cq.strike }}">{{ cq.k }} C{{ cq.c }}·{{ cq.no }}</span>
+          </sc-for>
+          <sc-if value="{{ ct.none }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--tip-mute)">Keine NAP/BET in dieser Veranstaltung</span></sc-if>
+        </span>
+        <span style="font-size:14px;color:var(--tip-mute);transform:rotate({{ ctRot }}deg);transition:transform .2s">›</span>
+      </button>
+      <sc-if value="{{ ctOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:0 12px 12px">
+          <sc-for list="{{ ct.rows }}" as="cw" hint-placeholder-count="2">
+            <button onClick="{{ cw.pick }}" style="width:100%;border:0;border-top:1px solid var(--tip-line);background:{{ cw.bg }};color:inherit;display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:2px 10px;align-items:center;padding:8px 6px;cursor:pointer;text-align:left;border-radius:6px;opacity:{{ cw.op }}">
+              <span style="grid-row:span 2;font-size:10px;font-weight:800;letter-spacing:.06em;text-align:center;border-radius:3px;padding:2px 0;background:{{ cw.kBg }};color:{{ cw.kFg }}">{{ cw.k }}</span>
+              <span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px"><span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:var(--tip-mute);margin-right:6px">C{{ cw.c }} {{ cw.time }}</span><b style="margin-right:4px">{{ cw.no }}</b><span style="font-weight:700;font-stretch:80%;text-transform:uppercase">{{ cw.horse }}</span></span>
+              <span style="grid-row:span 2;font-family:'Spline Sans Mono',monospace;font-size:15px;font-weight:600;text-align:right">{{ cw.einh }}</span>
+              <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:var(--tip-mute)">MQ <b style="color:var(--tip-good)">{{ cw.mq }}</b> · FK {{ cw.fk }}{{ cw.jetzt }}</span>
+            </button>
+          </sc-for>
+          <div style="border-top:1px solid var(--tip-line);padding-top:10px;margin-top:2px;font-size:11px;color:var(--tip-mute);line-height:1.35">{{ ct.rule }}</div>
+        </div>
+      </sc-if>
+    </div>
+    </sc-if>
     <div style="background:#FFFDF9;border:1px solid #DCD8CE;border-radius:10px;overflow:hidden">
       <button onClick="{{ toggleProno }}" style="width:100%;border:0;background:none;display:flex;align-items:center;gap:10px;padding:10px 12px;min-height:48px;cursor:pointer;text-align:left">
         <span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#57534B;width:68px;flex:none">PMU-Prognose</span>
@@ -942,7 +969,9 @@ function karteIndex(D){
       corde: r.corde, cls: r.class, pace: r.pace, bias: r.bias ? r.bias.bias : null,
       prono: P ? { sel: (P.selection || []).map(s => s.no), text: P.text_de || P.text, consensus: P.consensus || [] } : null,
       tips: r.runners.filter(x => !x.nr && x.power && x.power.tipp).map(x => ({ ...x.power.tipp, no: x.no, horse: x.horse })),
-      hasFK: r.runners.some(x => x.fk && x.fk.sieg != null), claude: r.claude || null };
+      hasFK: r.runners.some(x => x.fk && x.fk.sieg != null), claude: r.claude || null,
+      claudeTips: r.runners.filter(x => !x.nr && x.claude && (x.claude.urteil === 'wette' || x.claude.urteil === 'klein'))
+        .map(x => ({ ...x.claude, no: x.no, horse: x.horse, fkJetzt: x.fk?.sieg ?? null })) };
     races[id] = { runners: r.runners.map(x => ({ ...x, silk: x.silks || "" })), course: r.course, type: r.type };
   }
   return { idx: { ...D, races: rennen }, races };
@@ -1046,7 +1075,7 @@ const ROLLEN = { trainer: ['Trainer', 'trainer'], jockey: ['Jockey', 'jockey'], 
 class Component extends DCLogic {
   props = { valueThreshold: 20, defaultSort: 'fair' };
   state = { idx: null, races: {}, meeting: null, raceId: null, sort: null, fair: 'mix', mid: {}, open: {}, tab: 'form', toolsTop: null, tabsTop: null,
-    runX: {}, duelX: {}, abstX: {}, kpi: null, aem: null, pv: null, pronoOpen: false, paceOpen: false, tipsOpen: false, bank: null, legendOpen: false, legendQ: '', narrow: false };
+    runX: {}, duelX: {}, abstX: {}, kpi: null, aem: null, pv: null, pronoOpen: false, paceOpen: false, tipsOpen: false, ctOpen: true, bank: null, legendOpen: false, legendQ: '', narrow: false };
   scrollRef = React.createRef();
   stripRef = React.createRef();
   headRef = React.createRef();
@@ -1227,7 +1256,7 @@ class Component extends DCLogic {
       ticks: tickVals.map(v => ({ pos: pos(v), label: v })), tickPos: tickVals.map(pos), kpiOpen: false, closeKpi: () => this.setState({ kpi: null }),
       aemOpen: false, closeAem: () => this.setState({ aem: null }), pvOpen: false, closePv: () => this.setState({ pv: null }),
     };
-    if (!idx) return { ...base, dateLabel: s.leer ? 'Race Card' : '', tips: { chips: [], rows: [] }, loading: true, ready: false, meetings: [], raceChips: [], runners: [], sorts: [], tabs: [] };
+    if (!idx) return { ...base, dateLabel: s.leer ? 'Race Card' : '', tips: { chips: [], rows: [] }, ct: { has: false, chips: [], rows: [] }, loading: true, ready: false, meetings: [], raceChips: [], runners: [], sorts: [], tabs: [] };
     const race = idx.races[s.raceId], rd = s.races[s.raceId], prm = idx.params;
 
     const meetings = idx.meetings.map(m => { const on = m.reunion === s.meeting;
@@ -1265,9 +1294,28 @@ class Component extends DCLogic {
         bg: t.r.id === s.raceId ? 'var(--tip-sel)' : 'transparent', rad: '6px', pick: () => this.pickRace(t.r.id) })),
       rule: 'Nur Sieg · Wert ≥ ' + Math.round((TR.min_wert ?? 0.2) * 100) + ' %, Kelly-Anteil ≥ ' + fx(tK, 1) + ' %, max. ' + tN + (TR.eins_je_rennen ? ', einer je Rennen' : '') + ' · Einsatz ' + ((TR.kelly || 0.125) === 0.125 ? '⅛' : fx(TR.kelly, 3)) + ' Kelly' + (idx.festkurse_bahnen?.[mt.course] ? ' · FK Stand ' + idx.festkurse_bahnen[mt.course] : ''),
     };
+    // Claude-Tipps der Veranstaltung (NAP/BET aus den Durchgängen), nach Startzeit
+    const ctList = mt.races.flatMap(id => (idx.races[id].claudeTips || []).map(t => ({ ...t, r: idx.races[id] })))
+      .sort((a, b) => String(a.r.time).localeCompare(String(b.r.time)) || a.no - b.no);
+    const ctQ = v => v == null ? '–' : fx(v, v < 10 ? 1 : 0).replace(/,0$/, '');
+    const ctUnter = t => t.mq != null && t.fkJetzt != null && t.fkJetzt < t.mq - 1e-9;
+    const ctStand = mt.races.map(id => idx.races[id].claude?.stand).filter(Boolean).sort().pop();
+    const ct = {
+      has: mt.races.some(id => idx.races[id].claude), none: !ctList.length,
+      chips: ctList.map(t => ({ k: t.urteil === 'wette' ? 'NAP' : 'BET', c: t.r.no, no: t.no, strike: ctUnter(t) ? 'line-through' : 'none',
+        bg: t.r.id === s.raceId ? 'var(--tip-gold)' : 'var(--tip-line)', fg: t.r.id === s.raceId ? 'var(--tip-bg)' : 'var(--tip-fg)' })),
+      rows: ctList.map(t => ({ k: t.urteil === 'wette' ? 'NAP' : 'BET', c: t.r.no, time: t.r.time, no: t.no, horse: t.horse,
+        kBg: ctUnter(t) ? '#8C877C' : t.urteil === 'wette' ? 'var(--tip-gold)' : '#E9B949', kFg: ctUnter(t) ? '#F6F4EF' : '#161512',
+        mq: ctQ(t.mq), fk: ctQ(t.fk), jetzt: t.fkJetzt != null && Math.abs(t.fkJetzt - (t.fk ?? 0)) > 1e-9 ? ' → jetzt ' + ctQ(t.fkJetzt) + (ctUnter(t) ? ' < MQ' : '') : '',
+        einh: t.urteil === 'wette' ? '1 E' : '½ E', op: ctUnter(t) ? .6 : 1,
+        bg: t.r.id === s.raceId ? 'var(--tip-sel)' : 'transparent', pick: () => this.pickRace(t.r.id) })),
+      rule: 'NAP = Wette 1 Einheit, BET = Kleine Wette ½ Einheit · nur Sieg zum Festkurs ab Mindestquote (MQ) · FK beim Durchgang'
+        + (ctStand ? ' · Stand ' + String(ctStand).slice(11, 16) : '') + ' · Rennen antippen für die Begründung',
+    };
     const WD = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'], MO = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
     const dd0 = new Date(idx.date + 'T12:00:00');
     const common = { ...base, loading: false, ready: true, tips, tipsOpen: s.tipsOpen, tipsRot: s.tipsOpen ? 90 : 0,
+      ct, ctOpen: s.ctOpen, ctRot: s.ctOpen ? 90 : 0, toggleCt: () => this.setState(x => ({ ctOpen: !x.ctOpen })),
       toggleTips: () => this.setState(x => ({ tipsOpen: !x.tipsOpen })),
       bankStr: String(bank), onBank: e => { const v = Math.round(parseFloat(String(e.target.value).replace(/\./g, '').replace(',', '.'))); if (v > 0) { store.set('rc-bank-' + idx.date, String(v)); store.set('rc-bank', String(v)); this.setState({ bank: v }); } },
       tipKStr: fx(tK, 1).replace(/,0$/, ''), onTipK: e => { const v = parseFloat(String(e.target.value).replace(',', '.')); if (v >= 0) { store.set('rc-tipp-k', String(v)); this.setState({ tipK: v }); } },
