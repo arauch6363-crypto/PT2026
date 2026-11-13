@@ -86,6 +86,10 @@ def kennzahlen(r: dict) -> list[dict]:
     return out
 
 
+def ist_handicap(r: dict) -> bool:
+    return "handicap" in f"{r.get('type') or ''} {r.get('name') or ''}".lower()
+
+
 def drittel(rang: int, n: int) -> str:
     if n <= 1:
         return "vorne"
@@ -110,6 +114,7 @@ def kopf(r: dict, kz: list[dict]) -> None:
     cls = r.get("class") or {}
     top_arr = sorted((((x.get("arr") or {}).get("adj") or 0), x["no"]) for x in st)[::-1][:3]
     top_val = sorted(((x.get("rating") or 0), x["no"]) for x in st)[::-1][:3]
+    top_adj = sorted(((x.get("rating_adj") or 0), x["no"]) for x in st if x.get("rating_adj") is not None)[::-1][:3]
     top_kg = max((x.get("weight") or 0) for x in st) if st else None
     fav = min((z for z in kz if z["fk"]), key=lambda z: z["fk"], default=None)
     print(f"\n## {r['race_id'][-4:]} {r.get('course')} {r.get('time')} – {r.get('name')}")
@@ -118,7 +123,11 @@ def kopf(r: dict, kz: list[dict]) -> None:
     print(f"Tempo {pace.get('label')} · Laufstile {pace.get('groups')} · unbekannt {pace.get('unknown') or '–'}")
     if fav:
         print(f"FK-Favorit {fav['x']['no']} {fav['x']['horse']} FK {zahl(fav['fk'])}, Modell {pct(fav['p'], 1)} · "
-              f"Top-ARR (gew.-bereinigt) {', '.join(f'{zahl(a)} (#{n})' for a, n in top_arr)} · Top-Valeur {', '.join(f'{zahl(v)} (#{n})' for v, n in top_val)} · Höchstgewicht {top_kg} kg")
+              f"Top-ARR (gew.-bereinigt) {', '.join(f'{zahl(a)} (#{n})' for a, n in top_arr)} · Top-Valeur {', '.join(f'{zahl(v)} (#{n})' for v, n in top_val)}"
+              + (f" · Top-Valeur bereinigt {', '.join(f'{zahl(v)} (#{n})' for v, n in top_adj)}" if top_adj and not ist_handicap(r) else "")
+              + f" · Höchstgewicht {top_kg} kg")
+    print("Handicap: Marke gegen letzte Sieg-/Platzmarke zählt." if ist_handicap(r)
+          else "Kein Handicap: Marken-Vergleich ohne Belang, es zählt die gewichtsbereinigte Valeur im Feld.")
 
 
 def formzeile(f: dict, r: dict) -> str:
@@ -130,7 +139,7 @@ def formzeile(f: dict, r: dict) -> str:
     if f.get("course") == r.get("course"):
         ref.append("gleiche Bahn")
     if (f.get("going") or "").lower() in SEHR_WEICH:
-        ref.append("sehr weich")
+        ref.append("Very slow" if gr == "Very slow" else "Très souple")
     rv = f.get("rivals_stat") or {}
     if rv.get("ran"):
         if rv.get("better", 0) * 2 >= rv["ran"]:
@@ -180,21 +189,36 @@ def blatt(z: dict, r: dict, top_kg: float) -> None:
     print(f"- Pferd: {x.get('age')}j {x.get('sex')}, {x.get('starts')} Starts, {x.get('wins')} S, {x.get('places')} P · "
           f"{x.get('weight')} kg (Höchstgewicht {top_kg}) · Marke {zahl(x.get('rating'))} · Box {x.get('draw')} · Laufstil {x.get('style_label')} · "
           f"{x.get('days')} Tage seit letztem Start · {dicht} Starts in {FENSTER_STARTS} Tagen")
-    if hm:
+    if not ist_handicap(r) and x.get("rating_adj") is not None:
+        print(f"- Valeur bereinigt (Valeur − Gewicht + 55): {zahl(x.get('rating_adj'))}, Rang {x.get('rating_rank')}/{x.get('rating_n')} im Feld")
+    if hm and ist_handicap(r):
         print(f"- Marke: letzte {'Sieg' if hm.get('kind') == 'sieg' else 'Platz'}-Marke {zahl(hm.get('val'))} ({hm.get('date')}, {hm.get('course')}), heute {hm.get('diff'):+.1f} kg")
     print(f"- Kennzeichen CGD {x.get('cgd') or '–'} · Badges {x.get('badges') or '–'} · Änderungen {[c.get('text') for c in x.get('changes') or []] or '–'} · Ausrüstung {x.get('blinkers')}")
     gs = ph.get("going") or []
-    print(f"- Vorlieben Boden: " + "; ".join(f"{e['label']}{' (heute)' if e.get('today') else ''} {bilanz(e)}" for e in gs) if gs else "- Vorlieben Boden: –")
+    print(f"- Vorlieben Boden (Very slow = Collant und Lourd): " + "; ".join(f"{e['label']}{' (heute)' if e.get('today') else ''} {bilanz(e)}" for e in gs) if gs else "- Vorlieben Boden: –")
     print(f"- Vorlieben Distanz heute: {bilanz(heute(ph.get('distance')))} · Bahn heute: {bilanz(heute(ph.get('course')))} · "
           f"Richtung heute: {bilanz(heute(ph.get('richtung')))} (andere: {bilanz(next((e for e in ph.get('richtung') or [] if not e.get('today')), None))})")
     bl = ph.get("blinkers") or []
     if len(bl) > 1:
         print("- Ausrüstung: " + "; ".join(f"{e['label']}{' (heute)' if e.get('today') else ''} {bilanz(e)}" for e in bl))
     ab = x.get("abst") or {}
+    ap = x.get("abst_pass") or {}
+    if ap:
+        print(f"- Abstammung gesamt (Vater:Muttervater 2:1, ±15 Tendenz, ±40 deutlich): {ap.get('gesamt')} · "
+              + " · ".join(f"{k} {ap[k]}" for k in ("boden", "dist", "belag", "reife") if ap.get(k) is not None))
+    ped = (x.get("ae") or {}).get("pedigree") or {}
+    q = [f"{name} max. Valeur-Index {ped[k].get('max_val3_idx')}, Gewinn/Lauf-Index {ped[k].get('epr_idx')} ({ped[k].get('horses')} Nachkommen)"
+         for k, name in (("sire", "Vater"), ("dam_sire", "Muttervater")) if isinstance(ped.get(k), dict)]
+    if q:
+        print("- Qualität der Linie (v. a. bei jungen Pferden): " + " · ".join(q))
     for k, name in (("sire", "Vater"), ("dam_sire", "Muttervater")):
-        b, dd = ((ab.get(k) or {}).get("boden") or {}), ((ab.get(k) or {}).get("dist") or {})
-        if b or dd:
-            print(f"- Abstammung {name} ({x.get(k)}): Boden {b.get('passung') or '–'} ({b.get('runs')} L, sicher {b.get('sicher')}) · Distanz {dd.get('passung') or '–'}")
+        teile = []
+        for skala, label in (("boden", "Boden"), ("dist", "Distanz"), ("belag", "Belag"), ("reife", "Reife")):
+            e = (ab.get(k) or {}).get(skala) or {}
+            if e:
+                teile.append(f"{label} {e.get('passung') or '–'}" + (f" ({e.get('runs')} L)" if skala == "boden" else ""))
+        if teile:
+            print(f"- Abstammung {name} ({x.get(k)}): " + " · ".join(teile))
     t30, ttr = (ae.get("trainer") or {}).get("d30") or {}, (ae.get("trainer") or {}).get("trend")
     print(f"- Trainer {x.get('trainer')}: 30 Tage {bilanz(t30)}{f', Trend {ttr}' if ttr else ''} · Bahn {bilanz(pt.get('course'))} · "
           f"Rennart {bilanz(pt.get('racetype'))} · Alter {bilanz(pt.get('age'))} · mit diesem Pferd {bilanz(heute(ph.get('trainer')))}")

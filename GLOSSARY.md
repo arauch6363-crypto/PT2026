@@ -46,12 +46,16 @@ _Avoid_: platziert
 Wie ein früheres Rennen gelaufen ist (Tempo, Positionen, wo es entschieden wurde). Lief ein Pferd weit hinten und wurde das Rennen von vorne entschieden, lief es gegen den Verlauf; sein Ergebnis unterschätzt dann seine Leistung.
 _Avoid_: Laufbild, Rennbild
 
+**Valeur bereinigt**:
+Valeur − Gewicht + 55: wie viel Klasse ein Pferd heute für sein Gewicht mitbringt. Maßstab außerhalb des Handicaps; im Handicap ist sie durch die Gewichte fast gleich.
+_Avoid_: Marke (die zählt nur im Handicap), Rating ohne Zusatz
+
 **Aufgewertetes Rennen**:
 Ein früheres Rennen, dessen Gegner danach überwiegend besser liefen als erwartet; eine gute Leistung darin wiegt mehr.
 _Avoid_: starkes Rennen, Formrennen
 
 **Aufgewicht**:
-Die heutige Handicap-Marke liegt über der Marke des letzten Siegs. Ein Fragezeichen, umso größer, je exposed das Pferd ist.
+Die heutige Handicap-Marke liegt über der Marke des letzten Siegs. Ein Fragezeichen, umso größer, je exposed das Pferd ist. Gibt es nur im Handicap; in anderen Rennen gleicht das Gewicht die Valeur nicht aus.
 _Avoid_: Strafe, Mehrgewicht
 
 **Exposed**:
@@ -65,7 +69,7 @@ Die genaue PMU-Bodenbezeichnung des Tages (Bon, Bon souple, Souple, Très souple
 _Avoid_: Boden ohne Zusatz, Going
 
 **Bodengruppe**:
-Die grobe Einteilung der Karte (Very slow, Slow, Fast, Very fast, PSF), in der z. B. Souple und Très souple zusammenfallen.
+Die grobe Einteilung der Karte (Very slow, Slow, Fast, Very fast, PSF). Collant und Lourd (Very slow) sind für uns gleichwertig; Souple und Très souple (Slow) werden dagegen unterschieden.
 _Avoid_: Bodenangabe
 
 **Value**:
