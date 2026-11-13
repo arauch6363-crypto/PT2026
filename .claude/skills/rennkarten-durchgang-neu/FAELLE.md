@@ -52,3 +52,15 @@ Entscheidungen des Nutzers mit dem Satz, der den Ausschlag gab. Neue Pferde mit 
 - **R2C5:** Reihenfolge gleich, Grenze falsch – Höchstgewicht auf schwerem Boden und Klassenfrage zu leicht gewichtet.
 - **R2C7:** Algeciras' Bodenbilanz nur aus den Formzeilen gelesen (falsch „nie auf Très souple“); Modell-Value statt
   eigener Kursspanne als Maßstab benutzt.
+
+## Korrekturen des Nutzers zum Durchgang 13.11. (Saint-Cloud, Lourd)
+
+- **Loria (R4C1, Rennart unbekannt):** „Marke 3,5 kg unter der letzten Platzmarke“ als Pro-Argument war falsch. Außerhalb
+  des Handicaps gleicht niemand die Valeurs aus – dort zählt die höchste gewichtsbereinigte Valeur; eine gefallene
+  Marke ist eher ein Zeichen nachlassender Form.
+- **Loria:** „Genau Lourd unbelegt (Bewährung auf Collant)“ als Fragezeichen war falsch – Collant und Lourd sind
+  derselbe Boden (Very slow).
+- **Loria:** „Abstammung passt nicht zum Boden“ als Gegenargument war bei einem viel gelaufenen Pferd mit eigener
+  Bodenbilanz ohne Belang. Abstammung zählt bei jungen, wenig gelaufenen Pferden und bei den ersten ein bis drei Läufen
+  auf einem Boden; bei jungen Pferden zusätzlich die Qualität der Linie (max. Valeur, Gewinn je Lauf).
+

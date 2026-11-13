@@ -9,7 +9,7 @@ wo die Daten Lücken haben.
 | Angabe | Feld | Hinweis |
 |---|---|---|
 | Bodenangabe | `going` | z. B. „Très souple“; `going_source` PMU, manuell oder Annahme |
-| Bodengruppe | `going_label` | Very slow (Collant, Lourd), Slow (Souple, Très souple), Fast (Bon souple, Bon), Very fast, PSF |
+| Bodengruppe | `going_label` | Very slow (Collant, Lourd – für uns gleichwertig), Slow (Souple, Très souple – unterscheiden), Fast (Bon souple, Bon), Very fast, PSF |
 | Richtung | `corde` | CORDE_DROITE = Rechtskurs, CORDE_GAUCHE = Linkskurs, LIGNE_DROITE = gerade |
 | Klasse | `class.val_idx` | Ø Valeur der Teilnehmer, 100 = Ø aller Rennen; je Formzeile `cls_val_idx` |
 | Tempo | `pace.label`, `pace.groups` | F führend, V vorne dabei, M Mittelfeld, H hinten; `unknown` ohne Laufstil |
@@ -23,7 +23,9 @@ wo die Daten Lücken haben.
 | Modell-Rang | aus `power.p` | 1 + Zahl der Starter mit höherer Power-Zahl (wie die Karte) |
 | Festkurs | `fk.sieg` | Value = `fk.sieg × power.sieg − 1` |
 | Value-Faktor | `power.wert`, `gold`, `warn` | nicht dasselbe wie Value |
-| Marke | `rating`; `hcp_mark` | `hcp_mark.kind` sieg/platz, `diff` = heute − damalige Marke (positiv = Aufgewicht) |
+| Marke | `rating`; `hcp_mark` | `hcp_mark.kind` sieg/platz, `diff` = heute − damalige Marke (positiv = Aufgewicht); **nur im Handicap aussagekräftig** |
+| Valeur bereinigt | `rating_adj`, `rating_rank`/`rating_n` | Valeur − Gewicht + 55; zählt außerhalb des Handicaps (wer hat heute die meiste Klasse fürs Gewicht) |
+| Qualität der Linie | `ae.pedigree.sire/dam_sire`: `max_val3_idx`, `epr_idx`, `horses` | Ø höchste Valeur der Nachkommen als Dreijährige bzw. Gewinn je Lauf, als Index; v. a. bei jungen Pferden |
 | CGD | `cgd` | Je Buchstabe Bahn mit Belag (C), Bodengruppe (G), Distanzgruppe (D): Großbuchstabe = dort gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals, – = unbekannt |
 | Vorlieben | `pref.horse.going/distance/course/richtung/blinkers/trainer` | **Gesamtbilanz** der Datenbank; `today` markiert die heutige Gruppe |
 | Trainer | `ae.trainer.d30` (Form), `pref.trainer.course/racetype/age` | `trend` hot/cold |
