@@ -111,7 +111,7 @@ Die grobe eigene Einschätzung, welcher Festkurs für ein Pferd fair wäre („f
 _Avoid_: faire Quote (das ist 1 ÷ Modell-Siegchance), eigene Siegchance
 
 **Mindestquote**:
-Der untere Rand der Kursspanne: der niedrigste Festkurs, zu dem eine Wette noch abgegeben wird. Liegt der Festkurs beim Wetten darunter, wird nicht gewettet.
+Der obere Rand der Kursspanne: der niedrigste Festkurs, zu dem eine Wette noch abgegeben wird. Darunter bietet der Festkurs nicht mehr, als das Pferd nach eigener Einschätzung wert ist. Liegt der Festkurs beim Wetten darunter, wird nicht gewettet.
 _Avoid_: faire Quote (das ist 1 ÷ Modell-Siegchance), Mindestkurs
 
 **Tipp**:
@@ -144,7 +144,7 @@ _Avoid_: keine Wette (als Substantiv), Verworfener
 - **Value** entsteht aus **Festkurs** und **Modell-Siegchance**; der **Value-Faktor** geht nicht ein.
 - Über jeden **Kandidaten** fällt ein **Gesamturteil**; lautet es ja, ist er eine **Wette**.
 - Das **Gesamturteil** wägt **Pro-Argumente**, **Gegenargumente** und **Fragezeichen** ab und vergleicht die **Kursspanne** mit dem **Festkurs**; **Value** entscheidet nur, wer **Kandidat** ist.
-- Die **Mindestquote** ist der untere Rand der **Kursspanne**.
+- Die **Mindestquote** ist der obere Rand der **Kursspanne**.
 - Eine **Wette** kann zugleich ein **Tipp** der Karte sein, muss es aber nicht.
 - Ein **Durchgang** macht aus jedem **Kandidaten** einen **Claude-Tipp** (**NAP** oder **BET**) oder einen **abgelehnten Kandidaten**.
 - Ein **Claude-Tipp** wird zum **Festkurs** beim **Durchgang** abgerechnet; sein Kennzeichen erlischt nicht, wenn der Festkurs später unter die **Mindestquote** fällt.

@@ -123,7 +123,8 @@ das Pferd · starkes Gespann · Abstieg in die Provinz · Abstieg aus stärkeren
 
 Je Kandidat: Pro-Argumente, Gegenargumente, Fragezeichen, dann die **eigene Kursspanne** – grob, ehrlich, ohne
 Rechnung („fair eher 8–10“). Gewettet wird, wenn der Festkurs klar über der Spanne liegt und die Leitfrage mit „ja,
-kann reichen“ beantwortet ist. Mindestquote = unterer Rand der Spanne.
+kann reichen“ beantwortet ist. **Mindestquote = oberer Rand der Spanne**: Darunter bietet der Festkurs nicht mehr,
+als das Pferd nach der eigenen Einschätzung wert ist (`mq` = `spanne[1]`).
 
 - **Wette** = 1 Einheit. **Kleine Wette** = ½ Einheit: interessant, aber „da fehlt einiges“ (z. B. erster Ansatz
   nach vielen schwachen Läufen, Value dünn).
