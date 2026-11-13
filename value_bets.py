@@ -54,7 +54,7 @@ MODI = ("max", "rank", "rel", "none")
 TOP_WAHL = ("beides", "ja", "nein")
 KELLY = {"kelly8": 1 / 8, "kelly4": 1 / 4, "kelly2": 1 / 2, "kelly1": 1.0}
 WETTARTEN = ("ew", "sieg")   # each-way (Sieg + Platz, gleicher Einsatz) oder nur Sieg
-VARIANTEN = (*KELLY, "level10", "level1p")
+VARIANTEN = (*KELLY, "level10", "level50", "level1p")   # level50: 50 € je volle Wette (Claude-Tipps)
 # Schieberegler je Modus: (min, max, Schritt, Vorgabe)
 MODUS_REGLER = {
     "max": (5.0, 100.0, 5.0, 10.0),
@@ -430,6 +430,7 @@ def _leerer_pool() -> pd.DataFrame:
 
 CLAUDE_SPALTEN = ["claude", "claude_einh", "claude_fk", "claude_mq"]
 CLAUDE_TIPPS = ("wette", "klein")                  # NAP (1 Einheit) und BET (½ Einheit); „nein“ = abgelehnter Kandidat
+CLAUDE_STAKING = ("level50", "kelly8", "kelly4", "kelly2", "kelly1")   # Einsatz-Varianten der Claude-Tipps (BET = Hälfte)
 
 
 def claude_spalten(pool: pd.DataFrame, rennen: dict[str, dict]) -> pd.DataFrame:
@@ -453,10 +454,20 @@ def _claude_gewinn(einsatz: float, fk: float, won: bool, toto: Optional[float]) 
     return g_fk, round_half_up(einsatz * (toto - 1) if won else -einsatz, 2)
 
 
-def claude_auswertung(pool: pd.DataFrame) -> list[dict]:
-    """Claude-Tipps getrennt nach NAP und BET, dazu die abgelehnten Kandidaten (Urteil „nein“, gerechnet zu
-    1 Einheit). Nur abgerechnete Rennen, Nichtstarter erstattet. Je Gruppe: n, Siege, Einsatz (Einheiten), Gewinn und
-    ROI zum Festkurs beim Durchgang (5 % Steuer) und zum Toto (ohne Steuer)."""
+def claude_einsatz(bank: float, r, variant: str, faktor: Optional[float] = None) -> float:
+    """Einsatz eines Claude-Tipps in Euro: volle Wette nach der Variante (level50 = 50 €, Kelly mit der Modell-Chance
+    der Karte und dem Festkurs beim Durchgang), mal Einheiten (NAP 1, BET ½; faktor überschreibt)."""
+    e = float(r["claude_einh"]) if faktor is None else faktor
+    return einsatz(bank, float(r["p"]), float(r["claude_fk"]), StakingConfig(variant, wettart="sieg"), faktor=e)
+
+
+def claude_auswertung(pool: pd.DataFrame, variant: str = "level50", wettart: str = "sieg",
+                      bank: float = START_BANK) -> list[dict]:
+    """Claude-Tipps getrennt nach NAP und BET, dazu die abgelehnten Kandidaten (Urteil „nein“, gerechnet als volle
+    Wette). Einsatz je Wette wie claude_einsatz aus der festen Bank `bank` (ohne Zinseszins, damit die Gruppen
+    vergleichbar sind); wettart "ew": dazu ein Platzbein mit gleichem Einsatz zum Platz-Festkurs der Karte. Nur
+    abgerechnete Rennen, Nichtstarter erstattet. Je Gruppe: n, Siege, Einsatz (€), Gewinn und ROI zum Festkurs
+    (5 % Steuer) und „Toto“ (Siegbein zur Toto-Endquote ohne Steuer, Platzbein wie beim Festkurs)."""
     gruppen = [("NAP", "wette", None), ("BET", "klein", None), ("Abgelehnt", "nein", 1.0)]
     out = []
     for name, urteil, fest in gruppen:
@@ -467,14 +478,18 @@ def claude_auswertung(pool: pd.DataFrame) -> list[dict]:
             for _, r in rs.sort_values(["date", "race_id", "no"]).iterrows():
                 if bool(r.get("nr")) or pd.isna(r["claude_fk"]):
                     continue
-                e = fest if fest is not None else float(r["claude_einh"])
+                e = claude_einsatz(bank, r, variant, fest)
+                if e <= 0:
+                    continue
                 toto = None if pd.isna(r["toto_end"]) else float(r["toto_end"])
                 a, b = _claude_gewinn(e, float(r["claude_fk"]), bool(r["won"]), toto)
+                q_p = None if wettart != "ew" or pd.isna(r["fk_platz"]) else float(r["fk_platz"])
+                g_p, _ = _bein(e, q_p, bool(r["placed"]))
                 n += 1
                 siege += int(bool(r["won"]))
-                einsatz += e
-                g_fk += a
-                g_toto += b
+                einsatz += e + (e if q_p is not None else 0.0)
+                g_fk += a + g_p
+                g_toto += b + g_p
         out.append({"gruppe": name, "n": n, "siege": siege, "einsatz": einsatz,
                     "gewinn_fk": round_half_up(g_fk, 2), "roi_fk": g_fk / einsatz if einsatz else None,
                     "gewinn_toto": round_half_up(g_toto, 2), "roi_toto": g_toto / einsatz if einsatz else None})
@@ -703,16 +718,19 @@ def tipps_setzen(daten: dict, n: int | None = None, min_wert: float = TIPP_MIN_W
     return len(beste)
 
 
-def einsatz(bank_start: float, p: float, fk: float, s: StakingConfig) -> float:
-    """Einsatz je Bein in ganzen Euro (kaufmännisch gerundet)."""
+def einsatz(bank_start: float, p: float, fk: float, s: StakingConfig, faktor: float = 1.0) -> float:
+    """Einsatz je Bein in ganzen Euro (kaufmännisch gerundet); faktor: Anteil der vollen Wette (BET = 0,5), vor dem
+    Runden angewendet."""
     if s.variant == "level10":
         roh = 10.0
+    elif s.variant == "level50":
+        roh = 50.0
     elif s.variant == "level1p":
         roh = 0.01 * bank_start
     else:
         f = max(0.0, (p * fk - 1) / (fk - 1))
         roh = bank_start * KELLY[s.variant] * f
-    return max(0.0, round_half_up(roh))
+    return max(0.0, round_half_up(roh * faktor))
 
 
 def _bein(stake: float, quote: Optional[float], treffer: bool) -> tuple[float, float]:
@@ -731,9 +749,9 @@ def simulate(pool: pd.DataFrame, filters: FilterConfig = None,
     staking = staking or StakingConfig()
     pool = chance_waehlen(pool, "karte") if filters.claude else mit_wert(chance_waehlen(pool, filters.chance))
     sel = auswahl(pool, filters)
-    if filters.claude and not sel.empty:   # Claude-Tipps: Festkurs beim Durchgang, Einsatz in Einheiten, nur Sieg
+    if filters.claude and not sel.empty:   # Claude-Tipps: Sieg zum Festkurs beim Durchgang; Platzbein zum FK der Karte
         sel = sel[sel["claude_fk"].notna()].assign(fk_sieg=lambda d: d["claude_fk"].astype(float),
-                                                     p_fk=lambda d: 1 / d["claude_fk"].astype(float), fk_platz=np.nan)
+                                                     p_fk=lambda d: 1 / d["claude_fk"].astype(float))
     sel = sel[sel["settled"].astype(bool)] if not sel.empty else sel
     sel = sel.sort_values(["date", "race_id", "no"]) if not sel.empty else sel
 
@@ -747,11 +765,12 @@ def simulate(pool: pd.DataFrame, filters: FilterConfig = None,
         for _, r in sel[sel["date"] == tag].iterrows():
             if isinstance(r.get("nr"), (bool, np.bool_)) and r.get("nr"):   # Nichtstarter: Wette erstattet
                 continue
-            st = float(r["claude_einh"]) if filters.claude else einsatz(bank_start, r["p"], r["fk_sieg"], staking)
+            st = (claude_einsatz(bank_start, r, staking.variant) if filters.claude      # BET = Hälfte der vollen Wette
+                  else einsatz(bank_start, r["p"], r["fk_sieg"], staking))
             if st <= 0:
                 continue
             fk_platz = None if pd.isna(r["fk_platz"]) else float(r["fk_platz"])
-            q_platz = fk_platz if staking.wettart == "ew" and not filters.claude else None   # nur Sieg: kein Platzbein
+            q_platz = fk_platz if staking.wettart == "ew" else None   # nur Sieg: kein Platzbein
             g_s, t_s = _bein(st, float(r["fk_sieg"]), bool(r["won"]))
             g_p, t_p = _bein(st, q_platz, bool(r["placed"]))
             st_p = st if q_platz is not None else 0.0

@@ -55,6 +55,7 @@ p { margin: 0; }
 .strategie svg { flex: none; stroke: var(--text2); }
 .blatt { border-top: 1px solid var(--line2); padding: 6px 14px 14px; display: flex; flex-direction: column; gap: 2px; }
 .blatt[hidden] { display: none; }
+.claude_einst { padding: 0 2px; display: flex; flex-direction: column; gap: 2px; }
 .feld { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; font-size: 14px; }
 .feld select, .feld input[type=number] { height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px;
   background: var(--panel); color: var(--text); font: inherit; font-size: 14px; }
@@ -150,6 +151,12 @@ button.wz { min-height: 44px; cursor: pointer; }
 <div class="seg" role="group" aria-label="Zeitraum" id="zeitraum"></div>
 
 <div class="seg" role="group" aria-label="Strategie" id="strat_art"></div>
+<div class="claude_einst" id="claude_einst" hidden>
+  <label class="feld">Einsatz (NAP = volle Wette, BET = Hälfte) <select id="c_st">
+    <option value="level50">50 € fest (BET 25 €)</option><option value="kelly8">⅛ Kelly</option><option value="kelly4">¼ Kelly</option>
+    <option value="kelly2">½ Kelly</option><option value="kelly1">1/1 Kelly</option></select></label>
+  <label class="feld">Wettart <select id="c_wa"><option value="sieg">nur Sieg</option><option value="ew">Each-Way</option></select></label>
+</div>
 <section class="strategie" aria-label="Strategie und Filter">
   <button type="button" id="strat_knopf" aria-expanded="false" aria-controls="blatt">
     <span><span class="t1" id="strat_titel">Tipp-Strategie</span><span class="t2" id="strat_text"></span></span>
@@ -187,8 +194,10 @@ button.wz { min-height: 44px; cursor: pointer; }
 
 <div id="claude_bereich" hidden>
   <h2>Claude-Tipps</h2>
-  <p class="klein">NAP = Wette (1 Einheit), BET = Kleine Wette (½ Einheit) aus den Durchgängen; Abgelehnt = Kandidaten mit
-    Urteil „keine Wette“, zum Vergleich zu 1 Einheit. FK = Festkurs beim Durchgang mit 5 % Steuer, Toto = Endquote ohne Steuer.</p>
+  <p class="klein">NAP = Wette (volle Wette), BET = Kleine Wette (halbe Wette) aus den Durchgängen; Abgelehnt = Kandidaten mit
+    Urteil „keine Wette“, zum Vergleich als volle Wette. Einsätze nach der gewählten Variante aus 1.000 € (ohne
+    Zinseszins). FK = Festkurs beim Durchgang mit 5 % Steuer, Toto = Endquote ohne Steuer; Each-Way: Platzbein zum
+    Platz-Festkurs der Karte.</p>
   <div class="tabelle" id="claude_tab"></div>
 </div>
 
@@ -346,13 +355,16 @@ function auswahl(pool, f) {
   }), f.je_veranstaltung || 0, !!f.eins_je_rennen);
 }
 
-function einsatz(bank, p, fk, v) {
+function einsatz(bank, p, fk, v, faktor = 1) {   // faktor: Anteil der vollen Wette (BET = ½), vor dem Runden
   let roh;
   if (v === 'level10') roh = 10;
+  else if (v === 'level50') roh = 50;
   else if (v === 'level1p') roh = 0.01 * bank;
   else roh = bank * KELLY[v] * Math.max(0, (p * fk - 1) / (fk - 1));
-  return Math.max(0, rhu(roh));
+  return Math.max(0, rhu(roh * faktor));
 }
+// Claude-Tipp in Euro: volle Wette nach der Variante (Kelly mit Modell-Chance und Festkurs beim Durchgang) × Einheiten
+const claudeEinsatz = (bank, r, v, faktor) => einsatz(bank, r.p, r.claude_fk, v, faktor ?? r.claude_einh);
 
 function bein(stake, quote, treffer) {
   if (quote === null || stake <= 0) return [0, 0];
@@ -697,8 +709,8 @@ function mitWert(pool) {                // nur Starter mit Wert ≥ 0 gegen den 
 function simulieren(pool, f, variant, start = 1000, wettart = 'ew') {
   pool = f.claude ? chanceWaehlen(pool, 'karte') : mitWert(chanceWaehlen(pool, f.chance));
   const cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
-  // Claude-Tipps: Festkurs beim Durchgang, Einsatz in Einheiten, nur Sieg (wie value_bets.simulate)
-  const claudeKurs = rs => f.claude ? rs.filter(r => _da(r.claude_fk)).map(r => ({...r, fk_sieg: r.claude_fk, p_fk: 1 / r.claude_fk, fk_platz: null})) : rs;
+  // Claude-Tipps: Sieg zum Festkurs beim Durchgang, Platzbein zum FK der Karte (wie value_bets.simulate)
+  const claudeKurs = rs => f.claude ? rs.filter(r => _da(r.claude_fk)).map(r => ({...r, fk_sieg: r.claude_fk, p_fk: 1 / r.claude_fk})) : rs;
   const sel = claudeKurs(auswahl(pool, f)).filter(r => r.settled)
     .sort((a, b) => cmp(a.date, b.date) || cmp(a.race_id, b.race_id) || a.no - b.no);
   const tage = [...new Set(pool.filter(r => r.settled).map(r => r.date))].sort();
@@ -709,10 +721,10 @@ function simulieren(pool, f, variant, start = 1000, wettart = 'ew') {
     let gs = 0, gp = 0, n = 0;
     for (const r of sel.filter(r => r.date === tag)) {
       if (r.nr === true) continue;                                   // Nichtstarter: Wette erstattet
-      const st = f.claude ? r.claude_einh : einsatz(bs, r.p, r.fk_sieg, variant);
+      const st = f.claude ? claudeEinsatz(bs, r, variant) : einsatz(bs, r.p, r.fk_sieg, variant);
       if (st <= 0) continue;
       const [g_s, t_s] = bein(st, r.fk_sieg, r.won);
-      const qPlatz = wettart === 'ew' && !f.claude ? r.fk_platz : null;   // nur Sieg: kein Platzbein
+      const qPlatz = wettart === 'ew' && _da(r.fk_platz) ? r.fk_platz : null;   // nur Sieg: kein Platzbein
       const [g_p, t_p] = bein(st, qPlatz, r.placed);
       const stp = qPlatz !== null ? st : 0;
       gs += g_s; gp += g_p; n += 1;
@@ -729,8 +741,9 @@ function simulieren(pool, f, variant, start = 1000, wettart = 'ew') {
           mt: modellTotoVerlauf(sel), woche: wochenBlick(sel, f.toto_abzug ?? TOTO_ABZUG)};
 }
 
-// Claude-Tipps nach NAP / BET und abgelehnte Kandidaten (zu 1 Einheit) – wie value_bets.claude_auswertung
-function claudeAuswertung(pool) {
+// Claude-Tipps nach NAP / BET und abgelehnte Kandidaten (als volle Wette), Einsätze aus fester Bank – wie
+// value_bets.claude_auswertung
+function claudeAuswertung(pool, variant = 'level50', wettart = 'sieg', bank = 1000) {
   const cmp = (a, b) => a < b ? -1 : a > b ? 1 : 0;
   return [['NAP', 'wette', null], ['BET', 'klein', null], ['Abgelehnt', 'nein', 1]].map(([gruppe, urteil, fest]) => {
     let n = 0, siege = 0, einsatz = 0, gFk = 0, gToto = 0;
@@ -738,9 +751,12 @@ function claudeAuswertung(pool) {
       .sort((a, b) => cmp(a.date, b.date) || cmp(a.race_id, b.race_id) || a.no - b.no);
     for (const r of rs) {
       if (r.nr === true || !_da(r.claude_fk)) continue;
-      const e = fest ?? r.claude_einh, [a] = bein(e, r.claude_fk, r.won);
+      const e = claudeEinsatz(bank, r, variant, fest);
+      if (e <= 0) continue;
+      const [a] = bein(e, r.claude_fk, r.won);
       const b = r.toto_end > 1 ? rhu(r.won ? e * (r.toto_end - 1) : -e, 2) : a;
-      n += 1; siege += r.won ? 1 : 0; einsatz += e; gFk += a; gToto += b;
+      const qP = wettart === 'ew' && _da(r.fk_platz) ? r.fk_platz : null, [gp] = bein(e, qP, r.placed);
+      n += 1; siege += r.won ? 1 : 0; einsatz += e + (qP !== null ? e : 0); gFk += a + gp; gToto += b + gp;
     }
     return {gruppe, n, siege, einsatz, gewinn_fk: rhu(gFk, 2), roi_fk: einsatz ? gFk / einsatz : null,
             gewinn_toto: rhu(gToto, 2), roi_toto: einsatz ? gToto / einsatz : null};
@@ -786,7 +802,14 @@ if (typeof module !== 'undefined') module.exports = {simulieren, claudeAuswertun
   // ---- Strategie (Vorgabe = Tipp-Strategie der Karte)
   const VORGABE = {st: 'kelly8', wa: 'sieg', chance: 'karte', minw: '0.2', mk: '5', jv: '7', ejr: true, mr: '0', abzug: '23'};
   const FELDER = Object.keys(VORGABE), ZAHLEN = ['minw', 'mk', 'jv', 'mr', 'abzug'];
-  const EINSATZ = {kelly8: '⅛ Kelly', kelly4: '¼ Kelly', kelly2: '½ Kelly', kelly1: '1/1 Kelly', level10: '10 € fest', level1p: '1 % der Bank'};
+  const EINSATZ = {kelly8: '⅛ Kelly', kelly4: '¼ Kelly', kelly2: '½ Kelly', kelly1: '1/1 Kelly', level10: '10 € fest', level50: '50 € fest', level1p: '1 % der Bank'};
+  // Claude-Tipps: eigene Einsatz-Variante und Wettart (im Browser gemerkt)
+  const C_VORGABE = {c_st: 'level50', c_wa: 'sieg'};
+  for (const [k, v] of Object.entries(C_VORGABE)) {
+    let w = v; try { w = localStorage.getItem('vd-' + k) || v; } catch (e) { /* ohne Speicher */ }
+    $(k).value = w;
+    $(k).addEventListener('change', () => { try { localStorage.setItem('vd-' + k, $(k).value); } catch (e) { /* ohne Speicher */ } neu(); });
+  }
   const setzeFelder = w => { for (const k of FELDER) $(k)[k === 'ejr' ? 'checked' : 'value'] = w[k]; };
   const leseFelder = () => Object.fromEntries(FELDER.map(k => [k, k === 'ejr' ? $(k).checked : $(k).value]));
   function strategie(w) {
@@ -1042,9 +1065,10 @@ if (typeof module !== 'undefined') module.exports = {simulieren, claudeAuswertun
   try { if (localStorage.getItem('vd-art') === 'claude') art = 'claude'; } catch (e) { /* ohne Speicher */ }
   function claudeTabelle() {
     const roi = x => ok(x) ? sg(100 * x, 0) + ' %' : '–';
-    const G = claudeAuswertung(pool.filter(r => zeitraum === 'gesamt' || isoWoche(r.date).key === zeitraum));
+    const G = claudeAuswertung(pool.filter(r => zeitraum === 'gesamt' || isoWoche(r.date).key === zeitraum),
+      $('c_st').value, $('c_wa').value, 1000);
     $('claude_tab').innerHTML = '<div class="wz kopfz"><span>Gruppe · Wetten</span><span>Siege</span><span>ROI FK</span><span>ROI Toto</span></div>'
-      + G.map(g => `<div class="wz" title="Einsatz ${nf(g.einsatz, 1)} E · Gewinn FK ${sg(g.gewinn_fk, 1)} E · Toto ${sg(g.gewinn_toto, 1)} E">`
+      + G.map(g => `<div class="wz" title="Einsatz ${nf(g.einsatz, 0)} € · Gewinn FK ${sg(g.gewinn_fk, 0)} € · Toto ${sg(g.gewinn_toto, 0)} €">`
         + `<span>${g.gruppe} <span class="n">· ${g.n}</span></span><span>${g.siege}</span>`
         + `<span class="${klasse(g.roi_fk)}">${roi(g.roi_fk)}</span><span class="${klasse(g.roi_toto)}">${roi(g.roi_toto)}</span></div>`).join('');
   }
@@ -1053,17 +1077,21 @@ if (typeof module !== 'undefined') module.exports = {simulieren, claudeAuswertun
     segment($('strat_art'), [['modell', 'Tipp-Strategie'], ['claude', 'Claude-Tipps']], art, a => {
       art = a; try { localStorage.setItem('vd-art', a); } catch (e) { /* ohne Speicher */ } neu(); });
     const cl = art === 'claude';
-    EH = cl ? 'E' : '€'; ND = cl ? 1 : 0;
+    EH = '€'; ND = 0;
     strategie(w);
-    if (cl) { $('strat_titel').textContent = 'Claude-Tipps'; $('strat_text').textContent = 'NAP 1 E · BET ½ E · Festkurs beim Durchgang · nur Sieg'; }
+    const cSt = $('c_st').value, cWa = $('c_wa').value;
+    if (cl) { $('strat_titel').textContent = 'Claude-Tipps';
+      $('strat_text').textContent = (cSt === 'level50' ? 'NAP 50 € · BET 25 €' : `${EINSATZ[cSt]} · BET halb`)
+        + ` · ${cWa === 'ew' ? 'Each-Way' : 'nur Sieg'} · Festkurs beim Durchgang · Bank 1.000 €`; }
     $('strat_knopf').disabled = cl;
     $('claude_bereich').hidden = !cl;
+    $('claude_einst').hidden = !cl;
     const abzug = Math.min(0.6, Math.max(0, (zahl(w.abzug) || 23) / 100));
     const F = {chance: cl ? 'karte' : w.chance, toto_abzug: abzug, minw: zahl(w.minw), mode: 'none', mode_value: 0, top: 'beides',
                min_kelly: Math.max(0, zahl(w.mk)) / 100, je_veranstaltung: Math.max(0, Math.floor(zahl(w.jv))),
                eins_je_rennen: w.ejr, max_rang: Math.max(0, Math.floor(zahl(w.mr))), claude: cl};
-    const START = cl ? 100 : 1000;
-    const res = simulieren(pool, F, w.st, START, cl ? 'sieg' : w.wa);
+    const START = 1000;
+    const res = simulieren(pool, F, cl ? cSt : w.st, START, cl ? cWa : w.wa);
     const pSim = cl ? pool : mitWert(chanceWaehlen(pool, F.chance)), selAlle = auswahl(pSim, F).filter(r => r.settled);
     if (zeitraum !== 'gesamt' && !wochen.includes(zeitraum)) zeitraum = 'gesamt';
     const optionen = [['gesamt', 'Gesamt'], ...wochen.slice(-3).map(k => [k, wocheName(k)])];

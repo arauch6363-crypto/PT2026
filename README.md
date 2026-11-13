@@ -671,10 +671,13 @@ Ein zweiter Start am selben Tag bearbeitet nur Rennen, die noch in keinem Durchg
   ohne Urteile.
 - **Sofort ansehen:** die Aufgabe rendert die markierte Karte selbst (`durchgang.py markieren`) und veröffentlicht sie
   im privaten Claude-Artefakt „Racecard heute“.
-- **Dashboard:** Strategie **Claude-Tipps** (Umschalter über dem Strategie-Kasten): nur NAP/BET, Einsatz in Einheiten,
-  Festkurs beim Durchgang mit 5 % Steuer, nur Sieg; „Bank im Verlauf“ und „Zum Toto ausgezahlt“ zeigen dieselben Wetten
-  zum Toto. Tabelle **Claude-Tipps**: NAP, BET und abgelehnte Kandidaten (zu 1 Einheit) mit ROI zum Festkurs und zum
-  Toto. Kandidaten eines Durchgangs bleiben im Pool, auch wenn ihr Kurs danach unter Value 0 fiel.
+- **Dashboard:** Strategie **Claude-Tipps** (Umschalter über dem Strategie-Kasten): nur NAP/BET, Bank 1.000 €,
+  Siegbein zum Festkurs beim Durchgang mit 5 % Steuer. Darunter wählbar: **Einsatz** – 50 € fest (NAP 50 €, BET 25 €)
+  oder ⅛ / ¼ / ½ / 1/1 Kelly (volle Wette aus Modell-Chance der Karte und Festkurs beim Durchgang, BET immer die Hälfte;
+  `vb.StakingConfig("level50" | "kelly4" …)`) – und **Wettart** nur Sieg oder Each-Way (Platzbein mit gleichem Einsatz
+  zum Platz-Festkurs der Karte). „Bank im Verlauf“ und „Zum Toto ausgezahlt“ zeigen dieselben Wetten zum Toto. Tabelle
+  **Claude-Tipps** (`vb.claude_auswertung(pool, variant, wettart)`): NAP, BET und abgelehnte Kandidaten (als volle
+  Wette) mit denselben Einsätzen aus fester Bank 1.000 € (ohne Zinseszins), ROI zum Festkurs und zum Toto. Kandidaten eines Durchgangs bleiben im Pool, auch wenn ihr Kurs danach unter Value 0 fiel.
 - **Format** einer Durchgang-Datei: `{"datum", "stand", "skill", "rennen": [{"race_id", "status" (bearbeitet,
   kein_festkurs, gelaufen, araber, keine_kandidaten, fehler), "vergleich", "hinweis", "kandidaten": [{"no", "horse",
   "urteil" (wette, klein, nein), "einheiten", "fk", "mq", "spanne", "p_modell", "value", "pro", "gegen", "fragen",

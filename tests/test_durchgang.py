@@ -128,17 +128,31 @@ def _claude_pool(tmp_path):
 def test_claude_strategie_python(tmp_path):
     pool = _claude_pool(tmp_path)
     assert set(pool["claude"].dropna()) == {"wette", "klein", "nein"}
-    res = vb.simulate(pool, vb.FilterConfig(claude=True), vb.StakingConfig("kelly8", wettart="ew"))
-    b = res.bets_df
     sel = pool[pool["claude"].isin(["wette", "klein"]) & pool["settled"] & ~pool["nr"].astype(bool)]
-    assert len(b) == len(sel) and set(b["stake_win"]) <= {1.0, 0.5} and (b["stake_place"] == 0).all()
-    erw = sum(round(e * (fk - 1) - 0.05 * e, 2) if w else round(-e - 0.05 * e, 2)
+    # 50 € fest: NAP 50 €, BET 25 €, nur Sieg zum Festkurs beim Durchgang
+    res = vb.simulate(pool, vb.FilterConfig(claude=True), vb.StakingConfig("level50", wettart="sieg"))
+    b = res.bets_df
+    assert len(b) == len(sel) and set(b["stake_win"]) <= {50.0, 25.0} and (b["stake_place"] == 0).all()
+    assert (b.loc[b["stake_win"] == 25.0, "horse"].isin(sel.loc[sel["claude"] == "klein", "horse"])).all()
+    erw = sum(round(50 * e * (fk - 1) - 0.05 * 50 * e, 2) if w else round(-50 * e - 0.05 * 50 * e, 2)
               for e, fk, w in zip(sel["claude_einh"], sel["claude_fk"], sel["won"]))
-    assert res.kpi_dict["profit"] == pytest.approx(erw, abs=0.05)         # Rundung je Wette
+    assert res.kpi_dict["profit"] == pytest.approx(erw, abs=0.5)          # Rundung je Wette
+    assert res.days_df["bank_start"].iloc[0] == 1000
     a = {g["gruppe"]: g for g in vb.claude_auswertung(pool)}
     assert a["NAP"]["einsatz"] + a["BET"]["einsatz"] == pytest.approx(b["stake_win"].sum())
     assert a["NAP"]["gewinn_fk"] + a["BET"]["gewinn_fk"] == pytest.approx(res.kpi_dict["profit"])
-    assert a["Abgelehnt"]["n"] > 0 and a["Abgelehnt"]["einsatz"] == a["Abgelehnt"]["n"]
+    assert a["Abgelehnt"]["n"] > 0 and a["Abgelehnt"]["einsatz"] == 50 * a["Abgelehnt"]["n"]
+    # Each-Way: Platzbein mit gleichem Einsatz zum Platz-Festkurs der Karte
+    ew = vb.simulate(pool, vb.FilterConfig(claude=True), vb.StakingConfig("level50", wettart="ew")).bets_df
+    mit_p = ew["fk_platz"].notna()
+    assert mit_p.any() and (ew.loc[mit_p, "stake_place"] == ew.loc[mit_p, "stake_win"]).all()
+    # Kelly: BET ist die Hälfte der vollen Kelly-Wette (vor dem Runden)
+    k = vb.simulate(pool, vb.FilterConfig(claude=True), vb.StakingConfig("kelly4", wettart="sieg")).bets_df
+    for _, r in k.iterrows():
+        voll = 1000 * 0.25 * max(0.0, (r["p"] * r["fk_sieg"] - 1) / (r["fk_sieg"] - 1)) if r["date"] == k["date"].min() else None
+        if voll is not None:
+            e = float(sel.loc[(sel["race_id"] == r["race_id"]) & (sel["no"] == r["no"]), "claude_einh"].iloc[0])
+            assert r["stake_win"] == vb.round_half_up(voll * e)
 
 
 def test_claude_strategie_js_gleich_python(tmp_path):
@@ -148,19 +162,22 @@ def test_claude_strategie_js_gleich_python(tmp_path):
     t = vb.TEMPLATE.read_text(encoding="utf-8")
     sim = t[t.index("// SIM-START"):t.index("// SIM-END")]
     f = {**vars(vb.FilterConfig(claude=True))}
+    faelle = [("level50", "sieg"), ("level50", "ew"), ("kelly4", "ew"), ("kelly1", "sieg")]
     (tmp_path / "t.js").write_text(sim + f"\nconst pool = zeilen({json.dumps(vb.dashboard_daten(pool))});\n"
-                                   f"console.log(JSON.stringify([simulieren(pool, {json.dumps(f)}, 'kelly8', 1000, 'ew'), claudeAuswertung(pool)]));",
+                                   f"console.log(JSON.stringify({json.dumps(faelle)}.map(([v, w]) => "
+                                   f"[simulieren(pool, {json.dumps(f)}, v, 1000, w), claudeAuswertung(pool, v, w, 1000)])));",
                                    encoding="utf-8")
-    js, ausw = json.loads(subprocess.run(["node", str(tmp_path / "t.js")], capture_output=True, text=True, check=True).stdout)
-    py = vb.simulate(pool, vb.FilterConfig(claude=True), vb.StakingConfig("kelly8", wettart="ew"))
-    assert js["kpi"]["bets"] == py.kpi_dict["bets"] > 5
-    assert js["kpi"]["bank"] == pytest.approx(py.kpi_dict["bank"])
-    assert [b["profit"] for b in js["bets"]] == pytest.approx(list(py.bets_df["profit"]))
-    for a, b in zip(ausw, vb.claude_auswertung(pool)):
-        for k in ("gruppe", "n", "siege"):
-            assert a[k] == b[k]
-        for k in ("einsatz", "gewinn_fk", "roi_fk", "gewinn_toto", "roi_toto"):
-            assert a[k] == pytest.approx(b[k]), k
+    out = json.loads(subprocess.run(["node", str(tmp_path / "t.js")], capture_output=True, text=True, check=True).stdout)
+    for (v, w), (js, ausw) in zip(faelle, out):
+        py = vb.simulate(pool, vb.FilterConfig(claude=True), vb.StakingConfig(v, wettart=w))
+        assert js["kpi"]["bets"] == py.kpi_dict["bets"] > 5, (v, w)
+        assert js["kpi"]["bank"] == pytest.approx(py.kpi_dict["bank"]), (v, w)
+        assert [b["profit"] for b in js["bets"]] == pytest.approx(list(py.bets_df["profit"])), (v, w)
+        for a, b in zip(ausw, vb.claude_auswertung(pool, v, w, 1000)):
+            for k in ("gruppe", "n", "siege"):
+                assert a[k] == b[k], (v, w, k)
+            for k in ("einsatz", "gewinn_fk", "roi_fk", "gewinn_toto", "roi_toto"):
+                assert a[k] == pytest.approx(b[k]), (v, w, k)
     # ohne Claude-Strategie unverändert: Kandidaten mit gefallenem Kurs zählen nicht als Value-Wetten
     ohne = vb.simulate(pool, vb.FilterConfig(minw=0, mode="none"), vb.StakingConfig("level10"))
     assert ohne.bets_df["wert"].min() > 0
