@@ -853,3 +853,33 @@ def test_umrechnung_roh():
     assert pm.UMRECHNUNG == "roh"
     w = np.array([1, 0, 0, 0, 0, 1, 0, 0.0])
     assert abs(pm.sieg_logloss_np(pred, rennen, w) - pm.markt_test(pred, rennen, w, np.full(8, 4.0))["logloss_power"]) < 1e-3
+
+
+def test_uebersetzen_zeitgrenze_und_fehlerfolge(tmp_path, monkeypatch):
+    """Übersetzung hängt nicht: Zeitgrenze bricht ab (Bisheriges bleibt im Cache), ein dauernd scheiternder Dienst
+    wird nach FEHLER_MAX Fehlern in Folge übersprungen."""
+    import uebersetzen as ue
+    texte = [f"Texte {i}." for i in range(30)]
+    aufrufe = []
+
+    def langsam(teil):
+        aufrufe.append(len(teil))
+        return [t + " (de)" for t in teil]
+    erg = ue.uebersetze(texte, tmp_path, uebersetzer=langsam, zeit_max_s=0)
+    assert all(v is None for v in erg.values()) and not aufrufe          # Grenze 0: keine Anfrage
+    erg = ue.uebersetze(texte, tmp_path, uebersetzer=langsam, zeit_max_s=60)
+    assert all(v for v in erg.values())
+
+    zaehler = {"kaputt": 0, "gut": 0}
+
+    def kaputt(t):
+        zaehler["kaputt"] += 1
+        raise ConnectionError("weg")
+
+    def gut(t):
+        zaehler["gut"] += 1
+        return t + " (de)"
+    monkeypatch.setattr(ue, "_dienste", lambda: [("Kaputt", kaputt), ("Gut", gut)])
+    fn = ue._standard_uebersetzer()
+    out = fn([f"Satz {i}." for i in range(20)])
+    assert all(out) and zaehler["kaputt"] == ue.FEHLER_MAX and zaehler["gut"] == 20

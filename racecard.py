@@ -2947,8 +2947,12 @@ def html(daten: dict, template: Path = TEMPLATE, *, eigenstaendig: bool = True) 
     return f'<!doctype html>\n<html lang="de">\n{seite}\n</html>\n' if eigenstaendig else seite
 
 
+UEBERSETZEN_AKTIV = False   # Kommentare übersetzen (DeepL -> Google -> MyMemory): vorerst aus (11/2026: DeepL-Kontingent
+#                             erschöpft, Google sperrt, MyMemory zu langsam); einschalten mit run(..., uebersetzen_aktiv=True)
+
+
 def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True,
-        uebersetzen_aktiv: bool = True, claude: bool = True, festkurse=True, festkurse_behalten: bool = False) -> Path:
+        uebersetzen_aktiv: bool = UEBERSETZEN_AKTIV, claude: bool = True, festkurse=True, festkurse_behalten: bool = False) -> Path:
     """Race Card für `tag` (Vorgabe: heute) bauen und als HTML speichern; mit claude=True zusätzlich die kompakte
     Claude-Version racecard_JJJJMMTT_claude.json daneben (claude_export).
     festkurse: True = Festkurse Sieg/Platz und Toto von Wettstar holen (wettstar, braucht Playwright), eine fertige

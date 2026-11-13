@@ -9,6 +9,7 @@ nicht erreichbar, bleibt der Text unübersetzt (Rückgabe None) – die Race Car
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import Callable, Iterable
 
@@ -40,6 +41,9 @@ def _cache_schreiben(base: Path | None, cache: dict) -> None:
 
 
 GOOGLE_PAUSE_S = 0.25           # Google erlaubt etwa 5 Anfragen je Sekunde
+ZEIT_MAX_S = 120                # Übersetzung je Lauf höchstens so lange; danach bleibt der Rest französisch (Cache wächst
+#                                 über die Tage weiter) – sonst hängt die Karte, wenn nur noch MyMemory antwortet
+FEHLER_MAX = 5                  # ein Dienst, der so oft hintereinander scheitert, wird für den Rest des Laufs übersprungen
 SPERRE = ("TooManyRequests", "QuotaExceeded", "AuthorizationException", "ApiKeyException", "ServerException",
           "DeeplFehler")
 
@@ -108,6 +112,7 @@ def _standard_uebersetzer() -> Callable[[list[str]], list[str | None]] | None:
         return None
     gesperrt: set[str] = set()
     genutzt: dict[str, int] = {}
+    fehler_folge: dict[str, int] = {}
 
     def einzeln(t: str) -> str | None:
         global LETZTER_FEHLER
@@ -118,10 +123,14 @@ def _standard_uebersetzer() -> Callable[[list[str]], list[str | None]] | None:
                 de = fn(t)
                 if isinstance(de, str) and de.strip():
                     genutzt[name] = genutzt.get(name, 0) + 1
+                    fehler_folge[name] = 0
                     return de
             except Exception as e:
                 LETZTER_FEHLER = f"{name}: {type(e).__name__}: {str(e)[:160]}"
-                if type(e).__name__ in SPERRE or "429" in str(e) or "quota" in str(e).lower():
+                fehler_folge[name] = fehler_folge.get(name, 0) + 1
+                limit = type(e).__name__ in SPERRE or "429" in str(e) or "quota" in str(e).lower() \
+                    or "limit" in str(e).lower()
+                if limit or fehler_folge[name] >= FEHLER_MAX:
                     gesperrt.add(name)
                     print(f"Kommentare: {name} nicht nutzbar ({type(e).__name__}: {str(e)[:160]}) – nächster Dienst.")
         return None
@@ -134,8 +143,10 @@ def _standard_uebersetzer() -> Callable[[list[str]], list[str | None]] | None:
 
 def uebersetze(texte: Iterable, base: Path | None = None, *,
                uebersetzer: Callable[[list[str]], list[str | None]] | None = None,
-               aktiv: bool = True) -> dict[str, str | None]:
-    """{französischer Text: deutscher Text oder None}. Bereits übersetzte kommen aus dem Cache."""
+               aktiv: bool = True, zeit_max_s: float | None = None) -> dict[str, str | None]:
+    """{französischer Text: deutscher Text oder None}. Bereits übersetzte kommen aus dem Cache.
+    zeit_max_s (Vorgabe ZEIT_MAX_S): danach keine neuen Anfragen mehr – Bisheriges wird gespeichert, der Rest bleibt
+    französisch und kommt beim nächsten Lauf dran."""
     cache = _cache_laden(base)
     alle = sorted({str(t).strip() for t in texte if isinstance(t, str) and str(t).strip()})
     offen = [t for t in alle if t not in cache and len(t) <= MAX_ZEICHEN]
@@ -143,8 +154,14 @@ def uebersetze(texte: Iterable, base: Path | None = None, *,
         fn = uebersetzer or _standard_uebersetzer()
         if fn is not None:
             neu = 0
-            for i in range(0, len(offen), BLOCK):
-                teil = offen[i:i + BLOCK]
+            ende = time.monotonic() + (ZEIT_MAX_S if zeit_max_s is None else zeit_max_s)
+            block = BLOCK if uebersetzer is not None else 5      # eigene Dienste: kleine Blöcke, damit die Zeitgrenze greift
+            for i in range(0, len(offen), block):
+                if time.monotonic() > ende:
+                    print(f"Kommentare: Zeitgrenze ({ZEIT_MAX_S if zeit_max_s is None else zeit_max_s:g} s) erreicht – "
+                          f"{len(offen) - i} bleiben französisch, nächster Lauf übersetzt weiter.")
+                    break
+                teil = offen[i:i + block]
                 try:
                     ergebnis = fn(teil)
                 except Exception as e:                # Dienst nicht erreichbar: Rest unübersetzt lassen
