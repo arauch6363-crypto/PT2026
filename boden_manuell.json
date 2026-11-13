@@ -15,7 +15,7 @@
     "SLOW": ["Souple", "Très souple"],
     "VERY SLOW": ["Collant", "Lourd", "Très lourd"]
   },
-  "datum": "2026-11-11",
+  "datum": "2026-11-13",
   "bahnen": {
     "AGEN": "Bon",
     "AMIENS": "Très souple",
@@ -58,7 +58,7 @@
     "PORNICHET LA BAULE": "Bon",
     "ROYAN LA PALMYRE": "Bon",
     "SABLE SUR SARTHE": "Bon",
-    "SAINT CLOUD": "Très souple",
+    "SAINT CLOUD": "Lourd",
     "SAINT MALO": "Collant",
     "SALON DE PROVENCE": "Bon",
     "SEGRE": "Bon",
