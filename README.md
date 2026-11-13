@@ -487,7 +487,7 @@ Je Starter:
 * **Kommentare** (`comment` je Starter aus pmu_runners) unter jedem früheren Lauf, auf Deutsch übersetzt, wo
   möglich (`uebersetzen.py`, deep-translator: DeepL mit Umgebungsvariable `DEEPL_API_KEY`, sonst Google, sonst
   MyMemory; Cache `<BASE>/uebersetzungen_fr_de.json`; Schnelltest `uebersetzen.pruefen()`); sonst französisch
-  (FR). Abschalten mit `racecard.run(..., uebersetzen_aktiv=False)`.
+  (FR). **Vorerst aus** (`racecard.UEBERSETZEN_AKTIV = False`, 11/2026: DeepL-Kontingent erschöpft, Google sperrt); einschalten mit `racecard.run(..., uebersetzen_aktiv=True)`. Je Lauf höchstens `uebersetzen.ZEIT_MAX_S` (120 s), danach bleibt der Rest französisch.
 * **A/E** zusätzlich für Besitzer und Züchter; Abstammung mit Zahl der Pferde und Ø der höchsten Valeur der
   Nachkommen als 3-Jährige (Ø max Val 3j).
 * **Festkurse** (`wettstar.py`, beim Erstellen der Karte mit `racecard.run(..., festkurse=True)`, braucht Playwright –
