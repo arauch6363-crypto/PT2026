@@ -659,6 +659,22 @@ Je Starter:
   geschätzt; mehr Starter = schnelleres Tempo). Beim Scrollen bleibt eine Kurzzeile des Rennens oben fixiert.
 * Racing-Post-Kürzel **C / D / CD / BF**, Tage seit dem letzten Lauf, Gewicht, Rating, Startbox.
 
+## Automatischer Tagesablauf (`tagesablauf.py`)
+
+Im Notebook Abschnitt 3a, Einstellung `MODUS = 'automatik'` (Vorgabe). `tagesablauf.morgen(BASE)` läuft nach dem
+Holen der Ergebnisse (Abschnitt 2) bis zum Ende des Tages – Colab muss offen bleiben:
+
+1. Value-Dashboard bauen.
+2. Rennkarte `KARTE_VORLAUF_MIN` (90) Minuten vor dem ersten Rennen des Tages, ohne Festkurse und Übersetzung; Boden
+   aus PMU, `boden_manuell.json` oder France Galop. Hatte eine Gras-Bahn nur die Annahme und France Galop meldet bis
+   kurz vor den Festkursen einen Boden, wird die Karte einmal neu gebaut.
+3. Je Reunion ab `FK_VORLAUF_MIN` (50) Minuten vor ihrem ersten Rennen alle `FK_TAKT_MIN` (5) Minuten
+   `racecard.festkurse_aktualisieren` (nur fehlende Rennen), bis alle Rennen der Reunion Festkurse haben oder ihr
+   erstes Rennen gestartet ist. Araber zählen nicht. Die Claude-Tipps plant danach die Aufgabe „Racecard-Durchgang“.
+
+**Rückfall:** `MODUS = 'manuell'` – dann baut Abschnitt 3 die Karte wie bisher, Festkurse von Hand mit
+`racecard.festkurse_aktualisieren(BASE)`.
+
 ## Durchgänge und Claude-Tipps (`durchgang.py`)
 
 Die geplante Aufgabe „Racecard-Durchgang“ (von Hand gestartet, sobald Festkurse auf der Karte stehen) geht mit dem
