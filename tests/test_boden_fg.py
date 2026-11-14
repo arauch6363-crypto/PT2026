@@ -21,6 +21,35 @@ def test_lesen():
     assert "MOULINS" not in b and "CHELTENHAM" not in b             # noch ohne Terrain
 
 
+def test_alle_werte_aus_boden_manuell():
+    import json
+    import rtr_arr
+    m = json.loads(rc.BODEN_DATEI.read_text(encoding="utf-8"))["moegliche_angaben"]
+    for gruppe, werte in m.items():
+        for w in werte:
+            for v in (w, w.lower(), w.upper(), w.lower().replace("très", "tr"), w.lower().replace("très", "tr.")):
+                assert boden_fg.terrain_begriff(v) == w and rtr_arr.boden_gruppe(w) == gruppe, v
+
+
+def test_unbekannter_begriff_wird_gemeldet(monkeypatch):
+    seite = SEITE.replace("Terrain tr souple (3,8)", "Terrain gelé (3,8)")
+    _, b = boden_fg.lesen(seite)
+    assert b["TOULOUSE"]["terrain"] is None
+
+    class Antwort:
+        text = seite
+        def raise_for_status(self):
+            pass
+
+    class S:
+        def get(self, *a, **k):
+            return Antwort()
+    meldungen = []
+    monkeypatch.setattr(boden_fg, "datetime", type("D", (), {"now": staticmethod(lambda tz=None: pd.Timestamp(date(2026, 11, 15)))}))
+    erg = boden_fg.tag(date(2026, 11, 15), S(), log=meldungen.append)
+    assert "TOULOUSE" not in erg and any("gelé" in m for m in meldungen)
+
+
 def test_begriffe():
     assert [boden_fg.terrain_begriff(x) for x in ("tr souple", "bon souple", "tr léger", "lourd", "xyz")] == \
         ["Très souple", "Bon souple", "Très léger", "Lourd", None]

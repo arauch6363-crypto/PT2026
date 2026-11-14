@@ -62,7 +62,8 @@ def terrain_begriff(text: str) -> str | None:
 
 
 def lesen(seite_html: str) -> tuple[date | None, dict[str, dict]]:
-    """(Datum der Seite, {Bahn (pmu.norm): {"terrain", "wert", "psf", "roh"}}) – nur Veranstaltungen mit Terrain."""
+    """(Datum der Seite, {Bahn (pmu.norm): {"terrain", "wert", "psf", "roh"}}) – nur Veranstaltungen mit Terrain;
+    terrain None = Begriff nicht erkannt (Schreibweise neu)."""
     z = _zeilen(seite_html)
     out: dict[str, dict] = {}
     for i in range(len(z) - 1):
@@ -72,11 +73,10 @@ def lesen(seite_html: str) -> tuple[date | None, dict[str, dict]]:
             m = TERRAIN.match(z[k])
             if not m:
                 continue
-            begriff = terrain_begriff(m.group(1))
-            if begriff:
-                wert = float(m.group(2).replace(",", ".")) if m.group(2) else None
-                out[pmu.norm(z[i])] = {"terrain": begriff, "wert": wert, "psf": rtr_arr.boden_gruppe(begriff) == "PSF",
-                                       "roh": z[k]}
+            begriff = terrain_begriff(m.group(1))           # None: unbekannter Begriff (tag() meldet ihn)
+            wert = float(m.group(2).replace(",", ".")) if m.group(2) else None
+            out[pmu.norm(z[i])] = {"terrain": begriff, "wert": wert,
+                                   "psf": bool(begriff) and rtr_arr.boden_gruppe(begriff) == "PSF", "roh": z[k]}
             break
     return _datum(z), out
 
@@ -98,4 +98,7 @@ def tag(d: date | None = None, session: requests.Session | None = None, log=prin
     if datum is not None and datum != d:
         log(f"Boden France Galop: Seite zeigt {datum}, gesucht {d} – nicht verwendet.")
         return {}
-    return boden
+    for bahn, v in boden.items():
+        if v["terrain"] is None:
+            log(f"Boden France Galop: {bahn}: {v['roh']!r} nicht erkannt – übergangen (bitte melden).")
+    return {k: v for k, v in boden.items() if v["terrain"]}
