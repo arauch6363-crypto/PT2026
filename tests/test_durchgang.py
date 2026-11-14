@@ -57,6 +57,28 @@ def test_plan_status():
     assert st["R1C6"][0] == "erledigt"
 
 
+def test_naechster_durchgang():
+    k = _karte()                                        # R1: 12:00 … 16:30 (C5 Araber), C3 ohne Festkurs
+    k["date"] = "2026-11-12"
+    k["races"]["20261112R2C1"] = {"race_id": "20261112R2C1", "reunion": 2, "race_no": 1, "time": "17:00", "name": "PRIX X",
+                                  "course": "LYON", "runners": [{"no": 1, "power": {"sieg": 0.5}, "fk": None}]}
+    # offene Rennen (Festkurs da, Kandidat): sofort
+    n = dg.naechster(k, set(), "11:00")
+    assert n["start"] == "2026-11-12T11:02:00[Europe/Paris]" and "R1" in n["grund"]
+    # R1 erledigt bis auf C3 ohne Festkurs, erstes R1-Rennen gelaufen -> R1 aufgegeben; R2: 35 min vor 17:00
+    erl = {"20261112R1C2", "20261112R1C6"}
+    n = dg.naechster(k, erl, "14:30")
+    assert n["start"] == "2026-11-12T16:25:00[Europe/Paris]"
+    r1 = next(x for x in n["je_reunion"] if x["reunion"] == "R1")
+    assert r1["start"] is None and r1["ohne_festkurs"] == ["R1C3"]
+    # im Vorlauf-Fenster ohne Festkurse: alle 10 min erneut, bis das erste Rennen startet
+    assert dg.naechster(k, erl, "16:40")["start"] == "2026-11-12T16:50:00[Europe/Paris]"
+    assert dg.naechster(k, erl, "17:05")["start"] is None
+    # Araber allein lösen keinen Durchgang aus
+    nur_araber = {"date": "2026-11-12", "races": {"a": {**k["races"]["20261112R1C5"], "time": "18:00"}}}
+    assert dg.naechster(nur_araber, set(), "10:00")["start"] is None
+
+
 def test_zusammenfuehren_prueft():
     d = dg.zusammenfuehren("2026-11-12", [_rennen("X", (1, "wette", 3.0, 2.5), (2, "klein", 6.0, 5.0), (3, "nein", 9.0, 12))])
     k = d["rennen"][0]["kandidaten"]

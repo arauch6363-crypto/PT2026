@@ -678,6 +678,12 @@ Ein zweiter Start am selben Tag bearbeitet nur Rennen, die noch in keinem Durchg
   zum Platz-Festkurs der Karte). „Bank im Verlauf“ und „Zum Toto ausgezahlt“ zeigen dieselben Wetten zum Toto. Tabelle
   **Claude-Tipps** (`vb.claude_auswertung(pool, variant, wettart)`): NAP, BET und abgelehnte Kandidaten (als volle
   Wette) mit denselben Einsätzen aus fester Bank 1.000 € (ohne Zinseszins), ROI zum Festkurs und zum Toto. Kandidaten eines Durchgangs bleiben im Pool, auch wenn ihr Kurs danach unter Value 0 fiel.
+- **Zeitplan:** Die Aufgabe „Racecard-Durchgang“ plant sich selbst: am Ende jedes Laufs fragt sie
+  `durchgang.py naechster` und setzt ihren nächsten Start (35 min vor dem ersten Rennen der nächsten Veranstaltung;
+  fehlen dann die Festkurse, alle 10 min erneut, bis das erste Rennen startet). Die Aufgabe „Racecard-Planer“
+  (stündlich am Vormittag/Nachmittag) stößt das an, sobald die Karte des Tages in Drive liegt oder später Festkurse
+  dazukommen. Grundlage ist allein die Karte – sie enthält nur die Rennen, die gewettet werden (französische
+  Flachrennen, ohne Araber).
 - **Format** einer Durchgang-Datei: `{"datum", "stand", "skill", "rennen": [{"race_id", "status" (bearbeitet,
   kein_festkurs, gelaufen, araber, keine_kandidaten, fehler), "vergleich", "hinweis", "kandidaten": [{"no", "horse",
   "urteil" (wette, klein, nein), "einheiten", "fk", "mq", "spanne", "p_modell", "value", "pro", "gegen", "fragen",
@@ -685,6 +691,7 @@ Ein zweiter Start am selben Tag bearbeitet nur Rennen, die noch in keinem Durchg
 
 ```
 python3 -I durchgang.py plan racecard_20261112.html durchgang_20261112_*.json    # welche Rennen offen sind
+python3 -I durchgang.py naechster racecard_20261112.html durchgang_20261112_*.json   # wann der nächste Durchgang fällig ist
 python3 -I durchgang.py zusammenfuehren durchgang_20261112_1505.json --datum 2026-11-12 rennen_*.json
 python3 -I durchgang.py markieren racecard_20261112.html markiert.html durchgang_20261112_*.json
 python3 -I durchgang.py tabelle durchgang_20261112_*.json
