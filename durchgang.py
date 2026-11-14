@@ -10,6 +10,9 @@ Nur Standardbibliothek: läuft in der geplanten Aufgabe ohne Installation.
 Aufruf:
     python3 -I durchgang.py plan KARTE.html [DURCHGANG.json …] [--jetzt HH:MM]
         Rennen der Karte mit Status (offen, gelaufen, kein_festkurs, keine_kandidaten, araber, erledigt) als JSON.
+    python3 -I durchgang.py naechster KARTE.html [DURCHGANG.json …] [--jetzt HH:MM]
+        Wann der nächste Durchgang laufen soll (35 min vor dem ersten Rennen je Veranstaltung, sofort bei offenen
+        Rennen, alle 10 min erneut, solange Festkurse fehlen) – für den Zeitplan der Aufgabe.
     python3 -I durchgang.py zusammenfuehren AUSGABE.json --datum JJJJ-MM-TT RENNEN.json …
         Ergebnisse der Subagenten (je Rennen eine Datei) prüfen und zu einem Durchgang zusammenfassen.
     python3 -I durchgang.py markieren KARTE.html AUSGABE.html --template racecard_template.html DURCHGANG.json …
@@ -124,6 +127,52 @@ def plan(daten: dict, erledigt: set[str] | None = None, jetzt: str | None = None
         out.append({"race_id": rid, "rennen": f"R{r.get('reunion')}C{r.get('race_no')}", "zeit": r.get("time"),
                     "bahn": r.get("course"), "status": st, "kandidaten": k})
     return out
+
+
+VORLAUF_MIN = 35     # Durchgang so viele Minuten vor dem ersten Rennen einer Veranstaltung (Festkurse ~45 min vorher da)
+WIEDERHOLEN_MIN = 10  # Festkurse zum geplanten Zeitpunkt noch nicht in der Karte: so viele Minuten später erneut
+SOFORT_MIN = 2        # offene Rennen (Festkurs da, Kandidaten): Start in so vielen Minuten
+
+
+def naechster(daten: dict, erledigt: set[str] | None = None, jetzt: str | None = None) -> dict:
+    """Wann der nächste Durchgang laufen soll – nur aus der Karte (sie enthält genau die Rennen, die gewettet werden:
+    französische Flachrennen; Araber/AQPS zählen nicht). Je Veranstaltung (Reunion):
+      offene Rennen                         -> sofort (jetzt + SOFORT_MIN)
+      Rennen ohne Festkurs, erstes Rennen der Veranstaltung noch nicht gestartet
+                                            -> VORLAUF_MIN vor dem ersten Rennen, danach alle WIEDERHOLEN_MIN erneut
+      sonst (alles erledigt/gelaufen, oder das erste Rennen lief schon ohne Festkurse) -> nichts
+    Rückgabe {"start": "JJJJ-MM-TTTHH:MM:00[Europe/Paris]" oder None, "grund", "je_reunion": [...]} – der früheste
+    Zeitpunkt über alle Veranstaltungen. ``jetzt`` = HH:MM französischer Zeit (Vorgabe: jetzt)."""
+    jetzt = jetzt or datetime.now(PARIS).strftime("%H:%M")
+    mins = lambda t: int(t[:2]) * 60 + int(t[3:5])
+    hhmm = lambda m: f"{min(m, 23 * 60 + 59) // 60:02d}:{min(m, 23 * 60 + 59) % 60:02d}"
+    now = mins(jetzt)
+    je: dict[str, list] = {}
+    for z in plan(daten, erledigt, jetzt):
+        if z["status"] != "araber" and z.get("zeit"):
+            je.setdefault(z["rennen"].split("C")[0], []).append(z)
+    out = []
+    for reunion, zs in sorted(je.items()):
+        erstes = min(mins(z["zeit"]) for z in zs)
+        offen = [z["rennen"] for z in zs if z["status"] == "offen"]
+        wartet = [z["rennen"] for z in zs if z["status"] == "kein_festkurs"]
+        if offen:
+            t, grund = now + SOFORT_MIN, f"{len(offen)} offene Rennen"
+        elif wartet and erstes > now:
+            ziel = erstes - VORLAUF_MIN
+            t, grund = ((ziel, f"{VORLAUF_MIN} min vor dem ersten Rennen ({hhmm(erstes)})") if ziel > now + SOFORT_MIN
+                        else (now + WIEDERHOLEN_MIN, f"noch keine Festkurse, erstes Rennen {hhmm(erstes)}"))
+        else:
+            t, grund = None, ("erstes Rennen gelaufen, keine Festkurse" if wartet else "nichts offen")
+        out.append({"reunion": reunion, "bahn": zs[0].get("bahn"), "erstes_rennen": hhmm(erstes), "offen": offen,
+                    "ohne_festkurs": wartet, "start": hhmm(t) if t is not None else None, "grund": grund})
+    mit = [x for x in out if x["start"]]
+    if not mit:
+        return {"start": None, "grund": "kein weiterer Durchgang nötig", "je_reunion": out}
+    b = min(mit, key=lambda x: x["start"])
+    datum = str(daten.get("date") or datetime.now(PARIS).strftime("%Y-%m-%d"))[:10]
+    return {"start": f"{datum}T{b['start']}:00[Europe/Paris]", "grund": f"{b['reunion']} {b['bahn'] or ''}: {b['grund']}".strip(),
+            "je_reunion": out}
 
 
 # ---------------------------------------------------------------- Zusammenführen
@@ -268,6 +317,9 @@ def main(argv: list[str]) -> None:
         jetzt = _opt(args, "--jetzt")
         daten = laden(args[0])
         print(json.dumps(plan(daten, set(je_rennen(args[1:])), jetzt), ensure_ascii=False, indent=1))
+    elif cmd == "naechster":
+        jetzt = _opt(args, "--jetzt")
+        print(json.dumps(naechster(laden(args[0]), set(je_rennen(args[1:])), jetzt), ensure_ascii=False, indent=1))
     elif cmd == "zusammenfuehren":
         datum, stand = _opt(args, "--datum"), _opt(args, "--stand")
         aus, quellen = args[0], args[1:]
