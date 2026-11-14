@@ -883,3 +883,28 @@ def test_uebersetzen_zeitgrenze_und_fehlerfolge(tmp_path, monkeypatch):
     fn = ue._standard_uebersetzer()
     out = fn([f"Satz {i}." for i in range(20)])
     assert all(out) and zaehler["kaputt"] == ue.FEHLER_MAX and zaehler["gut"] == 20
+
+
+def test_dead_heat_halber_festkurs_sieg(tmp_path):
+    """Dead Heat um den Sieg: beide Pferde auf Platz 1 zählen als Sieger (der Einlauf nennt nur eins), der Festkurs
+    Sieg zählt halb, Platz voll; Python und Dashboard rechnen gleich."""
+    d = "20260105"
+    rid = f"{d}R1C1"
+    runners = [_runner(i, {3: 0.3, 5: 0.3, 2: 0.25}.get(i, 0.03), fk=6.0, platz=2.0, wert=1.4) for i in range(1, 9)]
+    j, pq = _tag(tmp_path, d, [_rennen(rid, runners)], {rid: "3 - 2 - 7 - 1"})   # PMU: nur das erste DH-Pferd
+    (tmp_path / "pmu_runners").mkdir()
+    pd.DataFrame({"race_id": rid, "saddle_no": list(range(1, 9)), "odds_final": 6.0, "status": "PARTANT",
+                  "finish_pos": [4, 2, 1, 6, 1, 7, 3, 8]}).to_parquet(tmp_path / "pmu_runners" / f"{d}.parquet")
+    pool = vb.load_folder(tmp_path, ab=None)
+    s = pool.set_index("no")
+    assert bool(s.loc[3, "won"]) and bool(s.loc[5, "won"]) and s.loc[5, "pos"] == 1
+    assert s.loc[3, "sieger_n"] == 2 and s.loc[2, "sieger_n"] == 2 and bool(s.loc[5, "placed"]) and not s.loc[2, "won"]
+    # 10 € je Bein, FK Sieg 6,0 → bei Dead Heat 3,0: Gewinn 10 · (3 − 1) − 0,50 Steuer = 19,50; Platz 2,0 voll: 9,50
+    assert vb._bein(10, 6.0, True, 2) == (19.5, 0.5) and vb._bein(10, 6.0, True) == (49.5, 0.5)
+    res = vb.simulate(pool, vb.FilterConfig(minw=0, mode="none"), vb.StakingConfig("level10", wettart="ew"))
+    b = res.bets_df.set_index("no")
+    assert b.loc[3, "profit_win"] == 19.5 and b.loc[5, "profit_win"] == 19.5 and b.loc[5, "profit_place"] == 9.5
+    assert b.loc[2, "profit_win"] == -10.5
+    js = _node_sim(pool, [[vars(vb.FilterConfig(minw=0, mode="none")), "level10", "ew"]])[0]
+    assert sorted(x["profit_win"] for x in js["bets"]) == sorted(res.bets_df["profit_win"])
+    assert js["kpi"]["bank"] == pytest.approx(res.kpi_dict["bank"])
