@@ -218,6 +218,7 @@ def going_klasse(going, going_value=None) -> str:
 
 
 BODEN_DATEI = Path(__file__).with_name("boden_manuell.json")   # im Repo, auf GitHub editierbar
+BODEN_FRANCE_GALOP = True   # fehlt PMU-Boden: France-Galop-Seiten Hier/Aujourd'hui/Demain abfragen (boden_fg.tag)
 PSF_MERKMALE = {"PSF", "FIBRE", "FIBREE", "POLYTRACK", "VISCORIDE"}   # ganze Wörter
 
 
@@ -262,25 +263,38 @@ def boden_manuell_laden(datei: Path | None = None, tag: date | None = None) -> d
     return out
 
 
-def _bahn_eintrag(name, manuell: dict[str, str]) -> str | None:
-    """Eintrag zur Bahn: gleicher Name (pmu.norm), sonst eindeutig über die Wörter ('TOULOUSE' passt zu
-    'TOULOUSE LA CEPIERE'); passt ein Eintrag auf mehrere Schreibweisen oder keiner: None."""
+def _bahn_schluessel(name, eintraege: dict) -> str | None:
+    """Schlüssel des Eintrags zur Bahn: gleicher Name (pmu.norm), sonst eindeutig über die Wörter ('TOULOUSE' passt
+    zu 'TOULOUSE LA CEPIERE'); passt ein Eintrag auf mehrere Schreibweisen oder keiner: None."""
     n = pmu.norm(name or "")
-    if n in manuell:
-        return manuell[n]
+    if n in eintraege:
+        return n
     w = set(n.split())
-    treffer = [k for k in manuell if w and (set(k.split()) <= w or w <= set(k.split()))]
-    return manuell[treffer[0]] if len(treffer) == 1 else None
+    treffer = [k for k in eintraege if w and (set(k.split()) <= w or w <= set(k.split()))]
+    return treffer[0] if len(treffer) == 1 else None
 
 
-def boden_manuell_anwenden(races: pd.DataFrame, manuell: dict[str, str]) -> pd.DataFrame:
+def _bahn_eintrag(name, manuell: dict[str, str]) -> str | None:
+    """Eintrag zur Bahn (siehe _bahn_schluessel) oder None."""
+    k = _bahn_schluessel(name, manuell)
+    return manuell[k] if k is not None else None
+
+
+def boden_manuell_anwenden(races: pd.DataFrame, manuell: dict[str, str],
+                           france_galop: dict[str, dict] | None = None) -> pd.DataFrame:
     """Bodenangabe der heutigen Rennen ergänzen, nur wo PMU (noch) keine gültige liefert:
-    PSF-Rennen -> 'PSF'; Gras-Rennen -> manueller Eintrag der Bahn; sonst bleibt es bei der Annahme.
-    Spalte going_quelle: PMU, manuell, PSF oder Annahme."""
+    PSF-Rennen -> 'PSF'; Gras-Rennen -> manueller Eintrag der Bahn, sonst France Galop (boden_fg.tag: Begriff und
+    Penetrometer-Wert, der Wert nur, wo PMU keinen hat); sonst bleibt es bei der Annahme.
+    Spalte going_quelle: PMU, PSF, manuell, France Galop oder Annahme."""
     r = races.copy()
     if "going" not in r:
         r["going"] = None
+    if "going_value" not in r:
+        r["going_value"] = np.nan
     r["going"] = r["going"].astype(object)
+    r["going_value"] = pd.to_numeric(r["going_value"], errors="coerce")
+    fg = {k: v for k, v in (france_galop or {}).items() if not v.get("psf") and v.get("terrain")}
+    fg_begriff = {k: v["terrain"] for k, v in fg.items()}
     quelle, ohne = [], set()
     for i, z in r.iterrows():
         if rtr_arr.boden_gruppe(z.get("going")) is not None:
@@ -291,6 +305,12 @@ def boden_manuell_anwenden(races: pd.DataFrame, manuell: dict[str, str]) -> pd.D
         elif _bahn_eintrag(z.get("hippodrome"), manuell):
             r.at[i, "going"] = _bahn_eintrag(z.get("hippodrome"), manuell)
             quelle.append("manuell")
+        elif _bahn_eintrag(z.get("hippodrome"), fg_begriff):
+            k_ = _bahn_schluessel(z.get("hippodrome"), fg)
+            r.at[i, "going"] = fg[k_]["terrain"]
+            if pd.isna(r.at[i, "going_value"]) and fg[k_].get("wert") is not None:
+                r.at[i, "going_value"] = fg[k_]["wert"]
+            quelle.append("France Galop")
         else:
             quelle.append("Annahme")
             ohne.add(str(z.get("hippodrome")))
@@ -299,8 +319,10 @@ def boden_manuell_anwenden(races: pd.DataFrame, manuell: dict[str, str]) -> pd.D
     print("Boden heute: " + ", ".join(f"{k} {v}" for k, v in n.items())
           + (f" – ohne Eintrag in {BODEN_DATEI.name}: {', '.join(sorted(ohne))}" if ohne else ""))
     for (bahn, q), g in r.groupby(["hippodrome", "going_quelle"], sort=True):
-        if q == "manuell":
-            print(f"  {bahn}: manuell {g['going'].iloc[0]!r} ({len(g)} Rennen)")
+        if q in ("manuell", "France Galop"):
+            wert = g["going_value"].iloc[0] if q == "France Galop" and pd.notna(g["going_value"].iloc[0]) else None
+            print(f"  {bahn}: {q} {g['going'].iloc[0]!r}" + (f" ({wert:g})" if wert is not None else "")
+                  + f" ({len(g)} Rennen)")
     return r
 
 
@@ -2967,7 +2989,9 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
     races_heute, runners_heute = programm(tag, nur_flach=nur_flach)
     if races_heute.empty:
         raise RuntimeError(f"Keine französischen {'Flach' if nur_flach else 'Galopp'}rennen am {tag}.")
-    races_heute = boden_manuell_anwenden(races_heute, boden_manuell_laden(tag=tag))   # fehlt PMU-Boden: manuell
+    import boden_fg                                       # fehlt PMU-Boden: manuell, sonst France Galop
+    races_heute = boden_manuell_anwenden(races_heute, boden_manuell_laden(tag=tag),
+                                         boden_fg.tag(tag) if BODEN_FRANCE_GALOP else None)
     print(f"{len(races_heute)} Rennen, {len(runners_heute)} Starter. PMU-Prognosen holen …")
     prognosen = pmu.prognosen(tag, requests.Session(), list(zip(races_heute["reunion"], races_heute["race_no"])))
     import prognose_basis

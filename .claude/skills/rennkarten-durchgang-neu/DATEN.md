@@ -8,7 +8,7 @@ wo die Daten Lücken haben.
 
 | Angabe | Feld | Hinweis |
 |---|---|---|
-| Bodenangabe | `going` | z. B. „Très souple“; `going_source` PMU, manuell oder Annahme |
+| Bodenangabe | `going` | z. B. „Très souple“; `going_source` PMU, PSF, manuell, France Galop (offizielle Angabe von france-galop.com, gleichwertig mit PMU) oder Annahme |
 | Bodengruppe | `going_label` | Very slow (Collant, Lourd – für uns gleichwertig), Slow (Souple, Très souple – unterscheiden), Fast (Bon souple, Bon), Very fast, PSF |
 | Richtung | `corde` | CORDE_DROITE = Rechtskurs, CORDE_GAUCHE = Linkskurs, LIGNE_DROITE = gerade |
 | Klasse | `class.val_idx` | Ø Valeur der Teilnehmer, 100 = Ø aller Rennen; je Formzeile `cls_val_idx` |

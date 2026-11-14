@@ -634,10 +634,12 @@ Je Starter:
   VERY FAST · PSF Standard/Lente/Rapide = PSF. Der Penetrometerwert wird nur angezeigt.
 * **Boden von heute, solange PMU ihn noch nicht hat**: Bei PSF-Rennen (Bahnart `typePiste`/Parcours) gilt PSF.
   Bei Gras gilt der Eintrag der Bahn in `boden_manuell.json` (im Repo, auf GitHub editieren; Vorgabe überall
-  „Bon“). Gültige Begriffe stehen oben in der Datei zum Kopieren; Tippfehler werden gemeldet und übergangen.
-  Mit `"datum"` gelten die Angaben nur für die Rennkarte dieses Tages. Liefert PMU eine Angabe, hat sie immer
-  Vorrang. Die Karte zeigt „(manuell)“ an. Fehlt eine Bahn in der Datei, gilt die Annahme FAST, und die Ausgabe
-  nennt den Bahnnamen zum Ergänzen.
+  „Bon“), sonst die Angabe von **France Galop** (`boden_fg.tag`: Seiten Hier/Aujourd'hui/Demain auf
+  france-galop.com, Begriff und Penetrometerwert; dort meist schon am Vortag, morgens aktualisiert;
+  `racecard.BODEN_FRANCE_GALOP = False` schaltet das ab). Den Penetrometerwert übernimmt die Karte nur, wo PMU
+  keinen hat. Gültige Begriffe stehen oben in `boden_manuell.json` zum Kopieren; Tippfehler werden gemeldet und
+  übergangen. Mit `"datum"` gelten die Angaben nur für die Rennkarte dieses Tages. Reihenfolge: PMU, PSF (Bahnart),
+  manuell, France Galop, Annahme FAST – die Ausgabe nennt je Bahn die Quelle und die Bahnen ohne Angabe.
 * **Letzte Läufe**: Die letzten 7 Läufe. Gelb markiert ist, was dem heutigen Rennen entspricht: K = Kurs mit
   gleichem Belag (PSF gegen Gras), D = Distanz ±100 m, B = Bodengruppe. Fehlt unter den 7 ein Lauf auf dem
   heutigen Kurs (gleicher Belag), über die heutige Distanz (±100 m) oder in der heutigen Bodengruppe, kommt unten gestrichelt abgetrennt der letzte ältere Lauf mit
