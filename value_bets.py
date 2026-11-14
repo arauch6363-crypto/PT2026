@@ -307,6 +307,23 @@ def _endquoten(starter_path: str | Path | None) -> dict[tuple[str, int], float]:
     return {(str(r), int(n)): float(x) for r, n, x in zip(s["race_id"][ok], no[ok], q[ok])}
 
 
+def _sieger(starter_path: str | Path | None) -> dict[str, set[int]]:
+    """Startnummern auf Platz 1 je race_id laut pmu_runners (finish_pos). Bei einem Dead Heat stehen dort mehrere –
+    der Einlauf (finish_order) nennt je Platz nur das erste Pferd."""
+    if starter_path is None or not Path(starter_path).exists():
+        return {}
+    try:
+        s = pd.read_parquet(starter_path, columns=["race_id", "saddle_no", "finish_pos"])
+    except Exception:                                      # ältere Dateien ohne finish_pos
+        return {}
+    pos = pd.to_numeric(s["finish_pos"], errors="coerce")
+    no = pd.to_numeric(s["saddle_no"], errors="coerce")
+    out: dict[str, set[int]] = {}
+    for r, n in zip(s["race_id"][(pos == 1) & no.notna()], no[(pos == 1) & no.notna()]):
+        out.setdefault(str(r), set()).add(int(n))
+    return out
+
+
 def _nichtstarter(starter_path: str | Path | None) -> set[tuple[str, int]]:
     """(race_id, Startnummer) der Nichtstarter laut pmu_runners (status oder incident NON_PARTANT) – nach dem Bau der
     Karte zurückgezogene Pferde: Wette erstattet, also weder Einsatz noch Verlust."""
@@ -412,6 +429,13 @@ def load_day(json_path: str | Path, parquet_path: str | Path | None,
 
     pool["settled"] = pool["race_id"].astype(str).isin(einl)
     pool["pos"] = pool.apply(platz, axis=1).astype("Int64")
+    # Dead Heat um den Sieg: alle Pferde auf Platz 1 (laut pmu_runners) zählen als Sieger, der Festkurs Sieg wird
+    # durch ihre Zahl geteilt (sieger_n); Platz wird voll ausgezahlt
+    dh = {r: ns for r, ns in _sieger(starter_path).items() if len(ns) > 1}
+    rid = pool["race_id"].astype(str)
+    im_dh = [r in dh and int(n) in dh[r] for r, n in zip(rid, pool["no"])]
+    pool.loc[np.array(im_dh, dtype=bool) & pool["settled"].to_numpy(bool), "pos"] = 1
+    pool["sieger_n"] = [len(dh[r]) if r in dh else 1 for r in rid]
     pool["won"] = pool["settled"] & (pool["pos"] == 1).fillna(False)
     pool["placed"] = pool["settled"] & (pool["pos"] <= pool["paid_places"]).fillna(False)
     return pool.reset_index(drop=True)
@@ -423,7 +447,7 @@ def _leerer_pool() -> pd.DataFrame:
         "rank_pct", "rel", "fk_sieg", "fk_platz", "cote_dec", "wert", "ohne_morgenquote", "p_fk",
         "p_model", "p_blind", "p_pq", "p_platz", "fair_platz", "paid_places", "is_top", "festkurse_stand",
         "verfahren", "power_trainiert", "wert_trainiert", "toto_end", "fk_toto", "kurs_rel", "nr", "settled", "pos", "won",
-        "placed", *CLAUDE_SPALTEN, *[f"{c}_sh" for c in CHANCE_SPALTEN]])
+        "placed", "sieger_n", *CLAUDE_SPALTEN, *[f"{c}_sh" for c in CHANCE_SPALTEN]])
 
 
 # ---------------------------------------------------------------- Claude-Tipps (Durchgänge)
@@ -446,9 +470,11 @@ def claude_spalten(pool: pd.DataFrame, rennen: dict[str, dict]) -> pd.DataFrame:
     return pool
 
 
-def _claude_gewinn(einsatz: float, fk: float, won: bool, toto: Optional[float]) -> tuple[float, float]:
-    """(Gewinn zum Festkurs nach 5 % Steuer, Gewinn zum Toto ohne Steuer; ohne Toto-Endquote: Festkurs)."""
-    g_fk, _ = _bein(einsatz, fk, won)
+def _claude_gewinn(einsatz: float, fk: float, won: bool, toto: Optional[float],
+                   teiler: float = 1.0) -> tuple[float, float]:
+    """(Gewinn zum Festkurs nach 5 % Steuer – bei Dead Heat Festkurs ÷ teiler –, Gewinn zum Toto ohne Steuer; ohne
+    Toto-Endquote: Festkurs)."""
+    g_fk, _ = _bein(einsatz, fk, won, teiler)
     if toto is None or not toto > 1:
         return g_fk, g_fk
     return g_fk, round_half_up(einsatz * (toto - 1) if won else -einsatz, 2)
@@ -482,7 +508,7 @@ def claude_auswertung(pool: pd.DataFrame, variant: str = "level50", wettart: str
                 if e <= 0:
                     continue
                 toto = None if pd.isna(r["toto_end"]) else float(r["toto_end"])
-                a, b = _claude_gewinn(e, float(r["claude_fk"]), bool(r["won"]), toto)
+                a, b = _claude_gewinn(e, float(r["claude_fk"]), bool(r["won"]), toto, _teiler(r))
                 q_p = None if wettart != "ew" or pd.isna(r["fk_platz"]) else float(r["fk_platz"])
                 g_p, _ = _bein(e, q_p, bool(r["placed"]))
                 n += 1
@@ -733,13 +759,20 @@ def einsatz(bank_start: float, p: float, fk: float, s: StakingConfig, faktor: fl
     return max(0.0, round_half_up(roh * faktor))
 
 
-def _bein(stake: float, quote: Optional[float], treffer: bool) -> tuple[float, float]:
-    """(Gewinn nach Steuer, Steuer) eines Beins."""
+def _bein(stake: float, quote: Optional[float], treffer: bool, teiler: float = 1.0) -> tuple[float, float]:
+    """(Gewinn nach Steuer, Steuer) eines Beins. teiler: Dead Heat um den Sieg – der Festkurs Sieg zählt nur
+    quote ÷ teiler (zwei Sieger: halber Kurs); Platz-Beine immer mit teiler 1."""
     if quote is None or stake <= 0:
         return 0.0, 0.0
     steuer = STEUER * stake
-    brutto = stake * (quote - 1) if treffer else -stake
+    brutto = stake * (quote / max(teiler, 1.0) - 1) if treffer else -stake
     return round_half_up(brutto - steuer, 2), steuer
+
+
+def _teiler(r) -> float:
+    """Zahl der Sieger im Rennen (Dead Heat) – 1 ohne Angabe."""
+    v = r.get("sieger_n") if hasattr(r, "get") else None
+    return float(v) if v is not None and not pd.isna(v) and v >= 1 else 1.0
 
 
 def simulate(pool: pd.DataFrame, filters: FilterConfig = None,
@@ -771,7 +804,7 @@ def simulate(pool: pd.DataFrame, filters: FilterConfig = None,
                 continue
             fk_platz = None if pd.isna(r["fk_platz"]) else float(r["fk_platz"])
             q_platz = fk_platz if staking.wettart == "ew" else None   # nur Sieg: kein Platzbein
-            g_s, t_s = _bein(st, float(r["fk_sieg"]), bool(r["won"]))
+            g_s, t_s = _bein(st, float(r["fk_sieg"]), bool(r["won"]), _teiler(r))
             g_p, t_p = _bein(st, q_platz, bool(r["placed"]))
             st_p = st if q_platz is not None else 0.0
             gw_s += g_s
@@ -785,7 +818,7 @@ def simulate(pool: pd.DataFrame, filters: FilterConfig = None,
                 "wert": r["wert"], "rank_fq": int(r["rank_fq"]), "rank_pct": r["rank_pct"],
                 "rel": r["rel"], "is_top": int(r["is_top"]),
                 "pos": None if pd.isna(r["pos"]) else int(r["pos"]),
-                "won": bool(r["won"]), "placed": bool(r["placed"]),
+                "won": bool(r["won"]), "placed": bool(r["placed"]), "sieger_n": _teiler(r),
                 "stake_win": st, "stake_place": st_p, "stake": st + st_p,
                 "tax": round_half_up(t_s + t_p, 2),
                 "profit_win": g_s, "profit_place": g_p,
@@ -1053,7 +1086,7 @@ _HTML_SPALTEN = [
     "date", "race_id", "race", "course", "no", "horse", "n", "p", "fair", "rank_fq", "rank_pct",
     "rel", "fk_sieg", "fk_platz", "cote_dec", "wert", "is_top", "p_fk", "p_model", "p_pq",
     "p_platz", "fair_platz", "toto_end", "fk_toto", "kurs_rel", "p_blind", "nr", "settled", "pos", "won", "placed",
-    *CLAUDE_SPALTEN, *[f"{c}_sh" for c in CHANCE_SPALTEN]]
+    "sieger_n", *CLAUDE_SPALTEN, *[f"{c}_sh" for c in CHANCE_SPALTEN]]
 
 
 def _json_wert(v: Any) -> Any:

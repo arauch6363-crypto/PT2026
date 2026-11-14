@@ -366,10 +366,11 @@ function einsatz(bank, p, fk, v, faktor = 1) {   // faktor: Anteil der vollen We
 // Claude-Tipp in Euro: volle Wette nach der Variante (Kelly mit Modell-Chance und Festkurs beim Durchgang) × Einheiten
 const claudeEinsatz = (bank, r, v, faktor) => einsatz(bank, r.p, r.claude_fk, v, faktor ?? r.claude_einh);
 
-function bein(stake, quote, treffer) {
-  if (quote === null || stake <= 0) return [0, 0];
+// teiler: Dead Heat um den Sieg – Festkurs Sieg ÷ Zahl der Sieger (Platz-Beine immer 1), wie value_bets._bein
+function bein(stake, quote, treffer, teiler = 1) {
+  if (quote === null || quote === undefined || stake <= 0) return [0, 0];
   const steuer = STEUER * stake;
-  const brutto = treffer ? stake * (quote - 1) : -stake;
+  const brutto = treffer ? stake * (quote / Math.max(teiler || 1, 1) - 1) : -stake;
   return [rhu(brutto - steuer, 2), steuer];
 }
 
@@ -723,7 +724,7 @@ function simulieren(pool, f, variant, start = 1000, wettart = 'ew') {
       if (r.nr === true) continue;                                   // Nichtstarter: Wette erstattet
       const st = f.claude ? claudeEinsatz(bs, r, variant) : einsatz(bs, r.p, r.fk_sieg, variant);
       if (st <= 0) continue;
-      const [g_s, t_s] = bein(st, r.fk_sieg, r.won);
+      const [g_s, t_s] = bein(st, r.fk_sieg, r.won, r.sieger_n);
       const qPlatz = wettart === 'ew' && _da(r.fk_platz) ? r.fk_platz : null;   // nur Sieg: kein Platzbein
       const [g_p, t_p] = bein(st, qPlatz, r.placed);
       const stp = qPlatz !== null ? st : 0;
@@ -753,7 +754,7 @@ function claudeAuswertung(pool, variant = 'level50', wettart = 'sieg', bank = 10
       if (r.nr === true || !_da(r.claude_fk)) continue;
       const e = claudeEinsatz(bank, r, variant, fest);
       if (e <= 0) continue;
-      const [a] = bein(e, r.claude_fk, r.won);
+      const [a] = bein(e, r.claude_fk, r.won, r.sieger_n);
       const b = r.toto_end > 1 ? rhu(r.won ? e * (r.toto_end - 1) : -e, 2) : a;
       const qP = wettart === 'ew' && _da(r.fk_platz) ? r.fk_platz : null, [gp] = bein(e, qP, r.placed);
       n += 1; siege += r.won ? 1 : 0; einsatz += e + (qP !== null ? e : 0); gFk += a + gp; gToto += b + gp;
