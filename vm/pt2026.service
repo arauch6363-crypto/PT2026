@@ -1,0 +1,9 @@
+[Unit]
+Description=PT2026 täglicher Lauf (Ergebnisse, Dashboard, Rennkarte, Festkurse)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/pt2026/vm/lauf.sh
+TimeoutStartSec=0

@@ -675,6 +675,10 @@ Holen der Ergebnisse (Abschnitt 2) bis zum Ende des Tages – Colab muss offen b
 **Rückfall:** `MODUS = 'manuell'` – dann baut Abschnitt 3 die Karte wie bisher, Festkurse von Hand mit
 `racecard.festkurse_aktualisieren(BASE)`.
 
+**Ohne Notebook (VM):** `python3 taeglich.py --base <PT_tracking>` ruft `tagesablauf.ergebnisse_holen` (dasselbe wie
+Abschnitt 2, dieselbe Stand-Datei) und danach `tagesablauf.morgen` auf; Protokoll in `logs/taeglich_JJJJMMTT.log`,
+Push-Nachrichten über ntfy (`NTFY_TOPIC`). Einrichtung der VM: `vm/README.md`.
+
 ## Durchgänge und Claude-Tipps (`durchgang.py`)
 
 Die geplante Aufgabe „Racecard-Durchgang“ (von Hand gestartet, sobald Festkurse auf der Karte stehen) geht mit dem

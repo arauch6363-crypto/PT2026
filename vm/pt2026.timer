@@ -1,0 +1,9 @@
+[Unit]
+Description=PT2026 täglich um 6:55 (Europe/Paris)
+
+[Timer]
+OnCalendar=*-*-* 06:55:00 Europe/Paris
+Persistent=true
+
+[Install]
+WantedBy=timers.target

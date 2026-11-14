@@ -84,6 +84,87 @@ def _jetzt() -> datetime:
     return datetime.now(PARIS)
 
 
+# --------------------------------------------------------------------------
+# Ergebnisse holen (wie Abschnitt 2 des Notebooks)
+# --------------------------------------------------------------------------
+STAND_DATEI = "notebook_stand.json"     # dieselbe Datei wie im Notebook: holt das eine, überspringt das andere
+
+
+def _neuester_tag(tage) -> date | None:
+    """Neuester Tag aus Schlüsseln im Format JJJJMMTT (andere Schlüssel werden ignoriert)."""
+    t = sorted(k for k in tage if isinstance(k, str) and len(k) == 8 and k.isdigit())
+    return datetime.strptime(t[-1], "%Y%m%d").date() if t else None
+
+
+def ergebnisse_holen(base, *, erstlauf_tage: int = 14, nachzuegler_tage: int = 0, nur_flach: bool = True,
+                     nur_gelaufen: bool = True, code_suche: bool = True, pause: float = 0.3, erzwingen: bool = False,
+                     log=print, _tp=None, _pb=None, _sz=None) -> dict:
+    """Fehlende Ergebnisse holen – einmal am Tag, genau wie Abschnitt 2 des Notebooks:
+    Tracking (pipeline.run), PMU-Basis (pmu_basis.run), danach Standardzeiten neu rechnen. Ausgangspunkt je Quelle ist
+    der neueste erledigte Tag, mindestens aber erstlauf_tage zurück. Nach Erfolg steht das Datum in
+    <BASE>/notebook_stand.json; läuft es am selben Tag noch einmal, wird übersprungen (erzwingen=True: trotzdem).
+    Rückgabe: {"uebersprungen": bool, "ok": bool, ...}."""
+    if _tp is None:
+        import pipeline as _tp
+    if _pb is None:
+        import pmu_basis as _pb
+    if _sz is None:
+        import standardzeiten as _sz
+    base = Path(base)
+    pdf_dir = base / "pdfs"
+    pdf_dir.mkdir(parents=True, exist_ok=True)
+    stand_datei = base / STAND_DATEI
+    heute = pmu.heute()
+    try:
+        stand = json.loads(stand_datei.read_text(encoding="utf-8")) if stand_datei.exists() else {}
+    except ValueError:
+        stand = {}
+    if stand.get("datum") == str(heute) and not erzwingen:
+        log(f"Heute ({heute}) schon aktualisiert um {stand.get('um', '?')} – Holen übersprungen.")
+        return {"uebersprungen": True, "ok": True, **stand}
+
+    def ab(tag) -> str:
+        frueh = heute - timedelta(days=erstlauf_tage)
+        return str(min(tag, frueh) if tag else frueh)
+
+    ergebnis = {"datum": str(heute), "um": datetime.now(PARIS).strftime("%H:%M")}
+    ok = True
+    try:                                                 # Tracking: offene Tage seit dem letzten Stand + Nachzügler
+        von_tp = ab(_neuester_tag(_tp.fortschritt(base)))
+        n_tage = (heute - date.fromisoformat(von_tp)).days + 1
+        log(f"— Tracking ab {von_tp} ({n_tage} Tage) —")
+        bericht = _tp.run(von_tp, None, base=base, pdf_dir=pdf_dir, max_tage=n_tage, nur_flach=nur_flach,
+                          nur_gelaufen=nur_gelaufen, nachzuegler_tage=nachzuegler_tage, code_suche=code_suche,
+                          pause=pause)
+        log(bericht.to_string() if hasattr(bericht, "to_string") else str(bericht))
+        ergebnis["tracking_ab"] = von_tp
+    except Exception as e:
+        ok = False
+        log(f"Tracking fehlgeschlagen: {type(e).__name__}: {e}")
+    try:                                                 # PMU-Basis: Rennen/Starter/Kommentare/Dividenden
+        von_pb = ab(_neuester_tag(_pb._fortschritt(base).get("erledigt", {})))
+        log(f"— PMU-Basis ab {von_pb} —")
+        stat = _pb.run(base, von_pb)
+        ergebnis["pmu_ab"] = von_pb
+        if (stat or {}).get("abgebrochen"):
+            ok = False
+    except Exception as e:
+        ok = False
+        log(f"PMU-Basis fehlgeschlagen: {type(e).__name__}: {e}")
+    try:                                                 # Standardzeiten mit den neuen Rennen (nichts herunterladen)
+        log("— Standardzeiten —")
+        _sz.run(base, "2019-01-01", sammeln_ok=False)
+    except Exception as e:
+        ok = False
+        log(f"Standardzeiten fehlgeschlagen: {type(e).__name__}: {e}")
+    if ok:
+        stand_datei.write_text(json.dumps(ergebnis, indent=1), encoding="utf-8")
+        log(f"Stand vermerkt: {ergebnis}")
+    else:
+        log("Nicht alles hat geklappt – Stand NICHT vermerkt, der nächste Lauf heute holt erneut.")
+    return {"uebersprungen": False, "ok": ok, **ergebnis}
+
+
 def _warten_bis(ziel: datetime, jetzt: Callable[[], datetime], schlafen: Callable[[float], None], log, was: str):
     s = (ziel - jetzt()).total_seconds()
     if s > 0:
@@ -130,6 +211,7 @@ def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool
         log(f"— Rennkarte: erstes Rennen {erstes}, Karte {KARTE_VORLAUF_MIN} min vorher —")
         _warten_bis(um(erstes) - timedelta(minutes=KARTE_VORLAUF_MIN), jetzt, schlafen, log, "Rennkarte")
         erg["karte"] = str(_racecard.run(base, tag, festkurse=False, uebersetzen_aktiv=False))
+        log(f"Rennkarte gebaut: {Path(erg['karte']).name}")
         daten = json.loads(sp.read_text(encoding="utf-8"))
         ohne = boden_annahme(daten)
         if ohne:
@@ -143,6 +225,7 @@ def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool
                 log(f"France Galop hat jetzt Boden für {', '.join(neu)} – Karte neu bauen.")
                 erg["karte"] = str(_racecard.run(base, tag, festkurse=False, uebersetzen_aktiv=False))
                 erg["boden_neu"] = True
+                log(f"Rennkarte neu gebaut (Boden): {Path(erg['karte']).name}")
             else:
                 log("Kein neuer Boden – Karte bleibt.")
 
