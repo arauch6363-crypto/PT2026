@@ -126,3 +126,83 @@ def test_kein_rennen(tmp_path):
     erg = ta.morgen(tmp_path, TAG, dashboard=False, jetzt=uhr.jetzt, schlafen=uhr.schlafen, log=lambda *a: None,
                     _racecard=k, _boden_fg=FG({}))
     assert erg["karte"] is None and not k.runs
+
+
+# ------------------------------------------------------------ Ergebnisse holen / taeglich.py
+
+class _TP:
+    def __init__(self, fehler=False):
+        self.aufrufe, self.fehler = [], fehler
+
+    def fortschritt(self, base):
+        return {"20261110": {}, "_meta": 1}
+
+    def run(self, von, bis, **kw):
+        if self.fehler:
+            raise ConnectionError("PMU weg")
+        self.aufrufe.append((von, kw["max_tage"]))
+        return pd.DataFrame({"tag": [von]})
+
+
+class _PB:
+    def __init__(self):
+        self.aufrufe = []
+
+    def _fortschritt(self, base):
+        return {"erledigt": {}}
+
+    def run(self, base, von):
+        self.aufrufe.append(von)
+        return {}
+
+
+class _SZ:
+    def __init__(self):
+        self.n = 0
+
+    def run(self, base, ab, sammeln_ok=True):
+        self.n += 1
+
+
+def test_ergebnisse_holen_einmal_am_tag(tmp_path, monkeypatch):
+    monkeypatch.setattr(ta.pmu, "heute", lambda: date(2026, 11, 15))
+    tp, pb, sz = _TP(), _PB(), _SZ()
+    e = ta.ergebnisse_holen(tmp_path, log=lambda *a: None, _tp=tp, _pb=pb, _sz=sz)
+    assert e["ok"] and not e["uebersprungen"]
+    assert tp.aufrufe == [("2026-11-01", 15)]                 # neuester Tag 10.11., aber mindestens 14 Tage zurück
+    assert pb.aufrufe == ["2026-11-01"] and sz.n == 1
+    assert json.loads((tmp_path / ta.STAND_DATEI).read_text())["datum"] == "2026-11-15"
+    e2 = ta.ergebnisse_holen(tmp_path, log=lambda *a: None, _tp=tp, _pb=pb, _sz=sz)
+    assert e2["uebersprungen"] and len(tp.aufrufe) == 1      # zweiter Lauf am selben Tag: übersprungen
+    ta.ergebnisse_holen(tmp_path, erzwingen=True, log=lambda *a: None, _tp=tp, _pb=pb, _sz=sz)
+    assert len(tp.aufrufe) == 2
+
+
+def test_ergebnisse_holen_fehler_ohne_stand(tmp_path, monkeypatch):
+    monkeypatch.setattr(ta.pmu, "heute", lambda: date(2026, 11, 15))
+    pb, sz = _PB(), _SZ()
+    e = ta.ergebnisse_holen(tmp_path, log=lambda *a: None, _tp=_TP(fehler=True), _pb=pb, _sz=sz)
+    assert not e["ok"] and pb.aufrufe and sz.n == 1          # die anderen Schritte laufen trotzdem
+    assert not (tmp_path / ta.STAND_DATEI).exists()          # Stand nicht vermerkt: nächster Lauf holt erneut
+
+
+def test_taeglich_protokoll_und_push(tmp_path, monkeypatch):
+    import taeglich
+    gesendet = []
+    monkeypatch.setenv("NTFY_TOPIC", "test-thema")
+    monkeypatch.setattr(taeglich.requests, "post", lambda url, data=None, **kw: gesendet.append((url, data.decode())))
+    monkeypatch.setattr(ta, "ergebnisse_holen", lambda base, **kw: {"ok": True})
+
+    def morgen(base, tag, log=print):
+        log("Rennkarte gebaut: racecard_20261115.html")
+        log("irgendwas Unwichtiges")
+        raise RuntimeError("kaputt")
+    monkeypatch.setattr(ta, "morgen", morgen)
+    rc = taeglich.main(["--base", str(tmp_path)])
+    assert rc == 1
+    log = next((tmp_path / "logs").glob("taeglich_*.log")).read_text()
+    assert "Rennkarte gebaut" in log and "Tagesablauf fehlgeschlagen: RuntimeError: kaputt" in log
+    texte = [t for _, t in gesendet]
+    assert all(u == "https://ntfy.sh/test-thema" for u, _ in gesendet)
+    assert any("Rennkarte gebaut" in t for t in texte) and any("fehlgeschlagen" in t for t in texte)
+    assert not any("Unwichtiges" in t for t in texte)
