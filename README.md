@@ -680,9 +680,10 @@ danach die Aufgabe „Racecard-Durchgang“ über ihren API-Trigger (experimente
 `POST https://api.anthropic.com/v1/claude_code/routines/<trig_…>/fire`) – für Rennen der heutigen Karte mit neuen
 Festkursen, die noch nicht gestartet und noch keinem Durchgang übergeben sind (`tagesablauf.durchgang_nach_festkursen`,
 Merker `racecards/.durchgang_ausgeloest_JJJJMMTT.json`; Araber zählen nicht). Ohne Festkurse kein Durchgang;
-abschalten mit `festkurse_aktualisieren(BASE, durchgang=False)`. Einrichten: auf claude.ai/code/routines die Aufgabe öffnen → Edit →
-Trigger **+** → **API** → **Generate token**, den Schlüssel (`sk-ant-oat01-…`, wird nur einmal angezeigt) in Colab als
-Secret `DURCHGANG_TOKEN` (Notebook-Zugriff an) bzw. auf der VM in `~/.pt2026.env` ablegen. Ohne Schlüssel: Meldung,
+abschalten mit `festkurse_aktualisieren(BASE, durchgang=False)`. Einrichten: auf claude.ai/code/routines eine Aufgabe mit Auslöser **API** anlegen (Text: siehe
+`claude_projekt/aufgabe_durchgang.md`) → **Generate token**; Schlüssel (`sk-ant-oat01-…`, wird nur einmal angezeigt)
+als Colab-Secret `DURCHGANG_TOKEN`, die ID aus der Fire-URL (`trig_…`) als `DURCHGANG_ID` (Notebook-Zugriff an) bzw.
+auf der VM beides in `~/.pt2026.env`. Ohne Schlüssel: Meldung,
 Durchgang von Hand starten. Grenzen: 30 Starts je Stunde und Aufgabe.
 
 **Ohne Notebook (VM):** `python3 taeglich.py --base <PT_tracking>` ruft `tagesablauf.ergebnisse_holen` (dasselbe wie
