@@ -3158,7 +3158,8 @@ def nichtstarter_nachtragen(daten: dict, runners_heute: pd.DataFrame) -> list[st
 
 
 def festkurse_aktualisieren(base: Path, tag=None, out: Path | None = None, *, festkurse=True,
-                            nur_fehlende: bool = True, nichtstarter: bool = True, claude: bool = True) -> Path:
+                            nur_fehlende: bool = True, nichtstarter: bool = True, claude: bool = True,
+                            durchgang: bool = True) -> Path:
     """Schneller zweiter Lauf: die von run() gespeicherten Kartendaten (racecard_JJJJMMTT_daten.json) laden, nur die
     Festkurse/Toto von Wettstar holen (festkurse: True, fertige Tabelle aus wettstar.festkurse, Pfad zur CSV aus
     dem Wettstar-Notebook oder False). nur_fehlende=True (Vorgabe): Rennen, die schon Festkurse Sieg haben, bleiben
@@ -3166,7 +3167,9 @@ def festkurse_aktualisieren(base: Path, tag=None, out: Path | None = None, *, fe
     spätere Veranstaltung oder spätere Rennen, die morgens noch keine Festkurse hatten). nur_fehlende=False: alle
     Kurse neu holen und überschreiben. Mit
     nichtstarter=True neue Nichtstarter aus dem PMU-Programm übernehmen, Value-Protokoll (Festkurs) nachziehen und
-    HTML sowie die Claude-JSONs neu schreiben – ohne Historie, Kennzahlen und Modell neu zu rechnen."""
+    HTML sowie die Claude-JSONs neu schreiben – ohne Historie, Kennzahlen und Modell neu zu rechnen.
+    durchgang=True: danach die Aufgabe „Racecard-Durchgang“ (Claude-Tipps) für Rennen mit neuen Festkursen per
+    API-Trigger starten (tagesablauf.durchgang_nach_festkursen; Schlüssel DURCHGANG_TOKEN, sonst nur Meldung)."""
     base = Path(base)
     tag = pd.to_datetime(tag).date() if tag else pmu.heute()
     out = Path(out) if out else base / "racecards" / f"racecard_{tag:%Y%m%d}.html"
@@ -3216,6 +3219,14 @@ def festkurse_aktualisieren(base: Path, tag=None, out: Path | None = None, *, fe
             print(f"Value-Protokoll nicht geschrieben: {e}")
     sp.write_text(json.dumps(daten, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     _ausgeben(daten, out, claude)
+    if durchgang:                                        # Claude-Tipps für Rennen mit neuen Festkursen starten
+        try:
+            import tagesablauf
+            neu = tagesablauf.durchgang_nach_festkursen(base, tag, daten)
+            if neu:
+                print(f"Durchgang gestartet für {len(neu)} Rennen.")
+        except Exception as e:                           # darf die Karte nie verhindern
+            print(f"Durchgang nicht ausgelöst: {type(e).__name__}: {e}")
     return out
 
 

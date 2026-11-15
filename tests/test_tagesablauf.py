@@ -206,3 +206,55 @@ def test_taeglich_protokoll_und_push(tmp_path, monkeypatch):
     assert all(u == "https://ntfy.sh/test-thema" for u, _ in gesendet)
     assert any("Rennkarte gebaut" in t for t in texte) and any("fehlgeschlagen" in t for t in texte)
     assert not any("Unwichtiges" in t for t in texte)
+
+
+class _Antwort:
+    def __init__(self, code=200):
+        self.status_code, self.text = code, "x"
+
+    def json(self):
+        return {"claude_code_session_url": "https://claude.ai/code/session_x"}
+
+
+def test_durchgang_nach_festkursen(tmp_path, monkeypatch):
+    monkeypatch.setenv("DURCHGANG_TOKEN", "sk-ant-oat01-test")
+    aufrufe = []
+
+    def post(url, headers=None, json=None, timeout=None):
+        aufrufe.append((url, headers, json["text"]))
+        return _Antwort()
+    races = {r["race_id"]: r for r in [_r("20261115R1C1", 1, "13:00", fk=5.0), _r("20261115R1C2", 1, "13:30"),
+                                       _r("20261115R1C3", 1, "14:00", fk=4.0, name="PRIX DES PUR-SANG ARABES"),
+                                       _r("20261115R2C1", 2, "11:00", fk=3.0, course="LYON")]}
+    daten = {"races": races}
+    neu = ta.durchgang_nach_festkursen(tmp_path, TAG, daten, "12:00", log=lambda *a: None, _post=post)
+    assert neu == ["20261115R1C1"]                     # ohne Festkurs, Araber, schon gestartet: nicht
+    url, h, text = aufrufe[0]
+    assert url == "https://api.anthropic.com/v1/claude_code/routines/trig_011HuZ9ou97Qjj19zaaDcJ2Z/fire"
+    assert h["Authorization"] == "Bearer sk-ant-oat01-test" and "R1C1" in text
+    assert ta.durchgang_nach_festkursen(tmp_path, TAG, daten, "12:05", log=lambda *a: None, _post=post) == []
+    races["20261115R1C2"]["runners"][0]["fk"] = {"sieg": 6.0}   # zweite Etappe: neue Festkurse -> neuer Start
+    assert ta.durchgang_nach_festkursen(tmp_path, TAG, daten, "12:30", log=lambda *a: None, _post=post) == ["20261115R1C2"]
+    assert len(aufrufe) == 2
+    # Fehler beim Start: kein Merker, der nächste Aufruf versucht es erneut
+    races["20261115R2C1"]["time"] = "18:00"
+    assert ta.durchgang_nach_festkursen(tmp_path, TAG, daten, "12:40", log=lambda *a: None,
+                                        _post=lambda *a, **k: _Antwort(500)) == []
+    assert ta.durchgang_nach_festkursen(tmp_path, TAG, daten, "12:45", log=lambda *a: None, _post=post) == ["20261115R2C1"]
+
+
+def test_durchgang_ohne_token_oder_fehler(monkeypatch):
+    monkeypatch.delenv("DURCHGANG_TOKEN", raising=False)
+    meld = []
+    assert ta.durchgang_ausloesen("x", log=meld.append, _post=lambda *a, **k: _Antwort()) is False
+    assert "kein DURCHGANG_TOKEN" in meld[-1]
+    monkeypatch.setenv("DURCHGANG_TOKEN", "t")
+    assert ta.durchgang_ausloesen("x", log=meld.append, _post=lambda *a, **k: _Antwort(401)) is False
+    assert "HTTP 401" in meld[-1]
+
+
+def test_durchgang_nur_fuer_heute(tmp_path, monkeypatch):
+    monkeypatch.setenv("DURCHGANG_TOKEN", "t")
+    daten = {"races": {"20200101R1C1": _r("20200101R1C1", 1, "23:59", fk=5.0)}}
+    assert ta.durchgang_nach_festkursen(tmp_path, date(2020, 1, 1), daten, log=lambda *a: None,
+                                        _post=lambda *a, **k: _Antwort()) == []
