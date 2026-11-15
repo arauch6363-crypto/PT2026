@@ -18,6 +18,12 @@ Ablauf (Zeiten französisch):
    gestartet sind, gehen per API-Trigger an die Aufgabe „Racecard-Durchgang“ (durchgang_nach_festkursen) – auch wenn
    die Festkurse von Hand geholt werden.
 
+Pause (VM): Mit pause=… gibt morgen() den Tag ab, wenn bis zum nächsten Schritt (Karte oder Festkurse einer späteren
+Veranstaltung) mehr als PAUSE_AB_MIN Minuten Leerlauf sind: pause(weckzeit) plant das Wecken (WECK_VORLAUF_MIN vor
+dem Schritt) und gibt True zurück, morgen() endet mit erg["pause"]; die Maschine geht aus. Nach dem Wecken setzt ein
+neuer Lauf mit karte=False (Kartendaten des Tages schon da) bzw. dashboard=False fort. Klappt das Planen nicht
+(False), wird wie bisher gewartet.
+
 Der bisherige Ablauf im Notebook (Rennkarte von Hand, festkurse_aktualisieren von Hand) bleibt als Rückfall erhalten.
 """
 from __future__ import annotations
@@ -34,6 +40,8 @@ import pmu
 KARTE_VORLAUF_MIN = 90      # Rennkarte so viele Minuten vor dem ersten Rennen des Tages bauen
 FK_VORLAUF_MIN = 50         # Festkurse je Veranstaltung ab so vielen Minuten vor ihrem ersten Rennen abfragen
 FK_TAKT_MIN = 5             # … alle so viele Minuten
+PAUSE_AB_MIN = 60           # mit pause=…: Leerlauf ab so vielen Minuten -> Maschine aus, statt zu warten
+WECK_VORLAUF_MIN = 10       # … und so viele Minuten vor dem nächsten Schritt wieder wecken (Hochfahren, Drive)
 DURCHGANG_ID = "trig_018LVkAy3xCAZHjqQUB9AcDu"   # Aufgabe „Racecard-Durchgang API“ (Claude), per API gestartet
 DURCHGANG_URL = "https://api.anthropic.com/v1/claude_code/routines/{id}/fire"
 PARIS = pmu.PARIS
@@ -250,11 +258,29 @@ def _warten_bis(ziel: datetime, jetzt: Callable[[], datetime], schlafen: Callabl
                 log(f"  … noch {s / 60:.0f} min bis {was}")
 
 
+def _pausieren(ziel: datetime, jetzt: Callable[[], datetime], pause, log, was: str) -> datetime | None:
+    """Lange Leerlaufzeit bis ziel: pause(weckzeit) aufrufen; Weckzeit, wenn die Maschine ausgehen darf, sonst None."""
+    if pause is None or (ziel - jetzt()).total_seconds() <= PAUSE_AB_MIN * 60:
+        return None
+    weck = ziel - timedelta(minutes=WECK_VORLAUF_MIN)
+    try:
+        ok = pause(weck)
+    except Exception as e:
+        log(f"Wecken nicht geplant ({type(e).__name__}: {e}) – warte stattdessen.")
+        ok = False
+    if not ok:
+        return None
+    log(f"Pause bis {weck:%H:%M} ({was} um {ziel:%H:%M}) – Maschine geht aus.")
+    return weck
+
+
 def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool = True, festkurse: bool = True,
+           pause: Callable[[datetime], bool] | None = None,
            jetzt: Callable[[], datetime] = _jetzt, schlafen: Callable[[float], None] = time.sleep,
            log=print, _racecard=None, _value_bets=None, _boden_fg=None) -> dict:
-    """Tagesablauf (siehe Modulbeschreibung). Rückgabe: Zusammenfassung {karte, boden_neu, festkurse: {Rx: Status}}.
-    Die Claude-Tipps startet racecard.festkurse_aktualisieren selbst (durchgang_nach_festkursen).
+    """Tagesablauf (siehe Modulbeschreibung). Rückgabe: Zusammenfassung {karte, boden_neu, festkurse: {Rx: Status},
+    pause: Weckzeit ISO oder None}. Die Claude-Tipps startet racecard.festkurse_aktualisieren selbst
+    (durchgang_nach_festkursen). pause: siehe Modulbeschreibung (VM).
     jetzt/schlafen/_racecard/_value_bets/_boden_fg sind nur für Tests austauschbar."""
     if _racecard is None:
         import racecard as _racecard
@@ -264,7 +290,7 @@ def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool
         import boden_fg as _boden_fg
     base = Path(base)
     tag = tag or jetzt().date()
-    erg: dict = {"tag": str(tag), "karte": None, "boden_neu": False, "festkurse": {}}
+    erg: dict = {"tag": str(tag), "karte": None, "boden_neu": False, "festkurse": {}, "pause": None}
     tz = jetzt().tzinfo or PARIS
     um = lambda hhmm: datetime.combine(tag, datetime.min.time(), tz) + timedelta(minutes=_hm(hhmm))
 
@@ -284,7 +310,12 @@ def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool
             log(f"Keine französischen Flachrennen am {tag} – nichts zu tun.")
             return erg
         log(f"— Rennkarte: erstes Rennen {erstes}, Karte {KARTE_VORLAUF_MIN} min vorher —")
-        _warten_bis(um(erstes) - timedelta(minutes=KARTE_VORLAUF_MIN), jetzt, schlafen, log, "Rennkarte")
+        ziel = um(erstes) - timedelta(minutes=KARTE_VORLAUF_MIN)
+        weck = _pausieren(ziel, jetzt, pause, log, "Rennkarte")
+        if weck:
+            erg["pause"] = weck.isoformat()
+            return erg
+        _warten_bis(ziel, jetzt, schlafen, log, "Rennkarte")
         erg["karte"] = str(_racecard.run(base, tag, festkurse=False, uebersetzen_aktiv=False))
         log(f"Rennkarte gebaut: {Path(erg['karte']).name}")
         daten = json.loads(sp.read_text(encoding="utf-8"))
@@ -339,8 +370,12 @@ def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool
                 continue
             schlafen(FK_TAKT_MIN * 60)
         else:
-            naechste = min(_hm(v["erstes"]) - FK_VORLAUF_MIN for v in offen.values())
-            _warten_bis(um(_uhr(naechste)), jetzt, schlafen, log, "Festkurse")
+            naechste = um(_uhr(min(_hm(v["erstes"]) - FK_VORLAUF_MIN for v in offen.values())))
+            weck = _pausieren(naechste, jetzt, pause, log, "Festkurse")
+            if weck:
+                erg["pause"] = weck.isoformat()
+                return erg
+            _warten_bis(naechste, jetzt, schlafen, log, "Festkurse")
     for k, s in erg["festkurse"].items():
         log(f"{k} {alle.get(k, {}).get('bahn', '')}: {s}")
     log("Tagesablauf fertig.")

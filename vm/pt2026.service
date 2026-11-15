@@ -1,5 +1,5 @@
 [Unit]
-Description=PT2026 täglicher Lauf (Ergebnisse, Dashboard, Rennkarte, Festkurse)
+Description=PT2026 Tageslauf (Ergebnisse, Dashboard, Rennkarte, Festkurse)
 After=network-online.target
 Wants=network-online.target
 
@@ -7,3 +7,7 @@ Wants=network-online.target
 Type=simple
 ExecStart=%h/pt2026/vm/lauf.sh
 TimeoutStartSec=0
+
+[Install]
+# Mit Pausen (Maschine wird vom Cloud Scheduler gestartet): bei jedem Hochfahren laufen.
+WantedBy=default.target

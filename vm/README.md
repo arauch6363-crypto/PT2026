@@ -1,7 +1,8 @@
 # PT2026 auf einer VM (Google Compute Engine)
 
 Ziel: Der Tagesablauf (Ergebnisse, Dashboard, Rennkarte 90 min vor dem ersten Rennen, Festkurse je Reunion) läuft
-jeden Morgen ohne Colab. Daten bleiben in Google Drive (`PT_tracking`), die VM bindet den Ordner über rclone ein.
+jeden Morgen ohne Colab. Die Maschine läuft nur, wenn etwas zu tun ist: morgens kurz (Ergebnisse, Dashboard), dann
+wieder ab kurz vor der Karte bis alle Veranstaltungen Festkurse haben; dazwischen ist sie aus (Schritt 6). Daten bleiben in Google Drive (`PT_tracking`), die VM bindet den Ordner über rclone ein.
 Colab bleibt der Rückfall (`MODUS = 'manuell'` bzw. `'automatik'` im Notebook).
 
 ## 1 · VM anlegen (einmal, in der Google Cloud Console oder Cloud Shell)
@@ -10,15 +11,16 @@ Projekt mit Abrechnung wählen, dann in der Cloud Shell:
 
 ```bash
 gcloud compute instances create pt2026 --zone europe-west3-b --machine-type e2-standard-2 \
-  --image-family debian-12 --image-project debian-cloud --boot-disk-size 40GB
+  --image-family debian-12 --image-project debian-cloud --boot-disk-size 40GB --scopes cloud-platform
 ```
+
+(`--scopes cloud-platform`: die VM darf damit ihren Weck-Job im Cloud Scheduler umstellen, Schritt 6.)
 
 Frankfurt (`europe-west3`), damit Wettstar eine deutsche Adresse sieht. 2 vCPU / 8 GB reichen für die Karte
 (Training bleibt in Colab).
 
-**Kosten sparen:** Compute Engine → Instanzzeitpläne → Zeitplan „Start 6:45, Stopp 20:00, Europe/Paris“ anlegen und
-der VM zuweisen (das Dienstkonto „Compute Engine Service Agent“ braucht dafür die Rolle *Compute Instance Admin*;
-die Console bietet das beim Anlegen an).
+Kosten: die VM kostet nur, solange sie läuft (Speicher ein paar Euro im Monat zusätzlich); Schritt 6 schaltet sie
+zwischendurch und am Ende des Tages ab.
 
 ## 2 · Einrichten (einmal)
 
@@ -67,22 +69,55 @@ Gemeldet werden: Rennkarte gebaut, Festkurse je Reunion, Boden nur angenommen, F
 **Claude-Tipps starten:** den Schlüssel des API-Triggers der Aufgabe „Racecard-Durchgang“ (siehe Haupt-README) ebenfalls
 dort eintragen: `echo 'DURCHGANG_TOKEN=sk-ant-oat01-…' >> ~/.pt2026.env` und `echo 'DURCHGANG_ID=trig_…' >> ~/.pt2026.env` (nur für dich lesbar: `chmod 600 ~/.pt2026.env`).
 
-## 6 · Zeitplan einschalten
+## 6 · Zeitplan: Maschine nur bei Bedarf an
+
+Zwei Jobs im Cloud Scheduler starten die VM: **pt2026-morgen** jeden Tag um 6:45, **pt2026-wecken** stellt die VM
+selbst jeden Tag auf die nächste Weckzeit (10 min vor der Karte bzw. vor den Festkursen einer späten Veranstaltung).
+Nach jedem Lauf fährt sie herunter. In der **Cloud Shell** (nicht auf der VM):
 
 ```bash
-mkdir -p ~/.config/systemd/user
-cp ~/pt2026/vm/pt2026.service ~/pt2026/vm/pt2026.timer ~/.config/systemd/user/
-sudo loginctl enable-linger $USER          # Nutzer-Timer laufen auch ohne Anmeldung
-systemctl --user daemon-reload && systemctl --user enable --now pt2026.timer
-systemctl --user list-timers               # nächster Lauf 06:55
+P=$(gcloud config get-value project); Z=europe-west3-b; R=europe-west3
+gcloud services enable cloudscheduler.googleapis.com
+gcloud iam service-accounts create pt2026-wecker --display-name "PT2026 VM starten"
+W=pt2026-wecker@$P.iam.gserviceaccount.com
+gcloud projects add-iam-policy-binding $P --member serviceAccount:$W --role roles/compute.instanceAdmin.v1
+URL=https://compute.googleapis.com/compute/v1/projects/$P/zones/$Z/instances/pt2026/start
+gcloud scheduler jobs create http pt2026-morgen --location $R --schedule "45 6 * * *" --time-zone Europe/Paris \
+  --http-method POST --uri $URL --oauth-service-account-email $W
+gcloud scheduler jobs create http pt2026-wecken --location $R --schedule "0 0 1 1 *" --time-zone Europe/Paris \
+  --http-method POST --uri $URL --oauth-service-account-email $W
+# die VM (ihr Standard-Dienstkonto) darf den Weck-Job umstellen:
+V=$(gcloud compute instances describe pt2026 --zone $Z --format 'value(serviceAccounts[0].email)')
+gcloud projects add-iam-policy-binding $P --member serviceAccount:$V --role roles/cloudscheduler.admin
+gcloud iam service-accounts add-iam-policy-binding $W --member serviceAccount:$V --role roles/iam.serviceAccountUser
 ```
 
-Ein Lauf von Hand (z. B. zum Test): `systemctl --user start pt2026` · Ausgabe live:
+Auf der **VM**:
+
+```bash
+echo 'PT2026_PAUSEN=1' >> ~/.pt2026.env
+mkdir -p ~/.config/systemd/user
+cp ~/pt2026/vm/pt2026.service ~/.config/systemd/user/
+sudo loginctl enable-linger $USER          # Nutzer-Dienste starten beim Hochfahren auch ohne Anmeldung
+systemctl --user daemon-reload && systemctl --user enable pt2026.service
+```
+
+Ab dann: Hochfahren → `vm/lauf.sh` → `taeglich.py --pausen` → Pause geplant oder Tag fertig → Drive-Uploads abwarten →
+herunterfahren. Ergebnisse und Dashboard laufen nur im ersten Lauf des Tages (Stand `logs/.tag_JJJJMMTT.json`), die
+Karte nur, solange es ihre Daten noch nicht gibt.
+
+**Zum Arbeiten auf der VM** (sonst fährt sie nach dem Lauf herunter): `touch ~/.nicht_abschalten`, danach wieder
+`rm ~/.nicht_abschalten`. Ein Lauf von Hand: `systemctl --user start pt2026` · Ausgabe live:
 `journalctl --user -u pt2026 -f` · Protokoll je Tag: `PT_tracking/logs/taeglich_JJJJMMTT.log` (auch in Drive).
+Schlägt das Umstellen des Weck-Jobs fehl, meldet das Protokoll/ntfy „Wecken nicht geplant“ und die VM wartet wie früher
+(bleibt an).
+
+Ohne Pausen (VM immer an, z. B. mit Instanzzeitplan): statt der Schritte auf der VM `pt2026.timer` mitkopieren und
+`systemctl --user enable --now pt2026.timer` (Lauf täglich 6:55), `PT2026_PAUSEN` nicht setzen.
 
 ## Ablauf je Tag
 
-`vm/lauf.sh` (6:55): `git pull`, Drive einbinden (rclone mount mit lokalem Cache), dann `taeglich.py`:
+`vm/lauf.sh` (beim Hochfahren): `git pull`, Drive einbinden (rclone mount mit lokalem Cache), dann `taeglich.py`:
 `tagesablauf.ergebnisse_holen` (wie Notebook Abschnitt 2, gleiche Stand-Datei – Colab überspringt danach) und
 `tagesablauf.morgen` (wie Abschnitt 3a). Das Notebook bleibt unverändert nutzbar; läuft beides am selben Tag,
 holt nur das erste die Ergebnisse.
