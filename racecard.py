@@ -1320,14 +1320,22 @@ def programm(tag: date, session: requests.Session | None = None, *, nur_flach: b
     return pd.DataFrame(races), pd.DataFrame(runners)
 
 
+def _nicht_vollblut_rennen(r) -> bool:
+    """Rennen für Araber/Anglo-Araber/AQPS laut Ausschreibung, Kategorie oder Name (wie im Dashboard)."""
+    from value_bets import ist_nicht_vollblut
+    g = r.get if hasattr(r, "get") else (lambda k: None)
+    return bool(ist_nicht_vollblut(g("conditions"), g("c_conditions"), g("categorie"), g("race_name")))
+
+
 def bahnart_nachladen(races: list[dict], tag: date, s: requests.Session, *, pause: float = 0.3) -> list[dict]:
     """Bahnart (typePiste) und fehlenden Parcours aus der Detailseite jedes Rennens ergänzen – das Tagesprogramm
     liefert sie nicht, pmu_basis (Historie) holt sie dort. Ohne sie passt der Konfigurationsschlüssel
-    (Startbox, Standardzeiten) nicht zur Historie. Nicht erreichbar: Feld bleibt leer (Rückfall in baue_daten)."""
+    (Startbox, Standardzeiten) nicht zur Historie. Nicht erreichbar: Feld bleibt leer (Rückfall in baue_daten).
+    Dazu die Ausschreibung (conditions): an ihr erkennt die Karte Rennen für Araber/AQPS (nicht_vollblut)."""
     import pmu_basis
     d = tag.strftime("%d%m%Y")
     for z in races:
-        if z.get("track_type"):
+        if z.get("track_type") and z.get("conditions"):
             continue
         try:
             det = pmu_basis._hole(s, pmu_basis.RACE_PFAD.format(d=d, r=z["reunion"], c=z["race_no"])) or {}
@@ -1335,6 +1343,7 @@ def bahnart_nachladen(races: list[dict], tag: date, s: requests.Session, *, paus
             det = {}
         if isinstance(det, dict):
             z["track_type"] = det.get("typePiste") or z.get("track_type")
+            z["conditions"] = det.get("conditions") or z.get("conditions")
             if not z.get("parcours") and det.get("parcours"):
                 z["parcours"] = det["parcours"]
         time.sleep(pause)
@@ -2870,6 +2879,7 @@ def baue_daten(hist: pd.DataFrame, races_heute: pd.DataFrame, runners_heute: pd.
             "age": _txt(r.get("conditions_age")), "sex": _txt(r.get("conditions_sexe")),
             "corde": _txt(r.get("corde")), "konfig": _txt(konfig_heute), "declared": _num(r.get("runners_declared"), 0),
             "status": _txt(r.get("statut")), "result": _txt(r.get("finish_order")),
+            "nicht_vollblut": _nicht_vollblut_rennen(r),
             "runners": starters,
             "class": klasse,
             "prono": prono_r,
@@ -3125,7 +3135,7 @@ def _ausgeben(daten: dict, out: Path, claude: bool = True) -> None:
         cj = claude_export.schreiben(daten, out.with_name(out.stem + "_claude.json"), blind=CLAUDE_BLIND)
         if CLAUDE_BLIND:
             print(f"Claude-Version (blind): {cj}  ({cj.stat().st_size / 1e6:.1f} MB)")
-        print(f"Claude-Version (Markt): {claude_export.markt_pfad(cj)}")
+        print(f"Claude-Version (Markt): {claude_export.markt_pfad(cj) if CLAUDE_BLIND else cj}")
 
 
 def nichtstarter_nachtragen(daten: dict, runners_heute: pd.DataFrame) -> list[str]:

@@ -98,11 +98,16 @@ PY
 ## 6. Markierte Karte veröffentlichen
 
 - `python3 -I /home/claude/pt2026/durchgang.py markieren /home/claude/rd/racecard_JJJJMMTT.html /home/claude/rd/racecard_heute.html --template /home/claude/pt2026/racecard_template.html /home/claude/rd/durchgang_JJJJMMTT_*.json`.
-- Artefakt-Tools laden (ToolSearch `select:mcp__claude-artifacts__get_artifact,mcp__claude-artifacts__list_files,mcp__claude-artifacts__publish_files`;
-  fehlen sie, mit ToolSearch „artifact publish“ suchen). get_artifact und list_files für den slug, dann publish_files
-  mit slug, base_version, mode "patch", files `[{"as": "index.html", "path": "/home/claude/rd/racecard_heute.html"}]`
-  (title und icon weglassen; shared_live nur angeben, wenn get_artifact read ≠ owner meldet). Bei Konflikt einmal neu
-  lesen und wiederholen. Gibt es keine Artefakt-Tools: diesen Schritt überspringen und das im Ergebnis sagen.
+- Veröffentlichen mit dem eingebauten **Artifact**-Tool: zuerst `action: "read"` mit
+  `url: https://claude.ai/code/artifact/9f164b63-af54-4a00-909d-49a365241220` (klappt das nicht:
+  `https://claude.ai/artifact/9f164b63-af54-4a00-909d-49a365241220`), dann `action: "publish"` mit derselben `url` und
+  `file_path: /home/claude/rd/racecard_heute.html` (kein icon, keine capabilities). Bei Konflikt einmal neu lesen und
+  wiederholen. Nur wenn das Artifact-Tool fehlt: ToolSearch `select:mcp__claude-artifacts__get_artifact,mcp__claude-artifacts__list_files,mcp__claude-artifacts__publish_files`,
+  get_artifact und list_files für den slug, dann publish_files mit slug, base_version, mode "patch", files
+  `[{"as": "index.html", "path": "/home/claude/rd/racecard_heute.html"}]`. Gibt es beides nicht: diesen Schritt
+  überspringen und das im Ergebnis sagen.
+- Hat dieser Durchgang keine neuen Tipps und unterscheidet sich die Karte inhaltlich nicht von der veröffentlichten,
+  darf das Veröffentlichen entfallen (im Ergebnis sagen).
 
 ## 7. Ergebnis (kurz, im Chat)
 

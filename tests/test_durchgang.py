@@ -203,3 +203,14 @@ def test_claude_strategie_js_gleich_python(tmp_path):
     # ohne Claude-Strategie unverändert: Kandidaten mit gefallenem Kurs zählen nicht als Value-Wetten
     ohne = vb.simulate(pool, vb.FilterConfig(minw=0, mode="none"), vb.StakingConfig("level10"))
     assert ohne.bets_df["wert"].min() > 0
+
+
+def test_araber_ueber_ausschreibung():
+    import pandas as pd
+    import racecard
+    r = pd.Series({"race_name": "PRIX DE LA GARONNE", "categorie": "COURSE_A_CONDITIONS",
+                   "conditions": "Pour chevaux de 4 ans et au-dessus de pur sang arabe, inscrits au Stud-Book arabe."})
+    assert racecard._nicht_vollblut_rennen(r)
+    assert not racecard._nicht_vollblut_rennen(pd.Series({"race_name": "PRIX X", "conditions": "Pour tous chevaux de 3 ans."}))
+    assert dg.ist_araber({"name": "PRIX DE LA GARONNE", "nicht_vollblut": True})
+    assert not dg.ist_araber({"name": "PRIX DE LA GARONNE", "nicht_vollblut": False})
