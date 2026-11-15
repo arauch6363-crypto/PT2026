@@ -899,6 +899,8 @@ und werden mit Python geparst.
   neuer Abschnitt. Nach jeder Anpassung wird konsolidiert: Doppeltes zusammenführen und Erklärungen kürzen, die die
   Claude-JSON schon vorrechnet. Der Umfang soll nicht wachsen (Stand 11.10.2026: rund 59.200 Zeichen).
 
+**Seit 11/2026 nur noch die Marktdatei:** Die blinde `racecard_JJJJMMTT_claude.json` (alter Skill `rennkarten-durchgang`) entsteht nicht mehr (`racecard.CLAUDE_BLIND = False`, einschalten mit `True`); der Durchgang liest die HTML-Karte. `tipp_auswertung` und Hypothese H5 lesen Rennart/Ränge aus der Marktdatei bzw. den Kartendaten `racecard_JJJJMMTT_daten.json`.
+
 **Claude-Version der Karte** (`claude_export.py`): Neben `racecard_JJJJMMTT.html` schreibt `racecard.run` zwei
 Dateien (abschalten mit `claude=False`), passend zu den zwei Teilen des Skills:
 
