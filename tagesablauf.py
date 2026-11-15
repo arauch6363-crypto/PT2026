@@ -101,7 +101,11 @@ def durchgang_ausloesen(text: str, log=print, _post=None) -> bool:
     if _post is None:
         import requests
         _post = requests.post
-    url = DURCHGANG_URL.format(id=os.getenv("DURCHGANG_ID", "").strip() or DURCHGANG_ID)
+    tid = os.getenv("DURCHGANG_ID", "").strip() or DURCHGANG_ID
+    if not tid:
+        log("Durchgang nicht ausgelöst: keine Aufgaben-ID (DURCHGANG_ID) – bitte von Hand starten.")
+        return False
+    url = DURCHGANG_URL.format(id=tid)
     try:
         r = _post(url, headers={"Authorization": f"Bearer {token}", "anthropic-version": "2026-10-21",
                                 "Content-Type": "application/json"}, json={"text": text[:2000]}, timeout=30)
