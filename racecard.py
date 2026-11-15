@@ -3125,7 +3125,7 @@ def _ausgeben(daten: dict, out: Path, claude: bool = True) -> None:
         cj = claude_export.schreiben(daten, out.with_name(out.stem + "_claude.json"), blind=CLAUDE_BLIND)
         if CLAUDE_BLIND:
             print(f"Claude-Version (blind): {cj}  ({cj.stat().st_size / 1e6:.1f} MB)")
-        print(f"Claude-Version (Markt): {claude_export.markt_pfad(cj)}")
+        print(f"Claude-Version (Markt): {claude_export.markt_pfad(cj) if CLAUDE_BLIND else cj}")
 
 
 def nichtstarter_nachtragen(daten: dict, runners_heute: pd.DataFrame) -> list[str]:
