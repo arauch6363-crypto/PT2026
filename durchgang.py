@@ -72,6 +72,9 @@ def kandidaten(r: dict) -> list[int]:
 
 
 def ist_araber(r: dict) -> bool:
+    """Kein Vollblutrennen: Kennzeichen der Karte (nicht_vollblut, aus der PMU-Ausschreibung) oder Name/Art/Alter."""
+    if r.get("nicht_vollblut"):
+        return True
     t = " ".join(str(r.get(k) or "") for k in ("name", "type", "age")).upper()
     return "ARABE" in t or "ARABIAN" in t or "AQPS" in t or "A.Q.P.S" in t
 
