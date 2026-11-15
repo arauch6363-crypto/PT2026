@@ -193,7 +193,7 @@ def test_taeglich_protokoll_und_push(tmp_path, monkeypatch):
     monkeypatch.setattr(taeglich.requests, "post", lambda url, data=None, **kw: gesendet.append((url, data.decode())))
     monkeypatch.setattr(ta, "ergebnisse_holen", lambda base, **kw: {"ok": True})
 
-    def morgen(base, tag, log=print):
+    def morgen(base, tag, log=print, **kw):
         log("Rennkarte gebaut: racecard_20261115.html")
         log("irgendwas Unwichtiges")
         raise RuntimeError("kaputt")
@@ -258,3 +258,70 @@ def test_durchgang_nur_fuer_heute(tmp_path, monkeypatch):
     daten = {"races": {"20200101R1C1": _r("20200101R1C1", 1, "23:59", fk=5.0)}}
     assert ta.durchgang_nach_festkursen(tmp_path, date(2020, 1, 1), daten, log=lambda *a: None,
                                         _post=lambda *a, **k: _Antwort()) == []
+
+
+def test_pause_vor_karte_und_zwischen_veranstaltungen(tmp_path):
+    """VM-Modus: langer Leerlauf -> Wecken planen und enden; der nächste Lauf setzt mit karte=False fort."""
+    rennen = [_r("20261115R1C1", 1, "13:00"), _r("20261115R2C1", 2, "19:00", course="LYON")]
+    geweckt = []
+    uhr = Uhr("06:50")
+    k, d = Karte(tmp_path, uhr, rennen, {"R1": "12:20", "R2": "18:20"}), Dash()
+    lauf = lambda **kw: ta.morgen(tmp_path, TAG, jetzt=uhr.jetzt, schlafen=uhr.schlafen, log=lambda *a: None,
+                                  pause=lambda z: geweckt.append(z.strftime("%H:%M")) or True,
+                                  _racecard=k, _value_bets=d, _boden_fg=FG({}), **kw)
+    erg = lauf()
+    assert d.n == 1 and not k.runs and geweckt == ["11:20"]      # Karte 11:30, 10 min vorher wecken
+    assert erg["pause"] and not uhr.schlaf                       # nicht gewartet
+    uhr.t = uhr.t.replace(hour=11, minute=21)                    # nach dem Wecken: Karte bauen, R1-Festkurse
+    erg = lauf(dashboard=False)
+    assert d.n == 1 and k.runs == ["11:30"] and geweckt[-1] == "18:00"   # R2-Festkurse ab 18:10
+    assert erg["festkurse"] == {"R1": "da"} and erg["pause"]
+    uhr.t = uhr.t.replace(hour=18, minute=1)
+    erg = lauf(dashboard=False, karte=False)
+    assert k.runs == ["11:30"] and erg["festkurse"] == {"R1": "da", "R2": "da"} and not erg["pause"]
+
+
+def test_pause_kurz_oder_nicht_geplant_wartet(tmp_path):
+    uhr = Uhr("11:00")                                           # Karte 11:30: nur 30 min -> warten
+    k = Karte(tmp_path, uhr, [_r("20261115R1C1", 1, "13:00")], {"R1": "12:20"})
+    erg = ta.morgen(tmp_path, TAG, dashboard=False, jetzt=uhr.jetzt, schlafen=uhr.schlafen, log=lambda *a: None,
+                    pause=lambda z: 1 / 0, _racecard=k, _boden_fg=FG({}))
+    assert k.runs == ["11:30"] and not erg["pause"]
+    uhr2 = Uhr("07:00")                                          # Planen schlägt fehl -> wie bisher warten
+    k2 = Karte(tmp_path / "b", uhr2, [_r("20261115R1C1", 1, "13:00")], {"R1": "12:20"})
+    erg = ta.morgen(tmp_path / "b", TAG, dashboard=False, jetzt=uhr2.jetzt, schlafen=uhr2.schlafen,
+                    log=lambda *a: None, pause=lambda z: False, _racecard=k2, _boden_fg=FG({}))
+    assert k2.runs == ["11:30"] and not erg["pause"] and erg["festkurse"] == {"R1": "da"}
+
+
+def test_wecken_planen_gcloud(monkeypatch):
+    import types
+    import taeglich
+    aufrufe = []
+    monkeypatch.setenv("PT2026_WECKJOB", "mein-job")
+    ok = taeglich.wecken_planen(datetime(2026, 11, 15, 11, 20, tzinfo=PARIS), log=lambda *a: None,
+                                _run=lambda cmd, **kw: aufrufe.append(cmd) or types.SimpleNamespace(returncode=0))
+    assert ok and aufrufe[0][:6] == ["gcloud", "scheduler", "jobs", "update", "http", "mein-job"]
+    assert "--schedule=20 11 15 11 *" in aufrufe[0] and "--time-zone=Europe/Paris" in aufrufe[0]
+    nein = taeglich.wecken_planen(datetime(2026, 11, 15, 11, 20, tzinfo=PARIS), log=lambda *a: None,
+                                  _run=lambda cmd, **kw: types.SimpleNamespace(returncode=1, stderr="denied", stdout=""))
+    assert nein is False
+
+
+def test_taeglich_fortsetzung_nach_pause(tmp_path, monkeypatch):
+    import taeglich
+    holen, laeufe = [], []
+    monkeypatch.setattr(ta, "ergebnisse_holen", lambda base, **kw: holen.append(1) or {"ok": True})
+
+    def morgen(base, tag, log=print, **kw):
+        laeufe.append({k: v for k, v in kw.items() if k != "pause"} | {"pause": "pause" in kw})
+        return {"pause": "2026-11-15T11:20:00+01:00"} if len(laeufe) == 1 else {"pause": None}
+    monkeypatch.setattr(ta, "morgen", morgen)
+    assert taeglich.main(["--base", str(tmp_path), "--pausen"]) == 0
+    (tmp_path / "racecards").mkdir()
+    (tmp_path / "racecards" / f"racecard_{taeglich.pmu.heute():%Y%m%d}_daten.json").write_text("{}")
+    assert taeglich.main(["--base", str(tmp_path), "--pausen"]) == 0
+    assert holen == [1]                                          # Ergebnisse nur im ersten Lauf
+    assert laeufe[0] == {"dashboard": True, "karte": True, "pause": True}
+    assert laeufe[1] == {"dashboard": False, "karte": False, "pause": True}
+    assert "Pause" in next((tmp_path / "logs").glob("taeglich_*.log")).read_text()
