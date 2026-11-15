@@ -230,7 +230,7 @@ def test_durchgang_nach_festkursen(tmp_path, monkeypatch):
     neu = ta.durchgang_nach_festkursen(tmp_path, TAG, daten, "12:00", log=lambda *a: None, _post=post)
     assert neu == ["20261115R1C1"]                     # ohne Festkurs, Araber, schon gestartet: nicht
     url, h, text = aufrufe[0]
-    assert url == "https://api.anthropic.com/v1/claude_code/routines/trig_011HuZ9ou97Qjj19zaaDcJ2Z/fire"
+    assert url == "https://api.anthropic.com/v1/claude_code/routines/trig_018LVkAy3xCAZHjqQUB9AcDu/fire"
     assert h["Authorization"] == "Bearer sk-ant-oat01-test" and "R1C1" in text
     assert ta.durchgang_nach_festkursen(tmp_path, TAG, daten, "12:05", log=lambda *a: None, _post=post) == []
     races["20261115R1C2"]["runners"][0]["fk"] = {"sieg": 6.0}   # zweite Etappe: neue Festkurse -> neuer Start

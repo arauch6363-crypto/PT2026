@@ -34,7 +34,7 @@ import pmu
 KARTE_VORLAUF_MIN = 90      # Rennkarte so viele Minuten vor dem ersten Rennen des Tages bauen
 FK_VORLAUF_MIN = 50         # Festkurse je Veranstaltung ab so vielen Minuten vor ihrem ersten Rennen abfragen
 FK_TAKT_MIN = 5             # … alle so viele Minuten
-DURCHGANG_ID = "trig_011HuZ9ou97Qjj19zaaDcJ2Z"   # Aufgabe „Racecard-Durchgang“ (Claude), per API gestartet
+DURCHGANG_ID = "trig_018LVkAy3xCAZHjqQUB9AcDu"   # Aufgabe „Racecard-Durchgang API“ (Claude), per API gestartet
 DURCHGANG_URL = "https://api.anthropic.com/v1/claude_code/routines/{id}/fire"
 PARIS = pmu.PARIS
 
