@@ -1795,10 +1795,11 @@ def festkurse_aktualisieren_pruefen() -> None:
             rc.festkurse_aktualisieren(Path(tmp), tag, out, festkurse=df, nichtstarter=False)
         neu = _json.loads(rc.daten_pfad(out).read_text(encoding="utf-8"))
         st = neu["races"][rid]["runners"]
-        ok_dateien = out.exists() and out.with_name(out.stem + "_claude.json").exists()
+        ok_dateien = (out.exists() and out.with_name(out.stem + "_markt.json").exists()
+                      and out.with_name(out.stem + "_claude.json").exists() == rc.CLAUDE_BLIND)   # blinde Datei: aus
         html_urteil = _dg.laden(out)["races"][rid]["runners"][0].get("claude") or {}
         ok_durchgang = (html_urteil.get("kennzeichen") == "NAP" and "claude" not in st[0]
-                        and '"kennzeichen"' not in out.with_name(out.stem + "_claude.json").read_text(encoding="utf-8"))
+                        and '"kennzeichen"' not in out.with_name(out.stem + "_markt.json").read_text(encoding="utf-8"))
     nr_df = pd.DataFrame([{"race_id": rid, "saddle_no": st[1]["no"], "status": "NON_PARTANT", "incident": None}])
     neu_nr = rc.nichtstarter_nachtragen(neu, nr_df)
     pruefe(ok_dateien and st[0]["fk"]["sieg"] == 2.5 and st[1]["fk"]["toto"] == 4.5 and st[1]["fk"]["sieg"] is None

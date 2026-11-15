@@ -205,15 +205,20 @@ def h4(h: pd.DataFrame):
 
 
 def h5(h: pd.DataFrame, base: Path | None):
-    """Presse-Konsens aus den gespeicherten Claude-JSONs (vorwärts, ab dem ersten gespeicherten Tag)."""
-    dateien = sorted((Path(base) / "racecards").glob("racecard_*_claude.json")) if base else []
+    """Presse-Konsens aus den gespeicherten Karten (vorwärts, ab dem ersten gespeicherten Tag): je Tag die blinde
+    Claude-JSON, ohne sie (seit 11/2026 nicht mehr erzeugt) die Kartendaten racecard_JJJJMMTT_daten.json – beide mit
+    Rennart und TR/ARR/RTR-Rang; Prognose/Konsens aus der Marktdatei."""
+    ordner = Path(base) / "racecards" if base else None
+    dateien = sorted(ordner.glob("racecard_*_claude.json")) if ordner else []
+    tage = {f.name[10:18] for f in dateien}
+    dateien += sorted(f for f in (ordner.glob("racecard_*_daten.json") if ordner else []) if f.name[10:18] not in tage)
     z = []
     for f in dateien:
         try:
             dd = json.loads(f.read_text(encoding="utf-8"))
         except ValueError:
             continue
-        fm = f.with_name(f.name.replace("_claude.json", "_markt.json"))   # seit dem blinden Ablauf: Prognose dort
+        fm = f.with_name(f"racecard_{f.name[10:18]}_markt.json")       # seit dem blinden Ablauf: Prognose dort
         try:
             mk = json.loads(fm.read_text(encoding="utf-8")) if fm.exists() else {}
         except ValueError:

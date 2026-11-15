@@ -3109,6 +3109,10 @@ def daten_pfad(out: Path) -> Path:
     return Path(out).with_name(Path(out).stem + "_daten.json")
 
 
+CLAUDE_BLIND = False   # racecard_JJJJMMTT_claude.json (blinde Datei für den alten Skill rennkarten-durchgang) schreiben;
+#                        seit 11/2026 aus – der Durchgang liest die HTML-Karte. Die Marktdatei entsteht immer.
+
+
 def _ausgeben(daten: dict, out: Path, claude: bool = True) -> None:
     """HTML und (mit claude=True) die beiden Claude-JSONs schreiben. Die HTML bekommt die Urteile der Durchgänge des
     Tages (durchgang_JJJJMMTT_*.json im selben Ordner); Kartendaten und Claude-JSONs bleiben ohne sie."""
@@ -3116,10 +3120,11 @@ def _ausgeben(daten: dict, out: Path, claude: bool = True) -> None:
     out.write_text(html(durchgang.mit_durchgaengen(daten, out.parent)), encoding="utf-8")
     print(f"Race Card gespeichert: {out}  ({daten['history']['runs']} historische Läufe, "
           f"davon {daten['history']['tracked']} mit Tracking)")
-    if claude:                                            # kompakte JSON für den Skill rennkarten-durchgang
+    if claude:                                            # Marktdatei (tipp_auswertung, H5); blinde nur auf Wunsch
         import claude_export
-        cj = claude_export.schreiben(daten, out.with_name(out.stem + "_claude.json"))
-        print(f"Claude-Version (blind): {cj}  ({cj.stat().st_size / 1e6:.1f} MB)")
+        cj = claude_export.schreiben(daten, out.with_name(out.stem + "_claude.json"), blind=CLAUDE_BLIND)
+        if CLAUDE_BLIND:
+            print(f"Claude-Version (blind): {cj}  ({cj.stat().st_size / 1e6:.1f} MB)")
         print(f"Claude-Version (Markt): {claude_export.markt_pfad(cj)}")
 
 

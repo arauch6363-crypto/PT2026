@@ -371,7 +371,8 @@ def export_markt(daten: dict) -> dict:
             "date": daten.get("date"), "generated": daten.get("generated"),
             **({"modelle": {k: copy.deepcopy(v) for k, v in daten["modelle"].items() if k in ("value", "vorwaerts_test")}}
                if (daten.get("modelle") or {}).get("value") else {}),
-            "races": {rid: rennen_markt(r, ((daten.get("modelle") or {}).get("value") or {}).get("je_rennart"))
+            "races": {rid: {**rennen_markt(r, ((daten.get("modelle") or {}).get("value") or {}).get("je_rennart")),
+                            "type": r.get("type")}                 # Rennart (tipp_auswertung ohne blinde Datei)
                       for rid, r in (daten.get("races") or {}).items()}}
 
 
@@ -382,10 +383,12 @@ def markt_pfad(pfad: Path) -> Path:
         else pfad.with_name(pfad.stem + "_markt.json")
 
 
-def schreiben(daten: dict, pfad: Path) -> Path:
-    """Blinde Datei nach `pfad`, Marktdatei daneben (markt_pfad)."""
+def schreiben(daten: dict, pfad: Path, blind: bool = True) -> Path:
+    """Marktdatei (markt_pfad) und mit blind=True die blinde Datei nach `pfad`. Rückgabe: blinde Datei bzw. – ohne
+    sie – die Marktdatei."""
     pfad = Path(pfad)
-    pfad.write_text(json.dumps(export(daten), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    if blind:
+        pfad.write_text(json.dumps(export(daten), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     markt_pfad(pfad).write_text(json.dumps(export_markt(daten), ensure_ascii=False, separators=(",", ":")),
                                 encoding="utf-8")
-    return pfad
+    return pfad if blind else markt_pfad(pfad)

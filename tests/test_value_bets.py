@@ -908,3 +908,20 @@ def test_dead_heat_halber_festkurs_sieg(tmp_path):
     js = _node_sim(pool, [[vars(vb.FilterConfig(minw=0, mode="none")), "level10", "ew"]])[0]
     assert sorted(x["profit_win"] for x in js["bets"]) == sorted(res.bets_df["profit_win"])
     assert js["kpi"]["bank"] == pytest.approx(res.kpi_dict["bank"])
+
+
+def test_ohne_blinde_claude_json(tmp_path):
+    """Seit 11/2026 nur noch die Marktdatei: schreiben(blind=False) legt keine _claude.json an, die Marktdatei trägt
+    die Rennart; tipp_auswertung liest sie ohne blinde Datei."""
+    import claude_export as ce
+    import racecard as rc
+    import tipp_auswertung as ta_
+    assert rc.CLAUDE_BLIND is False
+    daten = {"date": "2026-11-15", "races": {"20261115R1C1": {"race_id": "20261115R1C1", "type": "Handicap",
+             "runners": [{"no": 1, "horse": "A", "prono": {"sel": {"rank": 1, "cote_dec": 3.0}}}]}}}
+    (tmp_path / "racecards").mkdir()
+    p = ce.schreiben(daten, tmp_path / "racecards" / "racecard_20261115_claude.json", blind=False)
+    assert p.name == "racecard_20261115_markt.json" and p.exists()
+    assert not (tmp_path / "racecards" / "racecard_20261115_claude.json").exists()
+    prog = ta_._prognose(tmp_path, "20261115")
+    assert list(prog["typ"]) == ["Handicap"] and list(prog["prog_rang"]) == [1]
