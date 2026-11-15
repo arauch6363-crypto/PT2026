@@ -14,8 +14,9 @@ Ablauf (Zeiten französisch):
 5. Je Veranstaltung (Reunion) ab FK_VORLAUF_MIN vor ihrem ersten Rennen alle FK_TAKT_MIN Wettstar abfragen
    (racecard.festkurse_aktualisieren, nur fehlende Rennen), bis alle ihre Rennen Festkurse haben oder ihr erstes
    Rennen gestartet ist.
-6. Sobald eine Reunion alle Festkurse hat: Aufgabe „Racecard-Durchgang“ (Claude-Tipps) über ihren API-Trigger
-   starten (durchgang_ausloesen, Schlüssel DURCHGANG_TOKEN), je Reunion einmal.
+6. Die Claude-Tipps startet racecard.festkurse_aktualisieren selbst: Rennen mit neuen Festkursen, die noch nicht
+   gestartet sind, gehen per API-Trigger an die Aufgabe „Racecard-Durchgang“ (durchgang_nach_festkursen) – auch wenn
+   die Festkurse von Hand geholt werden.
 
 Der bisherige Ablauf im Notebook (Rennkarte von Hand, festkurse_aktualisieren von Hand) bleibt als Rückfall erhalten.
 """
@@ -118,6 +119,41 @@ def _ausgeloest_pfad(base: Path, tag: date) -> Path:
     return Path(base) / "racecards" / f".durchgang_ausgeloest_{tag:%Y%m%d}.json"
 
 
+def durchgang_nach_festkursen(base, tag: date, daten: dict, jetzt: str | None = None, log=print, _post=None) -> list[str]:
+    """Nach dem Holen der Festkurse (racecard.festkurse_aktualisieren): Rennen mit Festkurs, die noch nicht gestartet
+    und noch keinem Durchgang übergeben sind, an die Aufgabe „Racecard-Durchgang“ geben (durchgang_ausloesen, ein Start
+    für alle). Merker je Tag: racecards/.durchgang_ausgeloest_JJJJMMTT.json (race_ids) – kommen Festkurse einer Reunion
+    in Etappen, startet der Durchgang für die neuen Rennen erneut. Araber zählen nicht. Rückgabe: übergebene race_ids."""
+    import durchgang
+    import wettstar
+    if jetzt is None:                                    # Durchgang bearbeitet nur die Karte von heute
+        if tag != datetime.now(PARIS).date():
+            return []
+        jetzt = datetime.now(PARIS).strftime("%H:%M")
+    ap = _ausgeloest_pfad(base, tag)
+    try:
+        schon = set(json.loads(ap.read_text(encoding="utf-8"))) if ap.exists() else set()
+    except ValueError:
+        schon = set()
+    mit_fk = wettstar.rennen_mit_festkurs(daten)
+    neu = sorted(rid for rid, r in (daten.get("races") or {}).items()
+                 if rid in mit_fk and rid not in schon and not durchgang.ist_araber(r)
+                 and _hm(r.get("time")) is not None and _hm(r["time"]) > _hm(jetzt))
+    if not neu:
+        return []
+    races = daten["races"]
+    text = "Festkurse da für " + ", ".join(f"{races[k].get('course')} R{races[k].get('reunion')}C{races[k].get('race_no')} "
+                                            f"({races[k].get('time')})" for k in neu) + f" – {tag}"
+    if not durchgang_ausloesen(text, log=log, _post=_post):
+        return []
+    try:
+        ap.parent.mkdir(parents=True, exist_ok=True)
+        ap.write_text(json.dumps(sorted(schon | set(neu))), encoding="utf-8")
+    except OSError:
+        pass
+    return neu
+
+
 # --------------------------------------------------------------------------
 # Ergebnisse holen (wie Abschnitt 2 des Notebooks)
 # --------------------------------------------------------------------------
@@ -211,12 +247,11 @@ def _warten_bis(ziel: datetime, jetzt: Callable[[], datetime], schlafen: Callabl
 
 
 def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool = True, festkurse: bool = True,
-           durchgang: bool = True, jetzt: Callable[[], datetime] = _jetzt, schlafen: Callable[[float], None] = time.sleep,
-           log=print, _racecard=None, _value_bets=None, _boden_fg=None, _post=None) -> dict:
+           jetzt: Callable[[], datetime] = _jetzt, schlafen: Callable[[float], None] = time.sleep,
+           log=print, _racecard=None, _value_bets=None, _boden_fg=None) -> dict:
     """Tagesablauf (siehe Modulbeschreibung). Rückgabe: Zusammenfassung {karte, boden_neu, festkurse: {Rx: Status}}.
-    durchgang=True: sobald eine Reunion alle Festkurse hat (und ihr erstes Rennen noch kommt), die Aufgabe
-    „Racecard-Durchgang“ per API starten (durchgang_ausloesen; je Reunion einmal).
-    jetzt/schlafen/_racecard/_value_bets/_boden_fg/_post sind nur für Tests austauschbar."""
+    Die Claude-Tipps startet racecard.festkurse_aktualisieren selbst (durchgang_nach_festkursen).
+    jetzt/schlafen/_racecard/_value_bets/_boden_fg sind nur für Tests austauschbar."""
     if _racecard is None:
         import racecard as _racecard
     if _value_bets is None and dashboard:
@@ -271,21 +306,6 @@ def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool
         log(f"Keine Kartendaten {sp.name} – Festkurse übersprungen.")
         return erg
     log(f"— Festkurse je Veranstaltung ab {FK_VORLAUF_MIN} min vor dem ersten Rennen, alle {FK_TAKT_MIN} min —")
-    ap = _ausgeloest_pfad(base, tag)                    # je Reunion nur einmal auslösen, auch nach einem Neustart
-    try:
-        ausgeloest = set(json.loads(ap.read_text(encoding="utf-8"))) if ap.exists() else set()
-    except ValueError:
-        ausgeloest = set()
-
-    def ausloesen(k: str, v: dict) -> None:
-        if k in ausgeloest or not durchgang:
-            return
-        if durchgang_ausloesen(f"Festkurse da: {k} {v['bahn']}, erstes Rennen {v['erstes']} ({tag})", log=log, _post=_post):
-            ausgeloest.add(k)
-            try:
-                ap.write_text(json.dumps(sorted(ausgeloest)), encoding="utf-8")
-            except OSError:
-                pass
     while True:
         daten = json.loads(sp.read_text(encoding="utf-8"))
         hhmm = jetzt().strftime("%H:%M")
@@ -293,8 +313,6 @@ def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool
         for k, v in alle.items():
             if not v["ohne_fk"]:
                 erg["festkurse"][k] = "da"
-                if _hm(v["erstes"]) > _hm(hhmm):        # Festkurse da, Rennen noch nicht gestartet: Claude-Tipps
-                    ausloesen(k, v)
             elif _hm(v["erstes"]) <= _hm(hhmm):
                 erg["festkurse"].setdefault(k, "erstes Rennen gelaufen, ohne Festkurse")
         offen = offene_veranstaltungen(daten, hhmm)
