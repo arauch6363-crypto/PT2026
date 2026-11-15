@@ -64,6 +64,9 @@ echo 'NTFY_TOPIC=<dein-thema>' > ~/.pt2026.env
 
 Gemeldet werden: Rennkarte gebaut, Festkurse je Reunion, Boden nur angenommen, Fehler, Ende.
 
+**Claude-Tipps starten:** den Schlüssel des API-Triggers der Aufgabe „Racecard-Durchgang“ (siehe Haupt-README) ebenfalls
+dort eintragen: `echo 'DURCHGANG_TOKEN=sk-ant-oat01-…' >> ~/.pt2026.env` (nur für dich lesbar: `chmod 600 ~/.pt2026.env`).
+
 ## 6 · Zeitplan einschalten
 
 ```bash

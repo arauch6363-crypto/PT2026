@@ -13,13 +13,16 @@ Ablauf (Zeiten französisch):
    bauen, bevor die Festkurs-Schleife beginnt.
 5. Je Veranstaltung (Reunion) ab FK_VORLAUF_MIN vor ihrem ersten Rennen alle FK_TAKT_MIN Wettstar abfragen
    (racecard.festkurse_aktualisieren, nur fehlende Rennen), bis alle ihre Rennen Festkurse haben oder ihr erstes
-   Rennen gestartet ist. Danach plant die Aufgabe „Racecard-Durchgang“ die Claude-Tipps selbst ein.
+   Rennen gestartet ist.
+6. Sobald eine Reunion alle Festkurse hat: Aufgabe „Racecard-Durchgang“ (Claude-Tipps) über ihren API-Trigger
+   starten (durchgang_ausloesen, Schlüssel DURCHGANG_TOKEN), je Reunion einmal.
 
 Der bisherige Ablauf im Notebook (Rennkarte von Hand, festkurse_aktualisieren von Hand) bleibt als Rückfall erhalten.
 """
 from __future__ import annotations
 
 import json
+import os
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -30,6 +33,8 @@ import pmu
 KARTE_VORLAUF_MIN = 90      # Rennkarte so viele Minuten vor dem ersten Rennen des Tages bauen
 FK_VORLAUF_MIN = 50         # Festkurse je Veranstaltung ab so vielen Minuten vor ihrem ersten Rennen abfragen
 FK_TAKT_MIN = 5             # … alle so viele Minuten
+DURCHGANG_ID = "trig_011HuZ9ou97Qjj19zaaDcJ2Z"   # Aufgabe „Racecard-Durchgang“ (Claude), per API gestartet
+DURCHGANG_URL = "https://api.anthropic.com/v1/claude_code/routines/{id}/fire"
 PARIS = pmu.PARIS
 
 
@@ -82,6 +87,35 @@ def boden_annahme(daten: dict) -> list[str]:
 
 def _jetzt() -> datetime:
     return datetime.now(PARIS)
+
+
+def durchgang_ausloesen(text: str, log=print, _post=None) -> bool:
+    """Aufgabe „Racecard-Durchgang“ über ihren API-Trigger starten (Claude Code, experimentell). Schlüssel aus der
+    Umgebungsvariablen DURCHGANG_TOKEN (Colab-Secret bzw. ~/.pt2026.env), Aufgabe aus DURCHGANG_ID (Vorgabe oben).
+    text: Anlass (landet im Lauf als Kontext). Ohne Schlüssel oder bei Fehlern: Meldung, False – der Tag läuft weiter."""
+    token = os.getenv("DURCHGANG_TOKEN", "").strip()
+    if not token:
+        log("Durchgang nicht ausgelöst: kein DURCHGANG_TOKEN – bitte von Hand starten.")
+        return False
+    if _post is None:
+        import requests
+        _post = requests.post
+    url = DURCHGANG_URL.format(id=os.getenv("DURCHGANG_ID", "").strip() or DURCHGANG_ID)
+    try:
+        r = _post(url, headers={"Authorization": f"Bearer {token}", "anthropic-version": "2026-10-21",
+                                "Content-Type": "application/json"}, json={"text": text[:2000]}, timeout=30)
+        if getattr(r, "status_code", 0) != 200:
+            log(f"Durchgang nicht ausgelöst: HTTP {getattr(r, 'status_code', '?')} {str(getattr(r, 'text', ''))[:200]}")
+            return False
+        log(f"Durchgang ausgelöst: {(r.json() or {}).get('claude_code_session_url', '')}")
+        return True
+    except Exception as e:
+        log(f"Durchgang nicht ausgelöst: {type(e).__name__}: {e}")
+        return False
+
+
+def _ausgeloest_pfad(base: Path, tag: date) -> Path:
+    return Path(base) / "racecards" / f".durchgang_ausgeloest_{tag:%Y%m%d}.json"
 
 
 # --------------------------------------------------------------------------
@@ -177,10 +211,12 @@ def _warten_bis(ziel: datetime, jetzt: Callable[[], datetime], schlafen: Callabl
 
 
 def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool = True, festkurse: bool = True,
-           jetzt: Callable[[], datetime] = _jetzt, schlafen: Callable[[float], None] = time.sleep, log=print,
-           _racecard=None, _value_bets=None, _boden_fg=None) -> dict:
+           durchgang: bool = True, jetzt: Callable[[], datetime] = _jetzt, schlafen: Callable[[float], None] = time.sleep,
+           log=print, _racecard=None, _value_bets=None, _boden_fg=None, _post=None) -> dict:
     """Tagesablauf (siehe Modulbeschreibung). Rückgabe: Zusammenfassung {karte, boden_neu, festkurse: {Rx: Status}}.
-    jetzt/schlafen/_racecard/_value_bets/_boden_fg sind nur für Tests austauschbar."""
+    durchgang=True: sobald eine Reunion alle Festkurse hat (und ihr erstes Rennen noch kommt), die Aufgabe
+    „Racecard-Durchgang“ per API starten (durchgang_ausloesen; je Reunion einmal).
+    jetzt/schlafen/_racecard/_value_bets/_boden_fg/_post sind nur für Tests austauschbar."""
     if _racecard is None:
         import racecard as _racecard
     if _value_bets is None and dashboard:
@@ -235,6 +271,21 @@ def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool
         log(f"Keine Kartendaten {sp.name} – Festkurse übersprungen.")
         return erg
     log(f"— Festkurse je Veranstaltung ab {FK_VORLAUF_MIN} min vor dem ersten Rennen, alle {FK_TAKT_MIN} min —")
+    ap = _ausgeloest_pfad(base, tag)                    # je Reunion nur einmal auslösen, auch nach einem Neustart
+    try:
+        ausgeloest = set(json.loads(ap.read_text(encoding="utf-8"))) if ap.exists() else set()
+    except ValueError:
+        ausgeloest = set()
+
+    def ausloesen(k: str, v: dict) -> None:
+        if k in ausgeloest or not durchgang:
+            return
+        if durchgang_ausloesen(f"Festkurse da: {k} {v['bahn']}, erstes Rennen {v['erstes']} ({tag})", log=log, _post=_post):
+            ausgeloest.add(k)
+            try:
+                ap.write_text(json.dumps(sorted(ausgeloest)), encoding="utf-8")
+            except OSError:
+                pass
     while True:
         daten = json.loads(sp.read_text(encoding="utf-8"))
         hhmm = jetzt().strftime("%H:%M")
@@ -242,6 +293,8 @@ def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool
         for k, v in alle.items():
             if not v["ohne_fk"]:
                 erg["festkurse"][k] = "da"
+                if _hm(v["erstes"]) > _hm(hhmm):        # Festkurse da, Rennen noch nicht gestartet: Claude-Tipps
+                    ausloesen(k, v)
             elif _hm(v["erstes"]) <= _hm(hhmm):
                 erg["festkurse"].setdefault(k, "erstes Rennen gelaufen, ohne Festkurse")
         offen = offene_veranstaltungen(daten, hhmm)

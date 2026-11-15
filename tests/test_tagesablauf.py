@@ -206,3 +206,45 @@ def test_taeglich_protokoll_und_push(tmp_path, monkeypatch):
     assert all(u == "https://ntfy.sh/test-thema" for u, _ in gesendet)
     assert any("Rennkarte gebaut" in t for t in texte) and any("fehlgeschlagen" in t for t in texte)
     assert not any("Unwichtiges" in t for t in texte)
+
+
+class _Antwort:
+    def __init__(self, code=200):
+        self.status_code, self.text = code, "x"
+
+    def json(self):
+        return {"claude_code_session_url": "https://claude.ai/code/session_x"}
+
+
+def test_durchgang_wird_je_reunion_einmal_ausgeloest(tmp_path, monkeypatch):
+    monkeypatch.setenv("DURCHGANG_TOKEN", "sk-ant-oat01-test")
+    aufrufe = []
+
+    def post(url, headers=None, json=None, timeout=None):
+        aufrufe.append((url, headers, json["text"]))
+        return _Antwort()
+    uhr = Uhr("07:00")
+    rennen = [_r("20261115R1C1", 1, "13:00"), _r("20261115R2C1", 2, "16:00", course="LYON")]
+    k = Karte(tmp_path, uhr, rennen, {"R1": "12:20", "R2": "15:20"})
+    ta.morgen(tmp_path, TAG, dashboard=False, jetzt=uhr.jetzt, schlafen=uhr.schlafen, log=lambda *a: None,
+              _racecard=k, _boden_fg=FG({}), _post=post)
+    assert [t.split(":")[1].split(",")[0].strip() for _, _, t in aufrufe] == ["R1 TOULOUSE", "R2 LYON"]
+    url, h, _ = aufrufe[0]
+    assert url == "https://api.anthropic.com/v1/claude_code/routines/trig_011HuZ9ou97Qjj19zaaDcJ2Z/fire"
+    assert h["Authorization"] == "Bearer sk-ant-oat01-test" and h["anthropic-version"]
+    # Neustart am selben Tag: schon ausgelöste Reunions nicht noch einmal
+    uhr2 = Uhr("12:30")
+    k2 = Karte(tmp_path, uhr2, rennen, {"R1": "00:00", "R2": "15:20"})
+    ta.morgen(tmp_path, TAG, dashboard=False, karte=False, jetzt=uhr2.jetzt, schlafen=uhr2.schlafen,
+              log=lambda *a: None, _racecard=k2, _boden_fg=FG({}), _post=post)
+    assert len(aufrufe) == 2
+
+
+def test_durchgang_ohne_token_oder_fehler(monkeypatch):
+    monkeypatch.delenv("DURCHGANG_TOKEN", raising=False)
+    meld = []
+    assert ta.durchgang_ausloesen("x", log=meld.append, _post=lambda *a, **k: _Antwort()) is False
+    assert "kein DURCHGANG_TOKEN" in meld[-1]
+    monkeypatch.setenv("DURCHGANG_TOKEN", "t")
+    assert ta.durchgang_ausloesen("x", log=meld.append, _post=lambda *a, **k: _Antwort(401)) is False
+    assert "HTTP 401" in meld[-1]

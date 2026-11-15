@@ -675,6 +675,14 @@ Holen der Ergebnisse (Abschnitt 2) bis zum Ende des Tages – Colab muss offen b
 **Rückfall:** `MODUS = 'manuell'` – dann baut Abschnitt 3 die Karte wie bisher, Festkurse von Hand mit
 `racecard.festkurse_aktualisieren(BASE)`.
 
+**Claude-Tipps automatisch:** Hat eine Reunion alle Festkurse (und ihr erstes Rennen kommt noch), startet
+`tagesablauf.durchgang_ausloesen` die Aufgabe „Racecard-Durchgang“ über ihren API-Trigger (experimentell,
+`POST https://api.anthropic.com/v1/claude_code/routines/<trig_…>/fire`), je Reunion einmal (Merker
+`racecards/.durchgang_ausgeloest_JJJJMMTT.json`). Einrichten: auf claude.ai/code/routines die Aufgabe öffnen → Edit →
+Trigger **+** → **API** → **Generate token**, den Schlüssel (`sk-ant-oat01-…`, wird nur einmal angezeigt) in Colab als
+Secret `DURCHGANG_TOKEN` (Notebook-Zugriff an) bzw. auf der VM in `~/.pt2026.env` ablegen. Ohne Schlüssel: Meldung,
+Durchgang von Hand starten. Grenzen: 30 Starts je Stunde und Aufgabe.
+
 **Ohne Notebook (VM):** `python3 taeglich.py --base <PT_tracking>` ruft `tagesablauf.ergebnisse_holen` (dasselbe wie
 Abschnitt 2, dieselbe Stand-Datei) und danach `tagesablauf.morgen` auf; Protokoll in `logs/taeglich_JJJJMMTT.log`,
 Push-Nachrichten über ntfy (`NTFY_TOPIC`). Einrichtung der VM: `vm/README.md`.
