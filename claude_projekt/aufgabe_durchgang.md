@@ -61,6 +61,10 @@ PY
 
 - `python3 -I /home/claude/pt2026/durchgang.py plan /home/claude/rd/racecard_JJJJMMTT.html /home/claude/rd/durchgang_JJJJMMTT_*.json`
   (ohne Durchgänge nur die Karte). Status je Rennen: offen, gelaufen, kein_festkurs, keine_kandidaten, araber, erledigt.
+- **Karte noch nicht aktuell:** Nennt der Anlass (`<routine-fire-payload>`) Rennen mit „Festkurse da“, die laut Plan
+  noch `kein_festkurs` haben und noch nicht gestartet sind, ist die Karte in Drive vermutlich noch nicht hochgeladen.
+  Dann 2 Minuten warten (`sleep 120`), Karte erneut suchen und herunterladen (Schritt 2), Plan neu – höchstens 3-mal.
+  Bleibt es dabei, im Ergebnis nennen („Karte in Drive ohne die gemeldeten Festkurse“).
 - Kein Rennen „offen“: Schritte 4 und 5 überspringen (nichts in Drive ablegen). Gibt es Durchgänge des Tages, trotzdem
   Schritt 6 und Schritt 7. Gibt es keine, nur die Liste (Rennen, Zeit, Status) ausgeben und enden.
 
