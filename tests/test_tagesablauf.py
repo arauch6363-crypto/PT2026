@@ -343,3 +343,21 @@ def test_karte_wiederholt_bei_pmu_fehler(tmp_path):
                     _racecard=k, _boden_fg=FG({}))
     assert fehler["n"] == 3 and k.runs == ["11:36"]              # zwei Fehlversuche, je 3 min Pause
     assert erg["festkurse"] == {"R1": "da"} and sum("neuer Versuch" in z for z in zeilen) == 2
+
+
+def test_drive_abwarten():
+    import types
+    schlaf = []
+    stats = iter([1, 1, 0, 0, 0])
+
+    def post(url, **kw):
+        n = next(stats)
+        return types.SimpleNamespace(json=lambda: {"diskCache": {"uploadsInProgress": n, "uploadsQueued": 0}})
+    ta.drive_abwarten(log=lambda *a: None, _post=post, _schlafen=schlaf.append)
+    assert schlaf[0] == 10 and sum(schlaf) == 20       # Probe, einmal offen, dann zweimal leer
+
+    def kein_rclone(url, **kw):
+        raise ConnectionError("kein rclone")
+    schlaf.clear()
+    ta.drive_abwarten(log=lambda *a: None, _post=kein_rclone, _schlafen=schlaf.append)
+    assert schlaf == [ta.DRIVE_WARTEN_OHNE_RC_S]

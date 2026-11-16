@@ -129,6 +129,39 @@ def durchgang_ausloesen(text: str, log=print, _post=None) -> bool:
         return False
 
 
+RCLONE_RC = "http://127.0.0.1:5572"   # Fernsteuerung von rclone auf der VM (vm/lauf.sh: --rc)
+DRIVE_WARTEN_MAX_S = 300              # höchstens so lange auf Uploads warten
+DRIVE_WARTEN_OHNE_RC_S = 60           # ohne rclone (Colab): so lange warten, damit Drive die Karte hat
+
+
+def drive_abwarten(log=print, _post=None, _schlafen=time.sleep) -> None:
+    """Warten, bis die gerade geschriebene Karte in Google Drive angekommen ist – sonst lädt der Durchgang (in der
+    Cloud, liest aus Drive) noch die alte Karte ohne die neuen Festkurse. VM: rclone meldet offene Uploads
+    (vfs/stats); Colab/sonst: feste Wartezeit."""
+    if _post is None:
+        import requests
+        _post = requests.post
+    try:
+        _post(f"{RCLONE_RC}/vfs/stats", json={}, timeout=5)
+    except Exception:
+        _schlafen(DRIVE_WARTEN_OHNE_RC_S)
+        return
+    _schlafen(10)                                        # rclone lädt erst ein paar Sekunden nach dem Schließen hoch
+    leer, gewartet = 0, 10
+    while gewartet < DRIVE_WARTEN_MAX_S:
+        try:
+            d = (_post(f"{RCLONE_RC}/vfs/stats", json={}, timeout=5).json() or {}).get("diskCache") or {}
+            offen = int(d.get("uploadsInProgress", 0)) + int(d.get("uploadsQueued", 0))
+        except Exception:
+            offen = 0
+        leer = leer + 1 if offen == 0 else 0
+        if leer >= 2:
+            return
+        _schlafen(5)
+        gewartet += 5
+    log(f"Drive-Upload nach {DRIVE_WARTEN_MAX_S} s noch nicht fertig – Durchgang startet trotzdem.")
+
+
 def _ausgeloest_pfad(base: Path, tag: date) -> Path:
     return Path(base) / "racecards" / f".durchgang_ausgeloest_{tag:%Y%m%d}.json"
 
@@ -158,6 +191,8 @@ def durchgang_nach_festkursen(base, tag: date, daten: dict, jetzt: str | None = 
     races = daten["races"]
     text = "Festkurse da für " + ", ".join(f"{races[k].get('course')} R{races[k].get('reunion')}C{races[k].get('race_no')} "
                                             f"({races[k].get('time')})" for k in neu) + f" – {tag}"
+    if _post is None:                                    # echter Lauf: erst die Karte in Drive ankommen lassen
+        drive_abwarten(log=log)
     if not durchgang_ausloesen(text, log=log, _post=_post):
         return []
     try:
