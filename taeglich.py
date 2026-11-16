@@ -53,14 +53,16 @@ class Protokoll:
 
     def __init__(self, datei: Path):
         datei.parent.mkdir(parents=True, exist_ok=True)
-        self.f = open(datei, "a", encoding="utf-8")
+        self.datei = datei
 
     def __call__(self, *teile) -> None:
         text = " ".join(str(t) for t in teile)
         zeile = f"{datetime.now(pmu.PARIS):%H:%M:%S} {text}"
         print(zeile, flush=True)
-        self.f.write(zeile + "\n")
-        self.f.flush()
+        # je Zeile öffnen und schließen: rclone (Drive) lädt Dateien erst nach dem Schließen hoch – so ist das
+        # Protokoll in Drive auch während des Laufs aktuell
+        with open(self.datei, "a", encoding="utf-8") as f:
+            f.write(zeile + "\n")
         if any(m in text for m in self.MELDEN):
             push(text[:300], prioritaet="high" if "fehlgeschlagen" in text or "nicht gebaut" in text else "default")
 
