@@ -897,18 +897,12 @@ Beispiel ¼ Kelly → 2404,00 € bei 18 Wetten.
 
 ## Skill Rennkarten-Durchgang
 
-`.claude/skills/rennkarten-durchgang/SKILL.md` ist der qualitative Durchgang durch eine Rennkarte. Er geht Pferd für Pferd
-in der Reihenfolge der PMU-Prognose vor und prüft je Starter, ob es einen Wett-Angle gibt und ob dieser schon
-eingepreist ist. Daraus leitet er den Edge gegen die Prognose-Chance und eine Mindestquote (Festkurs) ab.
-
-Der Skill liest die von `racecard.py` erzeugte HTML-Karte. Die Daten stecken dort im eingebetteten `const DATA = …`
-und werden mit Python geparst.
-
-- **Claude Code:** In Sitzungen auf diesem Repo steht der Skill automatisch zur Verfügung.
-- **claude.ai:** Dort wird er weiterhin als `.skill`/ZIP hochgeladen. Die Datei hier ist die versionierte Vorlage.
-- **Pflege:** Neue Erkenntnisse aus Analysen kommen als knappe Regel an die passende Stelle des Rasters (A/B/C), nicht als
-  neuer Abschnitt. Nach jeder Anpassung wird konsolidiert: Doppeltes zusammenführen und Erklärungen kürzen, die die
-  Claude-JSON schon vorrechnet. Der Umfang soll nicht wachsen (Stand 11.10.2026: rund 59.200 Zeichen).
+`.claude/skills/rennkarten-durchgang-neu/` ist der qualitative Durchgang durch eine Rennkarte: Aus den Kandidaten
+(Value > 0) wählt er die Siegwetten zum Festkurs aus – je Kandidat Pro-Argumente, Gegenargumente und Fragezeichen,
+Gesamturteil (Wette, kleine Wette, keine Wette) mit eigener Kursspanne und Mindestquote. Dazu gehören `DATEN.md`,
+die Fallsammlung `FAELLE.md`, das Skript `scripts/blatt.py` (zieht die Fakten aus der HTML-Karte) und die Begriffe in
+`GLOSSARY.md`. Automatisch läuft er über die Aufgabe „Racecard-Durchgang API“ (`claude_projekt/aufgabe_durchgang.md`).
+Der frühere Skill `rennkarten-durchgang` (Prognose-Abgleich mit blinder JSON) ist entfernt (Git-Historie).
 
 **Seit 11/2026 nur noch die Marktdatei:** Die blinde `racecard_JJJJMMTT_claude.json` (alter Skill `rennkarten-durchgang`) entsteht nicht mehr (`racecard.CLAUDE_BLIND = False`, einschalten mit `True`); der Durchgang liest die HTML-Karte. `tipp_auswertung` und Hypothese H5 lesen Rennart/Ränge aus der Marktdatei bzw. den Kartendaten `racecard_JJJJMMTT_daten.json`.
 
@@ -930,5 +924,4 @@ Dateien (abschalten mit `claude=False`), passend zu den zwei Teilen des Skills:
 - **Auswertung:** Der Protokoll-Block trägt `p_blind` (Teil 1) und `p`; `tipp_auswertung` vergleicht Claude blind,
   Prognose und – mit nachgetragenem `fk` – Festkurs per Log-Loss und Brier.
 
-**claude.ai-Projekt:** Systemprompt und Einrichtung (Skill über die GitHub-Anbindung, nur die Claude-JSON hochladen) stehen in
-`claude_projekt/systemprompt.md`.
+**claude.ai:** Einrichtung des Skills und Projekt-Anweisungen stehen in `claude_projekt/skill_neu_einrichten.md`.
