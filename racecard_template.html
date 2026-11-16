@@ -1021,6 +1021,7 @@ const BADGE = { C: 'Sieger auf dieser Bahn', D: 'Sieger über diese Distanz (±1
 const SAME = { K: 'Kurs', D: 'Distanz', B: 'Boden' };
 const ABST_DIM = [['dist', 'Distanz', { Sprinter: 'bis 1400 m', Mitteldistanz: '1401–2400 m', Steher: 'über 2400 m' }], ['boden', 'Boden', { Slow: 'Slow/Very slow', Fast: 'Fast/Very fast' }], ['belag', 'Belag', { Gras: 'alle Grasböden', PSF: 'Kunstbahn' }], ['reife', 'Alter', { '2yo': '2-Jährige', '3yo': '3-Jährige', '4yo+': '4 J. +' }]];
 const blinkTxt = b => !b || b === 'SANS_OEILLERES' ? null : /AUSTRAL/.test(b) ? 'Austral. Scheuklappen' : 'Scheuklappen';
+const blinkKurz = b => !b || b === 'SANS_OEILLERES' ? '' : /AUSTRAL/.test(b) ? ' · SK aus.' : ' · SK';   // Zeile Jockey/Quote
 const arrow = P => P == null ? '–' : Math.abs(P) >= 40 ? (P > 0 ? '▲▲' : '▼▼') : Math.abs(P) >= 15 ? (P > 0 ? '▲' : '▼') : '·';
 const pTone = P => P == null || Math.abs(P) < 15 ? C.ink3 : P > 0 ? C.good : C.bad;
 const idxTone = v => v == null ? C.ink3 : v >= 110 ? C.good : v <= 90 ? C.bad : C.ink;
@@ -1036,6 +1037,7 @@ const LEGEND = [
   ['RTR / ARR / TR', 'RTR: Rating-Leistung, aufs heutige Gewicht bereinigt (klein: roh). ARR: Leistung gemessen am vorderen Drittel des Einlaufs (kg), Ø der letzten Läufe, gewichtsbereinigt. TR: Zeit-Rating (lb) plus Upgrade aus dem Finishing Speed, aufs heutige Gewicht umgerechnet. #x/n = Rang im Feld. In „Letzte Läufe“ ARR/TR antippen öffnet den Feldvergleich.'],
   ['ΔL600 / ΔB200', 'Tracking: Tempo der letzten 600 m bzw. schnellstes 200-m-Segment der letzten 800 m gegen die Erwartung (km/h), gleiche Bahn/Tag/Boden, korrigiert um Distanz, Tempo, Klasse. + = schneller.'],
   ['Duell', 'Direkte und indirekte Vergleiche mit heutigen Gegnern (180 Tage, ±200 m, Boden max. eine Stufe). Erwartung in Längen: Abstand damals ± Gewichtsverschiebung (1 kg ≈ 1 Länge).'],
+  ['SK', 'Scheuklappen am Ende der Zeile mit Jockey und Quote: SK = Scheuklappen, SK aus. = australische Scheuklappen (Fellrollen), nichts = ohne. Oben beim Pferd die heutigen, in den letzten Läufen die damals getragenen.'],
   ['Box', 'Startbox; aufgeklappt daneben die Abweichung der Box-Statistik dieser Bahn/Distanz (✱ = signifikant) und die Tage seit dem letzten Lauf (rot über 60).'],
   ['Bilanz (CGD)', 'Bilanz vor dem Lauf je Buchstabe: C = Kurs, G = Bodengruppe, D = Distanzgruppe. Großbuchstabe = gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals. Ersetzt die PMU-Abzeichen C / D / CD.'],
   ['Letzte Läufe', 'Oben groß die Ratings Val, ARR, TR; bei ARR und TR rechts daneben der Rang dieses Laufs unter allen Läufen der heutigen Starter der letzten 30 / 90 / 365 Tage (nur Zeiträume, in denen der Lauf selbst liegt, und nur wenn unter den besten 5; gold = bester). Darunter das Tracking. Pos. vor Finish: Position 400 m vor dem Ziel (früh → 400 m). Pace-Ratio: Tempo früh ÷ Tempo Schluss × 100, als Kategorie very slow … very fast. Finish-Idx: Endspeed (letzte 400 m) ÷ Tempo davor × 100, als Kategorie very weak … very strong. Beide gemessen am Schnitt aller Läufe der heutigen Starter (normal = ±0,5 SD, very = ab 1,5 SD); klein die Zahl und der Abstand zum Schnitt. ⚑ bei ±800/Weg = auffälliger Wert. ±800 · Weg: groß Plätze gutgemacht ab 800 m (grün ab +3), klein Meter mehr/weniger als der Median (≥ 7,5 m auffällig). K/D/B = wie heute. Val klein: heutige − damalige Valeur.'],
@@ -1382,7 +1384,7 @@ class Component extends DCLogic {
     const top3 = rank && rank <= 3;
     const out = {
       no, horse: x.horse, silk: x.silk || '', silkBg: x.silk ? 'url("' + x.silk + '")' : 'none', ageSex: x.age + 'j ' + (SEX[x.sex] || ''),
-      jt: 'J ' + tc(x.jockey) + ' · T ' + tc(x.trainer),
+      jt: 'J ' + tc(x.jockey) + ' · T ' + tc(x.trainer) + blinkKurz(x.blinkers),
       ...(() => { const tr = a => a?.trend === 'hot' ? ['▲', C.good, 'heiß: A/E Platz der letzten 30 Tage deutlich über dem 365-Tage-Schnitt'] : a?.trend === 'cold' ? ['▼', C.bad, 'kalt: A/E Platz der letzten 30 Tage deutlich unter dem 365-Tage-Schnitt'] : ['', C.ink3, ''];
         const J = tr(x.ae?.jockey), T = tr(x.ae?.trainer);
         return { jName: tc(x.jockey), tName: tc(x.trainer), jTr: J[0], jTrFg: J[1], jTrTip: J[2], tTr: T[0], tTrFg: T[1], tTrTip: T[2] }; })(),
@@ -1568,7 +1570,6 @@ class Component extends DCLogic {
         flags.push({ t: (f.verlauf_pferd === 'gegen' ? 'gegen Verlauf' : 'mit Verlauf') + (f.verlauf === 'vorne' ? ' (vorne gew.)' : ' (hinten gew.)'), tip: 'Rennverlauf-Wert ' + sgn(f.verlauf_wert, 2), bg: plus ? C.goodBg : 'transparent', fg: plus ? C.good : f.verlauf_pferd === 'mit' ? C.bad : C.ink2, bd: plus ? C.goodBg : C.line });
       }
       if (f.abst_pass && f.abst_pass.gesamt != null && Math.abs(f.abst_pass.gesamt) >= 15) flags.push({ t: 'Abst ' + arrow(f.abst_pass.gesamt) + ' ' + sgn(f.abst_pass.gesamt, 0), tip: 'Abstammungs-Passung dieses Laufs', bg: 'transparent', fg: pTone(f.abst_pass.gesamt), bd: C.line });
-      const bln = blinkTxt(f.blinkers); if (bln) flags.push({ t: bln, tip: '', bg: 'transparent', fg: C.ink2, bd: C.line });
       if (f.sieger) flags.push({ t: 'Sieger ' + tc(f.sieger), tip: '', bg: 'transparent', fg: C.ink2, bd: C.line });
       const dd = (x.duels || []).filter(d => d.race_id ? d.race_id === f.race_id : d.date === f.date);
       const ii = (x.indirect?.rivals || []).filter(e => (e.via || []).some(v => v[0] === f.race_id));
@@ -1590,7 +1591,7 @@ class Component extends DCLogic {
         pos: posTxt, ran: f.ran ?? '–', margin: f.pos ? lengths(f.margin) : f.lb_min != null ? '≥ ' + lengths(f.lb_min) : '',
         ...(MEDAILLE[f.pos] || { posBg: C.card, posFg: C.ink, posBd: C.line }),
         course: tc(f.course), courseBg: same.includes('K') ? C.goldBg : 'transparent', coursePad: same.includes('K') ? '4px' : '0', courseTip: same.includes('K') ? 'Kurs wie heute (gleicher Belag)' : '', date: dt(f.date), cond, condR, cgd: f.cgd || '',
-        line3: tc(f.jockey) + ' · ' + kurz(f.weight) + ' kg · Box ' + (f.draw ?? '–') + ' · Q ' + (f.odds != null ? fx(f.odds, 1) : '–') + (f.fav ? ' F' : ''),
+        line3: tc(f.jockey) + ' · ' + kurz(f.weight) + ' kg · Box ' + (f.draw ?? '–') + ' · Q ' + (f.odds != null ? fx(f.odds, 1) : '–') + (f.fav ? ' F' : '') + blinkKurz(f.blinkers),
         mR: mm.slice(0, 3), mT: [...mm.slice(3).map(m => ({ vf: "'Spline Sans Mono',monospace", ...m })), ...Array((4 - (mm.length - 3) % 4) % 4).fill({ k: '', v: '', sub: '', bg: C.card, hasWag: false, wag: [], cur: 'default', ul: 'none' })], flags, hasFlags: flags.length > 0, note: f.comment_de || f.comment, hasNote: !!(f.comment_de || f.comment), btns, hasBtns: btns.length > 0, sub, hasSub: sub.length > 0 };
     });
 
