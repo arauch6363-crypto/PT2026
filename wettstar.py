@@ -375,7 +375,9 @@ def anhaengen(daten: dict, df=None, tag=None, log=print, rennen=None) -> int:
         je = zuordnen(daten, df)
     except Exception as e:
         log(f"Wettstar: Festkurse nicht geholt ({str(e).splitlines()[0]}) – Karte ohne Festkurse.")
+        daten["festkurse_fehler"] = str(e).splitlines()[0][:200]     # Abfrage gescheitert (zählt nicht als „leer“)
         return 0
+    daten.pop("festkurse_fehler", None)
     n_alle = 0
     ohne = []
     n_je = 0
