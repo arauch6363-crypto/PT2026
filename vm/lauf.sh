@@ -14,7 +14,7 @@ if ! mountpoint -q "$HOME/drive"; then
 fi
 [ -d "$BASE" ] || { echo "Drive nicht eingebunden ($BASE fehlt)"; exit 1; }
 [ -f "$HOME/.pt2026.env" ] && set -a && . "$HOME/.pt2026.env" && set +a     # NTFY_TOPIC, DURCHGANG_TOKEN, PT2026_PAUSEN …
-cd "$CODE" && "$HOME/venv/bin/python" taeglich.py --base "$BASE"
+cd "$CODE" && "$HOME/venv/bin/python" -u taeglich.py --base "$BASE"      # -u: Ausgaben sofort im Journal
 rc=$?
 if [ "${PT2026_PAUSEN:-0}" = "1" ] && [ ! -e "$HOME/.nicht_abschalten" ]; then
   echo "Warte auf Drive-Uploads, dann herunterfahren …"
