@@ -325,3 +325,21 @@ def test_taeglich_fortsetzung_nach_pause(tmp_path, monkeypatch):
     assert laeufe[0] == {"dashboard": True, "karte": True, "pause": True}
     assert laeufe[1] == {"dashboard": False, "karte": False, "pause": True}
     assert "Pause" in next((tmp_path / "logs").glob("taeglich_*.log")).read_text()
+
+
+def test_karte_wiederholt_bei_pmu_fehler(tmp_path):
+    uhr = Uhr("11:30")
+    k = Karte(tmp_path, uhr, [_r("20261115R1C1", 1, "13:00")], {"R1": "12:10"})
+    echt, fehler = k.programm, {"n": 0}
+
+    def programm(tag):
+        fehler["n"] += 1
+        if fehler["n"] < 3:
+            raise RuntimeError("PMU-Programm nicht erreichbar")
+        return echt(tag)
+    k.programm = programm
+    zeilen = []
+    erg = ta.morgen(tmp_path, TAG, dashboard=False, jetzt=uhr.jetzt, schlafen=uhr.schlafen, log=lambda *a: zeilen.append(" ".join(map(str, a))),
+                    _racecard=k, _boden_fg=FG({}))
+    assert fehler["n"] == 3 and k.runs == ["11:36"]              # zwei Fehlversuche, je 3 min Pause
+    assert erg["festkurse"] == {"R1": "da"} and sum("neuer Versuch" in z for z in zeilen) == 2
