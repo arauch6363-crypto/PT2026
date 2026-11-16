@@ -13,8 +13,13 @@ if ! mountpoint -q "$HOME/drive"; then
   sleep 10
 fi
 [ -d "$BASE" ] || { echo "Drive nicht eingebunden ($BASE fehlt)"; exit 1; }
+# Zwischenspeicher füllen: ~12.000 kleine Parquet-Dateien einzeln aus Drive zu holen dauert sehr lange; parallel
+# vorladen (16 gleichzeitig). Liegen sie schon im Cache, ist das in Sekunden durch. Höchstens 45 min.
+echo "Drive-Cache vorladen …"
+timeout 2700 bash -c 'find "$0/parquet" "$0/modelle" -type f -print0 | xargs -0 -P 16 -n 20 cat > /dev/null' "$BASE" \
+  || echo "Vorladen abgebrochen – läuft trotzdem weiter"
 [ -f "$HOME/.pt2026.env" ] && set -a && . "$HOME/.pt2026.env" && set +a     # NTFY_TOPIC, DURCHGANG_TOKEN, PT2026_PAUSEN …
-cd "$CODE" && "$HOME/venv/bin/python" taeglich.py --base "$BASE"
+cd "$CODE" && "$HOME/venv/bin/python" -u taeglich.py --base "$BASE"      # -u: Ausgaben sofort im Journal
 rc=$?
 if [ "${PT2026_PAUSEN:-0}" = "1" ] && [ ! -e "$HOME/.nicht_abschalten" ]; then
   echo "Warte auf Drive-Uploads, dann herunterfahren …"
