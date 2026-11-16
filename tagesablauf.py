@@ -40,6 +40,8 @@ import pmu
 KARTE_VORLAUF_MIN = 90      # Rennkarte so viele Minuten vor dem ersten Rennen des Tages bauen
 FK_VORLAUF_MIN = 50         # Festkurse je Veranstaltung ab so vielen Minuten vor ihrem ersten Rennen abfragen
 FK_TAKT_MIN = 5             # … alle so viele Minuten
+FK_LEER_VERSUCHE = 2        # Veranstaltung ganz ohne Festkurse nach so vielen erfolgreichen Abfragen aufgeben (reine
+                            # Toto-Veranstaltung); hat sie schon einige, wird weiter gefragt (Festkurse in Etappen)
 PAUSE_AB_MIN = 60           # mit pause=…: Leerlauf ab so vielen Minuten -> Maschine aus, statt zu warten
 WECK_VORLAUF_MIN = 10       # … und so viele Minuten vor dem nächsten Schritt wieder wecken (Hochfahren, Drive)
 KARTE_VERSUCHE = 4          # PMU-Programm/Kartenbau bei Fehlern (Netz, PMU antwortet nicht) so oft versuchen …
@@ -392,6 +394,12 @@ def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool
         log(f"Keine Kartendaten {sp.name} – Festkurse übersprungen.")
         return erg
     log(f"— Festkurse je Veranstaltung ab {FK_VORLAUF_MIN} min vor dem ersten Rennen, alle {FK_TAKT_MIN} min —")
+    ag_pfad = base / "racecards" / f".fk_aufgegeben_{tag:%Y%m%d}.json"      # übersteht Pausen der VM
+    try:
+        aufgegeben = set(json.loads(ag_pfad.read_text(encoding="utf-8"))) if ag_pfad.exists() else set()
+    except ValueError:
+        aufgegeben = set()
+    leer: dict[str, int] = {}
     while True:
         daten = json.loads(sp.read_text(encoding="utf-8"))
         hhmm = jetzt().strftime("%H:%M")
@@ -399,9 +407,12 @@ def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool
         for k, v in alle.items():
             if not v["ohne_fk"]:
                 erg["festkurse"][k] = "da"
+            elif k in aufgegeben and len(v["ohne_fk"]) == len(v["rennen"]):
+                erg["festkurse"][k] = f"keine Festkurse nach {FK_LEER_VERSUCHE} Abfragen (nur Toto?)"
             elif _hm(v["erstes"]) <= _hm(hhmm):
                 erg["festkurse"].setdefault(k, "erstes Rennen gelaufen, ohne Festkurse")
-        offen = offene_veranstaltungen(daten, hhmm)
+        offen = {k: v for k, v in offene_veranstaltungen(daten, hhmm).items()
+                 if not (k in aufgegeben and len(v["ohne_fk"]) == len(v["rennen"]))}
         if not offen:
             break
         faellig = {k: v for k, v in offen.items() if _hm(v["erstes"]) - FK_VORLAUF_MIN <= _hm(hhmm)}
@@ -414,9 +425,22 @@ def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool
                 log(f"  Festkurse nicht geholt: {type(e).__name__}: {e}")
             daten = json.loads(sp.read_text(encoding="utf-8"))
             nach = offene_veranstaltungen(daten, jetzt().strftime("%H:%M"))
+            jetzt_v = veranstaltungen(daten)
             for k in faellig:
                 if k not in nach:
                     log(f"  {k} {faellig[k]['bahn']}: Festkurse da.")
+                elif not daten.get("festkurse_fehler") and len(jetzt_v[k]["ohne_fk"]) == len(jetzt_v[k]["rennen"]):
+                    leer[k] = leer.get(k, 0) + 1          # Abfrage lief, aber noch kein einziger Festkurs
+                    if leer[k] >= FK_LEER_VERSUCHE:
+                        aufgegeben.add(k)
+                        log(f"  {k} {faellig[k]['bahn']}: nach {leer[k]} Abfragen keine Festkurse – vermutlich nur "
+                            f"Toto, nicht weiter abgefragt.")
+                        try:
+                            ag_pfad.parent.mkdir(parents=True, exist_ok=True)
+                            ag_pfad.write_text(json.dumps(sorted(aufgegeben)), encoding="utf-8")
+                        except OSError:
+                            pass
+            nach = {k: v for k, v in nach.items() if k not in aufgegeben or len(v["ohne_fk"]) < len(v["rennen"])}
             if not nach:
                 continue
             schlafen(FK_TAKT_MIN * 60)

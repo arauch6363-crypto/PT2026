@@ -49,7 +49,8 @@ def push(text: str, titel: str = "PT2026", prioritaet: str = "default") -> None:
 class Protokoll:
     """print-Ersatz: schreibt auf die Konsole und in die Log-Datei; wichtige Zeilen gehen zusätzlich als Push."""
     MELDEN = ("Rennkarte gebaut", "Rennkarte neu gebaut", "Festkurse da", "Tagesablauf fertig", "nicht gebaut", "fehlgeschlagen", "Keine französischen",
-              "Boden nur angenommen", "erstes Rennen gelaufen, ohne Festkurse", "Pause bis", "Wecken nicht geplant")
+              "Boden nur angenommen", "erstes Rennen gelaufen, ohne Festkurse", "Pause bis", "Wecken nicht geplant",
+              "nicht weiter abgefragt")
 
     def __init__(self, datei: Path):
         datei.parent.mkdir(parents=True, exist_ok=True)

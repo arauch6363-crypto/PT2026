@@ -89,14 +89,13 @@ def test_ablauf_zwei_veranstaltungen(tmp_path):
     rennen = [_r("20261115R1C1", 1, "13:00"), _r("20261115R1C2", 1, "13:30"),
               _r("20261115R2C1", 2, "16:00", course="LYON"),
               _r("20261115R2C3", 2, "15:40", course="LYON", name="PRIX DES PUR-SANG ARABES")]
-    k, d = Karte(tmp_path, uhr, rennen, {"R1": "12:20", "R2": "15:20"}), Dash()
+    k, d = Karte(tmp_path, uhr, rennen, {"R1": "12:15", "R2": "15:15"}), Dash()
     erg = ta.morgen(tmp_path, TAG, jetzt=uhr.jetzt, schlafen=uhr.schlafen, log=lambda *a: None,
                     _racecard=k, _value_bets=d, _boden_fg=FG({}))
     assert d.n == 1
     assert k.runs == ["11:30"]                                  # 90 min vor 13:00
     assert k.fk_aufrufe[0] == "12:10"                           # R1 ab 50 min vorher
-    assert "12:20" in k.fk_aufrufe and "15:10" in k.fk_aufrufe and "15:20" in k.fk_aufrufe   # R2 ab 15:10 (Araber zählt nicht)
-    assert not [t for t in k.fk_aufrufe if "12:20" < t < "15:10"]                           # dazwischen Ruhe
+    assert k.fk_aufrufe == ["12:10", "12:15", "15:10", "15:15"]  # je 2. Abfrage bringt sie; R2 ab 15:10 (Araber zählt nicht)
     assert erg["festkurse"] == {"R1": "da", "R2": "da"}
 
 
@@ -106,14 +105,39 @@ def test_festkurse_kommen_nicht_rechtzeitig(tmp_path):
     erg = ta.morgen(tmp_path, TAG, dashboard=False, jetzt=uhr.jetzt, schlafen=uhr.schlafen, log=lambda *a: None,
                     _racecard=k, _boden_fg=FG({}))
     assert k.runs == ["12:00"]                                  # zu spät gestartet: sofort bauen
-    assert k.fk_aufrufe[0] == "12:10" and k.fk_aufrufe[-1] < "13:00"
-    assert erg["festkurse"]["R1"].startswith("erstes Rennen gelaufen")
+    assert k.fk_aufrufe == ["12:10", "12:15"]                     # zweimal nichts: nur Toto, nicht weiter fragen
+    assert erg["festkurse"]["R1"].startswith("keine Festkurse nach 2 Abfragen")
+    assert json.loads((tmp_path / "racecards" / ".fk_aufgegeben_20261115.json").read_text()) == ["R1"]
+
+
+def test_festkurse_in_etappen_und_fehler_zaehlen_nicht(tmp_path):
+    uhr = Uhr("12:00")
+    rennen = [_r("20261115R1C1", 1, "13:00"), _r("20261115R1C2", 1, "13:30")]
+    k = Karte(tmp_path, uhr, rennen, {"R1": "12:10"})
+    echt = k.festkurse_aktualisieren
+
+    def fk(base, tag):                                           # 12:10 Wettstar weg, danach C1 da, C2 erst 12:40
+        if uhr.jetzt().strftime("%H:%M") == "12:10":
+            k.fk_aufrufe.append("12:10")
+            d = json.loads(k._pfad().read_text()); d["festkurse_fehler"] = "Timeout"; k._pfad().write_text(json.dumps(d))
+            return
+        echt(base, tag)
+        d = json.loads(k._pfad().read_text())
+        if uhr.jetzt().strftime("%H:%M") < "12:40":
+            for x in d["races"]["20261115R1C2"]["runners"]:
+                x["fk"] = None
+        d.pop("festkurse_fehler", None)
+        k._pfad().write_text(json.dumps(d))
+    k.festkurse_aktualisieren = fk
+    erg = ta.morgen(tmp_path, TAG, dashboard=False, jetzt=uhr.jetzt, schlafen=uhr.schlafen, log=lambda *a: None,
+                    _racecard=k, _boden_fg=FG({}))
+    assert k.fk_aufrufe[-1] == "12:40" and erg["festkurse"]["R1"] == "da"   # Fehler zählt nicht, Etappen: weiterfragen
 
 
 def test_boden_annahme_wird_nachgeholt(tmp_path):
     uhr = Uhr("08:00")
     rennen = [_r("20261115R1C1", 1, "14:00", course="VICHY")]
-    k = Karte(tmp_path, uhr, rennen, {"R1": "13:20"}, boden_annahme=True)
+    k = Karte(tmp_path, uhr, rennen, {"R1": "13:15"}, boden_annahme=True)
     erg = ta.morgen(tmp_path, TAG, dashboard=False, jetzt=uhr.jetzt, schlafen=uhr.schlafen, log=lambda *a: None,
                     _racecard=k, _boden_fg=FG({"VICHY": {"terrain": "Souple", "wert": 3.4, "psf": False}}))
     assert k.runs == ["12:30", "13:05"] and erg["boden_neu"]   # neu gebaut kurz vor den Festkursen
@@ -265,7 +289,7 @@ def test_pause_vor_karte_und_zwischen_veranstaltungen(tmp_path):
     rennen = [_r("20261115R1C1", 1, "13:00"), _r("20261115R2C1", 2, "19:00", course="LYON")]
     geweckt = []
     uhr = Uhr("06:50")
-    k, d = Karte(tmp_path, uhr, rennen, {"R1": "12:20", "R2": "18:20"}), Dash()
+    k, d = Karte(tmp_path, uhr, rennen, {"R1": "12:15", "R2": "18:15"}), Dash()
     lauf = lambda **kw: ta.morgen(tmp_path, TAG, jetzt=uhr.jetzt, schlafen=uhr.schlafen, log=lambda *a: None,
                                   pause=lambda z: geweckt.append(z.strftime("%H:%M")) or True,
                                   _racecard=k, _value_bets=d, _boden_fg=FG({}), **kw)
@@ -283,12 +307,12 @@ def test_pause_vor_karte_und_zwischen_veranstaltungen(tmp_path):
 
 def test_pause_kurz_oder_nicht_geplant_wartet(tmp_path):
     uhr = Uhr("11:00")                                           # Karte 11:30: nur 30 min -> warten
-    k = Karte(tmp_path, uhr, [_r("20261115R1C1", 1, "13:00")], {"R1": "12:20"})
+    k = Karte(tmp_path, uhr, [_r("20261115R1C1", 1, "13:00")], {"R1": "12:15"})
     erg = ta.morgen(tmp_path, TAG, dashboard=False, jetzt=uhr.jetzt, schlafen=uhr.schlafen, log=lambda *a: None,
                     pause=lambda z: 1 / 0, _racecard=k, _boden_fg=FG({}))
     assert k.runs == ["11:30"] and not erg["pause"]
     uhr2 = Uhr("07:00")                                          # Planen schlägt fehl -> wie bisher warten
-    k2 = Karte(tmp_path / "b", uhr2, [_r("20261115R1C1", 1, "13:00")], {"R1": "12:20"})
+    k2 = Karte(tmp_path / "b", uhr2, [_r("20261115R1C1", 1, "13:00")], {"R1": "12:15"})
     erg = ta.morgen(tmp_path / "b", TAG, dashboard=False, jetzt=uhr2.jetzt, schlafen=uhr2.schlafen,
                     log=lambda *a: None, pause=lambda z: False, _racecard=k2, _boden_fg=FG({}))
     assert k2.runs == ["11:30"] and not erg["pause"] and erg["festkurse"] == {"R1": "da"}
