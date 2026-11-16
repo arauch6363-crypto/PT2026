@@ -1,14 +1,15 @@
 ---
 name: rennkarten-durchgang-neu
-description: "Entwurf v1 (parallel zum alten rennkarten-durchgang): Wählt auf einer französischen Galopp-Racecard (Vollblut, PT2026-HTML-Karte) aus den Value-Kandidaten (Festkurs × Modell-Siegchance − 1 über 0) die Siegwetten aus, die der Nutzer tatsächlich spielen würde – je Kandidat Pro-Argumente, Gegenargumente und Fragezeichen, Gesamturteil mit Leitfrage „reicht es für den Sieg?“, Rennvergleich, eigene Kursspanne, Mindestquote und Einheiten. Verwenden, wenn eine Karte oder einzelne Rennen auf Wetten durchgegangen werden sollen."
+description: "Wählt auf einer französischen Galopp-Racecard (Vollblut, PT2026-HTML-Karte) aus den Value-Kandidaten (Festkurs × Modell-Siegchance − 1 über 0) die Siegwetten aus, die der Nutzer tatsächlich spielen würde – je Kandidat Pro-Argumente, Gegenargumente und Fragezeichen, Gesamturteil mit Leitfrage „reicht es für den Sieg?“, Rennvergleich, eigene Kursspanne, Mindestquote und Einheiten. Verwenden, wenn eine Karte oder einzelne Rennen auf Wetten durchgegangen werden sollen."
 ---
 
-# Rennkarten-Durchgang (neu, v1)
+# Rennkarten-Durchgang
 
 Aus dem Interview vom 10./11.11.2026 (`docs/interview_rennkarten_durchgang.md`). Begriffe stehen in `GLOSSARY.md`
 (im Repo-Hauptordner; im hochgeladenen claude.ai-Skill im Skill-Ordner) und werden hier nicht wiederholt – vor dem
-ersten Durchgang lesen. Daten: `DATEN.md`. Beispiele: `FAELLE.md`. Der alte Skill `rennkarten-durchgang` bleibt bis
-zum Abschluss der Erprobung bestehen.
+ersten Durchgang lesen. Daten: `DATEN.md`. Beispiele: `FAELLE.md` – ähnliche Pferde mit den Fällen dort vergleichen.
+Automatisch läuft der Skill über die Aufgabe „Racecard-Durchgang API“ (`claude_projekt/aufgabe_durchgang.md`, je Rennen
+ein Subagent); von Hand gilt dasselbe Vorgehen und dasselbe Ergebnisformat.
 
 ## Ziel und Leitfrage
 
@@ -163,18 +164,28 @@ Je Rennen:
 Rennvergleich: Algeciras > Cole Chop > Lady Madeira > Afterglow > Go For It – Grenze nach Platz 2.
 ```
 
-Am Ende eine Wett-Tabelle (Rennen | Zeit | Nr Pferd | Festkurs | Kursspanne | Mindestquote | Einheiten | Ausschlag)
-und der Protokoll-Block für die Auswertung, mit **allen** Kandidaten:
+Am Ende eine Wett-Tabelle (Rennen | Zeit | Nr Pferd | Festkurs | Kursspanne | Mindestquote | Einheiten | Ausschlag).
+
+**Ergebnis je Rennen** (dasselbe Format im automatischen Durchgang, geprüft mit `durchgang.rennen_pruefen`, abgelegt
+als `durchgang_JJJJMMTT_HHMM.json`, ausgewertet im Value-Dashboard), mit **allen** Kandidaten:
 
 ```json
-{"wetten": [{"race_id": "20261111R2C7", "no": 5, "urteil": "wette", "einheiten": 1, "fk": 13.0,
-             "spanne": [9, 11], "mq": 11, "p_modell": 0.079, "value": 0.03}]}
+{"race_id": "20261111R2C7", "status": "bearbeitet", "vergleich": "Algeciras > Cole Chop > … – Grenze nach Platz 2",
+ "hinweis": "",
+ "kandidaten": [{"no": 5, "horse": "ALGECIRAS", "urteil": "wette", "fk": 13.0, "mq": 11, "spanne": [9, 11],
+                 "p_modell": 0.079, "value": 0.03, "pro": ["…"], "gegen": ["…"], "fragen": ["…"],
+                 "ausschlag": "…"}]}
 ```
 
-`urteil` ist `wette`, `klein` oder `nein` (`einheiten` 1, 0,5, 0). Hinweis: `tipp_auswertung.py` liest noch das alte
-Format (`{"tipps": …}` mit Stufen) und muss für diesen Block angepasst werden.
+`urteil` ist `wette`, `klein` oder `nein` (1, ½, 0 Einheiten). `status`: `bearbeitet`, bei Araber/AQPS `araber`
+(Kandidaten leer).
 
 ## Lernschleife
 
-Weicht der Nutzer von einem Urteil ab, kommt der Fall mit seinem Ausschlag-Satz in `FAELLE.md`. Faustregeln und
-Listen ändern sich erst, wenn sich ein Muster wiederholt; neue Begriffe gehen in `GLOSSARY.md`.
+Abweichende und bestätigte Urteile des Nutzers kommen nach `FAELLE.md`, eingeteilt in drei Arten:
+**Übereinstimmung** (bestätigt die Regeln), **Claude lernt** (das Urteil des Nutzers gilt künftig) und **Claudes Sicht
+behalten** (der Nutzer urteilt anders, hält Claudes Argument aber für vertretbar – wird nicht zur Regel). Eine Regel
+hier ändert sich erst, wenn zwei Fälle „Claude lernt“ in dieselbe Richtung zeigen oder der Nutzer sie ausdrücklich zur
+Regel erklärt. Widerspricht ein neues Urteil einer Regel oder einem früheren Fall, wird das angesprochen (Ausnahme oder
+Regel zu streng?). Neue Begriffe gehen in `GLOSSARY.md`, ausführliche Begründungen in
+`docs/interview_rennkarten_durchgang.md`.

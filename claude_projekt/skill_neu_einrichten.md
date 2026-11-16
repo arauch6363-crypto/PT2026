@@ -10,8 +10,8 @@ API-Kosten. Die Nutzung zählt auf das Kontingent des Abos.
    (der Skill rechnet mit `scripts/blatt.py`).
 3. Darunter bei **Skills** → **Skill hochladen** → die ZIP-Datei wählen und den Skill einschalten.
 4. Optional ein eigenes Projekt „Rennkarten neu“ anlegen und den Block unten unter **Projekt → Anweisungen**
-   einfügen. Das alte Projekt „Racecard-Analyse“ weist auf den alten Skill hin – dort den neuen nicht verwenden,
-   sonst widersprechen sich die Anweisungen.
+   einfügen. Das alte Projekt „Racecard-Analyse“ (alter Skill `rennkarten-durchgang`, inzwischen entfernt) löschen
+   oder nicht mehr verwenden.
 
 ## Nach jeder Skill-Änderung
 
@@ -21,8 +21,9 @@ Skills synchronisieren sich nicht mit GitHub.
 ## Je Renntag
 
 Die HTML-Karte des Tages (`racecard_JJJJMMTT.html`, mit Festkursen) in den Chat hochladen und z. B. schreiben:
-„Geh Toulouse durch“ oder „Rennen R1C5“. Am Ende steht der Protokoll-Block (`{"wetten": …}`); ihn für die Auswertung
-als `wetten_JJJJMMTT.json` in den Ordner `tipps/` der Drive-Ablage legen.
+„Geh Toulouse durch“ oder „Rennen R1C5“. Am Ende steht je Rennen das Ergebnis im Format des Skills (wie im
+automatischen Durchgang). In der Regel braucht es das nicht: Die Aufgabe „Racecard-Durchgang API“ legt ihre Durchgänge
+selbst als `durchgang_JJJJMMTT_HHMM.json` in `racecards/` ab, das Dashboard wertet sie aus.
 
 ## Projekt-Anweisungen (optional)
 
@@ -34,7 +35,8 @@ In diesem Projekt geht es um Siegwetten auf französische Galopp-Racecards. Antw
 - Die Karte kommt als HTML-Datei (racecard_JJJJMMTT.html). Lies sie nur über das Skript
   scripts/blatt.py des Skills, nie die ganze Datei.
 - Geh eine Bahn Rennen für Rennen durch; gelaufene Rennen nur nennen, wenn ich sie anfordere.
-- Ende jeder Bahn: Wett-Tabelle und Protokoll-Block {"wetten": [...]} mit allen Kandidaten.
-- Widerspreche ich einem Urteil, frag nach dem Satz, der für mich den Ausschlag gibt, und
-  notiere den Fall am Ende als Vorschlag für FAELLE.md.
+- Ende jeder Bahn: Wett-Tabelle und das Ergebnis je Rennen im Format des Skills (alle Kandidaten).
+- Widerspreche ich einem Urteil, frag nach dem, was für mich den Ausschlag gibt, sprich Widersprüche
+  zu Regeln oder früheren Fällen an und notiere den Fall am Ende als Vorschlag für FAELLE.md
+  (Art: Übereinstimmung, Claude lernt, Claudes Sicht behalten).
 ```

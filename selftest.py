@@ -3201,14 +3201,11 @@ def racecard_pruefen() -> None:
     pruefe(abs(sum(p_.values()) - 1) < 1e-6 and p_[2] < (1 / 17) / sum([1 / 3.4, 1 / 17, 1 / 3, 1 / 5, 1 / 9, 1 / 6,
                                                                           1 / 12, 1 / 7]),
            "Claude-Version: Potenzmethode zieht die Marge stärker beim Außenseiter ab als proportional")
-    skill = (Path(__file__).parent / ".claude/skills/rennkarten-durchgang/SKILL.md").read_text(encoding="utf-8")
     x0 = eo["runners"][0]
     pruefe(all(k in x0 for k in ("form_lines", "pref", "ae", "career", "rating_adj", "duels", "starts",
                                  "days", "changes", "badges", "hcp_mark", "tr", "arr", "rtr", "summary", "luecke"))
-           and all(k in eo for k in ("pace", "bias", "class", "going_source", "going_assumed", "declared"))
-           and all(k in skill for k in ("_claude.json", "_markt.json", "p_prog", "p_blind", "Startnummer",
-                                        "vorgerechnet", "rivals_nah", "luecke")),
-           "Claude-Version: Felder, die der Skill liest, sind da; der Skill kennt die Claude-Version")
+           and all(k in eo for k in ("pace", "bias", "class", "going_source", "going_assumed", "declared")),
+           "Claude-Version: die erwarteten Felder sind da")
 
     # Vorlieben: A/E deutlich und signifikant anders als der Rest derselben Person/Linie
     ges = {"n_exp": 400, "exp": 100.0, "pl_exp": 100}                       # A/E gesamt 1,0
