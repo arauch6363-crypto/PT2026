@@ -42,6 +42,8 @@ FK_VORLAUF_MIN = 50         # Festkurse je Veranstaltung ab so vielen Minuten vo
 FK_TAKT_MIN = 5             # … alle so viele Minuten
 PAUSE_AB_MIN = 60           # mit pause=…: Leerlauf ab so vielen Minuten -> Maschine aus, statt zu warten
 WECK_VORLAUF_MIN = 10       # … und so viele Minuten vor dem nächsten Schritt wieder wecken (Hochfahren, Drive)
+KARTE_VERSUCHE = 4          # PMU-Programm/Kartenbau bei Fehlern (Netz, PMU antwortet nicht) so oft versuchen …
+KARTE_PAUSE_MIN = 3         # … mit so vielen Minuten Pause dazwischen
 DURCHGANG_ID = "trig_018LVkAy3xCAZHjqQUB9AcDu"   # Aufgabe „Racecard-Durchgang API“ (Claude), per API gestartet
 DURCHGANG_URL = "https://api.anthropic.com/v1/claude_code/routines/{id}/fire"
 PARIS = pmu.PARIS
@@ -274,6 +276,19 @@ def _pausieren(ziel: datetime, jetzt: Callable[[], datetime], pause, log, was: s
     return weck
 
 
+def _versuchen(was: str, fn, log, schlafen, versuche: int = KARTE_VERSUCHE, pause_min: float = KARTE_PAUSE_MIN):
+    """fn() bei Fehlern (PMU/Netz antwortet nicht) mehrmals versuchen; der letzte Fehler geht durch."""
+    for n in range(1, versuche + 1):
+        try:
+            return fn()
+        except Exception as e:
+            if n == versuche:
+                log(f"{was} fehlgeschlagen nach {versuche} Versuchen: {type(e).__name__}: {str(e)[:200]}")
+                raise
+            log(f"{was}: Fehler ({type(e).__name__}: {str(e)[:150]}) – neuer Versuch in {pause_min:g} min ({n}/{versuche}).")
+            schlafen(pause_min * 60)
+
+
 def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool = True, festkurse: bool = True,
            pause: Callable[[datetime], bool] | None = None,
            jetzt: Callable[[], datetime] = _jetzt, schlafen: Callable[[float], None] = time.sleep,
@@ -304,7 +319,7 @@ def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool
     out = base / "racecards" / f"racecard_{tag:%Y%m%d}.html"
     sp = _racecard.daten_pfad(out)
     if karte:
-        races, _ = _racecard.programm(tag)
+        races, _ = _versuchen("PMU-Programm", lambda: _racecard.programm(tag), log, schlafen)
         erstes = erstes_rennen(races)
         if erstes is None:
             log(f"Keine französischen Flachrennen am {tag} – nichts zu tun.")
@@ -316,7 +331,8 @@ def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool
             erg["pause"] = weck.isoformat()
             return erg
         _warten_bis(ziel, jetzt, schlafen, log, "Rennkarte")
-        erg["karte"] = str(_racecard.run(base, tag, festkurse=False, uebersetzen_aktiv=False))
+        erg["karte"] = str(_versuchen("Rennkarte", lambda: _racecard.run(base, tag, festkurse=False,
+                                                                           uebersetzen_aktiv=False), log, schlafen))
         log(f"Rennkarte gebaut: {Path(erg['karte']).name}")
         daten = json.loads(sp.read_text(encoding="utf-8"))
         ohne = boden_annahme(daten)
