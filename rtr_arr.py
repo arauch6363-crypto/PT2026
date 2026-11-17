@@ -75,6 +75,8 @@ GOING_MAP = {
     'Bon souple': 'FAST', 'Bon': 'FAST',
     'Léger': 'VERY FAST', 'Bon léger': 'VERY FAST', 'Très léger': 'VERY FAST',
     'PSF Standard': 'PSF', 'PSF Lente': 'PSF', 'PSF Rapide': 'PSF',
+    # ältere PMU-Daten (v. a. 2020–2022) nennen bei PSF nur den Zustand ohne „PSF“ – diese Begriffe gibt es nur dort
+    'Standard': 'PSF', 'Lente': 'PSF', 'Rapide': 'PSF',
 }
 BODEN_GRUPPEN = ["VERY FAST", "FAST", "SLOW", "VERY SLOW", "PSF"]
 
