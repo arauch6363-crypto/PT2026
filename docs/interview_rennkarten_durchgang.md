@@ -153,6 +153,11 @@ Bosquet: „Stimme in allem überein.“ → Alle drei Übereinstimmung; Scheukl
 
 Nutzer: „Stimme im Wesentlichen mit der Analyse überein.“ → Alle drei Übereinstimmung.
 
+### 16.11. Marseille R4C2 – Magenta Melody (Claude: klein), Giovanni Giorgio, Naturaliste (Claude: nein)
+
+Nutzer: „Passt!“ – auch auf die Nachfrage, ob eine leicht unpassende Abstammung (Belag −9) bei erstmals PSF nur
+Fragezeichen ist und nicht wie bei Littoral Nord (−17) allein kippt. → Alle drei Übereinstimmung.
+
 ## Stand
 
 Skill v1 geschrieben: `.claude/skills/rennkarten-durchgang-neu/` (SKILL.md, DATEN.md, FAELLE.md, scripts/blatt.py), parallel zum alten Skill.
