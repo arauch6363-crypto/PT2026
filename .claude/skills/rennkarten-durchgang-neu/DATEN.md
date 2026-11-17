@@ -32,7 +32,7 @@ wo die Daten Lücken haben.
 | Jockey | `ae.jockey.d365`, `pref.jockey.course/horse/trainer` | `pref.jockey.trainer` = Gespann |
 | Ratings | `arr.adj` (gewichtsbereinigt), `arr.rank`, `tr.rank`, `rtr.rank` | Top-ARR des Feldes im Blattkopf |
 | Duelle | `duel_rank.score_l` | Längen vor (+) oder hinter (−) den Gegnern, direkt und indirekt |
-| Box | `draw_stat.dev`, `sig` | nur `sig` = belastbar |
+| Box | `draw_stat.dev`, `sig` | Abweichung der Ø relativen Platzierung aus dieser Box von 0,5 (1 = Sieger, 0 = Letzter): **positiv = Box besser**, negativ = schlechter; nur `sig` = belastbar (Blatt: „signifikant besser/schlechter“) |
 | Abstammung | `abst.sire/dam_sire.boden/dist.passung` | `sicher` = genug Läufe |
 
 ## Formzeilen (`form_lines`, neueste zuerst)

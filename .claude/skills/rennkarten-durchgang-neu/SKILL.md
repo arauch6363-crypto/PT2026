@@ -109,12 +109,14 @@ selten gewinnend (viele Plätze, kaum Siege) · kalter Trainer (abgestuft) · Au
 Läufe kamen · in der heutigen Richtung klar schlechter · signifikant schlechte Box · Höchstgewicht auf sehr weichem
 Boden · dichte Startfolge · Formen „weit weg von dem, was benötigt wird“ · vorne laufend gegen schnelles Tempo · Stute
 gegen Hengste (bei jungen Pferden, leicht) · Sieg, bei dem das Rennen den Vorderen half und das Pferd vorne lief
-(etwas weniger wert) · im direkten Vergleich hinter einem heutigen Gegner.
+(etwas weniger wert) · im direkten Vergleich hinter einem heutigen Gegner · **Aufstieg aus Claimern (Verkaufsrennen) ins Handicap** – ausgeglichen
+nur durch deutlich höheren Klassenindex der Claimer (nicht bloß ein paar Punkte, Crew Dragon) oder schon vorhandene
+Handicap-Form auf ähnlicher Marke (Knuckle); bei kurzer Quote wiegt es schwerer (Lovely Warrior).
 
 ### Typische Pro-Argumente
 
 Vorderer Modell-Rang mit solidem Value · CGD · Referenzlauf unter heutigen Bedingungen mit gutem ARR · Bahnbewährung
-(gewonnen oder platziert) · Bewährung genau auf der heutigen Bodenangabe · gegen den Verlauf gut gelaufen · gestörter
+(gewonnen oder platziert) · Bewährung genau auf der heutigen Bodenangabe · signifikant gute Box · gegen den Verlauf gut gelaufen · gestörter
 letzter Lauf · im Handicap: Marke deutlich unter letzter Sieg-/Platzmarke · außerhalb des Handicaps: höchste
 gewichtsbereinigte Valeur im Feld · Trainer heiß oder auf der Bahn stark · Jockey kennt
 das Pferd · starkes Gespann · Abstieg in die Provinz · Abstieg aus stärkeren Rennen (nur wenn diese Rennen nicht abgewertet sind) · britischer Trainer · unexposed mit Steigerungspotenzial ·
@@ -128,6 +130,10 @@ kann reichen“ beantwortet ist. Mindestquote = unterer Rand der Spanne.
 
 - **Wette** = 1 Einheit. **Kleine Wette** = ½ Einheit: interessant, aber „da fehlt einiges“ (z. B. erster Ansatz
   nach vielen schwachen Läufen, Value dünn).
+- **Keine kleine Wette als Ausweg:** Ist das Pferd exposed und sind Trainer oder Jockey schwach bzw. ohne aktuelle
+  Form, wird es keine kleine Wette, auch wenn Value, Konstanz oder Marke dafür sprechen. Die kleine Wette ist für
+  Pferde, bei denen einiges fehlt, aber die Grundlage stimmt (unexposed, starke Verbindungen – Come Alone, Cervaro),
+  nicht für exposed Pferde mit schwachen Verbindungen (Crew Dragon, The Cat's).
 - **Keine Wette**, wenn die Fragezeichen überwiegen, die Leitfrage verneint wird oder der Festkurs die eigene
   Einschätzung nicht übersteigt.
 

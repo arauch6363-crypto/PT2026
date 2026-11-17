@@ -119,6 +119,78 @@ Arbeitsnotizen aus dem /grill-with-docs-Interview (Start 11.11.2026). Wird beim 
 - **10.11. Fontainebleau R1C6–R1C9 und Amiens R4C1–R4C7:** 27 Kandidaten, 3 Wetten zu je 1 Einheit. Ergebnisse laut Nutzer: **Soif de Vivre (R1C8, FK 9) gewonnen, Vapoa (R4C3, FK 8,5) gewonnen, Bluff (R4C1, FK 2,8) Zweiter.** Bei 1 Einheit je Wette ergibt das zum Festkurs +14,5 Einheiten aus 3 Wetten (+8, +7,5, −1); Stichprobe viel zu klein für Schlüsse. Eine Durchsicht der übrigen Urteile durch den Nutzer entfällt, weil er die Ergebnisse kennt.
 - **11.11. Toulouse R1C1–R1C9:** 29 Kandidaten, 6 Wetten (Majestic Sky, Blue Blossom Cen, Xilofono, Littoral Nord je 1; Arkansas, Knuckle je ½). Ergebnisse offen.
 
+## Durchsicht der automatischen Durchgänge (ab 17.11.2026)
+
+Rahmen (Interview 16.11.): Quelle sind die automatischen Durchgänge ab 15.11.; Rennen mit Claude-Tipp plus knappe
+Ablehnungen (Value über +30 % oder Modell-Rang 1–2); nur gelaufene Rennen, Ergebnisse ausgeblendet. Fälle verdichtet in
+`FAELLE.md` (Art: Übereinstimmung / Claude lernt / Claudes Sicht behalten), Regel in `SKILL.md` erst bei zwei
+gleichgerichteten Fällen oder ausdrücklicher Ansage. Der Nutzer weist darauf hin, dass er nicht immer ganz konsistent
+urteilt – Widersprüche werden angesprochen, nicht mechanisch übernommen.
+
+### 16.11. Marseille Pont de Vivaux R4C8 – Lovely Warrior (Claude: Wette, FK 3,5, Spanne 2,8–3,2)
+
+Nutzer: zunächst „Wette, passt“, dann: „Scheuklappen sehe ich auch kritisch. Warum nimmt man jetzt die Scheuklappen
+herunter, nachdem man sie immer erfolgreich eingesetzt hat? Und was mir sonst noch nicht gefällt, ist, dass man […] zu
+so kurzer Quote wettet, die aus Verkaufsrennen kommt, jetzt im Handicap. Da finde ich die Quote ein bisschen zu kurz.
+Für mich dann doch eher keine Wette.“ Auf Nachfrage: „Stute“ war ein Versprecher (Hengst, „weniger großer Nachteil“);
+Claimer → Handicap nur am Rande, „der Hauptpunkt bleibt […] die weggelassenen Scheuklappen“. → Keine Wette, Art
+„Claude lernt“.
+
+### 16.11. Marseille R4C4 – Come Alone (Claude: klein), Morus, Bosquet (Claude: nein)
+
+Nutzer: „Bei Come Alone stimme ich dir zu. Mir gefällt auch, dass Trainer/Jockey stark sind, vor allem aber auch, dass
+das Pferd wenig exposed ist, also wenig Starts, jung, in einem relativ exposed Feld. Von der Abstammung her kann man
+bei dem Pferd sogar noch ein bisschen was erwarten. Bahnform: ist hier schon gut gelaufen. Letzter Lauf auf jeden Fall
+verziehen, weil auf schwerem Boden. Und wenn man sich die Vorform anschaut, hat er das höchste ARR im Feld. Negativ
+stört die lange Pause und dass er nach der langen Pause noch keine Form gezeigt hat.“
+Morus: „Im Wesentlichen einverstanden. Erster Start auf der Bahn, keine Referenz. Die Referenzformen von anderen
+Sandbahnen reichen nicht, stammen aus relativ schwachen Rennen, und er war dort auch respektabel geschlagen. Das
+Weglassen der Scheuklappen wiegt hier nicht schwer, da die letzten Formen mit Scheuklappen auch nicht gut waren –
+dass man etwas Neues probiert, ist in dem Fall nicht negativ zu werten. Der Trainer ist auch schwach.“
+Bosquet: „Stimme in allem überein.“ → Alle drei Übereinstimmung; Scheuklappen-Fall präzisiert Lovely Warrior.
+
+### 16.11. Marseille R4C3 – Cervaro (Claude: klein), Blanc Bleu, Silgreypit (Claude: nein)
+
+Nutzer: „Stimme im Wesentlichen mit der Analyse überein.“ → Alle drei Übereinstimmung.
+
+### 16.11. Marseille R4C2 – Magenta Melody (Claude: klein), Giovanni Giorgio, Naturaliste (Claude: nein)
+
+Nutzer: „Passt!“ – auch auf die Nachfrage, ob eine leicht unpassende Abstammung (Belag −9) bei erstmals PSF nur
+Fragezeichen ist und nicht wie bei Littoral Nord (−17) allein kippt. → Alle drei Übereinstimmung.
+
+### 16.11. Marseille R4C1 – Senorito (Claude: nein), Rocky Run (Claude: nein)
+
+Nutzer zu Senorito: „Würde ich vielleicht nicht zustimmen. Was mir hier auffällt, ist, dass das Pferd erst seit kurzem
+bei seinem neuen Trainer ist und für den extrem erfolgreich war. Also der hat hier eine Verbesserung wohl gefunden.
+Sonst hast du es gut analysiert. Und deswegen würde ich auch bei einem jungen Pferd, das sich jetzt offensichtlich
+gerade steigert, die schwachen ARRs nicht so streng bewerten, weil die können ja nur schwächer sein, wenn er gerade im
+Aufsteigen begriffen ist.“ Auf Nachfrage: „Kleine Wette, fair eher 3,5–4, erst Einzelfall.“ (Daten: unter Perret
+3 L/2 S/2 P, A/E 1,72.) → Claude lernt (Einzelfall). Rocky Run: keine Einwände (Übereinstimmung).
+
+### 16.11. Mans R3C8 – Crew Dragon (Claude: klein), Tulpar (Claude: nein)
+
+Nutzer: „Crew Dragon ist in dem Fall für mich klar keine Wette. Es ist auffällig, wie schlecht die Form von Cédric
+Boutin, dem Trainer, aktuell ist. Außerdem ist der Aufstieg aus einem Verkaufsrennen oder aus mehreren Verkaufsrennen in
+ein Handicap auch als Gegenargument zu sehen in den meisten Fällen. Dazu kommt, dass man auf sehr weicher Bahn bisher
+einen deutlich schlechteren Schnitt hat. Was du richtig gesehen hast: dass die Box positiv zu bewerten ist.“
+Zum Regelvorschlag: „Doch, ein höherer Klassenindex kann den Wechsel von Verkaufs- in Handicap-Rennen ausgleichen. Bei
+Crew Dragon ist dieser Klassenindex allerdings nur marginal größer, deswegen würde ich ihn da nicht so hoch bewerten.“
+→ Claude lernt; mit Lovely Warrior zweiter Fall → Regel „Aufstieg aus Claimern ins Handicap“ in `SKILL.md`.
+Tulpar: „passt für mich“ (Übereinstimmung).
+
+### 16.11. Mans R3C7 – The Cat's (Claude: klein), Piano Bar (Claude: nein)
+
+Nutzer: „Bei Piano Bar stimme ich dir zu, bei The Cat's nicht ganz, weil mir hier schon auffällt, dass die ARRs selbst
+in Referenzform anständig sind, aber nicht zu den vorderen des Feldes gehören, und er als relativ exposed Pferd immer
+noch über seiner letzten Siegmarke steht. Bei einem Trainer oder einem Jockey, die beide eher zu den Schwächeren zählen
+und zudem keine aktuelle Form haben.“ Auf Nachfrage: „Keine Wette für die Katze, und die Regel passt.“
+→ Claude lernt; mit Crew Dragon zweiter Fall → Regel „keine kleine Wette als Ausweg“ in `SKILL.md`.
+
+### Stand der Durchsicht (17.11.)
+
+Erledigt: 16.11. Marseille R4C1–R4C8, Mans R3C7–R3C8. Offen: Mans R3C6 (gezeigt, noch ohne Antwort), R3C1–R3C3,
+R3C5; R3C4 fehlt in beiden Durchgängen des 16.11. (Ursache klären); danach 15.11. und ab 17.11.
+
 ## Stand
 
 Skill v1 geschrieben: `.claude/skills/rennkarten-durchgang-neu/` (SKILL.md, DATEN.md, FAELLE.md, scripts/blatt.py), parallel zum alten Skill.

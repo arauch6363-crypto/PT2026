@@ -23,6 +23,10 @@ Die bisherigen Fälle sind nachträglich eingeordnet. Ausführliche Begründunge
 | Blue Blossom Cen (11.11. Toulouse R1C2) | Übereinstimmung | FK 5,5, Rang 1/9, +96 %, Listed-Niveau 2j, Souple | **Nutzer bestätigt Claudes Wette.** Unexposed (2 Starts), starkes Gespann Trainer + Jockey (in Toulouse „nur grüne Balken“), Frankel-Abstammung top (Frankels mögen sehr weichen Boden manchmal nicht, Souple ist aber nicht zu weich); Debüt nur mit Kopf geschlagen hinter der heutigen Gegnerin Frissonante, indirekt über Sea Maze aber vorne; Collant-Sieg mit Valeur 38 (evtl. etwas vom Verlauf vorne profitiert). Gegen: Stute gegen Hengste. „Keine echten Gegenargumente, bei 5,5 okay.“ |
 | Knuckle (11.11. Toulouse R1C7) | Claude lernt | FK 8,5, Rang 1/16, +62 %, Hcp | Trainerwechsel zu Olave Valdivielso „bestimmt kein Nachteil“ (Pro statt Fragezeichen); erstmals 2400 m, aber Vater (Zarak) trägt die Distanz und „je weiter, desto besser“ ist das Pferd bisher gelaufen – Distanzsteigerung eher Plus; letzter Sieg im Claimer hier, davor Handicap-Zweite mit Marke 34 (heute 33,5, nicht höher); Gegner aus dem letzten Rennen danach besser gelaufen; Trainer + Jockey H. Besnier in Toulouse sehr erfolgreich. „Viele positive Argumente – Wette.“ **Claude hatte nur kleine Wette** (Trainerwechsel, Claimer, Distanz als drei Fragezeichen gezählt). |
 | Cole Chop (11.11. R2C7), **klein** | Interview | FK 25, Rang 10/13, +12 % | Vorlieben weich und Distanz sehr gut, CGD, erster Ansatz nach vielen schwachen Läufen – „da fehlt einiges, vielleicht kleine Wette“ |
+| Come Alone (16.11. Marseille R4C4), **klein** | Übereinstimmung | FK 10, Rang 2/9, +31 %, Hcp 4j+ schwach, PSF | Bester ARR im Feld, Bahnform auf PSF, letzter Lauf auf schwerem Boden verziehen, starkes Gespann; dazu (von Claude nicht genannt) **wenig exposed in einem exposed Feld** und Abstammung mit Steigerungspotenzial. Gegen: lange Pause und danach noch keine Form – „nur klein“. |
+| Cervaro (16.11. Marseille R4C3), **klein** | Übereinstimmung | FK 18, Rang 5/10, +30 %, Hcp 4j+, PSF | CGD, Bahn stark, Marke 7,5 kg unter letzter Siegmarke, ARR Rang 2, **australische Scheuklappen zurück** (damit A/E 1,55, ohne 0,61; letzter Lauf ohne), zuletzt gegen den Verlauf nah an der heutigen Favoritin – aber fast drei Jahre ohne Sieg, sehr exposed: „nur klein“. |
+| Magenta Melody (16.11. Marseille R4C2), **klein** | Übereinstimmung | FK 12, Rang 3/11, +67 %, Cond. 3j, PSF | Unexposed (2 Starts, beide im Geld), zuletzt nah dran in aufgewertetem Rennen mit ARR auf Höhe der Besten, Jockey auf der Bahn stark – aber erstmals PSF mit leicht unpassender Abstammung (Belag −9, **nur Fragezeichen, nicht kippend wie Littoral Nord mit −17**), schwacher Trainer, Stute gegen Hengste: „nur klein“. |
+| Senorito (16.11. Marseille R4C1), **klein** | Claude lernt | FK 4,0, Rang 1/10, +10 %, Hcp 4j+, PSF, Höchstgewicht | **Erst seit kurzem beim neuen Trainer Perret und dort sofort erfolgreich** (3 L/2 S/2 P, A/E 1,72; Siege Vichy und hier vor 11 Tagen): „der hat eine Verbesserung gefunden“. Bei einem jungen Pferd im Aufsteigen den Durchschnitts-ARR (Rang 8/10, gezogen von älteren Formen und den 61 kg) nicht so streng werten – die Läufe beim neuen Trainer zählen. Fair 3,5–4. **Claude hatte keine Wette** (Trainerwechsel nicht erwähnt; Höchstgewicht, Aufgewicht, ARR-Rang). Einzelfall, noch keine Regel. |
 
 ## Keine Wette
 
@@ -46,6 +50,17 @@ Die bisherigen Fälle sind nachträglich eingeordnet. Ausführliche Begründunge
 | Afterglow (11.11. R2C7) | Interview | FK 6,5, **Rang 1/13, +29 %** | Argumente nachvollziehbar, aber 7-jährig sehr exposed, Box signifikant schlecht – „der Festkurs bietet zu wenig“ |
 | Lady Madeira (11.11. R2C7) | Claude lernt | FK 16, Rang 2/13, +76 % | Großes Fragezeichen Distanz (auf weiteren Wegen immer Probleme). **Claude hatte sie vorne gesehen.** |
 | Go For It (11.11. R2C7) | Interview | FK 16, Rang 7/13, +14 % | Formen weit weg vom Nötigen, letzter Sieg 6 kg tiefer auf kleiner Provinzbahn, Stall ohne Sieg in 2 Jahren – „fehlt die Klasse“ |
+| Crew Dragon (16.11. Mans R3C8) | Claude lernt | FK 8,5, Rang 2/12, +63 %, Hcp 4j+, Collant | „Klar keine Wette“: Trainer C. Boutin auffällig schlecht in Form (30 Tage 2/40, A/E 0,55); **Aufstieg aus mehreren Claimern ins Handicap** „in den meisten Fällen ein Gegenargument“ – deren Klassenindex (107–111 gegen heute 101) nur marginal höher, gleicht es hier nicht aus; auf sehr weichem Boden deutlich schlechterer Schnitt. Richtig gesehen: Box 11 signifikant **positiv**. **Claude hatte kleine Wette** (Claimer-Herkunft sogar als Pro „Abstieg“ gewertet). Zweiter Fall nach Lovely Warrior → Regel in `SKILL.md`. |
+| The Cat's (16.11. Mans R3C7) | Claude lernt | FK 10, Rang 2/11, +61 %, Hcp 4j+ schwach, Collant | Konstant knapp geschlagen auf Bahn und Boden, Scheuklappen ab ohne Bedeutung (ohne immer gelaufen) – aber **ARR auch im Referenzlauf nicht unter den vorderen im Feld**, exposed (48 Starts) und noch über der letzten Siegmarke, Trainer und Jockey eher schwach und ohne aktuelle Form. **Claude hatte kleine Wette.** Zweiter Fall nach Crew Dragon → Regel „keine kleine Wette als Ausweg“. |
+| Lovely Warrior (16.11. Marseille R4C8) | Claude lernt | FK 3,5, Rang 1/7, +32 %, Hcp 2j, PSF | CGD, PSF 2 L/2 S, bester ARR im Feld, starkes Gespann – aber die **australischen Scheuklappen fallen heute weg**, mit denen die besten Läufe kamen (A/E 1,74 mit, 0,51 ohne): „Warum nimmt man die Scheuklappen herunter, nachdem man sie immer erfolgreich eingesetzt hat?“ Erster Handicap-Start aus Claimern nur leicht dagegen. Bei 3,5 zu kurz. **Claude hatte Wette** (Scheuklappen als Gegenargument gesehen, aber zu leicht gewichtet). |
+| Morus (16.11. Marseille R4C4) | Übereinstimmung | FK 9, Rang 2/9, +15 %, Hcp | Erster Start auf der Bahn, keine Referenz; andere Sandformen aus schwachen Rennen und auch dort deutlich geschlagen; Trainer schwach. **Scheuklappen ab ist hier kein Minus:** „die letzten Formen mit Scheuklappen waren auch nicht gut – dass man etwas Neues probiert, ist dann nicht negativ“ (Gegenstück zu Lovely Warrior). Claude hatte es als Fragezeichen geführt. |
+| Bosquet (16.11. Marseille R4C4) | Übereinstimmung | FK 8, Rang 2/9, +4 %, Hcp | Wird ordentlich laufen, aber niedrigster ARR im Feld, selten gewinnend, schwacher Stall – bei Value nahe 0 zu kurz. |
+| Blanc Bleu (16.11. Marseille R4C3) | Übereinstimmung | FK 6,5, Rang 2/10, +18 %, Hcp | Bahnspezialist, Marke tief, gegen den Verlauf gelaufen – aber 8-jährig mit 99 Starts, ARR Rang 8/10, von hinten bei normalem Tempo: „wie Afterglow – der Kurs bietet zu wenig“. |
+| Silgreypit (16.11. Marseille R4C3) | Übereinstimmung | FK 3,6, **Rang 1/10, +37 %**, Hcp | Sieg hier zuletzt, aber 3,5 kg mehr, Sieg in einem Rennen, das den Vorderen half, ARR nur Rang 7/10, gewinnt selten, Trainer in Handicaps schwach – fair eher 4–5. |
+| Giovanni Giorgio (16.11. Marseille R4C2) | Übereinstimmung | FK 5,5, Rang 1/11, +17 %, Cond. 3j | Starker neuer Trainer, bestes ARR aus stärkerem Rennen – aber sieglos, 240 Tage Pause, erstmals Wallach, erstmals 2000 m: bei +17 % zu viele Fragezeichen. |
+| Naturaliste (16.11. Marseille R4C2) | Übereinstimmung | FK 35, Rang 7/11, +40 % | Referenzlauf hier vor 11 Tagen nur 5/6 im Claimer, Trainer in Conditions 0/58 – reicht nicht für den Sieg. |
+| Tulpar (16.11. Mans R3C8) | Übereinstimmung | FK 5, Rang 1/12, +17 %, Hcp, Collant, 62 kg | Scheuklappen zurück (Pro), Trainer heiß – aber 4,5 kg Aufgewicht, Höchstgewicht auf Collant, erstmals Very slow, ARR Rang 9/12: Verdansk-Muster. |
+| Piano Bar (16.11. Mans R3C7) | Übereinstimmung | FK 27, Rang 8/11, +38 % | Höchster ARR und Bahnsieg, Marke stark gefallen – aber Formkurve seit Monaten schwach, Trainer kalt, erstmals Very slow: kein Grund für den Sieg heute. |
 
 ## Abweichungen Claude ↔ Nutzer
 
@@ -60,6 +75,17 @@ Die bisherigen Fälle sind nachträglich eingeordnet. Ausführliche Begründunge
 - **R2C5:** Reihenfolge gleich, Grenze falsch – Höchstgewicht auf schwerem Boden und Klassenfrage zu leicht gewichtet.
 - **R2C7:** Algeciras' Bodenbilanz nur aus den Formzeilen gelesen (falsch „nie auf Très souple“); Modell-Value statt
   eigener Kursspanne als Maßstab benutzt.
+
+- **16.11. Marseille R4C8 Lovely Warrior:** Claude Wette, Nutzer keine – das Weglassen einer Ausrüstung, mit der die
+  besten Läufe kamen, als Gegenargument erkannt, aber nicht als ausschlaggebend gewichtet.
+- **16.11. Marseille R4C1 Senorito:** Claude keine Wette, Nutzer klein – kürzlicher Trainerwechsel mit sofortiger
+  Steigerung übersehen (das Blatt zeigt ihn nur über „mit diesem Pferd“); Durchschnitts-ARR bei einem Pferd im
+  Aufsteigen zu streng gewertet.
+- **16.11. Mans R3C8 Crew Dragon:** Claude klein, Nutzer keine – Aufstieg aus Claimern ins Handicap als Pro
+  („Abstieg“, höherer Klassenindex) statt als Gegenargument gelesen; ausgleichen kann nur ein deutlich höherer Index.
+  Neue Regel (mit Lovely Warrior). Box-Richtung war im Blatt nicht erkennbar (Blatt ergänzt).
+- **16.11. Mans R3C7 The Cat's:** Claude klein, Nutzer keine – wie bei Crew Dragon die kleine Wette als Ausweg für ein
+  exposed Pferd mit schwachen Verbindungen benutzt; Leitfrage (ARR nicht vorne) zu leicht genommen. Neue Regel.
 
 ## Korrekturen des Nutzers zum Durchgang 13.11. (Saint-Cloud, Lourd)
 
