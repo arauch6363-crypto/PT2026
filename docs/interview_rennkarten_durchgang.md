@@ -149,6 +149,10 @@ Weglassen der Scheuklappen wiegt hier nicht schwer, da die letzten Formen mit Sc
 dass man etwas Neues probiert, ist in dem Fall nicht negativ zu werten. Der Trainer ist auch schwach.“
 Bosquet: „Stimme in allem überein.“ → Alle drei Übereinstimmung; Scheuklappen-Fall präzisiert Lovely Warrior.
 
+### 16.11. Marseille R4C3 – Cervaro (Claude: klein), Blanc Bleu, Silgreypit (Claude: nein)
+
+Nutzer: „Stimme im Wesentlichen mit der Analyse überein.“ → Alle drei Übereinstimmung.
+
 ## Stand
 
 Skill v1 geschrieben: `.claude/skills/rennkarten-durchgang-neu/` (SKILL.md, DATEN.md, FAELLE.md, scripts/blatt.py), parallel zum alten Skill.
