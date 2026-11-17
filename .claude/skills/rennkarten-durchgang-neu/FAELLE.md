@@ -26,6 +26,7 @@ Die bisherigen Fälle sind nachträglich eingeordnet. Ausführliche Begründunge
 | Come Alone (16.11. Marseille R4C4), **klein** | Übereinstimmung | FK 10, Rang 2/9, +31 %, Hcp 4j+ schwach, PSF | Bester ARR im Feld, Bahnform auf PSF, letzter Lauf auf schwerem Boden verziehen, starkes Gespann; dazu (von Claude nicht genannt) **wenig exposed in einem exposed Feld** und Abstammung mit Steigerungspotenzial. Gegen: lange Pause und danach noch keine Form – „nur klein“. |
 | Cervaro (16.11. Marseille R4C3), **klein** | Übereinstimmung | FK 18, Rang 5/10, +30 %, Hcp 4j+, PSF | CGD, Bahn stark, Marke 7,5 kg unter letzter Siegmarke, ARR Rang 2, **australische Scheuklappen zurück** (damit A/E 1,55, ohne 0,61; letzter Lauf ohne), zuletzt gegen den Verlauf nah an der heutigen Favoritin – aber fast drei Jahre ohne Sieg, sehr exposed: „nur klein“. |
 | Magenta Melody (16.11. Marseille R4C2), **klein** | Übereinstimmung | FK 12, Rang 3/11, +67 %, Cond. 3j, PSF | Unexposed (2 Starts, beide im Geld), zuletzt nah dran in aufgewertetem Rennen mit ARR auf Höhe der Besten, Jockey auf der Bahn stark – aber erstmals PSF mit leicht unpassender Abstammung (Belag −9, **nur Fragezeichen, nicht kippend wie Littoral Nord mit −17**), schwacher Trainer, Stute gegen Hengste: „nur klein“. |
+| Senorito (16.11. Marseille R4C1), **klein** | Claude lernt | FK 4,0, Rang 1/10, +10 %, Hcp 4j+, PSF, Höchstgewicht | **Erst seit kurzem beim neuen Trainer Perret und dort sofort erfolgreich** (3 L/2 S/2 P, A/E 1,72; Siege Vichy und hier vor 11 Tagen): „der hat eine Verbesserung gefunden“. Bei einem jungen Pferd im Aufsteigen den Durchschnitts-ARR (Rang 8/10, gezogen von älteren Formen und den 61 kg) nicht so streng werten – die Läufe beim neuen Trainer zählen. Fair 3,5–4. **Claude hatte keine Wette** (Trainerwechsel nicht erwähnt; Höchstgewicht, Aufgewicht, ARR-Rang). Einzelfall, noch keine Regel. |
 
 ## Keine Wette
 
@@ -73,6 +74,9 @@ Die bisherigen Fälle sind nachträglich eingeordnet. Ausführliche Begründunge
 
 - **16.11. Marseille R4C8 Lovely Warrior:** Claude Wette, Nutzer keine – das Weglassen einer Ausrüstung, mit der die
   besten Läufe kamen, als Gegenargument erkannt, aber nicht als ausschlaggebend gewichtet.
+- **16.11. Marseille R4C1 Senorito:** Claude keine Wette, Nutzer klein – kürzlicher Trainerwechsel mit sofortiger
+  Steigerung übersehen (das Blatt zeigt ihn nur über „mit diesem Pferd“); Durchschnitts-ARR bei einem Pferd im
+  Aufsteigen zu streng gewertet.
 
 ## Korrekturen des Nutzers zum Durchgang 13.11. (Saint-Cloud, Lourd)
 

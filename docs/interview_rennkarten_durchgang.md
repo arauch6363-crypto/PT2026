@@ -158,6 +158,15 @@ Nutzer: „Stimme im Wesentlichen mit der Analyse überein.“ → Alle drei Üb
 Nutzer: „Passt!“ – auch auf die Nachfrage, ob eine leicht unpassende Abstammung (Belag −9) bei erstmals PSF nur
 Fragezeichen ist und nicht wie bei Littoral Nord (−17) allein kippt. → Alle drei Übereinstimmung.
 
+### 16.11. Marseille R4C1 – Senorito (Claude: nein), Rocky Run (Claude: nein)
+
+Nutzer zu Senorito: „Würde ich vielleicht nicht zustimmen. Was mir hier auffällt, ist, dass das Pferd erst seit kurzem
+bei seinem neuen Trainer ist und für den extrem erfolgreich war. Also der hat hier eine Verbesserung wohl gefunden.
+Sonst hast du es gut analysiert. Und deswegen würde ich auch bei einem jungen Pferd, das sich jetzt offensichtlich
+gerade steigert, die schwachen ARRs nicht so streng bewerten, weil die können ja nur schwächer sein, wenn er gerade im
+Aufsteigen begriffen ist.“ Auf Nachfrage: „Kleine Wette, fair eher 3,5–4, erst Einzelfall.“ (Daten: unter Perret
+3 L/2 S/2 P, A/E 1,72.) → Claude lernt (Einzelfall). Rocky Run: keine Einwände (Übereinstimmung).
+
 ## Stand
 
 Skill v1 geschrieben: `.claude/skills/rennkarten-durchgang-neu/` (SKILL.md, DATEN.md, FAELLE.md, scripts/blatt.py), parallel zum alten Skill.
