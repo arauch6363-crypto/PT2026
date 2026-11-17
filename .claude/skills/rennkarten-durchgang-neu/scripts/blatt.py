@@ -24,6 +24,10 @@ DIST_TOL = 200               # Meter für „ähnliche Distanz“ beim Referenzl
 
 
 def laden(pfad: str) -> dict:
+    if pfad.endswith(".json.gz"):                        # komprimierte Kartendaten racecard_JJJJMMTT_daten.json.gz
+        import gzip
+        with gzip.open(pfad, "rt", encoding="utf-8") as f:
+            return json.load(f)
     with open(pfad, encoding="utf-8") as f:
         if pfad.endswith(".json"):
             return json.load(f)

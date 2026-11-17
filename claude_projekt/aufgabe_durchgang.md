@@ -13,7 +13,8 @@ welche Rennen); bearbeitet wird immer alles, was laut Plan offen ist.
 
 ## Feste Angaben
 
-- Drive-Ordner racecards: `1K0W0TtV5JGE7UZSEwErU9NVkqvb-k_XX`. Karte: `racecard_JJJJMMTT.html`. Durchgänge:
+- Drive-Ordner racecards: `1K0W0TtV5JGE7UZSEwErU9NVkqvb-k_XX`. Karte: `racecard_JJJJMMTT_daten.json.gz` (komprimierte Kartendaten; die HTML-Karte ist meist über 10 MB und
+  damit zu groß für das Drive-Tool). Durchgänge:
   `durchgang_JJJJMMTT_HHMM.json` (nur diese Dateien anlegen, nie eine Karte oder andere Datei ändern oder löschen).
 - Artefakt „Racecard heute“: slug `9f164b63-af54-4a00-909d-49a365241220`.
 - Repo: https://github.com/arauch6363-crypto/pt2026 (öffentlich), immer der Stand von main – liegt schon unter
@@ -33,11 +34,12 @@ welche Rennen); bearbeitet wird immer alles, was laut Plan offen ist.
 
 ## 2. Karte und bisherige Durchgänge holen
 
-- search_files mit `parentId = '1K0W0TtV5JGE7UZSEwErU9NVkqvb-k_XX' and (title = 'racecard_JJJJMMTT.html' or title contains 'durchgang_JJJJMMTT_')`,
+- search_files mit `parentId = '1K0W0TtV5JGE7UZSEwErU9NVkqvb-k_XX' and (title = 'racecard_JJJJMMTT_daten.json.gz' or title = 'racecard_JJJJMMTT.html' or title contains 'durchgang_JJJJMMTT_')`,
   excludeContentSnippets=true.
-- Gibt es keine `racecard_JJJJMMTT.html`: abbrechen mit „Heute noch keine Karte in Drive.“ und den Titel der neuesten
-  `racecard_*.html` nennen.
-- download_file_content für die Karte und jede `durchgang_JJJJMMTT_*.json`. Dann dekodieren (das Skript findet die
+- **KARTE** = `/home/claude/rd/racecard_JJJJMMTT_daten.json.gz`, falls es sie gibt; sonst `/home/claude/rd/racecard_JJJJMMTT.html`
+  (nur wenn unter 10 MB). Gibt es keine von beiden: abbrechen mit „Heute noch keine Karte in Drive.“.
+  Alle Skripte lesen beide Formate; unten steht KARTE für diesen Pfad.
+- download_file_content für die Karte (nur die gewählte Datei) und jede `durchgang_JJJJMMTT_*.json`. Dann dekodieren (das Skript findet die
   gespeicherten Ergebnisse selbst; kam ein kleines Ergebnis direkt in der Antwort, schreibe dessen JSON zuerst nach
   `/home/claude/rd/_inline_<n>.json`):
 
@@ -59,7 +61,7 @@ PY
 
 ## 3. Plan
 
-- `python3 -I /home/claude/pt2026/durchgang.py plan /home/claude/rd/racecard_JJJJMMTT.html /home/claude/rd/durchgang_JJJJMMTT_*.json`
+- `python3 -I /home/claude/pt2026/durchgang.py plan KARTE /home/claude/rd/durchgang_JJJJMMTT_*.json`
   (ohne Durchgänge nur die Karte). Status je Rennen: offen, gelaufen, kein_festkurs, keine_kandidaten, araber, erledigt.
 - **Karte noch nicht aktuell:** Nennt der Anlass (`<routine-fire-payload>`) Rennen mit „Festkurse da“, die laut Plan
   noch `kein_festkurs` haben und noch nicht gestartet sind, ist die Karte in Drive vermutlich noch nicht hochgeladen.
@@ -75,10 +77,10 @@ PY
 - Prompt je Rennen (Platzhalter ersetzen):
 
   „Antworte auf Deutsch. Du bewertest genau ein Rennen: <race_id> (<RxCy>, <Zeit> Uhr, <Bahn>) auf der Karte
-  /home/claude/rd/racecard_JJJJMMTT.html. Lies zuerst vollständig mit dem Read-Tool
+  KARTE. Lies zuerst vollständig mit dem Read-Tool
   /home/claude/pt2026/.claude/skills/rennkarten-durchgang-neu/SKILL.md und die dort genannten Dateien
   (/home/claude/pt2026/GLOSSARY.md, DATEN.md und FAELLE.md im Skill-Ordner) und arbeite strikt nach dem Skill. Fakten
-  nur über `python3 -I /home/claude/pt2026/.claude/skills/rennkarten-durchgang-neu/scripts/blatt.py /home/claude/rd/racecard_JJJJMMTT.html <RxCy>`;
+  nur über `python3 -I /home/claude/pt2026/.claude/skills/rennkarten-durchgang-neu/scripts/blatt.py KARTE <RxCy>`;
   gib nie die ganze Karte aus. Bewerte jeden Kandidaten (Value > 0) dieses Rennens, kein anderes Rennen. Schreibe dein
   Ergebnis als JSON nach /home/claude/rd/rennen_<race_id>.json mit den Feldern race_id, status (bearbeitet), vergleich
   (Rennvergleich mit Grenze), hinweis (z. B. Boden nur angenommen oder Start in wenigen Minuten) und kandidaten: je
@@ -101,7 +103,7 @@ PY
 
 ## 6. Markierte Karte veröffentlichen
 
-- `python3 -I /home/claude/pt2026/durchgang.py markieren /home/claude/rd/racecard_JJJJMMTT.html /home/claude/rd/racecard_heute.html --template /home/claude/pt2026/racecard_template.html /home/claude/rd/durchgang_JJJJMMTT_*.json`.
+- `python3 -I /home/claude/pt2026/durchgang.py markieren KARTE /home/claude/rd/racecard_heute.html --template /home/claude/pt2026/racecard_template.html /home/claude/rd/durchgang_JJJJMMTT_*.json`.
 - Veröffentlichen mit dem eingebauten **Artifact**-Tool: zuerst `action: "read"` mit
   `url: https://claude.ai/code/artifact/9f164b63-af54-4a00-909d-49a365241220` (klappt das nicht:
   `https://claude.ai/artifact/9f164b63-af54-4a00-909d-49a365241220`), dann `action: "publish"` mit derselben `url` und

@@ -42,6 +42,10 @@ STATUS = ("bearbeitet", "kein_festkurs", "gelaufen", "araber", "keine_kandidaten
 def laden(pfad: str | Path) -> dict:
     """Kartendaten aus der HTML-Karte (Zeile ``const DATA = …``) oder einer JSON-Datei."""
     pfad = Path(pfad)
+    if pfad.name.endswith(".json.gz"):                   # komprimierte Kartendaten (unter 10 MB für das Drive-Tool)
+        import gzip
+        with gzip.open(pfad, "rt", encoding="utf-8") as f:
+            return json.load(f)
     if pfad.suffix == ".json":
         return json.loads(pfad.read_text(encoding="utf-8"))
     with pfad.open(encoding="utf-8") as f:
