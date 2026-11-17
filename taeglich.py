@@ -46,6 +46,10 @@ def push(text: str, titel: str = "PT2026", prioritaet: str = "default") -> None:
         pass
 
 
+# Start-Meldungen: leise (ntfy-Priorität „low“, ohne Ton), damit man sieht, dass etwas begonnen hat
+LEISE = ("Start taeglich.py", "Rennkarte wird gebaut", "Festkurs-Abfrage beginnt")
+
+
 class Protokoll:
     """print-Ersatz: schreibt auf die Konsole und in die Log-Datei; wichtige Zeilen gehen zusätzlich als Push."""
     MELDEN = ("Rennkarte gebaut", "Rennkarte neu gebaut", "Festkurse da", "Tagesablauf fertig", "nicht gebaut", "fehlgeschlagen", "Keine französischen",
@@ -66,6 +70,8 @@ class Protokoll:
             f.write(zeile + "\n")
         if any(m in text for m in self.MELDEN):
             push(text[:300], prioritaet="high" if "fehlgeschlagen" in text or "nicht gebaut" in text else "default")
+        elif any(m in text for m in LEISE):
+            push(text[:300], prioritaet="low")
 
 
 def wecken_planen(zeit: datetime, log=print, _run=subprocess.run) -> bool:
