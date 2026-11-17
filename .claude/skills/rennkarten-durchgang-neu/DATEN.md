@@ -1,6 +1,7 @@
 # Daten der Karte für den Durchgang
 
-Die HTML-Karte (`racecard_JJJJMMTT.html` aus `racecard.py`) enthält alle Daten in einer Zeile `const DATA = {…}`.
+Die HTML-Karte (`racecard_JJJJMMTT.html` aus `racecard.py`) enthält alle Daten in einer Zeile `const DATA = {…}`;
+dieselben Daten stehen in `racecard_JJJJMMTT_daten.json` und komprimiert in `…_daten.json.gz` (unter 10 MB).
 `scripts/blatt.py` liest sie und druckt nur, was die Prüfliste braucht. Diese Seite sagt, woher jede Angabe stammt und
 wo die Daten Lücken haben.
 
@@ -28,7 +29,7 @@ wo die Daten Lücken haben.
 | Qualität der Linie | `ae.pedigree.sire/dam_sire`: `max_val3_idx`, `epr_idx`, `horses` | Ø höchste Valeur der Nachkommen als Dreijährige bzw. Gewinn je Lauf, als Index; v. a. bei jungen Pferden |
 | CGD | `cgd` | Je Buchstabe Bahn mit Belag (C), Bodengruppe (G), Distanzgruppe (D): Großbuchstabe = dort gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals, – = unbekannt |
 | Vorlieben | `pref.horse.going/distance/course/richtung/blinkers/trainer` | **Gesamtbilanz** der Datenbank; `today` markiert die heutige Gruppe |
-| Trainer | `ae.trainer.d30` (Form), `pref.trainer.course/racetype/age` | `trend` hot/cold |
+| Trainer | `ae.trainer.d30` (Form), `pref.trainer.course/racetype/age` | `trend` hot/cold; Trainerwechsel aus `pref.horse.trainer` (Läufe beim heutigen Trainer gegen alle) – Blatt: „Trainer erst seit N Läufen“ (bis 5) |
 | Jockey | `ae.jockey.d365`, `pref.jockey.course/horse/trainer` | `pref.jockey.trainer` = Gespann |
 | Ratings | `arr.adj` (gewichtsbereinigt), `arr.rank`, `tr.rank`, `rtr.rank` | Top-ARR des Feldes im Blattkopf |
 | Duelle | `duel_rank.score_l` | Längen vor (+) oder hinter (−) den Gegnern, direkt und indirekt |
