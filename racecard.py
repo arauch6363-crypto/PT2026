@@ -208,13 +208,17 @@ def kategorie(c) -> str | None:
 
 
 BODEN_ANNAHME = "FAST"          # fehlt die Bodenangabe (noch), gilt der Tag als FAST (Bon, Bon souple)
+BODEN_UNBEKANNT = "UNBEKANNT"   # früherer Lauf ohne Bodenangabe (meist Ausland/PMH): zählt in keiner Bodengruppe
 
 
-def going_klasse(going, going_value=None) -> str:
+def going_klasse(going, going_value=None, annahme: bool = True) -> str:
     """Bodengruppe nach rtr_arr.GOING_MAP (VERY FAST, FAST, SLOW, VERY SLOW, PSF) aus dem offiziellen
-    Bodenbegriff; fehlt er (oder ist unbekannt): BODEN_ANNAHME. Der Penetrometer-Wert (going_value) fließt nicht
-    ein – alle Berechnungen nutzen nur die Gruppe."""
-    return rtr_arr.boden_gruppe(going) or BODEN_ANNAHME
+    Bodenbegriff; fehlt er (oder ist unbekannt): BODEN_ANNAHME (heutiges Rennen) bzw. mit annahme=False
+    BODEN_UNBEKANNT (frühere Läufe – sie zählen dann in keiner Bodenbilanz). BODEN_UNBEKANNT bleibt erhalten.
+    Der Penetrometer-Wert (going_value) fließt nicht ein – alle Berechnungen nutzen nur die Gruppe."""
+    if going == BODEN_UNBEKANNT:
+        return BODEN_UNBEKANNT
+    return rtr_arr.boden_gruppe(going) or (BODEN_ANNAHME if annahme else BODEN_UNBEKANNT)
 
 
 BODEN_DATEI = Path(__file__).with_name("boden_manuell.json")   # im Repo, auf GitHub editierbar
@@ -610,7 +614,7 @@ def vorbereiten(races: pd.DataFrame, runners: pd.DataFrame, trk_races: pd.DataFr
     r["prize_eur"] = pd.to_numeric(r.get("prize_eur"), errors="coerce")
     r["going_value"] = to_float(r["going_value"]) if "going_value" in r else np.nan
     # Boden: nur die Bodengruppe des offiziellen Begriffs (rtr_arr.GOING_MAP), nicht der Penetrometer-Wert
-    r["going_pmu"] = [going_klasse(g) for g in r.get("going", pd.Series(None, index=r.index))]
+    r["going_pmu"] = [going_klasse(g, annahme=False) for g in r.get("going", pd.Series(None, index=r.index))]
     r["going_class"] = r["going_pmu"]
     r["dist_bucket"] = r["distance_m"].map(dist_bucket)
     r["dist_group"] = r["distance_m"].map(rtr_arr.distance_group)     # Distanzgruppe für die Vorlieben
@@ -940,7 +944,7 @@ def extern_zeilen(ext: pd.DataFrame, quellen: pd.DataFrame, h: pd.DataFrame) -> 
     z["margin"] = np.where(z["finish_pos"] == 1, z["margin_sieger"], z["lengths_behind"])
     z["ausland"] = [ist_ausland(b) for b in z["hippodrome"]]
     z["extern_art"] = extern_arten(z["hippodrome"], pmu_bahnen(h)).to_numpy()
-    z["going_pmu"] = [going_klasse(g) for g in z["going"]]
+    z["going_pmu"] = [going_klasse(g, annahme=False) for g in z["going"]]
     z["going_class"] = z["going_pmu"]
     z["dist_bucket"] = z["distance_m"].map(dist_bucket)
     z["dist_group"] = z["distance_m"].map(rtr_arr.distance_group)
@@ -1013,7 +1017,7 @@ def going_gewicht(lauf, heute) -> float:
     Gewicht bei SCHNITT_GOING_STUFEN Gruppen Abstand; PSF gegen Gras GOING_PSF_GRAS; unbekannt -> 1 (neutral).
     Nimmt auch Bodenbegriffe ('Bon souple') und ordnet sie der Gruppe zu."""
     a, b = going_klasse(lauf), going_klasse(heute)
-    if a is None or b is None:
+    if a is None or b is None or BODEN_UNBEKANNT in (a, b):
         return 1.0
     if (a == "PSF") != (b == "PSF"):
         return GOING_PSF_GRAS
@@ -1299,6 +1303,8 @@ def gruppen(h: pd.DataFrame, keys: list[str]) -> dict:
     if h.empty:
         return {}
     d = h.dropna(subset=keys)
+    if "going_pmu" in keys:                              # Läufe ohne Bodenangabe zählen in keiner Bodengruppe
+        d = d[d["going_pmu"] != BODEN_UNBEKANNT]
     out = {}
     for k, g in d.groupby(keys if len(keys) > 1 else keys[0], sort=False):
         out[k] = _rec(g)
@@ -1784,7 +1790,8 @@ CGD_BUCHSTABEN = ("C", "G", "D")
 
 
 def _cgd_schluessel(course, going, dgrp) -> tuple:
-    g = None if going is None or (isinstance(going, float) and np.isnan(going)) else str(going)
+    g = None if going is None or (isinstance(going, float) and np.isnan(going)) or going == BODEN_UNBEKANNT \
+        else str(going)
     c = None if course is None or (isinstance(course, float) and np.isnan(course)) else str(course)
     d = None if dgrp is None or (isinstance(dgrp, float) and np.isnan(dgrp)) else str(dgrp)
     kurs = f"{c}|{'PSF' if g is not None and 'PSF' in g.upper() else 'Gras'}" if c is not None and g is not None else None
@@ -1952,6 +1959,7 @@ def gleich_heute(z, course, dist, gb) -> list[str]:
     D Distanz ±FORM_DIST_M m, B gleiche Bodengruppe (GOING_MAP)."""
     out = []
     g = z.get("going_pmu")
+    g = None if g == BODEN_UNBEKANNT else g
     if course is not None and z.get("course_key") == course and pd.notna(g) and gb is not None \
             and (g == "PSF") == (gb == "PSF"):
         out.append("K")
@@ -2145,6 +2153,8 @@ def _duell_bilanz(duelle: list[dict]) -> dict | None:
 def _boden_nah(a, b) -> bool:
     """Boden innerhalb einer Stufe (Very fast – Fast – Slow – Very slow); PSF nur mit PSF."""
     a, b = going_klasse(a), going_klasse(b)
+    if BODEN_UNBEKANNT in (a, b):
+        return False                                     # ohne Bodenangabe kein Beleg für ähnlichen Boden
     if "PSF" in (a, b):
         return a == b
     return abs(GOING_STUFE.get(a, 1) - GOING_STUFE.get(b, 1)) <= 1
@@ -2311,6 +2321,8 @@ def _tabelle(g: pd.DataFrame, spalte: str, heute_wert, anzeige) -> list[dict]:
     if g.empty or spalte not in g:
         return []
     zeilen = []
+    if spalte == "going_pmu":
+        g = g[g[spalte] != BODEN_UNBEKANNT]
     for k, t in g.dropna(subset=[spalte]).groupby(spalte):
         zeilen.append({"label": anzeige(k), "key": k, "today": bool(k == heute_wert), **_rec(t)})
     return sorted(zeilen, key=lambda x: (not x["today"], -x["runs"]))

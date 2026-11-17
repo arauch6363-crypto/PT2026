@@ -96,3 +96,12 @@ def test_psf_zustand_ohne_psf():
     import rtr_arr
     assert all(rtr_arr.boden_gruppe(t) == "PSF" for t in ("standard", "Lente", "RAPIDE", "PSF STANDARD"))
     assert rtr_arr.boden_gruppe("Bon souple") == "FAST" and rtr_arr.boden_gruppe("Très souple") == "SLOW"
+
+
+def test_frueherer_lauf_ohne_boden_unbekannt():
+    import racecard as rc
+    assert rc.going_klasse(None) == rc.BODEN_ANNAHME                      # heutiges Rennen: Annahme
+    assert rc.going_klasse(None, annahme=False) == rc.BODEN_UNBEKANNT     # früherer Lauf: unbekannt
+    assert rc.going_klasse(rc.BODEN_UNBEKANNT) == rc.BODEN_UNBEKANNT
+    assert rc.going_gewicht(rc.BODEN_UNBEKANNT, "SLOW") == 1.0 and not rc._boden_nah(rc.BODEN_UNBEKANNT, "FAST")
+    assert rc._cgd_schluessel("MANS", rc.BODEN_UNBEKANNT, "M")[1] is None
