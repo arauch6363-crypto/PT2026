@@ -167,6 +167,16 @@ gerade steigert, die schwachen ARRs nicht so streng bewerten, weil die können j
 Aufsteigen begriffen ist.“ Auf Nachfrage: „Kleine Wette, fair eher 3,5–4, erst Einzelfall.“ (Daten: unter Perret
 3 L/2 S/2 P, A/E 1,72.) → Claude lernt (Einzelfall). Rocky Run: keine Einwände (Übereinstimmung).
 
+### 16.11. Mans R3C8 – Crew Dragon (Claude: klein), Tulpar (Claude: nein)
+
+Nutzer: „Crew Dragon ist in dem Fall für mich klar keine Wette. Es ist auffällig, wie schlecht die Form von Cédric
+Boutin, dem Trainer, aktuell ist. Außerdem ist der Aufstieg aus einem Verkaufsrennen oder aus mehreren Verkaufsrennen in
+ein Handicap auch als Gegenargument zu sehen in den meisten Fällen. Dazu kommt, dass man auf sehr weicher Bahn bisher
+einen deutlich schlechteren Schnitt hat. Was du richtig gesehen hast: dass die Box positiv zu bewerten ist.“
+Zum Regelvorschlag: „Doch, ein höherer Klassenindex kann den Wechsel von Verkaufs- in Handicap-Rennen ausgleichen. Bei
+Crew Dragon ist dieser Klassenindex allerdings nur marginal größer, deswegen würde ich ihn da nicht so hoch bewerten.“
+→ Claude lernt; mit Lovely Warrior zweiter Fall → Regel „Aufstieg aus Claimern ins Handicap“ in `SKILL.md`.
+
 ## Stand
 
 Skill v1 geschrieben: `.claude/skills/rennkarten-durchgang-neu/` (SKILL.md, DATEN.md, FAELLE.md, scripts/blatt.py), parallel zum alten Skill.

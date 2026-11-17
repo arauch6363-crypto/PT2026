@@ -228,7 +228,8 @@ def blatt(z: dict, r: dict, top_kg: float) -> None:
     a, t, du, ds = x.get("arr") or {}, x.get("tr") or {}, x.get("duel_rank") or {}, x.get("draw_stat") or {}
     print(f"- Ratings: ARR ber. {zahl(a.get('adj'))} (Rang {a.get('rank')}/{a.get('n')}, Bestwert roh {zahl(a.get('best'))}) · TR Rang {t.get('rank')}/{t.get('n')} · "
           f"RTR Rang {(x.get('rtr') or {}).get('rank')} · Duelle {zahl(du.get('score_l'))} L (Rang {du.get('rank')}/{du.get('of')}) · "
-          f"Box {zahl(ds.get('dev'), 2)}{' signifikant' if ds.get('sig') else ''}")
+          f"Box {zahl(ds.get('dev'), 2)}"
+          + ((" signifikant " + ("besser" if (ds.get("dev") or 0) > 0 else "schlechter")) if ds.get("sig") else ""))
     crib = ((x.get("prono") or {}).get("crible_de") or "").strip()
     if crib:
         print(f"- Crible (Kontext): „{crib[:240]}“")

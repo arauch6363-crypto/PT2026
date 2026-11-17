@@ -50,6 +50,7 @@ Die bisherigen Fälle sind nachträglich eingeordnet. Ausführliche Begründunge
 | Afterglow (11.11. R2C7) | Interview | FK 6,5, **Rang 1/13, +29 %** | Argumente nachvollziehbar, aber 7-jährig sehr exposed, Box signifikant schlecht – „der Festkurs bietet zu wenig“ |
 | Lady Madeira (11.11. R2C7) | Claude lernt | FK 16, Rang 2/13, +76 % | Großes Fragezeichen Distanz (auf weiteren Wegen immer Probleme). **Claude hatte sie vorne gesehen.** |
 | Go For It (11.11. R2C7) | Interview | FK 16, Rang 7/13, +14 % | Formen weit weg vom Nötigen, letzter Sieg 6 kg tiefer auf kleiner Provinzbahn, Stall ohne Sieg in 2 Jahren – „fehlt die Klasse“ |
+| Crew Dragon (16.11. Mans R3C8) | Claude lernt | FK 8,5, Rang 2/12, +63 %, Hcp 4j+, Collant | „Klar keine Wette“: Trainer C. Boutin auffällig schlecht in Form (30 Tage 2/40, A/E 0,55); **Aufstieg aus mehreren Claimern ins Handicap** „in den meisten Fällen ein Gegenargument“ – deren Klassenindex (107–111 gegen heute 101) nur marginal höher, gleicht es hier nicht aus; auf sehr weichem Boden deutlich schlechterer Schnitt. Richtig gesehen: Box 11 signifikant **positiv**. **Claude hatte kleine Wette** (Claimer-Herkunft sogar als Pro „Abstieg“ gewertet). Zweiter Fall nach Lovely Warrior → Regel in `SKILL.md`. |
 | Lovely Warrior (16.11. Marseille R4C8) | Claude lernt | FK 3,5, Rang 1/7, +32 %, Hcp 2j, PSF | CGD, PSF 2 L/2 S, bester ARR im Feld, starkes Gespann – aber die **australischen Scheuklappen fallen heute weg**, mit denen die besten Läufe kamen (A/E 1,74 mit, 0,51 ohne): „Warum nimmt man die Scheuklappen herunter, nachdem man sie immer erfolgreich eingesetzt hat?“ Erster Handicap-Start aus Claimern nur leicht dagegen. Bei 3,5 zu kurz. **Claude hatte Wette** (Scheuklappen als Gegenargument gesehen, aber zu leicht gewichtet). |
 | Morus (16.11. Marseille R4C4) | Übereinstimmung | FK 9, Rang 2/9, +15 %, Hcp | Erster Start auf der Bahn, keine Referenz; andere Sandformen aus schwachen Rennen und auch dort deutlich geschlagen; Trainer schwach. **Scheuklappen ab ist hier kein Minus:** „die letzten Formen mit Scheuklappen waren auch nicht gut – dass man etwas Neues probiert, ist dann nicht negativ“ (Gegenstück zu Lovely Warrior). Claude hatte es als Fragezeichen geführt. |
 | Bosquet (16.11. Marseille R4C4) | Übereinstimmung | FK 8, Rang 2/9, +4 %, Hcp | Wird ordentlich laufen, aber niedrigster ARR im Feld, selten gewinnend, schwacher Stall – bei Value nahe 0 zu kurz. |
@@ -77,6 +78,9 @@ Die bisherigen Fälle sind nachträglich eingeordnet. Ausführliche Begründunge
 - **16.11. Marseille R4C1 Senorito:** Claude keine Wette, Nutzer klein – kürzlicher Trainerwechsel mit sofortiger
   Steigerung übersehen (das Blatt zeigt ihn nur über „mit diesem Pferd“); Durchschnitts-ARR bei einem Pferd im
   Aufsteigen zu streng gewertet.
+- **16.11. Mans R3C8 Crew Dragon:** Claude klein, Nutzer keine – Aufstieg aus Claimern ins Handicap als Pro
+  („Abstieg“, höherer Klassenindex) statt als Gegenargument gelesen; ausgleichen kann nur ein deutlich höherer Index.
+  Neue Regel (mit Lovely Warrior). Box-Richtung war im Blatt nicht erkennbar (Blatt ergänzt).
 
 ## Korrekturen des Nutzers zum Durchgang 13.11. (Saint-Cloud, Lourd)
 
