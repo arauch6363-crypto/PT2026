@@ -1,7 +1,7 @@
 """Kandidaten-Blätter für den Skill rennkarten-durchgang-neu.
 
-Liest die von racecard.py erzeugte HTML-Karte (eingebettetes ``const DATA = …``) oder eine JSON-Datei mit
-``races`` und druckt je Rennen die Fakten, die die Prüfliste des Skills braucht – nur für Kandidaten (Value > 0).
+Liest die Kartendaten von racecard.py – ``racecard_JJJJMMTT_daten.json.gz`` (Normalfall), ``…_daten.json`` oder die
+HTML-Karte (eingebettetes ``const DATA = …``) – und druckt je Rennen die Fakten, die die Prüfliste des Skills braucht – nur für Kandidaten (Value > 0).
 
 Aufruf (aus einem beliebigen Ordner, Karte als Argument):
     python3 -I blatt.py KARTE.html                 # Übersicht: alle Rennen mit Kandidaten
@@ -14,11 +14,16 @@ import json
 import sys
 from datetime import date
 
-# Bodenangabe → Bodengruppe der Karte (wie pmu/racecard: Bon souple zählt zu Fast, Très souple zu Slow)
-GRUPPE = {"lourd": "Very slow", "collant": "Very slow", "très souple": "Slow", "tres souple": "Slow",
-          "souple": "Slow", "bon souple": "Fast", "bon": "Fast", "bon léger": "Very fast", "bon leger": "Very fast",
-          "léger": "Very fast", "leger": "Very fast", "sec": "Very fast"}
-SEHR_WEICH = {"très souple", "tres souple", "collant", "lourd"}
+# Bodenangabe → Bodengruppe der Karte (wie rtr_arr.GOING_MAP: Bon souple zählt zu Fast, Très souple zu Slow; die
+# PSF-Zustände standard/lente/rapide stehen in älteren Daten ohne „PSF“). Eigene Kopie, weil der Skill in claude.ai
+# ohne das Repo läuft.
+GRUPPE = {"lourd": "Very slow", "très lourd": "Very slow", "tres lourd": "Very slow", "collant": "Very slow",
+          "très souple": "Slow", "tres souple": "Slow", "souple": "Slow", "bon souple": "Fast", "bon": "Fast",
+          "bon léger": "Very fast", "bon leger": "Very fast", "léger": "Very fast", "leger": "Very fast",
+          "très léger": "Very fast", "tres leger": "Very fast", "sec": "Very fast",
+          "standard": "PSF", "lente": "PSF", "rapide": "PSF"}
+SEHR_WEICH = {"très souple", "tres souple", "collant", "lourd", "très lourd", "tres lourd"}
+TRAINER_NEU_LAEUFE = 5       # Trainerwechsel in so vielen letzten Läufen eigens zeigen
 FENSTER_STARTS = 42          # Tage für die Startfolge (Gegenargument ab etwa 4 Starts)
 DIST_TOL = 200               # Meter für „ähnliche Distanz“ beim Referenzlauf
 
@@ -172,6 +177,21 @@ def formzeile(f: dict, r: dict) -> str:
     return s
 
 
+def trainerwechsel(liste) -> str | None:
+    """Hinweis, wenn das Pferd erst seit wenigen Läufen beim heutigen Trainer ist (aus der Bilanz je Trainer)."""
+    liste = liste or []
+    h = heute(liste)
+    alle = sum((e.get("runs") or 0) for e in liste)
+    n = (h or {}).get("runs") or 0
+    if not alle or n >= alle:
+        return None                                      # nie gewechselt (oder keine Daten)
+    if n == 0:
+        return f"Trainer: erster Start beim heutigen Trainer (vorher {alle} Läufe bei anderen)"
+    if n <= TRAINER_NEU_LAEUFE:
+        return f"Trainer erst seit {n} Läufen (von {alle} in der Datenbank), dort {h.get('wins', 0)} S/{h.get('places', 0)} P"
+    return None
+
+
 def blatt(z: dict, r: dict, top_kg: float) -> None:
     x, pw = z["x"], z["x"].get("power") or {}
     ph = (x.get("pref") or {}).get("horse") or {}
@@ -189,7 +209,7 @@ def blatt(z: dict, r: dict, top_kg: float) -> None:
     vf = pw.get("wert")
     vf_txt = f"{zahl(vf, 2)}{' gold' if pw.get('gold') else ''}{' Warnung' if pw.get('warn') else ''}" if vf is not None else "–"
     print(f"\n### {x['no']} {x['horse']} – FK {zahl(z['fk'])} · Modell {pct(z['p'], 1)} · Modell-Rang {z['rang']}/{z['n']} ({drittel(z['rang'], z['n'])}) · "
-          f"Value {z['value'] * 100:+.0f} % · Value-Faktor {vf_txt} · Prognose-Rang {((x.get('prono') or {}).get('sel') or {}).get('rank')}")
+          f"Value {z['value'] * 100:+.0f} % · Value-Faktor {vf_txt}")
     print(f"- Pferd: {x.get('age')}j {x.get('sex')}, {x.get('starts')} Starts, {x.get('wins')} S, {x.get('places')} P · "
           f"{x.get('weight')} kg (Höchstgewicht {top_kg}) · Marke {zahl(x.get('rating'))} · Box {x.get('draw')} · Laufstil {x.get('style_label')} · "
           f"{x.get('days')} Tage seit letztem Start · {dicht} Starts in {FENSTER_STARTS} Tagen")
@@ -223,6 +243,9 @@ def blatt(z: dict, r: dict, top_kg: float) -> None:
                 teile.append(f"{label} {e.get('passung') or '–'}" + (f" ({e.get('runs')} L)" if skala == "boden" else ""))
         if teile:
             print(f"- Abstammung {name} ({x.get(k)}): " + " · ".join(teile))
+    tw = trainerwechsel(ph.get("trainer"))
+    if tw:
+        print(f"- {tw}")
     t30, ttr = (ae.get("trainer") or {}).get("d30") or {}, (ae.get("trainer") or {}).get("trend")
     print(f"- Trainer {x.get('trainer')}: 30 Tage {bilanz(t30)}{f', Trend {ttr}' if ttr else ''} · Bahn {bilanz(pt.get('course'))} · "
           f"Rennart {bilanz(pt.get('racetype'))} · Alter {bilanz(pt.get('age'))} · mit diesem Pferd {bilanz(heute(ph.get('trainer')))}")

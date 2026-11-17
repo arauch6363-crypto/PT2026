@@ -10,6 +10,23 @@ Entscheidungen des Nutzers mit dem Satz, der den Ausschlag gab. Neue Pferde mit 
 - **Interview** – Fall aus den Interviews vom 10.–13.11.; ob Claude gleich lag, ist nur bei Abweichungen festgehalten.
 
 Die bisherigen Fälle sind nachträglich eingeordnet. Ausführliche Begründungen: `docs/interview_rennkarten_durchgang.md`.
+Übereinstimmungen ohne neue Erkenntnis werden nur kurz eingetragen (Lage und ein Satz).
+
+## Muster nach Thema (zum Nachschlagen ähnlicher Fälle)
+
+| Thema | Fälle | Kurz |
+|---|---|---|
+| Ausrüstungswechsel | Lovely Warrior, Morus, Cervaro, The Cat's, Tulpar, Fireman | Nach den Bilanzen mit/ohne urteilen (Regel in `SKILL.md`, Punkt 6) |
+| Claimer → Handicap | Lovely Warrior, Crew Dragon; Ausnahme Knuckle | Gegenargument, ausgeglichen nur durch deutlich höheren Klassenindex oder Handicap-Form (Regel) |
+| Kleine Wette | Come Alone, Cervaro, Cole Chop, Magenta Melody gegen Crew Dragon, The Cat's | Nur mit stimmiger Grundlage, nicht für exposed Pferde mit schwachen Verbindungen (Regel) |
+| Trainerwechsel | Knuckle, Senorito | Wechsel zu starkem Stall kein Fragezeichen; Steigerung beim neuen Trainer → ältere Formen zählen weniger (Einzelfall) |
+| Abstammung | Littoral Nord (−17 kippt), Magenta Melody (−9 nur Fragezeichen), Loria (viel gelaufen: ohne Belang), Paumy, Blue Blossom Cen | Zählt bei jungen Pferden und den ersten Läufen auf einem Boden |
+| Leitfrage / Platzpferd | Silgreypit, Blanc Bleu, Afterglow, Roi du Ciel, L'Annonciade, Dublin Calling, Go For It, The Cat's | ARR nicht vorne oder selten gewinnend → keine Siegwette, auch bei Value |
+| Gewicht auf schwerem Boden | Verdansk, Tulpar, Interactiv, Senorito | Aufgewicht + Höchstgewicht auf Collant/Lourd wiegt schwer; Ausnahme bei Steigerung (Senorito) |
+| Modell unsicher | Arkansas, Paumy | Sehr hoher Value auf Auslands-/externen Formen = Warnsignal |
+| Marke außerhalb Handicap | Loria | Gefallene Marke kein Plus; es zählt die bereinigte Valeur |
+| Boden aus Vorlieben | Algeciras, Kenergy | Bilanz aus den Vorlieben, nicht aus den Formzeilen; Souple belegt Très souple nicht ganz |
+| Debütanten | Matinera, Give Me A Shivers | Stall ohne Debütanten-Erfolg „spricht Bände“ |
 
 ## Wetten
 

@@ -27,11 +27,12 @@ genug.
 
 ## Ablauf
 
-1. **Fakten ziehen.** `python3 -I <Skill-Ordner>/scripts/blatt.py KARTE.html` zeigt die Übersicht (Rennen mit
-   Kandidaten, Festkurs-Stand). Skill-Ordner: in Claude Code `.claude/skills/rennkarten-durchgang-neu`, in claude.ai
-   der Ordner, aus dem diese SKILL.md geladen wurde; die Karte ist die hochgeladene `racecard_JJJJMMTT.html`. Nie die
-   ganze Karte ausgeben oder einlesen – sie ist rund 10 MB groß; nur die Ausgabe des Skripts lesen. Mit Bahn oder Rennen (`STRASBOURG`, `R2C5`) als weiteres
-   Argument druckt es je Rennen den Kopf und je Kandidat das Blatt. Uhrzeit gegen den Start prüfen (französische
+1. **Fakten ziehen.** `python3 -I <Skill-Ordner>/scripts/blatt.py KARTE` zeigt die Übersicht (Rennen mit
+   Kandidaten, Festkurs-Stand). KARTE ist `racecard_JJJJMMTT_daten.json.gz` (komprimierte Kartendaten, Normalfall) oder
+   die HTML-Karte `racecard_JJJJMMTT.html` bzw. `…_daten.json` – das Skript liest alle drei. Skill-Ordner: in Claude
+   Code `.claude/skills/rennkarten-durchgang-neu`, in claude.ai der Ordner, aus dem diese SKILL.md geladen wurde. Nie
+   die Karte selbst ausgeben oder einlesen – sie ist über 10 MB groß; nur die Ausgabe des Skripts lesen. Mit Bahn oder
+   Rennen (`STRASBOURG`, `R2C5`) als weiteres Argument druckt es je Rennen den Kopf und je Kandidat das Blatt. Uhrzeit gegen den Start prüfen (französische
    Zeit); ist ein Rennen schon gelaufen oder in wenigen Minuten, das sagen.
 2. **Rennen lesen** (Kopf des Blatts): Rennart, Klasse (Klassenindex), Feldgröße, Bodenangabe und Bodengruppe,
    Distanz, Bahn und Richtung, erwartetes Tempo mit Laufstilen, FK-Favorit, Top-ARR und Top-Valeur im Feld,
@@ -76,7 +77,9 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
    erleben – dort kann eine klar unpassende Abstammung allein die Wette kippen (Littoral Nord). Bei jungen Pferden
    zählt zusätzlich die **Qualität** der Linie (Blatt: max. Valeur der Nachkommen als Index, Gewinn je Lauf als
    Index), weil sie etwas über das Potenzial sagt.
-5. **Trainer und Jockey.** Trainer: Form 30 Tage (kalt = Gegenargument, abgestuft), Bilanz auf der Bahn (kann eine
+5. **Trainer und Jockey.** Trainerwechsel in den letzten Läufen beachten (Blatt: „Trainer erst seit N Läufen“) –
+   hat sich das Pferd beim neuen Trainer schon gesteigert, zählen die älteren Formen weniger (Senorito, Einzelfall).
+   Trainer: Form 30 Tage (kalt = Gegenargument, abgestuft), Bilanz auf der Bahn (kann eine
    kalte Form ausgleichen), Spezialität (Rennart, Alter, Debütanten), Stallgröße und -erfolg (kleiner Stall ohne Sieg
    in zwei Jahren = Gegenargument; klein, aber „geschickt operierend“ = neutral bis Pro). Jockey: Bilanz auf der Bahn,
    kennt das Pferd (Siege zusammen = Pro), Jockey-A/E (holt mehr heraus = Pro), **Gespann Trainer + Jockey** – zählt
@@ -86,13 +89,21 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
    Pferd von hinten bei schnellem Tempo = Pro), Startfolge (ab etwa 4 Starts in 6 Wochen = Gegenargument, „irgendwann
    ist die Luft raus“), Bahnkategorie (von großen Bahnen in die Provinz = Pro, umgekehrt Gegen), Reise (britischer
    Trainer = Pro; spanisch, deutsch, weit reisend französisch nur begrenzt). Crible und Rennkommentar sind Kontext.
+   **Ausrüstungswechsel** (Scheuklappen, australische Scheuklappen) nach den Bilanzen mit und ohne (Blatt:
+   „Ausrüstung“) bewerten, nicht nach dem Wechsel an sich:
+   - fällt weg, **mit ihr kamen die besten Läufe** → starkes Gegenargument, bei kurzer Quote ausschlaggebend
+     (Lovely Warrior);
+   - fällt weg, **mit ihr liefen die Formen auch schwach** → neutral, man probiert etwas Neues (Morus);
+   - fällt weg, **ohne sie lief das Pferd fast immer** → neutral bis Pro, Rückkehr zum Normalen (The Cat's);
+   - **kommt zurück, mit ihr kamen die besten Läufe** → Pro (Cervaro, Tulpar);
+   - **erstmals** → Fragezeichen „warum heute?“.
 7. **Gesamturteil** – nächster Abschnitt.
 
 ### Fragezeichen (unbewiesen, offene Liste)
 
 Erstmals diese Distanzgruppe (auch Distanzwechsel nach unten, gemildert, wenn das Pferd vorne mitläuft) · erstmals
 dieser Boden ab Très souple (Collant und Lourd gelten als derselbe Boden) · erstmals dieser Belag · erstmals Scheuklappen oder andere Ausrüstung („warum
-heute?“) · Bewährung nur aus tieferer Klasse (z. B. Claimer) oder erstmals deutlich höhere Klasse · Rückkehr nach
+heute?“; Wechsel sonst siehe Ausrüstungswechsel in Punkt 6) · Bewährung nur aus tieferer Klasse (z. B. Claimer) oder erstmals deutlich höhere Klasse · Rückkehr nach
 langer Pause · erstmals Wallach · Trainerwechsel · **Aufgewicht** (nur im Handicap; umso größer, je exposed) · erster Start auf einer
 Bahn mit Eigenheiten (Strasbourg, Fontainebleau) · Klassenfrage (kleiner Stall, Formen nur aus schwachen Rennen) ·
 nicht einzuordnende Auslandsformen.
@@ -106,7 +117,7 @@ Trainerwechsel zu einem klar starken Stall; Claimer-Sieg, aber vorher schon Hand
 
 Hinterer Modell-Rang · schwacher Referenzlauf ohne Grund zur Steigerung · ARR deutlich unter den Besten im Feld ·
 selten gewinnend (viele Plätze, kaum Siege) · kalter Trainer (abgestuft) · Ausrüstung fällt weg, mit der die besten
-Läufe kamen · in der heutigen Richtung klar schlechter · signifikant schlechte Box · Höchstgewicht auf sehr weichem
+Läufe kamen (Punkt 6) · in der heutigen Richtung klar schlechter · signifikant schlechte Box · Höchstgewicht auf sehr weichem
 Boden · dichte Startfolge · Formen „weit weg von dem, was benötigt wird“ · vorne laufend gegen schnelles Tempo · Stute
 gegen Hengste (bei jungen Pferden, leicht) · Sieg, bei dem das Rennen den Vorderen half und das Pferd vorne lief
 (etwas weniger wert) · im direkten Vergleich hinter einem heutigen Gegner · **Aufstieg aus Claimern (Verkaufsrennen) ins Handicap** – ausgeglichen
@@ -119,7 +130,8 @@ Vorderer Modell-Rang mit solidem Value · CGD · Referenzlauf unter heutigen Bed
 (gewonnen oder platziert) · Bewährung genau auf der heutigen Bodenangabe · signifikant gute Box · gegen den Verlauf gut gelaufen · gestörter
 letzter Lauf · im Handicap: Marke deutlich unter letzter Sieg-/Platzmarke · außerhalb des Handicaps: höchste
 gewichtsbereinigte Valeur im Feld · Trainer heiß oder auf der Bahn stark · Jockey kennt
-das Pferd · starkes Gespann · Abstieg in die Provinz · Abstieg aus stärkeren Rennen (nur wenn diese Rennen nicht abgewertet sind) · britischer Trainer · unexposed mit Steigerungspotenzial ·
+das Pferd · starkes Gespann · Abstieg in die Provinz · Abstieg aus stärkeren Rennen (nur wenn diese Rennen nicht abgewertet sind) · britischer Trainer · unexposed mit Steigerungspotenzial · Ausrüstung kommt
+zurück, mit der die besten Läufe kamen ·
 „erster Ansatz“ nach einer Reihe schwacher Läufe.
 
 ## Gesamturteil

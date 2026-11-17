@@ -58,6 +58,14 @@ _Avoid_: starkes Rennen, Formrennen
 Die heutige Handicap-Marke liegt über der Marke des letzten Siegs. Ein Fragezeichen, umso größer, je exposed das Pferd ist. Gibt es nur im Handicap; in anderen Rennen gleicht das Gewicht die Valeur nicht aus.
 _Avoid_: Strafe, Mehrgewicht
 
+**Verbindungen**:
+Trainer und Jockey eines Pferdes zusammen gesehen: ihre Stärke (Bilanz, Bahn, Gespann) und ihre aktuelle Form. Schwache oder kalte Verbindungen schließen bei einem exposed Pferd auch eine Kleine Wette aus.
+_Avoid_: Connections, Stall (der Stall ist nur der Trainer)
+
+**Claimer**:
+Ein Verkaufsrennen (*à réclamer*): Jedes Pferd kann nach dem Rennen zu einem festen Preis gekauft werden, deshalb meist schwächere Felder. Der Aufstieg aus Claimern ins Handicap ist ein Gegenargument, außer die Claimer waren deutlich stärker oder es gibt schon Handicap-Form.
+_Avoid_: Verkaufsrennen ohne Zusatz, Reclamer
+
 **Exposed**:
 Ein Pferd mit vielen Starts und eher höherem Alter, von dem kaum noch Steigerung zu erwarten ist. Eine Skala, keine Grenze. Gegenteil: **unexposed** (wenige Starts, jung, Steigerung möglich).
 _Avoid_: ausgereizt, erfahren
