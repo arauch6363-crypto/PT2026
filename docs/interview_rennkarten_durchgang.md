@@ -178,6 +178,14 @@ Crew Dragon ist dieser Klassenindex allerdings nur marginal größer, deswegen w
 → Claude lernt; mit Lovely Warrior zweiter Fall → Regel „Aufstieg aus Claimern ins Handicap“ in `SKILL.md`.
 Tulpar: „passt für mich“ (Übereinstimmung).
 
+### 16.11. Mans R3C7 – The Cat's (Claude: klein), Piano Bar (Claude: nein)
+
+Nutzer: „Bei Piano Bar stimme ich dir zu, bei The Cat's nicht ganz, weil mir hier schon auffällt, dass die ARRs selbst
+in Referenzform anständig sind, aber nicht zu den vorderen des Feldes gehören, und er als relativ exposed Pferd immer
+noch über seiner letzten Siegmarke steht. Bei einem Trainer oder einem Jockey, die beide eher zu den Schwächeren zählen
+und zudem keine aktuelle Form haben.“ Auf Nachfrage: „Keine Wette für die Katze, und die Regel passt.“
+→ Claude lernt; mit Crew Dragon zweiter Fall → Regel „keine kleine Wette als Ausweg“ in `SKILL.md`.
+
 ## Stand
 
 Skill v1 geschrieben: `.claude/skills/rennkarten-durchgang-neu/` (SKILL.md, DATEN.md, FAELLE.md, scripts/blatt.py), parallel zum alten Skill.

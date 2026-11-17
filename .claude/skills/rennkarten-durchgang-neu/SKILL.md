@@ -130,6 +130,10 @@ kann reichen“ beantwortet ist. Mindestquote = unterer Rand der Spanne.
 
 - **Wette** = 1 Einheit. **Kleine Wette** = ½ Einheit: interessant, aber „da fehlt einiges“ (z. B. erster Ansatz
   nach vielen schwachen Läufen, Value dünn).
+- **Keine kleine Wette als Ausweg:** Ist das Pferd exposed und sind Trainer oder Jockey schwach bzw. ohne aktuelle
+  Form, wird es keine kleine Wette, auch wenn Value, Konstanz oder Marke dafür sprechen. Die kleine Wette ist für
+  Pferde, bei denen einiges fehlt, aber die Grundlage stimmt (unexposed, starke Verbindungen – Come Alone, Cervaro),
+  nicht für exposed Pferde mit schwachen Verbindungen (Crew Dragon, The Cat's).
 - **Keine Wette**, wenn die Fragezeichen überwiegen, die Leitfrage verneint wird oder der Festkurs die eigene
   Einschätzung nicht übersteigt.
 
