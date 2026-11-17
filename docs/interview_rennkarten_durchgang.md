@@ -176,6 +176,7 @@ einen deutlich schlechteren Schnitt hat. Was du richtig gesehen hast: dass die B
 Zum Regelvorschlag: „Doch, ein höherer Klassenindex kann den Wechsel von Verkaufs- in Handicap-Rennen ausgleichen. Bei
 Crew Dragon ist dieser Klassenindex allerdings nur marginal größer, deswegen würde ich ihn da nicht so hoch bewerten.“
 → Claude lernt; mit Lovely Warrior zweiter Fall → Regel „Aufstieg aus Claimern ins Handicap“ in `SKILL.md`.
+Tulpar: „passt für mich“ (Übereinstimmung).
 
 ## Stand
 

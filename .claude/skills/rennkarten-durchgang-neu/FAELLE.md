@@ -58,6 +58,7 @@ Die bisherigen Fälle sind nachträglich eingeordnet. Ausführliche Begründunge
 | Silgreypit (16.11. Marseille R4C3) | Übereinstimmung | FK 3,6, **Rang 1/10, +37 %**, Hcp | Sieg hier zuletzt, aber 3,5 kg mehr, Sieg in einem Rennen, das den Vorderen half, ARR nur Rang 7/10, gewinnt selten, Trainer in Handicaps schwach – fair eher 4–5. |
 | Giovanni Giorgio (16.11. Marseille R4C2) | Übereinstimmung | FK 5,5, Rang 1/11, +17 %, Cond. 3j | Starker neuer Trainer, bestes ARR aus stärkerem Rennen – aber sieglos, 240 Tage Pause, erstmals Wallach, erstmals 2000 m: bei +17 % zu viele Fragezeichen. |
 | Naturaliste (16.11. Marseille R4C2) | Übereinstimmung | FK 35, Rang 7/11, +40 % | Referenzlauf hier vor 11 Tagen nur 5/6 im Claimer, Trainer in Conditions 0/58 – reicht nicht für den Sieg. |
+| Tulpar (16.11. Mans R3C8) | Übereinstimmung | FK 5, Rang 1/12, +17 %, Hcp, Collant, 62 kg | Scheuklappen zurück (Pro), Trainer heiß – aber 4,5 kg Aufgewicht, Höchstgewicht auf Collant, erstmals Very slow, ARR Rang 9/12: Verdansk-Muster. |
 
 ## Abweichungen Claude ↔ Nutzer
 
