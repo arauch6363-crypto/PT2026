@@ -46,6 +46,7 @@ Die bisherigen Fälle sind nachträglich eingeordnet. Ausführliche Begründunge
 | Afterglow (11.11. R2C7) | Interview | FK 6,5, **Rang 1/13, +29 %** | Argumente nachvollziehbar, aber 7-jährig sehr exposed, Box signifikant schlecht – „der Festkurs bietet zu wenig“ |
 | Lady Madeira (11.11. R2C7) | Claude lernt | FK 16, Rang 2/13, +76 % | Großes Fragezeichen Distanz (auf weiteren Wegen immer Probleme). **Claude hatte sie vorne gesehen.** |
 | Go For It (11.11. R2C7) | Interview | FK 16, Rang 7/13, +14 % | Formen weit weg vom Nötigen, letzter Sieg 6 kg tiefer auf kleiner Provinzbahn, Stall ohne Sieg in 2 Jahren – „fehlt die Klasse“ |
+| Lovely Warrior (16.11. Marseille R4C8) | Claude lernt | FK 3,5, Rang 1/7, +32 %, Hcp 2j, PSF | CGD, PSF 2 L/2 S, bester ARR im Feld, starkes Gespann – aber die **australischen Scheuklappen fallen heute weg**, mit denen die besten Läufe kamen (A/E 1,74 mit, 0,51 ohne): „Warum nimmt man die Scheuklappen herunter, nachdem man sie immer erfolgreich eingesetzt hat?“ Erster Handicap-Start aus Claimern nur leicht dagegen. Bei 3,5 zu kurz. **Claude hatte Wette** (Scheuklappen als Gegenargument gesehen, aber zu leicht gewichtet). |
 
 ## Abweichungen Claude ↔ Nutzer
 
@@ -60,6 +61,9 @@ Die bisherigen Fälle sind nachträglich eingeordnet. Ausführliche Begründunge
 - **R2C5:** Reihenfolge gleich, Grenze falsch – Höchstgewicht auf schwerem Boden und Klassenfrage zu leicht gewichtet.
 - **R2C7:** Algeciras' Bodenbilanz nur aus den Formzeilen gelesen (falsch „nie auf Très souple“); Modell-Value statt
   eigener Kursspanne als Maßstab benutzt.
+
+- **16.11. Marseille R4C8 Lovely Warrior:** Claude Wette, Nutzer keine – das Weglassen einer Ausrüstung, mit der die
+  besten Läufe kamen, als Gegenargument erkannt, aber nicht als ausschlaggebend gewichtet.
 
 ## Korrekturen des Nutzers zum Durchgang 13.11. (Saint-Cloud, Lourd)
 

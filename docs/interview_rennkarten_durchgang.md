@@ -119,6 +119,23 @@ Arbeitsnotizen aus dem /grill-with-docs-Interview (Start 11.11.2026). Wird beim 
 - **10.11. Fontainebleau R1C6–R1C9 und Amiens R4C1–R4C7:** 27 Kandidaten, 3 Wetten zu je 1 Einheit. Ergebnisse laut Nutzer: **Soif de Vivre (R1C8, FK 9) gewonnen, Vapoa (R4C3, FK 8,5) gewonnen, Bluff (R4C1, FK 2,8) Zweiter.** Bei 1 Einheit je Wette ergibt das zum Festkurs +14,5 Einheiten aus 3 Wetten (+8, +7,5, −1); Stichprobe viel zu klein für Schlüsse. Eine Durchsicht der übrigen Urteile durch den Nutzer entfällt, weil er die Ergebnisse kennt.
 - **11.11. Toulouse R1C1–R1C9:** 29 Kandidaten, 6 Wetten (Majestic Sky, Blue Blossom Cen, Xilofono, Littoral Nord je 1; Arkansas, Knuckle je ½). Ergebnisse offen.
 
+## Durchsicht der automatischen Durchgänge (ab 17.11.2026)
+
+Rahmen (Interview 16.11.): Quelle sind die automatischen Durchgänge ab 15.11.; Rennen mit Claude-Tipp plus knappe
+Ablehnungen (Value über +30 % oder Modell-Rang 1–2); nur gelaufene Rennen, Ergebnisse ausgeblendet. Fälle verdichtet in
+`FAELLE.md` (Art: Übereinstimmung / Claude lernt / Claudes Sicht behalten), Regel in `SKILL.md` erst bei zwei
+gleichgerichteten Fällen oder ausdrücklicher Ansage. Der Nutzer weist darauf hin, dass er nicht immer ganz konsistent
+urteilt – Widersprüche werden angesprochen, nicht mechanisch übernommen.
+
+### 16.11. Marseille Pont de Vivaux R4C8 – Lovely Warrior (Claude: Wette, FK 3,5, Spanne 2,8–3,2)
+
+Nutzer: zunächst „Wette, passt“, dann: „Scheuklappen sehe ich auch kritisch. Warum nimmt man jetzt die Scheuklappen
+herunter, nachdem man sie immer erfolgreich eingesetzt hat? Und was mir sonst noch nicht gefällt, ist, dass man […] zu
+so kurzer Quote wettet, die aus Verkaufsrennen kommt, jetzt im Handicap. Da finde ich die Quote ein bisschen zu kurz.
+Für mich dann doch eher keine Wette.“ Auf Nachfrage: „Stute“ war ein Versprecher (Hengst, „weniger großer Nachteil“);
+Claimer → Handicap nur am Rande, „der Hauptpunkt bleibt […] die weggelassenen Scheuklappen“. → Keine Wette, Art
+„Claude lernt“.
+
 ## Stand
 
 Skill v1 geschrieben: `.claude/skills/rennkarten-durchgang-neu/` (SKILL.md, DATEN.md, FAELLE.md, scripts/blatt.py), parallel zum alten Skill.
