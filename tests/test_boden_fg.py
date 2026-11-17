@@ -90,3 +90,9 @@ def test_reihenfolge_der_quellen():
     assert ra["going_value"].iloc[0] == 3.1 and ra["going_value"].iloc[1] == 3.8    # PMU-Wert bleibt, sonst France Galop
     assert pd.isna(ra["going_value"].iloc[3])                                       # manuell: kein Wert
     assert rc.going_klasse(ra["going"].iloc[1]) == "SLOW"
+
+
+def test_psf_zustand_ohne_psf():
+    import rtr_arr
+    assert all(rtr_arr.boden_gruppe(t) == "PSF" for t in ("standard", "Lente", "RAPIDE", "PSF STANDARD"))
+    assert rtr_arr.boden_gruppe("Bon souple") == "FAST" and rtr_arr.boden_gruppe("Très souple") == "SLOW"
