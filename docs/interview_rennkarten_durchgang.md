@@ -186,6 +186,11 @@ noch über seiner letzten Siegmarke steht. Bei einem Trainer oder einem Jockey, 
 und zudem keine aktuelle Form haben.“ Auf Nachfrage: „Keine Wette für die Katze, und die Regel passt.“
 → Claude lernt; mit Crew Dragon zweiter Fall → Regel „keine kleine Wette als Ausweg“ in `SKILL.md`.
 
+### Stand der Durchsicht (17.11.)
+
+Erledigt: 16.11. Marseille R4C1–R4C8, Mans R3C7–R3C8. Offen: Mans R3C6 (gezeigt, noch ohne Antwort), R3C1–R3C3,
+R3C5; R3C4 fehlt in beiden Durchgängen des 16.11. (Ursache klären); danach 15.11. und ab 17.11.
+
 ## Stand
 
 Skill v1 geschrieben: `.claude/skills/rennkarten-durchgang-neu/` (SKILL.md, DATEN.md, FAELLE.md, scripts/blatt.py), parallel zum alten Skill.
