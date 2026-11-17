@@ -3084,7 +3084,7 @@ def run(base: Path, tag=None, out: Path | None = None, *, nur_flach: bool = True
         print(f"Kommentare in den Formzeilen: {mit_k}, davon auf Deutsch: {kommentare_uebersetzen(daten, base)}")
     out.parent.mkdir(parents=True, exist_ok=True)
     sp = daten_pfad(out)                                   # fertig berechnete Daten für festkurse_aktualisieren
-    sp.write_text(json.dumps(daten, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    daten_schreiben(sp, daten)
     print(f"Kartendaten gespeichert (für festkurse_aktualisieren): {sp}  ({sp.stat().st_size / 1e6:.1f} MB)")
     _ausgeben(daten, out, claude)
     return out
@@ -3124,6 +3124,16 @@ def festkurse_uebernehmen(daten: dict, pfad: Path) -> set:
             daten[k] = alt[k]
     print(f"Festkurse behalten: {n} Starter in {len(mit)} Rennen aus {pfad.name} (Stand {alt.get('festkurse_stand', '?')})")
     return mit
+
+
+def daten_schreiben(sp: Path, daten: dict) -> None:
+    """Kartendaten als JSON und zusätzlich gzip-komprimiert (…_daten.json.gz, rund 1/10 der Größe): Die Aufgabe
+    „Racecard-Durchgang“ lädt über das Drive-Tool höchstens 10 MB – Karte und JSON werden größer."""
+    import gzip
+    text = json.dumps(daten, ensure_ascii=False, separators=(",", ":"))
+    Path(sp).write_text(text, encoding="utf-8")
+    with gzip.open(Path(sp).with_name(Path(sp).name + ".gz"), "wt", encoding="utf-8", compresslevel=6) as f:
+        f.write(text)
 
 
 def daten_pfad(out: Path) -> Path:
@@ -3239,7 +3249,7 @@ def festkurse_aktualisieren(base: Path, tag=None, out: Path | None = None, *, fe
             print(f"Value-Protokoll: {power_modell.protokollieren(daten, base)}")
         except Exception as e:
             print(f"Value-Protokoll nicht geschrieben: {e}")
-    sp.write_text(json.dumps(daten, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    daten_schreiben(sp, daten)
     _ausgeben(daten, out, claude)
     if durchgang:                                        # Claude-Tipps für Rennen mit neuen Festkursen starten
         try:
