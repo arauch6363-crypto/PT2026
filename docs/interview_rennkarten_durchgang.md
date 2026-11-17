@@ -136,6 +136,19 @@ Für mich dann doch eher keine Wette.“ Auf Nachfrage: „Stute“ war ein Vers
 Claimer → Handicap nur am Rande, „der Hauptpunkt bleibt […] die weggelassenen Scheuklappen“. → Keine Wette, Art
 „Claude lernt“.
 
+### 16.11. Marseille R4C4 – Come Alone (Claude: klein), Morus, Bosquet (Claude: nein)
+
+Nutzer: „Bei Come Alone stimme ich dir zu. Mir gefällt auch, dass Trainer/Jockey stark sind, vor allem aber auch, dass
+das Pferd wenig exposed ist, also wenig Starts, jung, in einem relativ exposed Feld. Von der Abstammung her kann man
+bei dem Pferd sogar noch ein bisschen was erwarten. Bahnform: ist hier schon gut gelaufen. Letzter Lauf auf jeden Fall
+verziehen, weil auf schwerem Boden. Und wenn man sich die Vorform anschaut, hat er das höchste ARR im Feld. Negativ
+stört die lange Pause und dass er nach der langen Pause noch keine Form gezeigt hat.“
+Morus: „Im Wesentlichen einverstanden. Erster Start auf der Bahn, keine Referenz. Die Referenzformen von anderen
+Sandbahnen reichen nicht, stammen aus relativ schwachen Rennen, und er war dort auch respektabel geschlagen. Das
+Weglassen der Scheuklappen wiegt hier nicht schwer, da die letzten Formen mit Scheuklappen auch nicht gut waren –
+dass man etwas Neues probiert, ist in dem Fall nicht negativ zu werten. Der Trainer ist auch schwach.“
+Bosquet: „Stimme in allem überein.“ → Alle drei Übereinstimmung; Scheuklappen-Fall präzisiert Lovely Warrior.
+
 ## Stand
 
 Skill v1 geschrieben: `.claude/skills/rennkarten-durchgang-neu/` (SKILL.md, DATEN.md, FAELLE.md, scripts/blatt.py), parallel zum alten Skill.
