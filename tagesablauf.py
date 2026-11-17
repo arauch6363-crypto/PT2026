@@ -124,7 +124,13 @@ def durchgang_ausloesen(text: str, log=print, _post=None) -> bool:
         if getattr(r, "status_code", 0) != 200:
             log(f"Durchgang nicht ausgelöst: HTTP {getattr(r, 'status_code', '?')} {str(getattr(r, 'text', ''))[:200]}")
             return False
-        log(f"Durchgang ausgelöst: {(r.json() or {}).get('claude_code_session_url', '')}")
+        url_s = (r.json() or {}).get('claude_code_session_url', '')
+        log(f"Durchgang ausgelöst: {url_s}")
+        try:                                             # auch aus festkurse_aktualisieren (ohne Protokoll) melden
+            import taeglich
+            taeglich.push(f"Claude-Durchgang gestartet – {text[:200]}", prioritaet="low")
+        except Exception:
+            pass
         return True
     except Exception as e:
         log(f"Durchgang nicht ausgelöst: {type(e).__name__}: {e}")
@@ -368,6 +374,7 @@ def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool
             erg["pause"] = weck.isoformat()
             return erg
         _warten_bis(ziel, jetzt, schlafen, log, "Rennkarte")
+        log(f"Rennkarte wird gebaut (erstes Rennen {erstes}) …")
         erg["karte"] = str(_versuchen("Rennkarte", lambda: _racecard.run(base, tag, festkurse=False,
                                                                            uebersetzen_aktiv=False), log, schlafen))
         log(f"Rennkarte gebaut: {Path(erg['karte']).name}")
@@ -400,6 +407,7 @@ def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool
     except ValueError:
         aufgegeben = set()
     leer: dict[str, int] = {}
+    begonnen: set[str] = set()                           # Start-Meldung je Veranstaltung nur einmal
     while True:
         daten = json.loads(sp.read_text(encoding="utf-8"))
         hhmm = jetzt().strftime("%H:%M")
@@ -418,6 +426,10 @@ def morgen(base, tag: date | None = None, *, dashboard: bool = True, karte: bool
         faellig = {k: v for k, v in offen.items() if _hm(v["erstes"]) - FK_VORLAUF_MIN <= _hm(hhmm)}
         if faellig:
             namen = ", ".join(f"{k} {v['bahn']} ({len(v['ohne_fk'])} Rennen)" for k, v in faellig.items())
+            for k, v in faellig.items():
+                if k not in begonnen:
+                    begonnen.add(k)
+                    log(f"Festkurs-Abfrage beginnt: {k} {v['bahn']} (erstes Rennen {v['erstes']})")
             log(f"{hhmm} Festkurse holen für {namen}")
             try:
                 _racecard.festkurse_aktualisieren(base, tag)

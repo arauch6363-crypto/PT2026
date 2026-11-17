@@ -385,3 +385,27 @@ def test_drive_abwarten():
     schlaf.clear()
     ta.drive_abwarten(log=lambda *a: None, _post=kein_rclone, _schlafen=schlaf.append)
     assert schlaf == [ta.DRIVE_WARTEN_OHNE_RC_S]
+
+
+def test_start_meldungen_leise(tmp_path, monkeypatch):
+    import taeglich
+    gesendet = []
+    monkeypatch.setenv("NTFY_TOPIC", "t")
+    monkeypatch.setattr(taeglich.requests, "post",
+                        lambda url, data=None, headers=None, **kw: gesendet.append((data.decode(), headers["Priority"])))
+    log = taeglich.Protokoll(tmp_path / "l.log")
+    log("Rennkarte wird gebaut (erstes Rennen 13:00) …")
+    log("Festkurs-Abfrage beginnt: R1 TOULOUSE (erstes Rennen 13:00)")
+    log("Rennkarte gebaut: racecard_20261115.html")
+    log("12:10 Festkurse holen für R1 TOULOUSE (8 Rennen)")       # Wiederholungen: kein Push
+    assert [p for _, p in gesendet] == ["low", "low", "default"]
+
+
+def test_festkurs_start_nur_einmal(tmp_path):
+    uhr = Uhr("12:00")
+    k = Karte(tmp_path, uhr, [_r("20261115R1C1", 1, "13:00")], {"R1": "12:15"})
+    zeilen = []
+    ta.morgen(tmp_path, TAG, dashboard=False, jetzt=uhr.jetzt, schlafen=uhr.schlafen,
+              log=lambda *a: zeilen.append(" ".join(map(str, a))), _racecard=k, _boden_fg=FG({}))
+    assert sum("Festkurs-Abfrage beginnt: R1" in z for z in zeilen) == 1 and k.fk_aufrufe == ["12:10", "12:15"]
+    assert any(z.startswith("Rennkarte wird gebaut") for z in zeilen)
