@@ -186,6 +186,32 @@ noch über seiner letzten Siegmarke steht. Bei einem Trainer oder einem Jockey, 
 und zudem keine aktuelle Form haben.“ Auf Nachfrage: „Keine Wette für die Katze, und die Regel passt.“
 → Claude lernt; mit Crew Dragon zweiter Fall → Regel „keine kleine Wette als Ausweg“ in `SKILL.md`.
 
+### 18.11. Pau R2C3 – Boomslang (Claude: nein, FK 2,2, Spanne 2,5–3)
+
+Rahmen geändert: Der Nutzer wollte statt der übrigen Rennen vom 16./17.11. die **heutigen Pau-Rennen** durchgehen, deren
+Ergebnisse er (bis auf R2C1) noch nicht kennt; R2C2 ist AQPS.
+Nutzer: „Zweijähriger Hengst im sieglosen Rennen, ein Start, eine Platzierung […]. Letzte Form 30 Tage her, von der
+Pause her gut. Bestes ARR im Feld mit 37 […]. Bei sehr langsamem Tempo aus dem Vordertreffen gelaufen, mit dem Verlauf
+vorne gewesen – da muss man eventuell ein bisschen vorsichtig sein. Ansonsten war das bestimmt eine gute Leistung.
+Aufgewertet kann man noch nicht sagen. […] Vater Space Blues spricht für diesen Belag, Muttervater Sea The Stars
+dagegen; der Vater ist immer ein bisschen wichtiger, das sollte demnach in Ordnung gehen. Trainer absolut top, Jockey
+okay, ein bisschen unter dem Durchschnitt; die Kombination verbessert sich nicht gegenseitig. Der Jockey kennt das
+Pferd. […] Insgesamt für sich ist das wahrscheinlich ein gutes Pferd. Aber ich kann die Chancen schlecht beurteilen,
+z. B. im Vergleich zum zweiten Favoriten El Lagar.“ (Daten: Space Blues im Blatt „Belag neutral“, Rohwerte aber PSF
+117 gegen Gras 106 – Lesart des Nutzers gedeckt.)
+Vorschlag des Nutzers: „Mir ist die Bewertung schwer gefallen, wenn ich keine Referenz hatte, gegen das zweitbeste oder
+nächstbeste Pferd bei den Festkursen zu vergleichen, um eine Elle zu haben, gegen was man besser sein muss. Wir sollten
+im Skill ergänzen, dass wir immer auch den Favoriten mit analysieren, auch wenn der einen Value unter null hat […], aber
+niemals wetten, nur als Vergleichsmaßstab. Ist unser Value-Pferd selbst der Favorit, nehmen wir den nächstbesten nach
+Festkurs.“ Wortlaut bestätigt → Regel **Maßstab** in `SKILL.md`, Blatt und Durchgangsformat ergänzt.
+Urteil: „Boomslang können wir wahrscheinlich nicht als Wette nehmen, weil ich den Value für zu klein finde und er
+letztes Mal vom Verlauf profitiert haben könnte.“ → Übereinstimmung.
+
+### Stand der Durchsicht (18.11.)
+
+Erledigt: 16.11. Marseille R4C1–R4C8, Mans R3C7–R3C8; 18.11. Pau R2C3. Offen: 18.11. Pau R2C4–R2C8 (laufend);
+16.11. Mans R3C6 (Zartop, gezeigt, ohne Antwort), R3C1–R3C3, R3C5; 17.11. (R2C1 Angers gezeigt, ohne Antwort); 15.11.
+
 ### Stand der Durchsicht (17.11.)
 
 Erledigt: 16.11. Marseille R4C1–R4C8, Mans R3C7–R3C8. Offen: Mans R3C6 (gezeigt, noch ohne Antwort), R3C1–R3C3,

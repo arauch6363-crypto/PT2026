@@ -91,6 +91,18 @@ def test_zusammenfuehren_prueft():
         dg.zusammenfuehren("2026-11-12", [_rennen("X")])
 
 
+def test_massstab_wird_uebernommen_und_ist_kein_tipp():
+    r = _rennen("X", (1, "nein", 2.2, 2.5))
+    r["massstab"] = {"no": "5", "horse": "EL LAGAR", "fk": 2.8, "befund": "sieglos, erstmals 2000 m und PSF"}
+    d = dg.zusammenfuehren("2026-11-18", [r])["rennen"][0]
+    assert d["massstab"] == {"no": 5, "horse": "EL LAGAR", "fk": 2.8, "befund": "sieglos, erstmals 2000 m und PSF"}
+    assert [k["no"] for k in d["kandidaten"]] == [1]
+    assert dg.zusammenfuehren("2026-11-18", [_rennen("X", (1, "nein", 2.2, 2.5))])["rennen"][0]["massstab"] is None
+    r["massstab"] = {"horse": "OHNE NUMMER"}
+    with pytest.raises(ValueError):
+        dg.zusammenfuehren("2026-11-18", [r])
+
+
 def test_neuester_durchgang_gilt_und_anwenden(tmp_path):
     a = _schreiben(tmp_path, "durchgang_20261112_1400.json", [_rennen("20261112R1C2", (1, "wette", 3.0, 2.5)),
                                                               _rennen("20261112R1C6", (1, "klein", 5.0, 4.0))])

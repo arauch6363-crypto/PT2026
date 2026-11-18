@@ -27,6 +27,8 @@ Die bisherigen Fälle sind nachträglich eingeordnet. Ausführliche Begründunge
 | Marke außerhalb Handicap | Loria | Gefallene Marke kein Plus; es zählt die bereinigte Valeur |
 | Boden aus Vorlieben | Algeciras, Kenergy | Bilanz aus den Vorlieben, nicht aus den Formzeilen; Souple belegt Très souple nicht ganz |
 | Debütanten | Matinera, Give Me A Shivers | Stall ohne Debütanten-Erfolg „spricht Bände“ |
+| Value nahe 0 | Dublin Calling, Teardrop Explodes, Bosquet, Boomslang | Wird gut laufen, aber der Kurs bietet nicht mehr – nur bei klarer Beweislage |
+| Maßstab | Boomslang | Kandidaten gegen FK-Favorit bzw. Zweiten im Festkurs messen (Regel in `SKILL.md`) |
 
 ## Wetten
 
@@ -78,6 +80,7 @@ Die bisherigen Fälle sind nachträglich eingeordnet. Ausführliche Begründunge
 | Naturaliste (16.11. Marseille R4C2) | Übereinstimmung | FK 35, Rang 7/11, +40 % | Referenzlauf hier vor 11 Tagen nur 5/6 im Claimer, Trainer in Conditions 0/58 – reicht nicht für den Sieg. |
 | Tulpar (16.11. Mans R3C8) | Übereinstimmung | FK 5, Rang 1/12, +17 %, Hcp, Collant, 62 kg | Scheuklappen zurück (Pro), Trainer heiß – aber 4,5 kg Aufgewicht, Höchstgewicht auf Collant, erstmals Very slow, ARR Rang 9/12: Verdansk-Muster. |
 | Piano Bar (16.11. Mans R3C7) | Übereinstimmung | FK 27, Rang 8/11, +38 % | Höchster ARR und Bahnsieg, Marke stark gefallen – aber Formkurve seit Monaten schwach, Trainer kalt, erstmals Very slow: kein Grund für den Sieg heute. |
+| Boomslang (18.11. Pau R2C3) | Übereinstimmung | FK 2,2, **Rang 1/8, +0 %**, Cond. 2j, PSF | Bester ARR mit Abstand, einziger Führender bei langsamem Tempo, Trainer in Pau und mit Zweijährigen stark, Abstammung trägt PSF (Vater zählt mehr) – aber „Value zu klein“ und das Debüt kam mit dem Verlauf von vorne. Anlass der Regel **Maßstab**: ohne Vergleich mit dem Zweiten im Festkurs (El Lagar) fehlte die Elle. |
 
 ## Abweichungen Claude ↔ Nutzer
 

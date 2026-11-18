@@ -15,6 +15,7 @@ wo die Daten Lücken haben.
 | Klasse | `class.val_idx` | Ø Valeur der Teilnehmer, 100 = Ø aller Rennen; je Formzeile `cls_val_idx` |
 | Tempo | `pace.label`, `pace.groups` | F führend, V vorne dabei, M Mittelfeld, H hinten; `unknown` ohne Laufstil |
 | Festkurs-Stand | `festkurse_bahnen` | je Bahn Uhrzeit; Bahnen ohne Festkurse haben keine Kandidaten |
+| Maßstab | aus `fk.sieg` | FK-Favorit; ist er Kandidat, der Zweite im Festkurs; ist auch der Kandidat, keiner. Blatt: `MASSSTAB` mit vollem Blatt (Value negativ) |
 
 ## Starter
 

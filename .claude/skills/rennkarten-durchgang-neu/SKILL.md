@@ -37,10 +37,22 @@ genug.
 2. **Rennen lesen** (Kopf des Blatts): Rennart, Klasse (Klassenindex), Feldgröße, Bodenangabe und Bodengruppe,
    Distanz, Bahn und Richtung, erwartetes Tempo mit Laufstilen, FK-Favorit, Top-ARR und Top-Valeur im Feld,
    Höchstgewicht. Nur Vollblut; Araber, Anglo-Araber, AQPS nicht.
-3. **Je Kandidat die Prüfliste** (nächster Abschnitt) – Ergebnis: Pro-Argumente, Gegenargumente, Fragezeichen.
-4. **Gesamturteil** je Kandidat mit eigener Kursspanne.
-5. **Rennvergleich** bei mehreren Kandidaten: nach Beweislage ordnen, Grenze ziehen.
-6. **Ausgabe** wie unten.
+3. **Maßstab** (Abschnitt unten) kurz prüfen – das Blatt druckt ihn als `MASSSTAB` mit.
+4. **Je Kandidat die Prüfliste** (nächster Abschnitt) – Ergebnis: Pro-Argumente, Gegenargumente, Fragezeichen.
+5. **Gesamturteil** je Kandidat mit eigener Kursspanne.
+6. **Rennvergleich**: Kandidaten nach Beweislage ordnen, gegen den Maßstab stellen, Grenze ziehen.
+7. **Ausgabe** wie unten.
+
+## Maßstab
+
+Je Rennen wird zusätzlich ein Pferd als Vergleichsmaßstab kurz geprüft: der **FK-Favorit**, oder der **Zweite im
+Festkurs**, wenn der Favorit selbst Kandidat ist (ist auch der Zweite Kandidat, entfällt der zusätzliche Maßstab). Der
+Maßstab ist **nie eine Wette** und braucht keinen Value. Kurz gefasst: beste zu heute passende Leistung (Referenzlauf,
+ARR), Beleg für Boden und Distanz, Verbindungen, Laufstil gegen Tempo, größtes Fragezeichen. Jeder Kandidat wird in der
+Leitfrage gegen ihn gemessen: Was müsste er besser können als der Maßstab, und ist das belegt? Ist der Maßstab ein
+Debütant oder kaum belegt, steht das ausdrücklich im Urteil („Maßstab offen“). Die Kursspanne bleibt eigene
+Einschätzung, nicht abgeleitet vom Festkurs des Maßstabs. (Vom Nutzer zur Regel erklärt am 18.11., Fall Boomslang:
+„ohne Referenz gegen das nächstbeste Pferd fehlt die Elle, gegen was man besser sein muss“.)
 
 ## Prüfliste je Kandidat
 
@@ -166,6 +178,9 @@ kann reichen“ beantwortet ist. Mindestquote = unterer Rand der Spanne.
 
 Bei mehreren Kandidaten im selben Rennen: nach Beweislage ordnen und eine Grenze ziehen; gewettet wird nur, wer klar
 überzeugt – in der Regel höchstens zwei. Auch der beste Kandidat kann unter der Grenze liegen (keine Wette im Rennen).
+Der Maßstab steht als Bezugslinie dabei (ohne Platz in der Reihenfolge), z. B. „Boomslang > Sir Dasch – Maßstab El
+Lagar (2,8): sieglos, ARR 32,4, erstmals 2000 m und PSF – Boomslang auf dem Papier klar besser; Grenze vor Platz 1
+(Kurs zu kurz)“.
 
 ## Ausgabe
 
@@ -179,6 +194,7 @@ Je Rennen:
 - Fragezeichen: …
 - Urteil: **Wette (1 Einheit)** – fair eher 9–11, Mindestquote 11. Ausschlag: …
 …
+Maßstab 3 Afterglow (FK 6,5): … (kurz, kein Urteil)
 Rennvergleich: Algeciras > Cole Chop > Lady Madeira > Afterglow > Go For It – Grenze nach Platz 2.
 ```
 
@@ -189,13 +205,14 @@ als `durchgang_JJJJMMTT_HHMM.json`, ausgewertet im Value-Dashboard), mit **allen
 
 ```json
 {"race_id": "20261111R2C7", "status": "bearbeitet", "vergleich": "Algeciras > Cole Chop > … – Grenze nach Platz 2",
- "hinweis": "",
+ "hinweis": "", "massstab": {"no": 3, "horse": "…", "fk": 6.5, "befund": "…"},
  "kandidaten": [{"no": 5, "horse": "ALGECIRAS", "urteil": "wette", "fk": 13.0, "mq": 11, "spanne": [9, 11],
                  "p_modell": 0.079, "value": 0.03, "pro": ["…"], "gegen": ["…"], "fragen": ["…"],
                  "ausschlag": "…"}]}
 ```
 
-`urteil` ist `wette`, `klein` oder `nein` (1, ½, 0 Einheiten). `status`: `bearbeitet`, bei Araber/AQPS `araber`
+`urteil` ist `wette`, `klein` oder `nein` (1, ½, 0 Einheiten). `massstab` steht nicht unter den Kandidaten und zählt
+nie als Claude-Tipp (`null`, wenn kein zusätzlicher Maßstab). `status`: `bearbeitet`, bei Araber/AQPS `araber`
 (Kandidaten leer).
 
 ## Lernschleife
