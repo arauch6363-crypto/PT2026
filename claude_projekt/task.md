@@ -11,12 +11,14 @@ Nutzer tatsächlich spielen würde: je Kandidat Pro, Gegen, Fragezeichen, Gesamt
 Kursspanne, Mindestquote. Leitfrage: **Reicht es für den Sieg?**
 
 Die laufende Arbeit: **Durchsicht der automatischen Durchgänge** – der Nutzer bewertet Claudes Urteile, daraus
-werden Fälle (`FAELLE.md`) und, bei Wiederholung, Regeln (`SKILL.md`).
+werden Fälle (Archiv `docs/faelle_rennkarten_durchgang.md`), verdichtet zu Einsichten (`EINSICHTEN.md`) und, bei
+Wiederholung, Regeln (`SKILL.md`). **Ziel:** Ein NAP von Claude soll genau das sein, was der Nutzer selbst spielen würde.
 
 ## Zuerst lesen
 
 1. `.claude/skills/rennkarten-durchgang-neu/SKILL.md` – Vorgehen, Prüfliste, Regeln, Lernschleife
-2. `.claude/skills/rennkarten-durchgang-neu/FAELLE.md` – Fallsammlung mit Muster-Liste nach Thema oben
+2. `.claude/skills/rennkarten-durchgang-neu/EINSICHTEN.md` – typische Fehler Claudes, Gewichte je Prüfschritt,
+   vorläufige Einsichten, Ermessen; Fälle im Archiv `docs/faelle_rennkarten_durchgang.md` (nur für die Durchsicht)
 3. `GLOSSARY.md` – Begriffe (Festkurs, Kandidat, Kursspanne, Mindestquote, Verbindungen, Claimer …); Begriffe von dort
    verwenden, Abweichungen ansprechen
 4. `.claude/skills/rennkarten-durchgang-neu/DATEN.md` – woher jede Angabe im Blatt stammt
@@ -41,14 +43,18 @@ werden Fälle (`FAELLE.md`) und, bei Wiederholung, Regeln (`SKILL.md`).
 
 ## Ablage (nach jedem Rennen, sofort committen)
 
-- **`FAELLE.md`:** je Kandidat eine Zeile in „Wetten“ bzw. „Keine Wette“ (kleine Wetten in „Wetten“ mit **klein**):
+- **Archiv `docs/faelle_rennkarten_durchgang.md`:** je Kandidat eine Zeile in „Wetten“ bzw. „Keine Wette“ (kleine Wetten in „Wetten“ mit **klein**):
   `| Pferd (TT.MM. Bahn RxCy) | Art | Lage | Ausschlag |`. **Art:** *Übereinstimmung* (kurz, ein Satz), *Claude lernt*
   (Urteil des Nutzers gilt, mit „**Claude hatte …**“), *Claudes Sicht behalten* (Nutzer anders, Claudes Argument
   vertretbar – keine Regel). Bei „Claude lernt“ zusätzlich eine Zeile unter „Abweichungen Claude ↔ Nutzer“.
-  Muster-Liste oben ergänzen, wenn ein Fall zu einem Thema passt.
 - **`docs/interview_rennkarten_durchgang.md`:** je Rennen ein Abschnitt `### TT.MM. Bahn RxCy – …` vor „## Stand“ mit
   dem Wortlaut des Nutzers (sinngemäß geglättet, Kernsätze wörtlich) und dem Ergebnis; „Stand der Durchsicht“
   fortschreiben.
+- **Am Ende der Sitzung verdichten** (nicht je Rennen): Änderungen an `EINSICHTEN.md` vorschlagen – Gewicht
+  (ausschlaggebend / gewichtig / leicht) aus der Argumentation des Nutzers ableiten, kein Fallzähler; je Einsicht ein
+  Beispiel in einem Satz; Doppeltes zusammenfassen; so kurz wie möglich, aber keine wesentliche Idee verlieren.
+  Einzelfälle unter „Vorläufig“, vom Nutzer nicht abgelehnte abweichende Urteile unter „Ermessen“. Zustimmung
+  abwarten, dann PR. `SKILL.md` bleibt ohne Pferdenamen als Beleg (nur die Formatbeispiele nennen Pferde).
 - **Regel in `SKILL.md`** erst, wenn **zwei Fälle „Claude lernt“ in dieselbe Richtung** zeigen oder der Nutzer es
   ausdrücklich zur Regel erklärt – dann Wortlaut vorschlagen, Zustimmung abwarten, eintragen.
 - **Neue Begriffe** in `GLOSSARY.md` (Format siehe `.claude/skills/domain-modeling/GLOSSARY-FORMAT.md`, keine
@@ -66,11 +72,9 @@ werden Fälle (`FAELLE.md`) und, bei Wiederholung, Regeln (`SKILL.md`).
 - **Regeln seit der Durchsicht:** Claimer → Handicap (Gegenargument); keine kleine Wette als Ausweg für exposed
   Pferde mit schwachen Verbindungen; Ausrüstungswechsel nach Bilanzen mit/ohne; **Maßstab** (FK-Favorit bzw. Zweiter
   im Festkurs je Rennen mitprüfen, nie wetten; `blatt.py` druckt ihn, Durchgang hat Feld `massstab`).
-- **Einzelfälle, noch keine Regel (auf zweiten Fall achten):** Steigerung beim neuen Trainer → ältere Formen und
-  Durchschnitts-ARR weniger streng (Senorito); kurze Quote trägt weniger Fragezeichen (Lovely Warrior – Faustregel
-  bleibt vorerst nach Value); sehr hoher Value auf Auslandsformen als Warnsignal (Arkansas, Paumy).
-- In der Übersicht von FAELLE.md stehen Paumy und Give Me A Shivers (16.11. R3C6) schon in der Muster-Liste, obwohl
-  der Fall noch nicht besprochen ist – beim Abschluss von R3C6 prüfen.
+- **Einzelfälle, noch keine Regel (auf zweiten Fall achten):** stehen unter „Vorläufig“ in `EINSICHTEN.md`.
+- Paumy und Give Me A Shivers (16.11. R3C6) standen schon in der alten Muster-Liste, obwohl der Fall noch nicht
+  besprochen ist – in `EINSICHTEN.md` bewusst nicht übernommen; beim Abschluss von R3C6 einordnen.
 
 ## Daten holen
 

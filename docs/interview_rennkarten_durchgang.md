@@ -32,7 +32,7 @@ Arbeitsnotizen aus dem /grill-with-docs-Interview (Start 11.11.2026). Wird beim 
 | Q33 | Form der Entscheidung | Je Kandidat: Pro-Argumente, Gegenargumente, Fragezeichen → Gesamturteil Wette ja/nein mit einem Satz zum Ausschlag |
 | Q34 | Einsatz/Mindestquote | Mechanisch aus der Modell-Siegchance: ⅛ Kelly; Mindestquote = 1,2 ÷ Modell-Siegchance (ersetzt Q17) |
 | Q35 | Untergrenze +20 %? | Keine harte Untergrenze: auch unter +20 % Value wettbar, wenn sehr viel dafür spricht (Value > 0 bleibt Voraussetzung) |
-| Q36 | Faustregel | Ja, als Orientierung: +20–50 % höchstens ein Fragezeichen und kein gewichtiges Gegenargument; über +50 % ein bis zwei Fragezeichen tragbar. Dazu Fallsammlung im Skill; Abweichungen ausdrücklich nennen |
+| Q36 | Faustregel | Ja, als Orientierung: +20–50 % höchstens ein Fragezeichen und kein gewichtiges Gegenargument; über +50 % ein bis zwei Fragezeichen tragbar. Dazu Fallsammlung im Skill (seit G2: Archiv außerhalb des Skills, verdichtet in `EINSICHTEN.md`); Abweichungen ausdrücklich nennen |
 
 | Q38 | Aufgewicht | Fragezeichen: Marke über der des letzten Siegs. Wiegt schwerer bei exposed Pferden (viele Starts, älter), leichter bei jungen/unexposed (Steigerung möglich) |
 
@@ -122,8 +122,8 @@ Arbeitsnotizen aus dem /grill-with-docs-Interview (Start 11.11.2026). Wird beim 
 ## Durchsicht der automatischen Durchgänge (ab 17.11.2026)
 
 Rahmen (Interview 16.11.): Quelle sind die automatischen Durchgänge ab 15.11.; Rennen mit Claude-Tipp plus knappe
-Ablehnungen (Value über +30 % oder Modell-Rang 1–2); nur gelaufene Rennen, Ergebnisse ausgeblendet. Fälle verdichtet in
-`FAELLE.md` (Art: Übereinstimmung / Claude lernt / Claudes Sicht behalten), Regel in `SKILL.md` erst bei zwei
+Ablehnungen (Value über +30 % oder Modell-Rang 1–2); nur gelaufene Rennen, Ergebnisse ausgeblendet. Fälle im Archiv
+`docs/faelle_rennkarten_durchgang.md` (Art: Übereinstimmung / Claude lernt / Claudes Sicht behalten), Regel in `SKILL.md` erst bei zwei
 gleichgerichteten Fällen oder ausdrücklicher Ansage. Der Nutzer weist darauf hin, dass er nicht immer ganz konsistent
 urteilt – Widersprüche werden angesprochen, nicht mechanisch übernommen.
 
@@ -206,6 +206,28 @@ niemals wetten, nur als Vergleichsmaßstab. Ist unser Value-Pferd selbst der Fav
 Festkurs.“ Wortlaut bestätigt → Regel **Maßstab** in `SKILL.md`, Blatt und Durchgangsformat ergänzt.
 Urteil: „Boomslang können wir wahrscheinlich nicht als Wette nehmen, weil ich den Value für zu klein finde und er
 letztes Mal vom Verlauf profitiert haben könnte.“ → Übereinstimmung.
+
+### 18.11. Grilling: Verdichtung statt Fallliste
+
+Ziel des Nutzers: sich mehr auf NAP und bessere Auswahl verlassen; der Skill soll seine Analyse imitieren. Die Fälle
+werden weiter gesammelt, aber verdichtet, damit der ausführende Agent nur Regeln, Vorgehen und Einsichten liest.
+
+| # | Frage | Entscheidung |
+|---|---|---|
+| G1 | Ziel | Ein NAP von Claude = was der Nutzer selbst spielen würde (Übereinstimmung); weniger, verlässlichere NAPs folgen daraus |
+| G2 | Aufbau | Fälle als Archiv `docs/faelle_rennkarten_durchgang.md` (Agent liest es nicht); Regeln in `SKILL.md`; neue `EINSICHTEN.md` im Skill |
+| G3 | Wann verdichten | Am Ende jeder Interview-Sitzung als Block; Vorschlag, Zustimmung, PR |
+| G4 | Einzelfälle | Unter „Vorläufig (ein Fall)“ in `EINSICHTEN.md`; Agent nennt es, wenn er sich darauf stützt |
+| G5 | Rennauswahl | Wie bisher (Claude-Tipps plus knappe Ablehnungen) |
+| G6 | Ergebnisse | Bleiben ausgeblendet |
+| G7 | Pferdenamen | Nur in `EINSICHTEN.md` als Beispiel; `SKILL.md` ohne Namen |
+| G8 | Gliederung | `EINSICHTEN.md` nach den Schritten der Prüfliste |
+| G9 | Beleglage | Kein Zähler; Gewicht aus der Art, wie ernst der Nutzer ein Argument nimmt |
+| G10 | Ermessen | Abweichende Urteile, die der Nutzer nicht abgelehnt hat, bleiben („Galopprennen sind voll von widersprüchlichen Signalen“) |
+| G11 | Länge | Keine feste Grenze; Kontext kurz halten, alle wesentlichen Ideen behalten |
+| G12 | Erste Verdichtung | Sofort nach dem Interview, als PR |
+| G13 | Gewichtsskala | ausschlaggebend / gewichtig / leicht |
+| G14 | Typische Fehler | Eigener Abschnitt am Anfang von `EINSICHTEN.md` |
 
 ### Stand der Durchsicht (18.11.)
 

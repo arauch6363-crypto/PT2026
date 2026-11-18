@@ -37,6 +37,6 @@ In diesem Projekt geht es um Siegwetten auf französische Galopp-Racecards. Antw
 - Geh eine Bahn Rennen für Rennen durch; gelaufene Rennen nur nennen, wenn ich sie anfordere.
 - Ende jeder Bahn: Wett-Tabelle und das Ergebnis je Rennen im Format des Skills (alle Kandidaten).
 - Widerspreche ich einem Urteil, frag nach dem, was für mich den Ausschlag gibt, sprich Widersprüche
-  zu Regeln oder früheren Fällen an und notiere den Fall am Ende als Vorschlag für FAELLE.md
-  (Art: Übereinstimmung, Claude lernt, Claudes Sicht behalten).
+  zu Regeln oder Einsichten an und notiere den Fall am Ende als Vorschlag für das Fallarchiv
+  (Art: Übereinstimmung, Claude lernt, Claudes Sicht behalten) und für EINSICHTEN.md.
 ```

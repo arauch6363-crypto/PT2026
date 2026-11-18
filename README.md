@@ -900,8 +900,9 @@ Beispiel ¼ Kelly → 2404,00 € bei 18 Wetten.
 `.claude/skills/rennkarten-durchgang-neu/` ist der qualitative Durchgang durch eine Rennkarte: Aus den Kandidaten
 (Value > 0) wählt er die Siegwetten zum Festkurs aus – je Kandidat Pro-Argumente, Gegenargumente und Fragezeichen,
 Gesamturteil (Wette, kleine Wette, keine Wette) mit eigener Kursspanne und Mindestquote. Dazu gehören `DATEN.md`,
-die Fallsammlung `FAELLE.md`, das Skript `scripts/blatt.py` (zieht die Fakten aus der HTML-Karte) und die Begriffe in
-`GLOSSARY.md`. Automatisch läuft er über die Aufgabe „Racecard-Durchgang API“ (`claude_projekt/aufgabe_durchgang.md`).
+`EINSICHTEN.md` (aus den Fällen verdichtete Gewichtung und typische Fehler), das Skript `scripts/blatt.py` (zieht die Fakten aus der HTML-Karte) und die Begriffe in
+`GLOSSARY.md`. Die Fälle selbst liegen als Archiv in `docs/faelle_rennkarten_durchgang.md` und werden beim Durchgang
+nicht gelesen. Automatisch läuft er über die Aufgabe „Racecard-Durchgang API“ (`claude_projekt/aufgabe_durchgang.md`).
 Der frühere Skill `rennkarten-durchgang` (Prognose-Abgleich mit blinder JSON) ist entfernt (Git-Historie).
 
 **Seit 11/2026 nur noch die Marktdatei:** Die blinde `racecard_JJJJMMTT_claude.json` (alter Skill `rennkarten-durchgang`) entsteht nicht mehr (`racecard.CLAUDE_BLIND = False`, einschalten mit `True`); der Durchgang liest die HTML-Karte. `tipp_auswertung` und Hypothese H5 lesen Rennart/Ränge aus der Marktdatei bzw. den Kartendaten `racecard_JJJJMMTT_daten.json`.
