@@ -79,7 +79,7 @@ PY
   „Antworte auf Deutsch. Du bewertest genau ein Rennen: <race_id> (<RxCy>, <Zeit> Uhr, <Bahn>) auf der Karte
   KARTE. Lies zuerst vollständig mit dem Read-Tool
   /home/claude/pt2026/.claude/skills/rennkarten-durchgang-neu/SKILL.md und die dort genannten Dateien
-  (/home/claude/pt2026/GLOSSARY.md, DATEN.md und FAELLE.md im Skill-Ordner) und arbeite strikt nach dem Skill. Fakten
+  (/home/claude/pt2026/GLOSSARY.md, EINSICHTEN.md und DATEN.md im Skill-Ordner) und arbeite strikt nach dem Skill. Fakten
   nur über `python3 -I /home/claude/pt2026/.claude/skills/rennkarten-durchgang-neu/scripts/blatt.py KARTE <RxCy>`;
   gib nie die ganze Karte aus. Bewerte jeden Kandidaten (Value > 0) dieses Rennens, kein anderes Rennen. Schreibe dein
   Ergebnis als JSON nach /home/claude/rd/rennen_<race_id>.json mit den Feldern race_id, status (bearbeitet), vergleich

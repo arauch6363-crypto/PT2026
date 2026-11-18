@@ -7,7 +7,8 @@ description: "Wählt auf einer französischen Galopp-Racecard (Vollblut, PT2026-
 
 Aus dem Interview vom 10./11.11.2026 (`docs/interview_rennkarten_durchgang.md`). Begriffe stehen in `GLOSSARY.md`
 (im Repo-Hauptordner; im hochgeladenen claude.ai-Skill im Skill-Ordner) und werden hier nicht wiederholt – vor dem
-ersten Durchgang lesen. Daten: `DATEN.md`. Beispiele: `FAELLE.md` – ähnliche Pferde mit den Fällen dort vergleichen.
+ersten Durchgang lesen. Daten: `DATEN.md`. **Gewichtung und typische Fehler: `EINSICHTEN.md`** – vor dem ersten Rennen
+lesen; jedes Argument im Urteil so schwer nehmen, wie es dort eingestuft ist.
 Automatisch läuft der Skill über die Aufgabe „Racecard-Durchgang API“ (`claude_projekt/aufgabe_durchgang.md`, je Rennen
 ein Subagent); von Hand gilt dasselbe Vorgehen und dasselbe Ergebnisformat.
 
@@ -51,7 +52,7 @@ Maßstab ist **nie eine Wette** und braucht keinen Value. Kurz gefasst: beste zu
 ARR), Beleg für Boden und Distanz, Verbindungen, Laufstil gegen Tempo, größtes Fragezeichen. Jeder Kandidat wird in der
 Leitfrage gegen ihn gemessen: Was müsste er besser können als der Maßstab, und ist das belegt? Ist der Maßstab ein
 Debütant oder kaum belegt, steht das ausdrücklich im Urteil („Maßstab offen“). Die Kursspanne bleibt eigene
-Einschätzung, nicht abgeleitet vom Festkurs des Maßstabs. (Vom Nutzer zur Regel erklärt am 18.11., Fall Boomslang:
+Einschätzung, nicht abgeleitet vom Festkurs des Maßstabs. (Vom Nutzer zur Regel erklärt:
 „ohne Referenz gegen das nächstbeste Pferd fehlt die Elle, gegen was man besser sein muss“.)
 
 ## Prüfliste je Kandidat
@@ -80,17 +81,16 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
    weichen Boden manchmal nicht – Souple ist dafür nicht weich genug.) Boden, Distanz, Bahn, Richtung, Ausrüstung aus den **Vorlieben**
    des Blatts – nie nur aus den letzten Formzeilen (die zeigen höchstens sieben Läufe). **Boden vergleichen:**
    Collant und Lourd bilden zusammen die Gruppe Very slow und sind für uns gleichwertig – ein Lauf auf Collant belegt
-   Lourd und umgekehrt. Innerhalb der Gruppe Slow wird unterschieden: Souple belegt Très souple nicht vollständig
-   (Kenergy). Ein Lauf auf genau diesem Boden bzw. in dieser Gruppe ist ein starkes Argument.
+   Lourd und umgekehrt. Innerhalb der Gruppe Slow wird unterschieden: Souple belegt Très souple nicht vollständig.
+   Ein Lauf auf genau diesem Boden bzw. in dieser Gruppe ist ein starkes Argument.
    **Abstammung nur, wo die eigene Erfahrung fehlt:** Bei viel gelaufenen Pferden zählt die eigene Bilanz auf dem
    Boden, die Abstammungsstatistik ist dann ohne Belang (kein Gegenargument „Muttervater passt nicht“ bei einem
    Pferd, das auf diesem Boden schon gelaufen ist). Wichtig ist die Abstammung (alle Skalen: Boden, Distanz, Belag,
    Reife; Gesamtwert) für junge, wenig gelaufene Pferde und für Pferde, die einen Boden zum ersten bis dritten Mal
-   erleben – dort kann eine klar unpassende Abstammung allein die Wette kippen (Littoral Nord). Bei jungen Pferden
+   erleben – dort kann eine klar unpassende Abstammung allein die Wette kippen. Bei jungen Pferden
    zählt zusätzlich die **Qualität** der Linie (Blatt: max. Valeur der Nachkommen als Index, Gewinn je Lauf als
    Index), weil sie etwas über das Potenzial sagt.
-5. **Trainer und Jockey.** Trainerwechsel in den letzten Läufen beachten (Blatt: „Trainer erst seit N Läufen“) –
-   hat sich das Pferd beim neuen Trainer schon gesteigert, zählen die älteren Formen weniger (Senorito, Einzelfall).
+5. **Trainer und Jockey.** Trainerwechsel in den letzten Läufen beachten (Blatt: „Trainer erst seit N Läufen“).
    Trainer: Form 30 Tage (kalt = Gegenargument, abgestuft), Bilanz auf der Bahn (kann eine
    kalte Form ausgleichen), Spezialität (Rennart, Alter, Debütanten), Stallgröße und -erfolg (kleiner Stall ohne Sieg
    in zwei Jahren = Gegenargument; klein, aber „geschickt operierend“ = neutral bis Pro). Jockey: Bilanz auf der Bahn,
@@ -103,11 +103,10 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
    Trainer = Pro; spanisch, deutsch, weit reisend französisch nur begrenzt). Crible und Rennkommentar sind Kontext.
    **Ausrüstungswechsel** (Scheuklappen, australische Scheuklappen) nach den Bilanzen mit und ohne (Blatt:
    „Ausrüstung“) bewerten, nicht nach dem Wechsel an sich:
-   - fällt weg, **mit ihr kamen die besten Läufe** → starkes Gegenargument, bei kurzer Quote ausschlaggebend
-     (Lovely Warrior);
-   - fällt weg, **mit ihr liefen die Formen auch schwach** → neutral, man probiert etwas Neues (Morus);
-   - fällt weg, **ohne sie lief das Pferd fast immer** → neutral bis Pro, Rückkehr zum Normalen (The Cat's);
-   - **kommt zurück, mit ihr kamen die besten Läufe** → Pro (Cervaro, Tulpar);
+   - fällt weg, **mit ihr kamen die besten Läufe** → starkes Gegenargument, bei kurzer Quote ausschlaggebend;
+   - fällt weg, **mit ihr liefen die Formen auch schwach** → neutral, man probiert etwas Neues;
+   - fällt weg, **ohne sie lief das Pferd fast immer** → neutral bis Pro, Rückkehr zum Normalen;
+   - **kommt zurück, mit ihr kamen die besten Läufe** → Pro;
    - **erstmals** → Fragezeichen „warum heute?“.
 7. **Gesamturteil** – nächster Abschnitt.
 
@@ -122,8 +121,8 @@ nicht einzuordnende Auslandsformen.
 
 Ein Fragezeichen ist **entkräftet** (zählt nicht oder wird zum Pro-Argument), wenn Belege dafür sprechen: erstmals
 eine längere Distanz, aber die Abstammung trägt sie und das Pferd lief bisher umso besser, je weiter der Weg war;
-Trainerwechsel zu einem klar starken Stall; Claimer-Sieg, aber vorher schon Handicap-Form auf ähnlicher Marke
-(Knuckle). Nicht mechanisch zählen.
+Trainerwechsel zu einem klar starken Stall; Claimer-Sieg, aber vorher schon Handicap-Form auf ähnlicher Marke.
+Nicht mechanisch zählen.
 
 ### Typische Gegenargumente
 
@@ -133,8 +132,8 @@ Läufe kamen (Punkt 6) · in der heutigen Richtung klar schlechter · signifikan
 Boden · dichte Startfolge · Formen „weit weg von dem, was benötigt wird“ · vorne laufend gegen schnelles Tempo · Stute
 gegen Hengste (bei jungen Pferden, leicht) · Sieg, bei dem das Rennen den Vorderen half und das Pferd vorne lief
 (etwas weniger wert) · im direkten Vergleich hinter einem heutigen Gegner · **Aufstieg aus Claimern (Verkaufsrennen) ins Handicap** – ausgeglichen
-nur durch deutlich höheren Klassenindex der Claimer (nicht bloß ein paar Punkte, Crew Dragon) oder schon vorhandene
-Handicap-Form auf ähnlicher Marke (Knuckle); bei kurzer Quote wiegt es schwerer (Lovely Warrior).
+nur durch deutlich höheren Klassenindex der Claimer (nicht bloß ein paar Punkte) oder schon vorhandene
+Handicap-Form auf ähnlicher Marke; bei kurzer Quote wiegt es schwerer.
 
 ### Typische Pro-Argumente
 
@@ -156,21 +155,18 @@ kann reichen“ beantwortet ist. Mindestquote = unterer Rand der Spanne.
   nach vielen schwachen Läufen, Value dünn).
 - **Keine kleine Wette als Ausweg:** Ist das Pferd exposed und sind Trainer oder Jockey schwach bzw. ohne aktuelle
   Form, wird es keine kleine Wette, auch wenn Value, Konstanz oder Marke dafür sprechen. Die kleine Wette ist für
-  Pferde, bei denen einiges fehlt, aber die Grundlage stimmt (unexposed, starke Verbindungen – Come Alone, Cervaro),
-  nicht für exposed Pferde mit schwachen Verbindungen (Crew Dragon, The Cat's).
+  Pferde, bei denen einiges fehlt, aber die Grundlage stimmt (unexposed, starke Verbindungen),
+  nicht für exposed Pferde mit schwachen Verbindungen.
 - **Keine Wette**, wenn die Fragezeichen überwiegen, die Leitfrage verneint wird oder der Festkurs die eigene
   Einschätzung nicht übersteigt.
 
 **Faustregel** (Orientierung, keine Rechenregel; Abweichungen ausdrücklich nennen):
 
-- Value nahe 0 (bis etwa +5 %): nur bei klarer, überzeugender Beweislage (z. B. Algeciras: CGD, Bewährung auf sehr
+- Value nahe 0 (bis etwa +5 %): nur bei klarer, überzeugender Beweislage (z. B. CGD, Bewährung auf sehr
   weichem Boden, Marke unter letzter Platzmarke) – und nur, wenn die eigene Spanne unter dem Festkurs liegt.
 - +5 % bis +50 %: höchstens ein Fragezeichen und kein gewichtiges Gegenargument.
 - Über +50 %: ein bis zwei Fragezeichen tragbar, **wenn genug für das Pferd spricht**. Viel Value ohne Pro-Argumente
-  (Interactiv) oder mit Aufgewicht, Klassenfrage und Höchstgewicht auf schwerem Boden zusammen (Verdansk) reicht nicht.
-- **Sehr hoher Value (etwa über +100 %) ist ein Warnsignal**, wenn er auf Formen beruht, die das Modell schlecht
-  bewerten kann (Auslandsformen, externe Läufe, wenig Daten): Dann ist eher das Modell unsicher als der Markt falsch –
-  eher keine Wette (vorläufig, ein Fall: Arkansas).
+  oder mit Aufgewicht, Klassenfrage und Höchstgewicht auf schwerem Boden zusammen reicht nicht.
 - Debütanten: nur wenn der Stall Debütanten bzw. Zweijährige siegfertig bringt **und** die Abstammung passt;
   ein Stall ohne Sieg in den letzten 20 Starts „spricht Bände“.
 
@@ -217,10 +213,15 @@ nie als Claude-Tipp (`null`, wenn kein zusätzlicher Maßstab). `status`: `bearb
 
 ## Lernschleife
 
-Abweichende und bestätigte Urteile des Nutzers kommen nach `FAELLE.md`, eingeteilt in drei Arten:
-**Übereinstimmung** (bestätigt die Regeln), **Claude lernt** (das Urteil des Nutzers gilt künftig) und **Claudes Sicht
-behalten** (der Nutzer urteilt anders, hält Claudes Argument aber für vertretbar – wird nicht zur Regel). Eine Regel
-hier ändert sich erst, wenn zwei Fälle „Claude lernt“ in dieselbe Richtung zeigen oder der Nutzer sie ausdrücklich zur
-Regel erklärt. Widerspricht ein neues Urteil einer Regel oder einem früheren Fall, wird das angesprochen (Ausnahme oder
-Regel zu streng?). Neue Begriffe gehen in `GLOSSARY.md`, ausführliche Begründungen in
-`docs/interview_rennkarten_durchgang.md`.
+Gilt nur für die Durchsicht mit dem Nutzer, nicht für den automatischen Durchgang.
+
+- **Je besprochenem Rennen** ins Fallarchiv des Repos (eine Zeile je Kandidat, Art **Übereinstimmung**, **Claude
+  lernt** oder **Claudes Sicht behalten**; Ort und Format in `claude_projekt/task.md`). Das Archiv gehört nicht zum
+  Skill und wird beim Durchgang nicht gelesen.
+- **Am Ende der Sitzung verdichten:** Änderungen an `EINSICHTEN.md` (Gewicht aus der Argumentation des Nutzers, ein
+  Beispiel je Einsicht, Doppeltes zusammenfassen) und an `SKILL.md` vorschlagen, Zustimmung abwarten, dann eintragen.
+- **Regel in `SKILL.md`** erst, wenn zwei Fälle „Claude lernt“ in dieselbe Richtung zeigen oder der Nutzer sie
+  ausdrücklich zur Regel erklärt; bis dahin unter „Vorläufig“ in `EINSICHTEN.md`. Abweichende, vom Nutzer nicht
+  abgelehnte Urteile und Lagen, in denen der Nutzer selbst schwankte, kommen unter „Ermessen“.
+- Widerspricht ein neues Urteil einer Regel oder Einsicht, das ansprechen (Ausnahme oder Regel zu streng?). Neue
+  Begriffe gehen in `GLOSSARY.md`.

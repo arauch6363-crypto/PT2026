@@ -1,6 +1,8 @@
-# Fallsammlung
+# Fallsammlung (Archiv)
 
-Entscheidungen des Nutzers mit dem Satz, der den Ausschlag gab. Neue Pferde mit ähnlichen Fällen vergleichen.
+Entscheidungen des Nutzers mit dem Satz, der den Ausschlag gab. **Archiv für die Durchsicht** – der Skill liest es
+nicht. Was daraus folgt, steht verdichtet in `.claude/skills/rennkarten-durchgang-neu/EINSICHTEN.md` (Gewichte, typische
+Fehler, vorläufige Einsichten, Ermessen) und als Regel in `SKILL.md`; dort nach jeder Sitzung nachziehen.
 „Claude“ = Vorhersage vor der Entscheidung des Nutzers (ab 10.11. R1C5).
 
 **Art** des Falls (ab der Durchsicht der automatischen Durchgänge, 11/2026):
@@ -11,24 +13,6 @@ Entscheidungen des Nutzers mit dem Satz, der den Ausschlag gab. Neue Pferde mit 
 
 Die bisherigen Fälle sind nachträglich eingeordnet. Ausführliche Begründungen: `docs/interview_rennkarten_durchgang.md`.
 Übereinstimmungen ohne neue Erkenntnis werden nur kurz eingetragen (Lage und ein Satz).
-
-## Muster nach Thema (zum Nachschlagen ähnlicher Fälle)
-
-| Thema | Fälle | Kurz |
-|---|---|---|
-| Ausrüstungswechsel | Lovely Warrior, Morus, Cervaro, The Cat's, Tulpar, Fireman | Nach den Bilanzen mit/ohne urteilen (Regel in `SKILL.md`, Punkt 6) |
-| Claimer → Handicap | Lovely Warrior, Crew Dragon; Ausnahme Knuckle | Gegenargument, ausgeglichen nur durch deutlich höheren Klassenindex oder Handicap-Form (Regel) |
-| Kleine Wette | Come Alone, Cervaro, Cole Chop, Magenta Melody gegen Crew Dragon, The Cat's | Nur mit stimmiger Grundlage, nicht für exposed Pferde mit schwachen Verbindungen (Regel) |
-| Trainerwechsel | Knuckle, Senorito | Wechsel zu starkem Stall kein Fragezeichen; Steigerung beim neuen Trainer → ältere Formen zählen weniger (Einzelfall) |
-| Abstammung | Littoral Nord (−17 kippt), Magenta Melody (−9 nur Fragezeichen), Loria (viel gelaufen: ohne Belang), Paumy, Blue Blossom Cen | Zählt bei jungen Pferden und den ersten Läufen auf einem Boden |
-| Leitfrage / Platzpferd | Silgreypit, Blanc Bleu, Afterglow, Roi du Ciel, L'Annonciade, Dublin Calling, Go For It, The Cat's | ARR nicht vorne oder selten gewinnend → keine Siegwette, auch bei Value |
-| Gewicht auf schwerem Boden | Verdansk, Tulpar, Interactiv, Senorito | Aufgewicht + Höchstgewicht auf Collant/Lourd wiegt schwer; Ausnahme bei Steigerung (Senorito) |
-| Modell unsicher | Arkansas, Paumy | Sehr hoher Value auf Auslands-/externen Formen = Warnsignal |
-| Marke außerhalb Handicap | Loria | Gefallene Marke kein Plus; es zählt die bereinigte Valeur |
-| Boden aus Vorlieben | Algeciras, Kenergy | Bilanz aus den Vorlieben, nicht aus den Formzeilen; Souple belegt Très souple nicht ganz |
-| Debütanten | Matinera, Give Me A Shivers | Stall ohne Debütanten-Erfolg „spricht Bände“ |
-| Value nahe 0 | Dublin Calling, Teardrop Explodes, Bosquet, Boomslang | Wird gut laufen, aber der Kurs bietet nicht mehr – nur bei klarer Beweislage |
-| Maßstab | Boomslang | Kandidaten gegen FK-Favorit bzw. Zweiten im Festkurs messen (Regel in `SKILL.md`) |
 
 ## Wetten
 
