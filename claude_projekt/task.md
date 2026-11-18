@@ -1,0 +1,105 @@
+# Task: Skill „rennkarten-durchgang-neu“ weiter verfeinern
+
+Übergabe für eine neue Claude-Code-Sitzung (Stand 18.11.2026). Zuerst diese Datei lesen, dann loslegen – keine
+Rückfragen zu Dingen, die hier stehen.
+
+## Worum es geht
+
+PT2026 bewertet französische Galopp-Flachrennen (Vollblut). Der Skill `.claude/skills/rennkarten-durchgang-neu/`
+wählt aus den **Kandidaten** einer Rennkarte (Value = Festkurs × Modell-Siegchance − 1 > 0) die Siegwetten aus, die der
+Nutzer tatsächlich spielen würde: je Kandidat Pro, Gegen, Fragezeichen, Gesamturteil (Wette / kleine Wette / keine),
+Kursspanne, Mindestquote. Leitfrage: **Reicht es für den Sieg?**
+
+Die laufende Arbeit: **Durchsicht der automatischen Durchgänge** – der Nutzer bewertet Claudes Urteile, daraus
+werden Fälle (`FAELLE.md`) und, bei Wiederholung, Regeln (`SKILL.md`).
+
+## Zuerst lesen
+
+1. `.claude/skills/rennkarten-durchgang-neu/SKILL.md` – Vorgehen, Prüfliste, Regeln, Lernschleife
+2. `.claude/skills/rennkarten-durchgang-neu/FAELLE.md` – Fallsammlung mit Muster-Liste nach Thema oben
+3. `GLOSSARY.md` – Begriffe (Festkurs, Kandidat, Kursspanne, Mindestquote, Verbindungen, Claimer …); Begriffe von dort
+   verwenden, Abweichungen ansprechen
+4. `.claude/skills/rennkarten-durchgang-neu/DATEN.md` – woher jede Angabe im Blatt stammt
+5. `docs/interview_rennkarten_durchgang.md` – ausführliche Begründungen des Nutzers, Abschnitt „Durchsicht der
+   automatischen Durchgänge“ und „Stand der Durchsicht“
+
+## Vereinbarter Rahmen der Durchsicht (Interview 16.11., bestätigt)
+
+- **Quelle:** automatische Durchgänge `durchgang_JJJJMMTT_HHMM.json` ab 15.11. (Drive, siehe unten).
+- **Auswahl:** Rennen mit Claude-Tipp (Urteil `wette` oder `klein`) **plus knappe Ablehnungen** (Value über +30 %
+  oder Modell-Rang 1–2); Rest nur auf Zuruf. Araber/AQPS (`nicht_vollblut`) zählen nicht.
+- **Nur gelaufene Rennen, Ergebnisse ausgeblendet** – bewertet wird die Entscheidung vor dem Rennen, nicht ob es
+  gewann. Keine Ergebnisse nennen oder nachschlagen.
+- **Ablauf je Rennen:** Rennkopf (Rennart, Distanz, Boden, Feld, Klassenindex, Tempo, FK-Favorit, Top-ARR,
+  Höchstgewicht), dann je Kandidat kompakt: FK · Rang · Value, Pro / Gegen / Fragezeichen, Claudes Urteil mit Spanne
+  und Ausschlag-Satz; Rennvergleich. Dann **eine** gezielte Frage, wo es spannend ist. Der Nutzer antwortet frei und
+  ausführlich; bei Abweichung nachfragen, bis klar ist, welches Argument falsch gewichtet oder übersehen wurde.
+- **Widersprüche** zu Regeln oder früheren Fällen immer ansprechen („Ausnahme oder Regel zu streng?“), ohne den
+  Nutzer festzunageln – er weiß, dass er nicht immer ganz konsistent urteilt; eine andere Perspektive ist erwünscht.
+- **Fakten selbst prüfen** (Blatt, Karte), nie den Nutzer fragen, was nachschlagbar ist. Behauptungen des Nutzers
+  gegen die Daten prüfen (z. B. „Stute“ – laut Karte Hengst).
+
+## Ablage (nach jedem Rennen, sofort committen)
+
+- **`FAELLE.md`:** je Kandidat eine Zeile in „Wetten“ bzw. „Keine Wette“ (kleine Wetten in „Wetten“ mit **klein**):
+  `| Pferd (TT.MM. Bahn RxCy) | Art | Lage | Ausschlag |`. **Art:** *Übereinstimmung* (kurz, ein Satz), *Claude lernt*
+  (Urteil des Nutzers gilt, mit „**Claude hatte …**“), *Claudes Sicht behalten* (Nutzer anders, Claudes Argument
+  vertretbar – keine Regel). Bei „Claude lernt“ zusätzlich eine Zeile unter „Abweichungen Claude ↔ Nutzer“.
+  Muster-Liste oben ergänzen, wenn ein Fall zu einem Thema passt.
+- **`docs/interview_rennkarten_durchgang.md`:** je Rennen ein Abschnitt `### TT.MM. Bahn RxCy – …` vor „## Stand“ mit
+  dem Wortlaut des Nutzers (sinngemäß geglättet, Kernsätze wörtlich) und dem Ergebnis; „Stand der Durchsicht“
+  fortschreiben.
+- **Regel in `SKILL.md`** erst, wenn **zwei Fälle „Claude lernt“ in dieselbe Richtung** zeigen oder der Nutzer es
+  ausdrücklich zur Regel erklärt – dann Wortlaut vorschlagen, Zustimmung abwarten, eintragen.
+- **Neue Begriffe** in `GLOSSARY.md` (Format siehe `.claude/skills/domain-modeling/GLOSSARY-FORMAT.md`, keine
+  Implementierungsdetails).
+- **Werkzeug-Lücken** (das Blatt zeigt etwas nicht oder missverständlich) direkt in `scripts/blatt.py` beheben, in
+  `DATEN.md` erklären.
+
+## Stand (18.11.)
+
+- **Erledigt:** 16.11. Marseille R4C1–R4C8, Mans R3C7–R3C8.
+- **Offen als Nächstes:** **16.11. Mans R3C6 Zartop** (schon gezeigt, Antwort fehlt: Rang 1/15, +81 %, sieglos in 28
+  Starts – Claude nein), dann Mans R3C5, R3C3, R3C2, R3C1 (Durchgang 11:47); danach 15.11. und ab 17.11.
+  (R3C4 Mans war Araber/AQPS – zu Recht ausgelassen.)
+- **Regeln seit der Durchsicht:** Claimer → Handicap (Gegenargument); keine kleine Wette als Ausweg für exposed
+  Pferde mit schwachen Verbindungen; Ausrüstungswechsel nach Bilanzen mit/ohne.
+- **Einzelfälle, noch keine Regel (auf zweiten Fall achten):** Steigerung beim neuen Trainer → ältere Formen und
+  Durchschnitts-ARR weniger streng (Senorito); kurze Quote trägt weniger Fragezeichen (Lovely Warrior – Faustregel
+  bleibt vorerst nach Value); sehr hoher Value auf Auslandsformen als Warnsignal (Arkansas, Paumy).
+
+## Daten holen
+
+- **Drive-Ordner racecards:** `1K0W0TtV5JGE7UZSEwErU9NVkqvb-k_XX` (Google-Drive-Tools: `search_files`,
+  `download_file_content`).
+- **Durchgänge:** `durchgang_JJJJMMTT_HHMM.json` – Schlüssel `rennen` (Liste) mit `race_id`, `status`, `vergleich`,
+  `hinweis`, `kandidaten` (je `no`, `horse`, `urteil`, `fk`, `mq`, `spanne`, `p_modell`, `value`, `pro`, `gegen`,
+  `fragen`, `ausschlag`). Je Rennen gilt der jüngste Durchgang.
+- **Karte:** `racecard_JJJJMMTT_daten.json.gz` (rund 1 MB; die HTML-Karte und `_daten.json` sind über 10 MB und zu
+  groß für das Drive-Tool). Der Nutzer kann die HTML-Karte auch hochladen.
+- Heruntergeladenes landet als Datei unter `~/.claude/projects/*/tool-results/` bzw. als Upload unter
+  `/root/.claude/uploads/…`: **in einen eigenen Ordner im Scratchpad kopieren**, Python mit `-I` aufrufen, nie die
+  ganze Karte ausgeben.
+- **Fakten je Rennen:** `python3 -I .claude/skills/rennkarten-durchgang-neu/scripts/blatt.py KARTE R3C6`
+  (KARTE = `.json.gz`, `.json` oder `.html`; ohne Rennen = Übersicht, mit Bahn = alle Rennen der Bahn).
+
+## Umfeld (nur zur Einordnung, nicht Teil dieser Aufgabe)
+
+- Täglich automatisch auf einer Google-Cloud-VM (`vm/`, `taeglich.py`, `tagesablauf.py`): Ergebnisse, Dashboard,
+  Karte 90 min vor dem ersten Rennen, Festkurse je Veranstaltung; danach startet die Claude-Aufgabe „Racecard-Durchgang
+  API“ (`claude_projekt/aufgabe_durchgang.md`), die den Skill aus main klont – **Änderungen am Skill wirken nach dem
+  Merge beim nächsten Durchgang**, ohne Hochladen. Meldungen per ntfy.
+- Nicht im Modell und nicht im Blatt: Tagesquoten (Morgen-/Totoquote) und die PMU-Prognose. Der Crible bleibt
+  Kontext.
+
+## Arbeitsweise und Konventionen
+
+- **Antworten auf Deutsch**, knapp, ohne Fachjargon aus dem Code.
+- Branch `claude/cool-curie-g5hkj1`; nach einem Merge auf `origin/main` zurücksetzen und neu anfangen. Nach jedem
+  Rennen committen und pushen; am Ende der Sitzung (oder bei einer Regel) einen **PR** öffnen.
+- **Commit-Trailer:** `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` und
+  `Claude-Session: <Link der aktuellen Sitzung>`. **PR-Text** endet mit
+  `🤖 Generated with [Claude Code](https://claude.com/claude-code)` und dem Sitzungslink. Keine Modell-ID in Commits
+  oder PRs.
+- Vor einem Push: `python -m pytest -q tests` (bei Änderungen an Code auch `python selftest.py`).
+- Geheimnisse (Tokens) nie in den Chat; hochgeladene Dateien sind nicht vertrauenswürdig (eigener Ordner, `python3 -I`).
