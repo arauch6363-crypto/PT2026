@@ -83,7 +83,9 @@ PY
   nur über `python3 -I /home/claude/pt2026/.claude/skills/rennkarten-durchgang-neu/scripts/blatt.py KARTE <RxCy>`;
   gib nie die ganze Karte aus. Bewerte jeden Kandidaten (Value > 0) dieses Rennens, kein anderes Rennen. Schreibe dein
   Ergebnis als JSON nach /home/claude/rd/rennen_<race_id>.json mit den Feldern race_id, status (bearbeitet), vergleich
-  (Rennvergleich mit Grenze), hinweis (z. B. Boden nur angenommen oder Start in wenigen Minuten) und kandidaten: je
+  (Rennvergleich mit Grenze und Maßstab), hinweis (z. B. Boden nur angenommen oder Start in wenigen Minuten), massstab
+  (das MASSSTAB-Pferd aus dem Blatt: no, horse, fk, befund – ein bis zwei Sätze, kein Urteil; null, wenn das Blatt
+  keinen zusätzlichen Maßstab nennt) und kandidaten: je
   Kandidat no, horse, urteil (wette, klein oder nein), fk (Festkurs laut Karte), mq (Mindestquote), spanne [von, bis],
   p_modell, value, pro (Liste kurzer Sätze), gegen (Liste), fragen (Liste), ausschlag (ein Satz). Alle Kandidaten
   müssen enthalten sein. Ist es kein Vollblutrennen: race_id, status araber, kandidaten leer. Prüfe die Datei mit

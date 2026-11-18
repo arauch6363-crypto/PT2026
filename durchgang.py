@@ -217,7 +217,19 @@ def rennen_pruefen(r: dict) -> dict:
     if st == "bearbeitet" and not kand:
         raise ValueError(f"{r['race_id']}: bearbeitet, aber ohne Kandidaten")
     return {"race_id": str(r["race_id"]), "status": st, "vergleich": str(r.get("vergleich") or ""),
-            "hinweis": str(r.get("hinweis") or ""), "kandidaten": kand}
+            "hinweis": str(r.get("hinweis") or ""), "kandidaten": kand, "massstab": _massstab(r)}
+
+
+def _massstab(r: dict) -> dict | None:
+    """Vergleichsmaßstab des Rennens (FK-Favorit bzw. Zweiter im Festkurs): nur Vergleich, nie ein Claude-Tipp."""
+    m = r.get("massstab")
+    if not m:
+        return None
+    try:
+        no = int(m["no"])
+    except (KeyError, TypeError, ValueError):
+        raise ValueError(f"{r['race_id']}: Maßstab ohne gültige Nummer") from None
+    return {"no": no, "horse": m.get("horse"), "fk": _zahl(m.get("fk")), "befund": str(m.get("befund") or "")}
 
 
 def zusammenfuehren(datum: str, rennen: list[dict], stand: str | None = None, skill: str | None = None) -> dict:

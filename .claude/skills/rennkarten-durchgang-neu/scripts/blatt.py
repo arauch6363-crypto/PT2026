@@ -1,7 +1,8 @@
 """Kandidaten-Blätter für den Skill rennkarten-durchgang-neu.
 
 Liest die Kartendaten von racecard.py – ``racecard_JJJJMMTT_daten.json.gz`` (Normalfall), ``…_daten.json`` oder die
-HTML-Karte (eingebettetes ``const DATA = …``) – und druckt je Rennen die Fakten, die die Prüfliste des Skills braucht – nur für Kandidaten (Value > 0).
+HTML-Karte (eingebettetes ``const DATA = …``) – und druckt je Rennen die Fakten, die die Prüfliste des Skills braucht – für Kandidaten (Value > 0) und je Rennen einen
+Maßstab (FK-Favorit bzw. Zweiter im Festkurs, nie eine Wette).
 
 Aufruf (aus einem beliebigen Ordner, Karte als Argument):
     python3 -I blatt.py KARTE.html                 # Übersicht: alle Rennen mit Kandidaten
@@ -192,7 +193,21 @@ def trainerwechsel(liste) -> str | None:
     return None
 
 
-def blatt(z: dict, r: dict, top_kg: float) -> None:
+def massstab(kz: list[dict]) -> tuple[dict | None, str]:
+    """Vergleichsmaßstab je Rennen: der FK-Favorit; ist er Kandidat, der Zweite im Festkurs; ist auch der Kandidat,
+    keiner (er wird ohnehin geprüft). Rückgabe (Kennzahlen oder None, Grund)."""
+    nach_fk = sorted((z for z in kz if z["fk"]), key=lambda z: z["fk"])
+    ist_kand = lambda z: z["value"] is not None and z["value"] > 0
+    if not nach_fk:
+        return None, "keine Festkurse"
+    if not ist_kand(nach_fk[0]):
+        return nach_fk[0], "FK-Favorit"
+    if len(nach_fk) > 1 and not ist_kand(nach_fk[1]):
+        return nach_fk[1], "Zweiter im Festkurs, weil der Favorit Kandidat ist"
+    return None, "Favorit und Zweiter im Festkurs sind Kandidaten – kein zusätzlicher Maßstab"
+
+
+def blatt(z: dict, r: dict, top_kg: float, titel: str = "") -> None:
     x, pw = z["x"], z["x"].get("power") or {}
     ph = (x.get("pref") or {}).get("horse") or {}
     pt = (x.get("pref") or {}).get("trainer") or {}
@@ -208,8 +223,9 @@ def blatt(z: dict, r: dict, top_kg: float) -> None:
         dicht = None
     vf = pw.get("wert")
     vf_txt = f"{zahl(vf, 2)}{' gold' if pw.get('gold') else ''}{' Warnung' if pw.get('warn') else ''}" if vf is not None else "–"
-    print(f"\n### {x['no']} {x['horse']} – FK {zahl(z['fk'])} · Modell {pct(z['p'], 1)} · Modell-Rang {z['rang']}/{z['n']} ({drittel(z['rang'], z['n'])}) · "
-          f"Value {z['value'] * 100:+.0f} % · Value-Faktor {vf_txt}")
+    val = "–" if z["value"] is None else f"{z['value'] * 100:+.0f} %"
+    print(f"\n### {titel}{x['no']} {x['horse']} – FK {zahl(z['fk'])} · Modell {pct(z['p'], 1)} · Modell-Rang {z['rang']}/{z['n']} ({drittel(z['rang'], z['n'])}) · "
+          f"Value {val} · Value-Faktor {vf_txt}")
     print(f"- Pferd: {x.get('age')}j {x.get('sex')}, {x.get('starts')} Starts, {x.get('wins')} S, {x.get('places')} P · "
           f"{x.get('weight')} kg (Höchstgewicht {top_kg}) · Marke {zahl(x.get('rating'))} · Box {x.get('draw')} · Laufstil {x.get('style_label')} · "
           f"{x.get('days')} Tage seit letztem Start · {dicht} Starts in {FENSTER_STARTS} Tagen")
@@ -285,6 +301,11 @@ def main(argv: list[str]) -> None:
         top_kg = max((x.get("weight") or 0) for x in starter(r))
         for z in kand:
             blatt(z, r, top_kg)
+        m, grund = massstab(kz)
+        if m:
+            blatt(m, r, top_kg, titel=f"MASSSTAB · {grund} · kein Kandidat, nie eine Wette – ")
+        else:
+            print(f"\n### Maßstab: {grund}")
 
 
 if __name__ == "__main__":

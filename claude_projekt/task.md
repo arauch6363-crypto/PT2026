@@ -56,17 +56,21 @@ werden Fälle (`FAELLE.md`) und, bei Wiederholung, Regeln (`SKILL.md`).
 - **Werkzeug-Lücken** (das Blatt zeigt etwas nicht oder missverständlich) direkt in `scripts/blatt.py` beheben, in
   `DATEN.md` erklären.
 
-## Stand (18.11.)
+## Stand (18.11., Nachmittag)
 
-- **Erledigt:** 16.11. Marseille R4C1–R4C8, Mans R3C7–R3C8.
-- **Offen als Nächstes:** **16.11. Mans R3C6 Zartop** (schon gezeigt, Antwort fehlt: Rang 1/15, +81 %, sieglos in 28
-  Starts – Claude nein), dann Mans R3C5, R3C3, R3C2, R3C1 (Durchgang 11:47); danach 15.11. und ab 17.11.
-  (R3C4 Mans war Araber/AQPS – zu Recht ausgelassen.)
+- **Erledigt:** 16.11. Marseille R4C1–R4C8, Mans R3C7–R3C8; 18.11. Pau R2C3 (Boomslang).
+- **Laufend:** **18.11. Pau R2C4–R2C8** – der Nutzer wollte die heutigen Pau-Rennen, deren Ergebnisse er noch nicht
+  kennt (R2C1 kennt er, R2C2 ist AQPS). Durchgang 11:40.
+- **Offen danach:** 16.11. Mans R3C6 Zartop (gezeigt, Antwort fehlt), R3C5, R3C3, R3C2, R3C1 (Durchgang 11:47);
+  17.11. ab Angers R2C1 (Allez Papa/Ipanema Rose gezeigt, Antwort fehlt); 15.11.
 - **Regeln seit der Durchsicht:** Claimer → Handicap (Gegenargument); keine kleine Wette als Ausweg für exposed
-  Pferde mit schwachen Verbindungen; Ausrüstungswechsel nach Bilanzen mit/ohne.
+  Pferde mit schwachen Verbindungen; Ausrüstungswechsel nach Bilanzen mit/ohne; **Maßstab** (FK-Favorit bzw. Zweiter
+  im Festkurs je Rennen mitprüfen, nie wetten; `blatt.py` druckt ihn, Durchgang hat Feld `massstab`).
 - **Einzelfälle, noch keine Regel (auf zweiten Fall achten):** Steigerung beim neuen Trainer → ältere Formen und
   Durchschnitts-ARR weniger streng (Senorito); kurze Quote trägt weniger Fragezeichen (Lovely Warrior – Faustregel
   bleibt vorerst nach Value); sehr hoher Value auf Auslandsformen als Warnsignal (Arkansas, Paumy).
+- In der Übersicht von FAELLE.md stehen Paumy und Give Me A Shivers (16.11. R3C6) schon in der Muster-Liste, obwohl
+  der Fall noch nicht besprochen ist – beim Abschluss von R3C6 prüfen.
 
 ## Daten holen
 
@@ -95,7 +99,7 @@ werden Fälle (`FAELLE.md`) und, bei Wiederholung, Regeln (`SKILL.md`).
 ## Arbeitsweise und Konventionen
 
 - **Antworten auf Deutsch**, knapp, ohne Fachjargon aus dem Code.
-- Branch `claude/cool-curie-g5hkj1`; nach einem Merge auf `origin/main` zurücksetzen und neu anfangen. Nach jedem
+- Branch laut Sitzung (zuletzt `claude/jolly-pascal-gxr4ce`); nach einem Merge auf `origin/main` zurücksetzen und neu anfangen. Nach jedem
   Rennen committen und pushen; am Ende der Sitzung (oder bei einer Regel) einen **PR** öffnen.
 - **Commit-Trailer:** `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` und
   `Claude-Session: <Link der aktuellen Sitzung>`. **PR-Text** endet mit
