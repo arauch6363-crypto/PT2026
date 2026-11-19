@@ -147,7 +147,8 @@ Nicht mechanisch zählen.
 - `G-RANG-HINTEN` hinterer Modell-Rang
 - `G-REFERENZ-SCHWACH` schwacher Referenzlauf ohne Grund zur Steigerung
 - `G-ARR-UNTER` ARR deutlich unter den Besten im Feld
-- `G-SELTEN-SIEG` selten gewinnend (viele Plätze, kaum Siege)
+- `G-SELTEN-SIEG` selten gewinnend: weniger als ein Sieg aus etwa 14 Starts, dazu viele Plätze. Wer öfter gewinnt,
+  ist kein seltener Sieger, auch nach einer Reihe zweiter Plätze. *Tipinso 16.11.*
 - `G-TRAINER-KALT` kalter Trainer (abgestuft)
 - `G-AUSRUESTUNG-WEG` Ausrüstung fällt weg, mit der die besten Läufe kamen (Punkt 6)
 - `G-RICHTUNG` in der heutigen Richtung klar schlechter
