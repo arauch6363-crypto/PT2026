@@ -244,3 +244,32 @@ def test_kandidat_braucht_mindestens_fuenf_prozent_value():
         return {"no": no, "power": {"sieg": p}, "fk": {"sieg": fk}}
     r = {"runners": [x(1, 0.25, 4.2), x(2, 0.25, 4.0), x(3, 0.25, 4.19)]}   # Value +5 %, 0 %, +4,75 %
     assert dg.kandidaten(r) == [1]
+
+
+# ---------------------------------------------------------------- Regelkennungen
+
+def test_kennungen_aus_dem_skill():
+    k = dg.kennungen()
+    assert {"G-AUSRUESTUNG-WEG", "P-CGD", "F-PAUSE", "U-LEITFRAGE", "G-EXPOSED-ALT"} <= k
+    assert all(x[0] in "FGPU" and x[1] == "-" for x in k)
+
+
+def test_zitierte_kennungen():
+    k = {"pro": ["Auf Collant gewonnen (P-BODEN-BEWAEHRT)", "ohne Kennung"], "gegen": ["(G-BOX, G-STUTE)"],
+         "fragen": [], "ausschlag": "CGD (P-CGD)"}
+    assert dg.zitierte(k) == {"pro": ["P-BODEN-BEWAEHRT"], "gegen": ["G-BOX", "G-STUTE"], "fragen": [],
+                              "ausschlag": ["P-CGD"]}
+
+
+def test_streng_prueft_kennungen():
+    r = _rennen("X", (1, "nein", 3.0, 4.0))
+    r["kandidaten"][0].update(pro=["gut (P-CGD)"], ausschlag="Leitfrage verneint (U-LEITFRAGE)")
+    dg.rennen_pruefen_streng(r)
+    r["kandidaten"][0]["ausschlag"] = "Bauchgefühl"
+    with pytest.raises(ValueError, match="Ausschlag"):
+        dg.rennen_pruefen_streng(r)
+    r["kandidaten"][0]["ausschlag"] = "Ermessen: beides vertretbar"
+    dg.rennen_pruefen_streng(r)
+    r["kandidaten"][0]["gegen"] = ["erfunden (G-GIBT-ES-NICHT)"]
+    with pytest.raises(ValueError, match="G-GIBT-ES-NICHT"):
+        dg.rennen_pruefen_streng(r)

@@ -222,6 +222,45 @@ def rennen_pruefen(r: dict) -> dict:
             "hinweis": str(r.get("hinweis") or ""), "kandidaten": kand, "massstab": _massstab(r)}
 
 
+SKILL_ORDNER = Path(__file__).resolve().parent / ".claude" / "skills" / "rennkarten-durchgang-neu"
+KENNUNG = re.compile(r"\b[FGPU]-[A-Z0-9]+(?:-[A-Z0-9]+)*\b")
+ZITAT_FELDER = ("pro", "gegen", "fragen", "ausschlag")
+
+
+def kennungen(ordner: str | Path = SKILL_ORDNER) -> set[str]:
+    """Alle Regelkennungen, die SKILL.md und EINSICHTEN.md definieren (in Backticks, z. B. `G-AUSRUESTUNG-WEG`)."""
+    out: set[str] = set()
+    for name in ("SKILL.md", "EINSICHTEN.md"):
+        text = (Path(ordner) / name).read_text(encoding="utf-8")
+        out |= {m for m in re.findall(r"`([FGPU]-[A-Z0-9-]+)`", text) if KENNUNG.fullmatch(m)}
+    return out
+
+
+def zitierte(k: dict) -> dict[str, list[str]]:
+    """Kennungen, die ein Kandidat in Pro, Gegen, Fragezeichen und Ausschlag zitiert (Reihenfolge wie im Text)."""
+    out = {}
+    for f in ZITAT_FELDER:
+        saetze = k.get(f) or []
+        saetze = [saetze] if isinstance(saetze, str) else saetze
+        out[f] = [m for s in saetze for m in KENNUNG.findall(str(s))]
+    return out
+
+
+def rennen_pruefen_streng(r: dict, bekannt: set[str] | None = None) -> dict:
+    """Wie rennen_pruefen, dazu: nur bekannte Kennungen, und jeder Ausschlag nennt eine Kennung oder „Ermessen“."""
+    out = rennen_pruefen(r)
+    bekannt = kennungen() if bekannt is None else bekannt
+    for k in out["kandidaten"]:
+        z = zitierte(k)
+        fremd = sorted({x for f in ZITAT_FELDER for x in z[f]} - bekannt)
+        if fremd:
+            raise ValueError(f"{out['race_id']} Nr. {k['no']}: unbekannte Kennung {', '.join(fremd)} "
+                             "(nur Kennungen aus SKILL.md/EINSICHTEN.md)")
+        if not z["ausschlag"] and "ermessen" not in k["ausschlag"].lower():
+            raise ValueError(f"{out['race_id']} Nr. {k['no']}: Ausschlag nennt weder Kennung noch „Ermessen“")
+    return out
+
+
 def _massstab(r: dict) -> list[dict]:
     """Vergleichsmaßstäbe des Rennens (die zwei Besten im Festkurs ohne Kandidaten): nur Vergleich, nie ein
     Claude-Tipp. Ein einzelnes Objekt (früheres Format) wird zur Liste."""
