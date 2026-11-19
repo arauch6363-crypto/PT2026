@@ -107,7 +107,7 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
    in zwei Jahren = Gegenargument; klein, aber „geschickt operierend“ = neutral bis Pro). Jockey: Bilanz auf der Bahn,
    kennt das Pferd (Siege zusammen = Pro), Jockey-A/E (holt mehr heraus = Pro), **Gespann Trainer + Jockey** – zählt
    bei genug Starts mehr als die Einzelbilanzen.
-6. **Umstände heute.** Box (nur `signifikant` zählt), Gewicht (Höchstgewicht bzw. ab ca. 62 kg auf Très souple oder
+6. **Umstände heute.** Box (nur `signifikant` zählt), Gewicht (ab etwa 62 kg auf Très souple oder
    schwerer = Gegenargument), Tempo gegen Laufstil (Führender bei schnellem Tempo mit mehreren Führenden = Gegen;
    Pferd von hinten bei schnellem Tempo = Pro), Startfolge (ab etwa 4 Starts in 6 Wochen = Gegenargument, „irgendwann
    ist die Luft raus“), Bahnkategorie (von großen Bahnen in die Provinz = Pro, umgekehrt Gegen), Reise (britischer
@@ -147,12 +147,15 @@ Nicht mechanisch zählen.
 - `G-RANG-HINTEN` hinterer Modell-Rang
 - `G-REFERENZ-SCHWACH` schwacher Referenzlauf ohne Grund zur Steigerung
 - `G-ARR-UNTER` ARR deutlich unter den Besten im Feld
-- `G-SELTEN-SIEG` selten gewinnend (viele Plätze, kaum Siege)
+- `G-SELTEN-SIEG` selten gewinnend: weniger als ein Sieg aus etwa 14 Starts, dazu viele Plätze. Wer öfter gewinnt,
+  ist kein seltener Sieger, auch nach einer Reihe zweiter Plätze. *Tipinso 16.11.*
 - `G-TRAINER-KALT` kalter Trainer (abgestuft)
 - `G-AUSRUESTUNG-WEG` Ausrüstung fällt weg, mit der die besten Läufe kamen (Punkt 6)
 - `G-RICHTUNG` in der heutigen Richtung klar schlechter
 - `G-BOX` signifikant schlechte Box
-- `G-GEWICHT-BODEN` Höchstgewicht auf sehr weichem Boden
+- `G-GEWICHT-BODEN` Gewicht ab etwa 62 kg auf Très souple oder schwerer. Ein Höchstgewicht darunter ist kein
+  Gegenargument; außerhalb des Handicaps steckt es schon in der gewichtsbereinigten Valeur. *Tipinso 16.11. (59,5 kg
+  auf Collant)*
 - `G-STARTFOLGE` dichte Startfolge
 - `G-FORM-WEIT-WEG` Formen „weit weg von dem, was benötigt wird“
 - `G-TEMPO-VORNE` vorne laufend gegen schnelles Tempo
