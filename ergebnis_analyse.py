@@ -45,8 +45,8 @@ DRUCK_N, DRUCK_Z = 20, 2.0          # Regel unter Druck: mindestens so viele Fä
 
 PROTOKOLL_FELDER = ["datum", "race_id", "no", "horse", "kennung", "richtung", "urteil", "fk", "p_markt", "gewonnen"]
 TAGE_FELDER = ["datum", "analysiert", "commit", "vorschlaege"]
-VORSCHLAG_FELDER = ["id", "datum", "race_id", "no", "horse", "fall", "art", "zieldatei", "kennung", "text", "gewicht",
-                    "entscheidung", "notiz", "entschieden"]
+VORSCHLAG_FELDER = ["id", "datum", "titel", "fall", "rennen", "race_id", "no", "horse", "durchgang", "datenpunkt",
+                    "gegenprobe", "art", "zieldatei", "kennung", "text", "gewicht", "entscheidung", "notiz", "entschieden"]
 ENTSCHEIDUNGEN = {"offen", "ja", "nein", "geaendert"}
 
 

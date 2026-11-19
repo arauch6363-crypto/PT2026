@@ -1,0 +1,142 @@
+<title>Ergebnisanalyse</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root{--bg:#f7f6f3;--card:#fff;--text:#1d1d1b;--muted:#6b6a66;--line:#e2e0da;--accent:#2f5d8a;--ja:#2e7d4f;--nein:#a33b32;--aend:#9a6a12;--soft:#efeee9}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--card:#1f1f1d;--text:#ecebe6;--muted:#a3a29c;--line:#34332f;--accent:#7fb0de;--ja:#6cc192;--nein:#e48a80;--aend:#e0b860;--soft:#262623;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#161615;--card:#1f1f1d;--text:#ecebe6;--muted:#a3a29c;--line:#34332f;--accent:#7fb0de;--ja:#6cc192;--nein:#e48a80;--aend:#e0b860;--soft:#262623;color-scheme:dark}
+body{background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;margin:0}
+main{max-width:900px;margin:0 auto;padding-block:20px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.karte,.feld{min-width:0}
+button:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:28px 0 10px}h3{font-size:15px;margin:0 0 6px}
+.muted{color:var(--muted)}.small{font-size:13px}
+select,textarea,button{font:inherit;color:inherit}
+select{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+.kacheln{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.kachel{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px}
+.kachel b{display:block;font-size:22px}
+.karte{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+.feld{margin:6px 0}.feld span{color:var(--muted);font-size:13px;display:block}
+.text{background:var(--soft);border-radius:6px;padding:8px 10px;white-space:pre-wrap}
+.tag{display:inline-block;font-size:12px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin-right:4px}
+.knoepfe{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+button{border:1px solid var(--line);background:var(--card);border-radius:6px;padding:6px 14px;cursor:pointer}
+button.ja{border-color:var(--ja);color:var(--ja)}button.nein{border-color:var(--nein);color:var(--nein)}button.aend{border-color:var(--aend);color:var(--aend)}
+button.aktiv.ja{background:var(--ja);color:var(--card)}button.aktiv.nein{background:var(--nein);color:var(--card)}button.aktiv.aend{background:var(--aend);color:var(--card)}
+textarea{width:100%;box-sizing:border-box;min-height:60px;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin-top:8px}
+td,th{font-variant-numeric:tabular-nums}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line)}
+.tabelle{overflow-x:auto}
+.hinweis{border-left:3px solid var(--accent);padding:6px 10px;background:var(--soft);border-radius:4px}
+</style>
+<main>
+  <h1>Ergebnisanalyse</h1>
+  <p class="muted small">Durchgänge gegen den Einlauf. Je Vorschlag: Ja, Nein oder Ändern (mit Freitext). Danach in der Sitzung „entschieden“ schreiben.</p>
+  <p id="status" class="hinweis small">Lade Daten …</p>
+  <label class="small" for="tag">Renntag</label> <select id="tag"></select>
+  <section id="zusammenfassung"></section>
+  <h2>Vorschläge</h2>
+  <div id="vorschlaege"><p class="muted">Keine Vorschläge.</p></div>
+  <h2>Fälle des Tages</h2>
+  <div id="faelle" class="tabelle"></div>
+  <h2>Regelprotokoll</h2>
+  <div id="regeln" class="tabelle"></div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ART = {treffer: "Treffer", verpasster_sieger: "Verpasster Sieger", verlorener_tipp: "Verlorener Tipp"};
+const GRUPPE = {treffer: "Treffer", verpasster_sieger: "Verpasste Sieger", verlorener_tipp: "Verlorene Tipps",
+  massstab: "Sieger war Maßstab", sonstig: "Sonstige Sieger", ohne_durchgang: "Rennen ohne Durchgang"};
+let tage = [], vorschlaege = [], db = null, gewaehlt = null;
+const entwurf = {};   // id -> Freitext, solange nicht gespeichert
+
+function status(t) { const p = $("#status"); p.textContent = t; p.hidden = !t; }
+
+function tagWahl() {
+  const sel = $("#tag"), alt = sel.value;
+  sel.innerHTML = tage.map(t => `<option value="${esc(t.id)}">${esc(t.data().titel || t.id)}</option>`).join("");
+  gewaehlt = tage.some(t => t.id === alt) ? alt : (tage[0] && tage[0].id);
+  if (gewaehlt) sel.value = gewaehlt;
+}
+
+function zeichnen() {
+  const t = tage.find(x => x.id === gewaehlt);
+  const d = t ? t.data() : null;
+  $("#zusammenfassung").innerHTML = d ? `
+    <h2>Siegergruppen</h2>
+    <div class="kacheln">${Object.entries(GRUPPE).map(([k, n]) =>
+      `<div class="kachel"><span class="small muted">${n}</span><b>${esc((d.zaehlung || {})[k] ?? 0)}</b></div>`).join("")}</div>
+    ${d.hinweis ? `<p class="hinweis">${esc(d.hinweis)}</p>` : ""}` : "";
+  const f = (d && d.faelle) || [];
+  $("#faelle").innerHTML = f.length ? `<table><tr><th>Art</th><th>Rennen</th><th>Pferd</th><th>Urteil</th><th>FK</th><th>Platz</th><th>Regel</th><th>Befund</th></tr>${
+    f.map(x => `<tr><td>${esc(ART[x.art] || x.art)}</td><td>${esc(x.rennen)}</td><td>${esc(x.no)} ${esc(x.horse)}</td><td>${esc(x.urteil)}</td><td>${esc(x.fk)}</td><td>${esc(x.pos ?? "–")}</td><td>${esc(x.regel || "")}</td><td>${esc(x.befund || "")}</td></tr>`).join("")}</table>`
+    : `<p class="muted">Keine Fälle.</p>`;
+  const r = (d && d.regelprotokoll) || [];
+  $("#regeln").innerHTML = r.length ? `<table><tr><th>Kennung</th><th>Richtung</th><th>n</th><th>Siege</th><th>erwartet</th><th>A/E</th><th>z</th><th></th></tr>${
+    r.map(x => `<tr><td>${esc(x.kennung)}</td><td>${esc(x.richtung)}</td><td>${esc(x.n)}</td><td>${esc(x.siege)}</td><td>${esc(x.erwartet)}</td><td>${esc(x.ae ?? "–")}</td><td>${esc(x.z)}</td><td>${x.unter_druck ? "<b>unter Druck</b>" : ""}</td></tr>`).join("")}</table>`
+    : `<p class="muted">Noch keine Fälle mit Regelkennungen.</p>`;
+
+  // Vorschläge: die des gewählten Tages und alle noch offenen früherer Tage
+  const liste = vorschlaege.map(v => ({id: v.id, ...v.data()}))
+    .filter(v => v.datum === gewaehlt || (v.entscheidung || "offen") === "offen");
+  $("#vorschlaege").innerHTML = liste.length ? liste.map(v => {
+    const e = v.entscheidung || "offen";
+    return `<div class="karte" data-id="${esc(v.id)}">
+      <h3>${esc(v.titel || v.id)}</h3>
+      <div><span class="tag">${esc(ART[v.fall] || v.fall)}</span><span class="tag">${esc(v.rennen)} · ${esc(v.no)} ${esc(v.horse)}</span>${v.datum !== gewaehlt ? `<span class="tag">offen seit ${esc(v.datum)}</span>` : ""}</div>
+      <div class="feld"><span>Was der Durchgang sagte</span>${esc(v.durchgang)}</div>
+      <div class="feld"><span>Datenpunkt auf der Karte (vor dem Rennen)</span>${esc(v.datenpunkt)}</div>
+      <div class="feld"><span>Gegenprobe</span>${esc(v.gegenprobe)}</div>
+      <div class="feld"><span>${esc(v.art)} · ${esc(v.zieldatei)} · ${esc(v.kennung)}</span><div class="text">${esc(v.text)}</div></div>
+      <div class="knoepfe">
+        <label class="small">Gewicht <select data-gewicht>${["ausschlaggebend", "gewichtig", "leicht"].map(g =>
+          `<option ${g === v.gewicht ? "selected" : ""}>${g}</option>`).join("")}</select></label>
+        <button class="ja ${e === "ja" ? "aktiv" : ""}" data-e="ja">Ja</button>
+        <button class="nein ${e === "nein" ? "aktiv" : ""}" data-e="nein">Nein</button>
+        <button class="aend ${e === "geaendert" ? "aktiv" : ""}" data-e="geaendert">Ändern</button>
+        <span class="small muted">${e === "offen" ? "offen" : "gespeichert: " + esc(e)}</span>
+      </div>
+      <textarea data-notiz placeholder="Kontext, Begründung oder gewünschte Änderung">${esc(entwurf[v.id] ?? v.notiz ?? "")}</textarea>
+    </div>`;
+  }).join("") : `<p class="muted">Keine Vorschläge.</p>`;
+}
+
+async function entscheiden(id, e, karte) {
+  const notiz = karte.querySelector("[data-notiz]").value.trim();
+  if (e === "geaendert" && !notiz) { status("Bei „Ändern“ bitte im Freifeld schreiben, was anders sein soll."); return; }
+  const gewicht = karte.querySelector("[data-gewicht]").value;
+  karte.querySelectorAll("button").forEach(b => b.disabled = true);
+  try {
+    await db.collection("vorschlaege").doc(id).update({entscheidung: e, notiz, gewicht, entschieden: new Date().toISOString()});
+    delete entwurf[id];
+    status("");
+  } catch (err) {
+    status(err && err.code === "invalid_argument" ? "Speichern nicht erlaubt (nur mit Schreibrecht)." : "Speichern fehlgeschlagen – bitte erneut.");
+    karte.querySelectorAll("button").forEach(b => b.disabled = false);
+  }
+}
+
+$("#vorschlaege").addEventListener("click", ev => {
+  const b = ev.target.closest("button[data-e]");
+  if (!b || !db) return;
+  const karte = b.closest(".karte");
+  entscheiden(karte.dataset.id, b.dataset.e, karte);
+});
+$("#vorschlaege").addEventListener("input", ev => {
+  if (ev.target.matches("[data-notiz]")) entwurf[ev.target.closest(".karte").dataset.id] = ev.target.value;
+});
+$("#tag").addEventListener("change", ev => { gewaehlt = ev.target.value; zeichnen(); });
+
+(async () => {
+  db = window.claude ? await window.claude.use("db") : null;
+  if (!db) { status("Die Daten sind in dieser Ansicht nicht erreichbar."); return; }
+  const timer = setTimeout(() => status("Die Daten sind noch nicht erreichbar …"), 10000);
+  db.collection("tage").orderBy("datum", "desc").onSnapshot(s => {
+    tage = s.docs;
+    if (!s.metadata.fromCache) { clearTimeout(timer); status(tage.length ? "" : "Noch kein Renntag analysiert."); }
+    tagWahl(); zeichnen();
+  }, () => { clearTimeout(timer); status("Die Daten konnten nicht geladen werden."); });
+  db.collection("vorschlaege").onSnapshot(s => { vorschlaege = s.docs; zeichnen(); }, () => {});
+})();
+</script>
