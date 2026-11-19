@@ -27,6 +27,14 @@ Der Modell-Value ist **nur der Filter**, welche Pferde angesehen werden. Ob der 
 **eigene Kursspanne** (siehe Gesamturteil): Ein Pferd mit +29 % Modell-Value kann zu kurz sein, eines mit +6 % lang
 genug.
 
+**Kennungen.** Jedes Argument der Listen unten und in `EINSICHTEN.md` trägt eine Kennung wie
+`G-AUSRUESTUNG-WEG` (F = Fragezeichen, G = Gegen, P = Pro, U = Urteil). Jeder Satz in Pro, Gegen und Fragezeichen,
+der sich auf eine solche Regel stützt, endet mit ihrer Kennung in Klammern, z. B. „Ohne Scheuklappen, mit denen die
+drei besten Läufe kamen (G-AUSRUESTUNG-WEG)“. Der Satz **Ausschlag** nennt die Kennung der Regel, die das Urteil
+entschieden hat, oder das Wort „Ermessen“, wenn keine passt. Nur Kennungen verwenden, die in `SKILL.md` oder
+`EINSICHTEN.md` stehen; die Prüfung (`durchgang.rennen_pruefen`) lehnt unbekannte ab. Die Ergebnisanalyse zählt
+daran, wie oft eine Regel griff und wie es ausging.
+
 ## Ablauf
 
 1. **Fakten ziehen.** `python3 -I <Skill-Ordner>/scripts/blatt.py KARTE` zeigt die Übersicht (Rennen mit
@@ -52,7 +60,7 @@ Kandidaten sind** (Kandidaten werden übersprungen, sie werden ohnehin geprüft)
 er Maßstab 1; sonst rückt der nächstbeste ohne Kandidaten-Value nach. Ein Maßstab ist **nie eine Wette** und braucht
 keinen Value. Je Maßstab kurz: beste zu heute passende Leistung (Referenzlauf, ARR), Beleg für Boden und Distanz,
 Verbindungen, Laufstil gegen Tempo, größtes Fragezeichen. Zusammen zeigen die beiden, **was in diesem Rennen für den
-Sieg verlangt ist**. Jeder Kandidat wird in der Leitfrage gegen sie gemessen: Was müsste er besser können als die
+Sieg verlangt ist**. Jeder Kandidat wird in der Leitfrage gegen sie gemessen (`U-MASSSTAB`): Was müsste er besser können als die
 Maßstäbe, und ist das belegt? Ist ein Maßstab Debütant oder kaum belegt, steht das ausdrücklich im Urteil („Maßstab
 offen“). Die Kursspanne bleibt eigene Einschätzung, nicht abgeleitet von den Festkursen der Maßstäbe. (Vom Nutzer zur
 Regel erklärt: „ohne Referenz gegen das nächstbeste Pferd fehlt die Elle, gegen was man besser sein muss“; zweiter
@@ -115,12 +123,19 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
 
 ### Fragezeichen (unbewiesen, offene Liste)
 
-Erstmals diese Distanzgruppe (auch Distanzwechsel nach unten, gemildert, wenn das Pferd vorne mitläuft) · erstmals
-dieser Boden ab Très souple (Collant und Lourd gelten als derselbe Boden) · erstmals dieser Belag · erstmals Scheuklappen oder andere Ausrüstung („warum
-heute?“; Wechsel sonst siehe Ausrüstungswechsel in Punkt 6) · Bewährung nur aus tieferer Klasse (z. B. Claimer) oder erstmals deutlich höhere Klasse · Rückkehr nach
-langer Pause · erstmals Wallach · Trainerwechsel · **Aufgewicht** (nur im Handicap; umso größer, je exposed) · erster Start auf einer
-Bahn mit Eigenheiten (Strasbourg, Fontainebleau) · Klassenfrage (kleiner Stall, Formen nur aus schwachen Rennen) ·
-nicht einzuordnende Auslandsformen.
+- `F-DISTANZ-NEU` erstmals diese Distanzgruppe (auch Distanzwechsel nach unten, gemildert, wenn das Pferd vorne mitläuft)
+- `F-BODEN-NEU` erstmals dieser Boden ab Très souple (Collant und Lourd gelten als derselbe Boden)
+- `F-BELAG-NEU` erstmals dieser Belag
+- `F-AUSRUESTUNG-NEU` erstmals Scheuklappen oder andere Ausrüstung („warum heute?“; Wechsel sonst siehe Ausrüstungswechsel
+  in Punkt 6)
+- `F-KLASSE-HOCH` Bewährung nur aus tieferer Klasse (z. B. Claimer) oder erstmals deutlich höhere Klasse
+- `F-PAUSE` Rückkehr nach langer Pause
+- `F-WALLACH` erstmals Wallach
+- `F-TRAINERWECHSEL` Trainerwechsel
+- `F-AUFGEWICHT` **Aufgewicht** (nur im Handicap; umso größer, je exposed)
+- `F-BAHN-EIGENHEIT` erster Start auf einer Bahn mit Eigenheiten (Strasbourg, Fontainebleau)
+- `F-KLASSENFRAGE` Klassenfrage (kleiner Stall, Formen nur aus schwachen Rennen)
+- `F-AUSLAND` nicht einzuordnende Auslandsformen
 
 Ein Fragezeichen ist **entkräftet** (zählt nicht oder wird zum Pro-Argument), wenn Belege dafür sprechen: erstmals
 eine längere Distanz, aber die Abstammung trägt sie und das Pferd lief bisher umso besser, je weiter der Weg war;
@@ -129,53 +144,75 @@ Nicht mechanisch zählen.
 
 ### Typische Gegenargumente
 
-Hinterer Modell-Rang · schwacher Referenzlauf ohne Grund zur Steigerung · ARR deutlich unter den Besten im Feld ·
-selten gewinnend (viele Plätze, kaum Siege) · kalter Trainer (abgestuft) · Ausrüstung fällt weg, mit der die besten
-Läufe kamen (Punkt 6) · in der heutigen Richtung klar schlechter · signifikant schlechte Box · Höchstgewicht auf sehr weichem
-Boden · dichte Startfolge · Formen „weit weg von dem, was benötigt wird“ · vorne laufend gegen schnelles Tempo · Stute
-gegen Hengste (bei jungen Pferden, leicht) · Sieg, bei dem das Rennen den Vorderen half und das Pferd vorne lief
-(etwas weniger wert) · im direkten Vergleich hinter einem heutigen Gegner · **Aufstieg aus Claimern (Verkaufsrennen) ins Handicap** – ausgeglichen
-nur durch deutlich höheren Klassenindex der Claimer (nicht bloß ein paar Punkte) oder schon vorhandene
-Handicap-Form auf ähnlicher Marke; bei kurzer Quote wiegt es schwerer.
+- `G-RANG-HINTEN` hinterer Modell-Rang
+- `G-REFERENZ-SCHWACH` schwacher Referenzlauf ohne Grund zur Steigerung
+- `G-ARR-UNTER` ARR deutlich unter den Besten im Feld
+- `G-SELTEN-SIEG` selten gewinnend (viele Plätze, kaum Siege)
+- `G-TRAINER-KALT` kalter Trainer (abgestuft)
+- `G-AUSRUESTUNG-WEG` Ausrüstung fällt weg, mit der die besten Läufe kamen (Punkt 6)
+- `G-RICHTUNG` in der heutigen Richtung klar schlechter
+- `G-BOX` signifikant schlechte Box
+- `G-GEWICHT-BODEN` Höchstgewicht auf sehr weichem Boden
+- `G-STARTFOLGE` dichte Startfolge
+- `G-FORM-WEIT-WEG` Formen „weit weg von dem, was benötigt wird“
+- `G-TEMPO-VORNE` vorne laufend gegen schnelles Tempo
+- `G-STUTE` Stute gegen Hengste (bei jungen Pferden, leicht)
+- `G-SIEG-MIT-VERLAUF` Sieg, bei dem das Rennen den Vorderen half und das Pferd vorne lief (etwas weniger wert)
+- `G-DIREKT-HINTER` im direkten Vergleich hinter einem heutigen Gegner
+- `G-CLAIMER-AUFSTIEG` **Aufstieg aus Claimern (Verkaufsrennen) ins Handicap** – ausgeglichen nur durch deutlich höheren
+  Klassenindex der Claimer (nicht bloß ein paar Punkte) oder schon vorhandene Handicap-Form auf ähnlicher Marke; bei
+  kurzer Quote wiegt es schwerer.
 
 ### Typische Pro-Argumente
 
-Vorderer Modell-Rang mit solidem Value · CGD · Referenzlauf unter heutigen Bedingungen mit gutem ARR · Bahnbewährung
-(gewonnen oder platziert) · Bewährung genau auf der heutigen Bodenangabe · signifikant gute Box · gegen den Verlauf gut gelaufen · gestörter
-letzter Lauf · im Handicap: Marke deutlich unter letzter Sieg-/Platzmarke · außerhalb des Handicaps: höchste
-gewichtsbereinigte Valeur im Feld · Trainer heiß oder auf der Bahn stark · Jockey kennt
-das Pferd · starkes Gespann · Abstieg in die Provinz · Abstieg aus stärkeren Rennen (nur wenn diese Rennen nicht abgewertet sind) · britischer Trainer · unexposed mit Steigerungspotenzial · Ausrüstung kommt
-zurück, mit der die besten Läufe kamen ·
-„erster Ansatz“ nach einer Reihe schwacher Läufe.
+- `P-RANG-VORNE` vorderer Modell-Rang mit solidem Value
+- `P-CGD` CGD
+- `P-REFERENZ-GUT` Referenzlauf unter heutigen Bedingungen mit gutem ARR
+- `P-BAHN` Bahnbewährung (gewonnen oder platziert)
+- `P-BODEN-BEWAEHRT` Bewährung genau auf der heutigen Bodenangabe
+- `P-BOX` signifikant gute Box
+- `P-GEGEN-VERLAUF` gegen den Verlauf gut gelaufen
+- `P-GESTOERT` gestörter letzter Lauf
+- `P-MARKE-UNTER` im Handicap: Marke deutlich unter letzter Sieg-/Platzmarke
+- `P-VALEUR-HOECHSTE` außerhalb des Handicaps: höchste gewichtsbereinigte Valeur im Feld
+- `P-TRAINER` Trainer heiß oder auf der Bahn stark
+- `P-JOCKEY-KENNT` Jockey kennt das Pferd
+- `P-GESPANN` starkes Gespann
+- `P-PROVINZ` Abstieg in die Provinz
+- `P-ABSTIEG` Abstieg aus stärkeren Rennen (nur wenn diese Rennen nicht abgewertet sind)
+- `P-BRITE` britischer Trainer
+- `P-UNEXPOSED` unexposed mit Steigerungspotenzial
+- `P-AUSRUESTUNG-ZURUECK` Ausrüstung kommt zurück, mit der die besten Läufe kamen
+- `P-ERSTER-ANSATZ` „erster Ansatz“ nach einer Reihe schwacher Läufe
 
 ## Gesamturteil
 
 Je Kandidat: Pro-Argumente, Gegenargumente, Fragezeichen, dann die **eigene Kursspanne** – grob, ehrlich, ohne
-Rechnung („fair eher 8–10“). Gewettet wird, wenn der Festkurs klar über der Spanne liegt und die Leitfrage mit „ja,
-kann reichen“ beantwortet ist. Mindestquote = unterer Rand der Spanne.
+Rechnung („fair eher 8–10“). Gewettet wird, wenn der Festkurs klar über der Spanne liegt (`U-KURSSPANNE`) und die Leitfrage mit „ja,
+kann reichen“ beantwortet ist (`U-LEITFRAGE`). Mindestquote = unterer Rand der Spanne.
 
 - **Wette** = 1 Einheit. **Kleine Wette** = ½ Einheit: interessant, aber „da fehlt einiges“ (z. B. erster Ansatz
   nach vielen schwachen Läufen, Value dünn).
-- **Keine kleine Wette als Ausweg:** Ist das Pferd exposed und sind Trainer oder Jockey schwach bzw. ohne aktuelle
+- `U-KEIN-AUSWEG` **Keine kleine Wette als Ausweg:** Ist das Pferd exposed und sind Trainer oder Jockey schwach bzw. ohne aktuelle
   Form, wird es keine kleine Wette, auch wenn Value, Konstanz oder Marke dafür sprechen. Die kleine Wette ist für
   Pferde, bei denen einiges fehlt, aber die Grundlage stimmt (unexposed, starke Verbindungen),
   nicht für exposed Pferde mit schwachen Verbindungen.
 - **Keine Wette**, wenn die Fragezeichen überwiegen, die Leitfrage verneint wird oder der Festkurs die eigene
   Einschätzung nicht übersteigt.
 
-**Faustregel** (Orientierung, keine Rechenregel; Abweichungen ausdrücklich nennen):
+`U-FAUSTREGEL` **Faustregel** (Orientierung, keine Rechenregel; Abweichungen ausdrücklich nennen):
 
 - Value knapp über der Grenze (+5 bis etwa +10 %): nur bei klarer, überzeugender Beweislage (z. B. CGD, Bewährung auf
   sehr weichem Boden, Marke unter letzter Platzmarke) – und nur, wenn die eigene Spanne unter dem Festkurs liegt.
 - +10 % bis +50 %: höchstens ein Fragezeichen und kein gewichtiges Gegenargument.
 - Über +50 %: ein bis zwei Fragezeichen tragbar, **wenn genug für das Pferd spricht**. Viel Value ohne Pro-Argumente
   oder mit Aufgewicht, Klassenfrage und Höchstgewicht auf schwerem Boden zusammen reicht nicht.
-- Debütanten: nur wenn der Stall Debütanten bzw. Zweijährige siegfertig bringt **und** die Abstammung passt;
+- `G-DEBUET-STALL` Debütanten: nur wenn der Stall Debütanten bzw. Zweijährige siegfertig bringt **und** die Abstammung passt;
   ein Stall ohne Sieg in den letzten 20 Starts „spricht Bände“.
 
 ## Rennvergleich
 
-Bei mehreren Kandidaten im selben Rennen: nach Beweislage ordnen und eine Grenze ziehen; gewettet wird nur, wer klar
+Bei mehreren Kandidaten im selben Rennen: nach Beweislage ordnen und eine Grenze ziehen (`U-GRENZE`); gewettet wird nur, wer klar
 überzeugt – in der Regel höchstens zwei. Auch der beste Kandidat kann unter der Grenze liegen (keine Wette im Rennen).
 Die Maßstäbe stehen als Bezugslinie dabei (ohne Platz in der Reihenfolge), z. B. „Boomslang > Sir Dasch – Maßstäbe El
 Lagar (2,8): sieglos, ARR 32,4, erstmals 2000 m und PSF; Tiger Bay (4,5): ARR 34, PSF bewährt – Boomslang auf dem
@@ -191,7 +228,7 @@ Je Rennen:
 - Pro: …
 - Gegen: …
 - Fragezeichen: …
-- Urteil: **Wette (1 Einheit)** – fair eher 9–11, Mindestquote 11. Ausschlag: …
+- Urteil: **Wette (1 Einheit)** – fair eher 9–11, Mindestquote 11. Ausschlag: … (P-CGD)
 …
 Maßstab 1: 3 Afterglow (FK 6,5): … (kurz, kein Urteil)
 Maßstab 2: 8 … (FK 7): …
@@ -208,8 +245,8 @@ als `durchgang_JJJJMMTT_HHMM.json`, ausgewertet im Value-Dashboard), mit **allen
  "hinweis": "", "massstab": [{"no": 3, "horse": "…", "fk": 6.5, "befund": "…"},
                            {"no": 8, "horse": "…", "fk": 7.0, "befund": "…"}],
  "kandidaten": [{"no": 5, "horse": "ALGECIRAS", "urteil": "wette", "fk": 13.0, "mq": 11, "spanne": [9, 11],
-                 "p_modell": 0.079, "value": 0.03, "pro": ["…"], "gegen": ["…"], "fragen": ["…"],
-                 "ausschlag": "…"}]}
+                 "p_modell": 0.079, "value": 0.03, "pro": ["Auf Collant gewonnen (P-BODEN-BEWAEHRT)"], "gegen": ["…"],
+                 "fragen": ["…"], "ausschlag": "CGD und Boden tragen den dünnen Value (P-CGD)"}]}
 ```
 
 `urteil` ist `wette`, `klein` oder `nein` (1, ½, 0 Einheiten). `massstab` ist eine Liste mit höchstens zwei Pferden in
@@ -231,5 +268,8 @@ Gilt nur für die Durchsicht mit dem Nutzer, nicht für den automatischen Durchg
 - **Regel in `SKILL.md`** erst, wenn zwei Fälle „Claude lernt“ in dieselbe Richtung zeigen oder der Nutzer sie
   ausdrücklich zur Regel erklärt; bis dahin unter „Vorläufig“ in `EINSICHTEN.md`. Abweichende, vom Nutzer nicht
   abgelehnte Urteile und Lagen, in denen der Nutzer selbst schwankte, kommen unter „Ermessen“.
+- **Kennungen sind dauerhaft:** Eine neue Regel oder Einsicht bekommt eine neue Kennung; eine bestehende wird nie
+  umbenannt oder für eine andere Bedeutung wiederverwendet (das Regelprotokoll der Ergebnisanalyse zählt nach ihr).
+  Eine gestrichene Regel nimmt ihre Kennung mit.
 - Widerspricht ein neues Urteil einer Regel oder Einsicht, das ansprechen (Ausnahme oder Regel zu streng?). Neue
   Begriffe gehen in `GLOSSARY.md`.

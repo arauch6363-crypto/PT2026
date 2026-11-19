@@ -10,6 +10,9 @@ gewichtete, und Vorläufiges zählt am wenigsten.
 - **[gewichtig]** – zählt deutlich, kippt erst zusammen mit anderem.
 - **[leicht]** – wird genannt, entscheidet nicht.
 
+Die **Kennung** hinter dem Gewicht (z. B. `G-AUSRUESTUNG-WEG`) ist dieselbe wie in den Listen von `SKILL.md`;
+im Durchgang wird sie hinter dem Satz zitiert, der sich auf die Einsicht stützt.
+
 Beispiele in *kursiv* (Pferd, Datum) dienen nur dem Wiedererkennen der Lage; das Archiv liegt außerhalb des Skills.
 
 ## Claudes typische Fehler – vor dem ersten Rennen lesen
@@ -40,113 +43,113 @@ Beispiele in *kursiv* (Pferd, Datum) dienen nur dem Wiedererkennen der Lage; das
 
 ## 1. Ausgangslage
 
-- **[gewichtig]** Vorderer Modell-Rang mit solidem Value ist ein guter Start, aber kein Urteil: Rang 1 wird oft
+- **[gewichtig]** `P-RANG-VORNE` Vorderer Modell-Rang mit solidem Value ist ein guter Start, aber kein Urteil: Rang 1 wird oft
   abgelehnt, wenn die Leitfrage scheitert. *Verdansk, Afterglow, Silgreypit, Tulpar.*
-- **[gewichtig]** Hinterer Modell-Rang ist ein Gegenargument; dort braucht es klare Belege (CGD, passender Boden),
+- **[gewichtig]** `G-RANG-HINTEN` Hinterer Modell-Rang ist ein Gegenargument; dort braucht es klare Belege (CGD, passender Boden),
   eher kleine Wette. *Cole Chop (Rang 10/13, klein), Mister Chang (7/16, Wette mit CGD und Bahnbewährung).*
-- **[gewichtig]** Sehr exposed und älter (7–8 Jahre, viele Starts) senkt die Siegchance auch bei Bahnspezialisten
+- **[gewichtig]** `G-EXPOSED-ALT` Sehr exposed und älter (7–8 Jahre, viele Starts) senkt die Siegchance auch bei Bahnspezialisten
   und tiefer Marke. *Afterglow, Blanc Bleu (99 Starts).*
-- **[gewichtig]** Unexposed in einem exposed Feld ist ein echtes Plus, besonders mit Abstammung, die Steigerung
+- **[gewichtig]** `P-UNEXPOSED` Unexposed in einem exposed Feld ist ein echtes Plus, besonders mit Abstammung, die Steigerung
   erwarten lässt. *Come Alone 16.11.*
-- **[gewichtig]** CGD „lässt aufhorchen“ und kann bei dünnem Value den Ausschlag geben, wenn Boden und Marke passen.
+- **[gewichtig]** `P-CGD` CGD „lässt aufhorchen“ und kann bei dünnem Value den Ausschlag geben, wenn Boden und Marke passen.
   *Algeciras, Mister Chang, Cervaro.*
-- **[gewichtig]** Im Handicap: über der letzten Siegmarke ist bei exposed Pferden ein Gegenargument, bei jungen nur
+- **[gewichtig]** `G-UEBER-SIEGMARKE` Im Handicap: über der letzten Siegmarke ist bei exposed Pferden ein Gegenargument, bei jungen nur
   ein Fragezeichen. *The Cat's, Silgreypit (+3,5 kg).*
 
 ## 2. Letzter Lauf
 
-- **[leicht]** Ein schwacher letzter Lauf unter anderen Bedingungen (Boden, Distanz) wird übergangen.
+- **[leicht]** `P-LETZTER-ANDERS` Ein schwacher letzter Lauf unter anderen Bedingungen (Boden, Distanz) wird übergangen.
   *Mister Chang, Come Alone, Afterglow.*
-- **[leicht]** „Erster Ansatz“ nach einer Reihe schwacher Läufe ist ein Plus, trägt aber höchstens eine kleine Wette.
+- **[leicht]** `P-ERSTER-ANSATZ` „Erster Ansatz“ nach einer Reihe schwacher Läufe ist ein Plus, trägt aber höchstens eine kleine Wette.
   *Cole Chop.*
-- **[gewichtig]** Lange formlose Phase („Formkurve seit Monaten schwach“) wiegt schwerer als einzelne gute Werte
+- **[gewichtig]** `G-FORMLOS` Lange formlose Phase („Formkurve seit Monaten schwach“) wiegt schwerer als einzelne gute Werte
   (höchster ARR, Bahnsieg, gefallene Marke). *Piano Bar 16.11.*
 
 ## 3. Referenzlauf und Leitfrage
 
-- **[ausschlaggebend]** ARR auch im Referenzlauf nicht unter den vorderen im Feld, dazu selten gewinnend oder exposed
+- **[ausschlaggebend]** `G-ARR-UNTER` ARR auch im Referenzlauf nicht unter den vorderen im Feld, dazu selten gewinnend oder exposed
   → keine Siegwette, auch bei Value über +30 %. *The Cat's, Roi du Ciel, Silgreypit, Bosquet, Go For It.*
-- **[ausschlaggebend]** Referenzlauf schwach (z. B. hier im vergleichbaren Rennen weit hinten) und kein Grund für eine
+- **[ausschlaggebend]** `G-REFERENZ-SCHWACH` Referenzlauf schwach (z. B. hier im vergleichbaren Rennen weit hinten) und kein Grund für eine
   Steigerung. *Marakana 11.11., Naturaliste 16.11.*
-- **[gewichtig]** Referenzlauf mit ähnlicher Marke, heutige Gegner direkt geschlagen, trägt auch ein Pferd mit leicht
+- **[gewichtig]** `P-GEGNER-GESCHLAGEN` Referenzlauf mit ähnlicher Marke, heutige Gegner direkt geschlagen, trägt auch ein Pferd mit leicht
   kaltem Trainer. *Grand Scoop 10.11.*
-- **[gewichtig]** Gegen den Verlauf gut gelaufen oder ohne Deckung („Nase im Wind“) – die Form ist besser, als die
+- **[gewichtig]** `P-GEGEN-VERLAUF` Gegen den Verlauf gut gelaufen oder ohne Deckung („Nase im Wind“) – die Form ist besser, als die
   Platzierung zeigt. *Teardrop Explodes, Cervaro, Lady Madeira.*
-- **[gewichtig]** Kein Referenzlauf (erster Start auf dem Belag, nur Formen anderswo) bei mittlerem Value → keine
+- **[gewichtig]** `G-KEIN-REFERENZ` Kein Referenzlauf (erster Start auf dem Belag, nur Formen anderswo) bei mittlerem Value → keine
   Wette, wenn sonst wenig dafür spricht. *Laith, Morus.*
 
 ## 4. Vorlieben und Abstammung
 
-- **[ausschlaggebend]** Auf der heutigen Distanz bisher immer Probleme → keine Wette, auch bei hohem Value.
+- **[ausschlaggebend]** `G-DISTANZ-PROBLEME` Auf der heutigen Distanz bisher immer Probleme → keine Wette, auch bei hohem Value.
   *Lady Madeira 11.11. (+76 %).*
-- **[ausschlaggebend]** Junges Pferd, Belag oder Boden zum ersten Mal, Abstammung klar unpassend (Gesamtwert etwa −15
+- **[ausschlaggebend]** `G-ABSTAMMUNG` Junges Pferd, Belag oder Boden zum ersten Mal, Abstammung klar unpassend (Gesamtwert etwa −15
   und schlechter, schlechte Reife) → keine Wette. *Littoral Nord 11.11. (−17).*
-- **[leicht]** Leicht unpassende Abstammung (etwa −9) bei erstmals neuem Belag: nur Fragezeichen. *Magenta Melody
+- **[leicht]** `F-ABSTAMMUNG-LEICHT` Leicht unpassende Abstammung (etwa −9) bei erstmals neuem Belag: nur Fragezeichen. *Magenta Melody
   16.11.*
-- **[gewichtig]** Bewährung auf genau dem heutigen Boden (Very slow: Collant = Lourd) trägt auch dünnen Value.
+- **[gewichtig]** `P-BODEN-BEWAEHRT` Bewährung auf genau dem heutigen Boden (Very slow: Collant = Lourd) trägt auch dünnen Value.
   *Algeciras.*
-- **[leicht]** Nur auf Souple bewährt, heute Très souple: leicht dagegen, trägt hoher Value. *Kenergy 10.11.*
-- **[gewichtig]** Auf sehr weichem Boden deutlich schlechterer Schnitt bzw. erstmals Very slow bei weiteren
+- **[leicht]** `F-BODEN-SOUPLE` Nur auf Souple bewährt, heute Très souple: leicht dagegen, trägt hoher Value. *Kenergy 10.11.*
+- **[gewichtig]** `G-BODEN-WEICH-SCHWACH` Auf sehr weichem Boden deutlich schlechterer Schnitt bzw. erstmals Very slow bei weiteren
   Fragezeichen. *Crew Dragon, Tulpar, Piano Bar.*
-- **[gewichtig]** In der heutigen Kursrichtung klar schlechter. *Fireman 11.11.*
-- **[leicht]** Beim Belag zählt der Vater mehr als der Muttervater; Rohwerte prüfen, wenn das Blatt „neutral“ sagt.
+- **[gewichtig]** `G-RICHTUNG` In der heutigen Kursrichtung klar schlechter. *Fireman 11.11.*
+- **[leicht]** `F-BELAG-NEU` Beim Belag zählt der Vater mehr als der Muttervater; Rohwerte prüfen, wenn das Blatt „neutral“ sagt.
   *Boomslang 18.11.*
 
 ## 5. Trainer und Jockey
 
-- **[gewichtig]** Trainer auffällig schlecht in Form (etwa 2/40, A/E um 0,5) → klares Gegenargument; leicht kalt nur
+- **[gewichtig]** `G-TRAINER-KALT` Trainer auffällig schlecht in Form (etwa 2/40, A/E um 0,5) → klares Gegenargument; leicht kalt nur
   [leicht]. *Crew Dragon gegen Grand Scoop.*
-- **[gewichtig]** Starke Bahnbilanz des Trainers gleicht eine kalte Form aus. *Little Lady, Afterglow, Algeciras.*
-- **[ausschlaggebend]** Debütant: Stall ohne Sieg in den letzten 20 Starts bzw. schwach mit Zweijährigen „spricht
+- **[gewichtig]** `P-TRAINER` Starke Bahnbilanz des Trainers gleicht eine kalte Form aus. *Little Lady, Afterglow, Algeciras.*
+- **[ausschlaggebend]** `G-DEBUET-STALL` Debütant: Stall ohne Sieg in den letzten 20 Starts bzw. schwach mit Zweijährigen „spricht
   Bände“. *Matinera 11.11.*
-- **[gewichtig]** Spezialität des Trainers zählt: schwach in Handicaps, mit Dreijährigen oder in Conditions (0/58)
+- **[gewichtig]** `G-TRAINER-SPEZIALITAET` Spezialität des Trainers zählt: schwach in Handicaps, mit Dreijährigen oder in Conditions (0/58)
   ist ein Gegenargument. *Littoral Nord, Silgreypit, Naturaliste.*
-- **[gewichtig]** Starkes Gespann Trainer + Jockey (viele gemeinsame Starts, gutes A/E). *Teardrop Explodes, Blue
+- **[gewichtig]** `P-GESPANN` Starkes Gespann Trainer + Jockey (viele gemeinsame Starts, gutes A/E). *Teardrop Explodes, Blue
   Blossom Cen, Come Alone.*
-- **[gewichtig]** Kleiner Stall ohne Sieg in zwei Jahren → Gegenargument („fehlt die Klasse“); klein, aber geschickt
+- **[gewichtig]** `G-STALL-KLEIN` Kleiner Stall ohne Sieg in zwei Jahren → Gegenargument („fehlt die Klasse“); klein, aber geschickt
   operierend → neutral bis Pro. *Go For It gegen L'Annonciade, Verdansk.*
-- **[leicht]** Jockey kennt das Pferd (Siege zusammen), Jockey-A/E über 1. *Mister Chang, Verdansk.*
+- **[leicht]** `P-JOCKEY-KENNT` Jockey kennt das Pferd (Siege zusammen), Jockey-A/E über 1. *Mister Chang, Verdansk.*
 
 ## 6. Umstände heute
 
-- **[ausschlaggebend]** Ausrüstung fällt weg, mit der die besten Läufe kamen – „warum nimmt man sie herunter?“;
+- **[ausschlaggebend]** `G-AUSRUESTUNG-WEG` Ausrüstung fällt weg, mit der die besten Läufe kamen – „warum nimmt man sie herunter?“;
   bei kurzer Quote erst recht. *Lovely Warrior 16.11. (A/E 1,74 mit, 0,51 ohne), Fireman.*
-- **[gewichtig]** Ausrüstung kommt zurück, mit der die besten Läufe kamen. *Cervaro, Tulpar.*
-- **[ausschlaggebend]** Aufgewicht + Höchstgewicht (ab etwa 62 kg) auf Collant/Lourd + Klassenfrage zusammen → keine
+- **[gewichtig]** `P-AUSRUESTUNG-ZURUECK` Ausrüstung kommt zurück, mit der die besten Läufe kamen. *Cervaro, Tulpar.*
+- **[ausschlaggebend]** `G-GEWICHT-KLASSE-BODEN` Aufgewicht + Höchstgewicht (ab etwa 62 kg) auf Collant/Lourd + Klassenfrage zusammen → keine
   Wette, auch bei Rang 1 und +67 %. *Verdansk 11.11., Tulpar 16.11.*
-- **[gewichtig]** Aufstieg aus Claimern ins Handicap, bei kurzer Quote schwerer; ein nur marginal höherer
+- **[gewichtig]** `G-CLAIMER-AUFSTIEG` Aufstieg aus Claimern ins Handicap, bei kurzer Quote schwerer; ein nur marginal höherer
   Klassenindex der Claimer gleicht nicht aus. *Crew Dragon (107–111 gegen 101), Lovely Warrior.*
-- **[gewichtig]** Dichte Startfolge („die Luft könnte raus sein“). *Teardrop Explodes.*
-- **[gewichtig]** Britischer Trainer reist an. *Kenergy 10.11.*
-- **[gewichtig]** Von großen Bahnen in die Provinz. *Teardrop Explodes.*
-- **[gewichtig]** Box signifikant schlecht. *Afterglow.* Box signifikant gut: [leicht]. *Crew Dragon.*
-- **[leicht]** Stute gegen Hengste bei jungen Pferden. *Blue Blossom Cen, Magenta Melody.*
+- **[gewichtig]** `G-STARTFOLGE` Dichte Startfolge („die Luft könnte raus sein“). *Teardrop Explodes.*
+- **[gewichtig]** `P-BRITE` Britischer Trainer reist an. *Kenergy 10.11.*
+- **[gewichtig]** `P-PROVINZ` Von großen Bahnen in die Provinz. *Teardrop Explodes.*
+- **[gewichtig]** `G-BOX` Box signifikant schlecht. *Afterglow.* Box signifikant gut (`P-BOX`): [leicht]. *Crew Dragon.*
+- **[leicht]** `G-STUTE` Stute gegen Hengste bei jungen Pferden. *Blue Blossom Cen, Magenta Melody.*
 
 ## Gesamturteil, Maßstab, Rennvergleich
 
-- **[ausschlaggebend]** Dünner Value (knapp über +5 %) und „wird gut laufen“ reicht nicht; es braucht etwas
+- **[ausschlaggebend]** `U-VALUE-DUENN` Dünner Value (knapp über +5 %) und „wird gut laufen“ reicht nicht; es braucht etwas
   Überzeugendes, sonst ist der Kurs „nicht mehr wert“. *Dublin Calling, Bosquet, Boomslang (0–4 %, damals noch
   Kandidaten).*
-- **[gewichtig]** Viele Fragezeichen bei mittlerem Value (+15 bis +35 %) → keine Wette, auch mit starkem Trainer und
+- **[gewichtig]** `U-VIELE-FRAGEN` Viele Fragezeichen bei mittlerem Value (+15 bis +35 %) → keine Wette, auch mit starkem Trainer und
   bestem ARR. *Ozark James, Giovanni Giorgio (sieglos, Pause, erstmals Wallach, erstmals 2000 m).*
-- **[gewichtig]** Viel Value ohne Pro-Argumente ist kein Argument. *Interactiv (+135 %).*
-- **[gewichtig]** Ohne Maßstab fehlt „die Elle, gegen was man besser sein muss“ – erst die zwei Maßstäbe lesen, dann
+- **[gewichtig]** `U-VALUE-OHNE-PRO` Viel Value ohne Pro-Argumente ist kein Argument. *Interactiv (+135 %).*
+- **[gewichtig]** `U-MASSSTAB` Ohne Maßstab fehlt „die Elle, gegen was man besser sein muss“ – erst die zwei Maßstäbe lesen, dann
   urteilen. *Boomslang 18.11.*
-- **[gewichtig]** Rennvergleich: „wenn dann X“ heißt nicht, dass X gewettet wird; die Grenze kann vor Platz 1 liegen.
+- **[gewichtig]** `U-GRENZE` Rennvergleich: „wenn dann X“ heißt nicht, dass X gewettet wird; die Grenze kann vor Platz 1 liegen.
   *Verdansk, L'Annonciade.*
-- **[leicht]** Kleine Wette passt zu: unexposed, starke Verbindungen, ein klares Fragezeichen (lange Pause, erstmals
+- **[leicht]** `U-KLEINE-WETTE` Kleine Wette passt zu: unexposed, starke Verbindungen, ein klares Fragezeichen (lange Pause, erstmals
   PSF) oder viel Klasse, aber lange sieglos. *Come Alone, Magenta Melody, Cervaro.*
 
 ## Vorläufig (ein Fall)
 
 Darf als Hinweis dienen; wer sich darauf stützt, nennt es im Urteil („vorläufige Einsicht“).
 
-- **[gewichtig]** Pferd steigert sich gerade beim neuen Trainer (Siege kurz nach dem Wechsel) → ältere Formen und
+- **[gewichtig]** `P-NEUER-TRAINER` Pferd steigert sich gerade beim neuen Trainer (Siege kurz nach dem Wechsel) → ältere Formen und
   Durchschnitts-ARR weniger streng, auch mit Höchstgewicht auf PSF (Gewicht + Klassenfrage auf Collant/Lourd bleibt
   ausschlaggebend). *Senorito 16.11. (klein, fair 3,5–4).*
-- **[gewichtig]** Sehr hoher Value (über etwa +100 %) auf Formen, die das Modell schlecht einschätzen kann
+- **[gewichtig]** `G-MODELL-UNSICHER` Sehr hoher Value (über etwa +100 %) auf Formen, die das Modell schlecht einschätzen kann
   (Ausland, extern, wenig Daten) → eher Modell unsicher als Markt falsch; eher keine Wette. *Arkansas 11.11.*
-- **[leicht]** Bei kurzer Quote tragen Fragezeichen schwerer (wenig Kurs als Puffer); die Faustregel nach Value bleibt.
+- **[leicht]** `U-KURZE-QUOTE` Bei kurzer Quote tragen Fragezeichen schwerer (wenig Kurs als Puffer); die Faustregel nach Value bleibt.
   *Lovely Warrior 16.11.*
 
 ## Ermessen (beide Urteile vertretbar)
