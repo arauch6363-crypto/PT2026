@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))   # auch mit python3 -I aufrufbar
-from durchgang import URTEILE, rennen_liste  # noqa: E402
+from durchgang import URTEILE, _opt, laden, rennen_liste  # noqa: E402
 
 GEWICHT_FEHLWETTE = 2.0     # Skill spielt, der Nutzer hätte nicht (je Einheit Abstand)
 GEWICHT_VERPASST = 1.0      # Skill spielt nicht, der Nutzer hätte (je Einheit Abstand)
@@ -51,8 +51,8 @@ def testfall(erwartet: dict, laeufe: list[dict]) -> dict:
 
 
 def bewerten(erwartet: dict[str, dict], laeufe: dict[str, list[dict]]) -> dict:
-    """Alle Testfälle: ``trefferquote`` = Anteil richtiger Läufe über alle Testfälle, ``punkte`` = Summe der
-    mittleren Fehlerpunkte je Testfall."""
+    """Alle Testfälle: ``trefferquote`` = Anteil der Testfälle ohne Fehlerpunkte, über die Läufe gemittelt (Anteil
+    richtiger Läufe), ``punkte`` = Summe der mittleren Fehlerpunkte je Testfall."""
     fehlen = [rid for rid in erwartet if not laeufe.get(rid)]
     if fehlen:
         raise ValueError(f"Kein Lauf für: {', '.join(fehlen)}")
@@ -90,16 +90,28 @@ def rueckschritte(vorher: dict, jetzt: dict) -> list[str]:
 
 
 def letztes(ordner: str | Path) -> dict:
-    """Jüngstes abgelegtes Ergebnis (= Stand des zuletzt übernommenen Skills), sonst {}."""
-    frueher = sorted((Path(ordner) / "ergebnisse").glob("*.json"))
-    return json.loads(frueher[-1].read_text(encoding="utf-8")) if frueher else {}
+    """Zuletzt abgelegtes Ergebnis (= Stand des zuletzt übernommenen Skills; letzte Zeile von verlauf.csv), sonst {}."""
+    verlauf = Path(ordner) / "verlauf.csv"
+    zeilen = verlauf.read_text(encoding="utf-8").splitlines()[1:] if verlauf.exists() else []
+    if not zeilen:
+        return {}
+    datum, commit = zeilen[-1].split(",")[:2]
+    return json.loads((Path(ordner) / "ergebnisse" / f"{datum}_{commit}.json").read_text(encoding="utf-8"))
 
 
-def ablegen(ordner: str | Path, ergebnis: dict, commit: str, datum: str) -> list[str]:
+def uebernehmen(vorher: dict, ergebnis: dict) -> bool:
+    """Übernahmeregel (ADR 0002): Fehlerpunkte steigen nicht und kein Rückschritt; ohne früheren Stand immer."""
+    return not vorher or (not rueckschritte(vorher, ergebnis) and ergebnis["punkte"] <= vorher["punkte"])
+
+
+def ablegen(ordner: str | Path, ergebnis: dict, commit: str, datum: str) -> None:
     """Ergebnis eines übernommenen Skill-Stands unter ``ergebnisse/<datum>_<commit>.json`` ablegen und eine Zeile an
-    ``verlauf.csv`` anhängen; gibt die Rückschritte gegenüber dem vorher abgelegten Ergebnis zurück."""
+    ``verlauf.csv`` anhängen. ValueError, wenn die Übernahmeregel gegen den letzten Stand nicht erfüllt ist."""
     ordner = Path(ordner)
-    rs = rueckschritte(letztes(ordner), ergebnis)
+    vorher = letztes(ordner)
+    if not uebernehmen(vorher, ergebnis):
+        raise ValueError(f"Stand {commit} nicht übernehmen: Fehlerpunkte {ergebnis['punkte']:.2f} gegen "
+                         f"{vorher['punkte']:.2f}, Rückschritte {rueckschritte(vorher, ergebnis) or 'keine'}")
     (ordner / "ergebnisse").mkdir(parents=True, exist_ok=True)
     (ordner / "ergebnisse" / f"{datum}_{commit}.json").write_text(
         json.dumps({"datum": datum, "commit": commit, **ergebnis}, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -109,8 +121,7 @@ def ablegen(ordner: str | Path, ergebnis: dict, commit: str, datum: str) -> list
         if neu:
             f.write("datum,commit,testfaelle,trefferquote,punkte,rueckschritte\n")
         f.write(f"{datum},{commit},{len(ergebnis['faelle'])},{ergebnis['trefferquote']:.3f},"
-                f"{ergebnis['punkte']:.2f},{' '.join(rs)}\n")
-    return rs
+                f"{ergebnis['punkte']:.2f},{' '.join(rueckschritte(vorher, ergebnis))}\n")
 
 
 def bericht(ergebnis: dict, vorher: dict, erwartet: dict) -> str:
@@ -122,7 +133,7 @@ def bericht(ergebnis: dict, vorher: dict, erwartet: dict) -> str:
                  f"Fehlerpunkte {vorher['punkte']:.2f}")
         rs = rueckschritte(vorher, ergebnis)
         z.append(f"Rückschritte: {', '.join(rs) if rs else 'keine'}")
-        z.append("Übernehmen: " + ("ja" if not rs and ergebnis["punkte"] <= vorher["punkte"] else "nein"))
+        z.append("Übernehmen: " + ("ja" if uebernehmen(vorher, ergebnis) else "nein"))
     for rid, t in ergebnis["faelle"].items():
         namen = ", ".join(f"{e['horse']} {e['urteil']}" for e in erwartet[rid]["kandidaten"].values())
         fehlt = f" · fehlt im Lauf: {t['fehlt']}" if t["fehlt"] else ""
@@ -131,19 +142,19 @@ def bericht(ergebnis: dict, vorher: dict, erwartet: dict) -> str:
 
 
 ORDNER = Path(__file__).resolve().parent / "tests" / "testsatz_durchgang"
+AUFRUF = """Aufruf:
+    python3 -I testsatz.py ausschnitt KARTE RACE_ID…           # Kartenausschnitte nach tests/testsatz_durchgang/karten/
+    python3 -I testsatz.py bewerten LAUFORDNER [--ablegen COMMIT]   # Läufe gegen erwartet.json und den letzten Stand"""
 
 
 def main(argv: list[str]) -> None:
-    """``ausschnitt KARTE RACE_ID…`` legt Kartenausschnitte unter karten/ ab;
-    ``bewerten LAUFORDNER [--ablegen COMMIT]`` bewertet die Läufe gegen erwartet.json und den letzten Stand."""
     import gzip
     from datetime import date
 
-    import durchgang
     if len(argv) < 3 or argv[1] not in ("ausschnitt", "bewerten"):
-        raise SystemExit(main.__doc__)
+        raise SystemExit(AUFRUF)
     if argv[1] == "ausschnitt":
-        daten = durchgang.laden(argv[2])
+        daten = laden(argv[2])
         (ORDNER / "karten").mkdir(parents=True, exist_ok=True)
         for rid in argv[3:]:
             ziel = ORDNER / "karten" / f"{rid}.json.gz"
@@ -154,11 +165,10 @@ def main(argv: list[str]) -> None:
     erwartet = json.loads((ORDNER / "erwartet.json").read_text(encoding="utf-8"))["testfaelle"]
     ergebnis = bewerten(erwartet, laeufe_laden(argv[2]))
     print(bericht(ergebnis, letztes(ORDNER), erwartet))
-    if "--ablegen" in argv:
-        commit = argv[argv.index("--ablegen") + 1]
+    commit = _opt(argv, "--ablegen")
+    if commit:
         ablegen(ORDNER, ergebnis, commit=commit, datum=date.today().isoformat())
         print(f"Abgelegt: {ORDNER / 'verlauf.csv'}")
-    sys.stdout.flush()
 
 
 if __name__ == "__main__":

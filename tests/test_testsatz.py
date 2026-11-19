@@ -68,15 +68,14 @@ def test_bewerten_und_rueckschritt(tmp_path):
     gut = {"R1": [_lauf("R1", n2="nein", n5="klein")] * 3, "R2": [_lauf("R2", n1="wette")] * 3}
     e1 = ts.bewerten(erwartet, gut)
     assert e1["trefferquote"] == 1 and e1["punkte"] == 0
-    assert ts.ablegen(tmp_path, e1, commit="aaa", datum="2026-11-19") == []
+    ts.ablegen(tmp_path, e1, commit="aaa", datum="2026-11-19")
 
     schlecht = {"R1": [_lauf("R1", n2="wette", n5="klein")] * 2 + [gut["R1"][0]], "R2": gut["R2"]}
     e2 = ts.bewerten(erwartet, schlecht)
     assert e2["trefferquote"] == pytest.approx(4 / 6) and e2["punkte"] == pytest.approx(4 / 3)
-    assert ts.ablegen(tmp_path, e2, commit="bbb", datum="2026-11-20") == ["R1"]
+    assert ts.rueckschritte(ts.letztes(tmp_path), e2) == ["R1"]
     zeilen = (tmp_path / "verlauf.csv").read_text(encoding="utf-8").splitlines()
-    assert zeilen[0].startswith("datum,commit,testfaelle,trefferquote,punkte,rueckschritte")
-    assert zeilen[2].startswith("2026-11-20,bbb,2,0.667,1.33,R1")
+    assert zeilen == ["datum,commit,testfaelle,trefferquote,punkte,rueckschritte", "2026-11-19,aaa,2,1.000,0.00,"]
 
 
 def test_bewerten_ohne_lauf_fuer_einen_testfall():
@@ -105,3 +104,15 @@ def test_bericht_empfiehlt_nur_ohne_rueckschritt_und_mehr_punkte():
 def test_ausschnitt_aus_races_als_dict():
     daten = {"date": "2026-11-16", "races": {"20261116R1C1": {"race_id": "20261116R1C1"}}}
     assert ts.ausschnitt(daten, "20261116R1C1")["races"] == [{"race_id": "20261116R1C1"}]
+
+
+def test_ablegen_verweigert_ohne_uebernahme_und_vergleicht_mit_letzter_ablage(tmp_path):
+    erwartet = {"R1": ERWARTET["R1"]}
+    gut = ts.bewerten(erwartet, {"R1": [_lauf("R1", n2="nein", n5="klein")] * 3})
+    schlecht = ts.bewerten(erwartet, {"R1": [_lauf("R1", n2="wette", n5="klein")] * 3})
+    ts.ablegen(tmp_path, gut, commit="zzz", datum="2026-11-19")
+    ts.ablegen(tmp_path, gut, commit="aaa", datum="2026-11-19")      # gleicher Tag: zuletzt abgelegt zählt
+    assert ts.letztes(tmp_path)["commit"] == "aaa"
+    with pytest.raises(ValueError, match="nicht übernehmen"):
+        ts.ablegen(tmp_path, schlecht, commit="bbb", datum="2026-11-20")
+    assert ts.letztes(tmp_path)["commit"] == "aaa"

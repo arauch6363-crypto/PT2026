@@ -169,7 +169,7 @@ Der Skill spielt einen Kandidaten nicht, den der Nutzer gespielt hätte.
 _Avoid_: verpasster Sieger (das ist ein abgelehnter Kandidat, der gewonnen hat), falsch negativ
 
 **Trefferquote**:
-Der Anteil der Testfälle, in denen der Skill bei jedem bewerteten Kandidaten so urteilt wie der Nutzer.
+Der Anteil der Testfälle, in denen der Skill bei jedem bewerteten Kandidaten so urteilt wie der Nutzer, über die Läufe eines Testfalls gemittelt.
 _Avoid_: Übereinstimmung (das ist eine Art von Fall in der Fallsammlung), Genauigkeit
 
 **Rückschritt**:

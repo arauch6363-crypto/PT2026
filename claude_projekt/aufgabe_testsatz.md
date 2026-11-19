@@ -17,20 +17,27 @@ Skills“). Läuft in einer Claude-Code-Sitzung im Repo; REPO = Wurzel des Repos
    EINSICHTEN.md und DATEN.md im Skill-Ordner) und arbeite strikt nach dem Skill. Lies sonst nichts aus dem Repo,
    insbesondere nichts unter docs/ oder tests/ außer der Karte. Fakten nur über
    `python3 -I REPO/.claude/skills/rennkarten-durchgang-neu/scripts/blatt.py <Karte> <RxCy>`; gib nie die ganze Karte
-   aus. Bewerte jeden Kandidaten (Value mindestens +5 %) dieses Rennens. Schreibe dein Ergebnis als JSON nach
-   LAUF/<race_id>_<n>.json mit den Feldern race_id, status (bearbeitet), vergleich, hinweis, massstab (Liste der
-   MASSSTAB-Pferde aus dem Blatt: je no, horse, fk, befund) und kandidaten: je Kandidat no, horse, urteil (wette, klein
-   oder nein), fk, mq, spanne [von, bis], p_modell, value, pro, gegen, fragen (Listen kurzer Sätze), ausschlag (ein
-   Satz). Prüfe die Datei mit
+   aus. Bewerte jeden Kandidaten (Value mindestens +5 %) dieses Rennens, kein anderes Rennen. Schreibe dein Ergebnis
+   als JSON nach LAUF/<race_id>_<n>.json mit den Feldern race_id, status (bearbeitet), vergleich (Rennvergleich mit
+   Grenze und Maßstab), hinweis (z. B. Boden nur angenommen), massstab (Liste der MASSSTAB-Pferde aus dem Blatt,
+   höchstens zwei: je no, horse, fk, befund – ein bis zwei Sätze, kein Urteil; leere Liste, wenn das Blatt keinen
+   nennt) und kandidaten: je Kandidat no, horse, urteil (wette, klein oder nein), fk (Festkurs laut Karte), mq
+   (Mindestquote), spanne [von, bis], p_modell, value, pro (Liste kurzer Sätze), gegen (Liste), fragen (Liste),
+   ausschlag (ein Satz). Alle Kandidaten müssen enthalten sein. Prüfe die Datei mit
    `python3 -I -c \"import json,sys; sys.path.insert(0,'REPO'); import durchgang; durchgang.rennen_pruefen(json.load(open('LAUF/<race_id>_<n>.json')))\"`
-   und korrigiere, bis sie fehlerfrei ist. Antworte mir danach nur mit einer Zeile je Kandidat: Nr Name – Urteil.“
+   und korrigiere, bis sie fehlerfrei ist. Antworte mir danach nur mit einer Zeile je Kandidat: Nr Name – Urteil –
+   Mindestquote.“
+
+   Der Prompt entspricht Schritt 4 von `aufgabe_durchgang.md` (dort zusätzlich Zeit, Bahn und der Araber-Fall, die
+   hier nicht vorkommen); ändert sich jener, diesen mitziehen.
 
    Fehlt danach eine Datei oder ist sie fehlerhaft: diesen Lauf einmal neu starten. Urteile nie selbst nachbessern.
 3. **Bewerten:** `python3 -I REPO/testsatz.py bewerten LAUF`. Der Bericht nennt Trefferquote und Fehlerpunkte, den
    Vergleich mit dem zuletzt abgelegten Stand, Rückschritte und je Testfall den Stand (stabil richtig, schwankend,
    mehrheitlich falsch).
 4. **Entscheiden:** Übernommen wird eine Änderung, wenn die Fehlerpunkte nicht steigen und es keinen Rückschritt gibt
-   (Bericht: „Übernehmen: ja“). Dann mit `--ablegen <commit>` erneut bewerten und `verlauf.csv` sowie die Datei unter
+   (Bericht: „Übernehmen: ja“). Dann mit `--ablegen <commit>` erneut bewerten (verweigert, wenn die Regel nicht
+   erfüllt ist; Commit = letzter Commit, der den Skill ändert) und `verlauf.csv` sowie die Datei unter
    `ergebnisse/` mit der Änderung committen. Sonst nichts ablegen; der Nutzer entscheidet, ob die Änderung verworfen
    oder anders formuliert wird.
 
