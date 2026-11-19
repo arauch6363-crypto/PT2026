@@ -151,6 +151,11 @@ Darf als Hinweis dienen; wer sich darauf stützt, nennt es im Urteil („vorläu
   (Ausland, extern, wenig Daten) → eher Modell unsicher als Markt falsch; eher keine Wette. *Arkansas 11.11.*
 - **[leicht]** `U-KURZE-QUOTE` Bei kurzer Quote tragen Fragezeichen schwerer (wenig Kurs als Puffer); die Faustregel nach Value bleibt.
   *Lovely Warrior 16.11.*
+- **[gewichtig]** `G-MASSSTAB-BESSER` Lief ein Maßstab in seinem Referenzlauf klar besser als der Kandidat in seinem
+  (etwa 2 Punkte ARR mehr, in einem stärkeren Rennen), reicht es bei kurzer Quote nicht für eine Wette. *X Rays 15.11.*
+- **[gewichtig]** `G-LETZTER-HEUTE-BODEN` Ein klar verlorener letzter Lauf (5 Längen und mehr) auf dem heutigen Boden ist
+  ein Gegenargument. Übergangen wird er nur, wenn das Pferd behindert wurde oder gegen den Rennverlauf gelaufen ist.
+  *Fille d'Argentine 15.11.*
 
 ## Ermessen (beide Urteile vertretbar)
 
