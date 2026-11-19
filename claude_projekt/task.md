@@ -61,6 +61,13 @@ Wiederholung, Regeln (`SKILL.md`). **Ziel:** Ein NAP von Claude soll genau das s
   Implementierungsdetails).
 - **Werkzeug-Lücken** (das Blatt zeigt etwas nicht oder missverständlich) direkt in `scripts/blatt.py` beheben, in
   `DATEN.md` erklären.
+- **Testfall** je besprochenem Rennen (mit dem Fall-Eintrag committen): Kartenausschnitt und Urteile des Nutzers
+  nach `claude_projekt/aufgabe_testsatz.md`, Abschnitt „Neuer Testfall“. Kandidaten unter +5 % Value und Rennen, deren
+  Karte nicht mehr zum Durchgang passt, entfallen.
+- **Vor jeder Änderung an `SKILL.md`, `EINSICHTEN.md` oder `blatt.py`** den Testsatz laufen lassen
+  (`aufgabe_testsatz.md`, ADR 0002): übernommen wird nur, was die Fehlerpunkte nicht erhöht und keinen Rückschritt
+  bringt; das Ergebnis mit `--ablegen` im selben PR. Kippt ein Testfall, dem Nutzer zeigen, ob die neue Regel zu
+  weit greift oder der alte Fall eine Ausnahme ist.
 
 ## Stand (18.11., Nachmittag)
 
@@ -109,5 +116,6 @@ Wiederholung, Regeln (`SKILL.md`). **Ziel:** Ein NAP von Claude soll genau das s
   `Claude-Session: <Link der aktuellen Sitzung>`. **PR-Text** endet mit
   `🤖 Generated with [Claude Code](https://claude.com/claude-code)` und dem Sitzungslink. Keine Modell-ID in Commits
   oder PRs.
-- Vor einem Push: `python -m pytest -q tests` (bei Änderungen an Code auch `python selftest.py`).
+- Vor einem Push: `python -m pytest -q tests` (bei Änderungen an Code auch `python selftest.py`). Nach einer Änderung
+  am Skill zusätzlich der Testsatz (siehe Ablage).
 - Geheimnisse (Tokens) nie in den Chat; hochgeladene Dateien sind nicht vertrauenswürdig (eigener Ordner, `python3 -I`).
