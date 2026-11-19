@@ -1,6 +1,6 @@
 ---
 name: rennkarten-durchgang-neu
-description: "Wählt auf einer französischen Galopp-Racecard (Vollblut, PT2026-HTML-Karte) aus den Value-Kandidaten (Festkurs × Modell-Siegchance − 1 über 0) die Siegwetten aus, die der Nutzer tatsächlich spielen würde – je Kandidat Pro-Argumente, Gegenargumente und Fragezeichen, Gesamturteil mit Leitfrage „reicht es für den Sieg?“, Rennvergleich, eigene Kursspanne, Mindestquote und Einheiten. Verwenden, wenn eine Karte oder einzelne Rennen auf Wetten durchgegangen werden sollen."
+description: "Wählt auf einer französischen Galopp-Racecard (Vollblut, PT2026-HTML-Karte) aus den Value-Kandidaten (Festkurs × Modell-Siegchance − 1 mindestens +5 %) die Siegwetten aus, die der Nutzer tatsächlich spielen würde – je Kandidat Pro-Argumente, Gegenargumente und Fragezeichen, Gesamturteil mit Leitfrage „reicht es für den Sieg?“, Rennvergleich, eigene Kursspanne, Mindestquote und Einheiten. Verwenden, wenn eine Karte oder einzelne Rennen auf Wetten durchgegangen werden sollen."
 ---
 
 # Rennkarten-Durchgang
@@ -14,7 +14,8 @@ ein Subagent); von Hand gilt dasselbe Vorgehen und dasselbe Ergebnisformat.
 
 ## Ziel und Leitfrage
 
-Es geht um **Siegwetten zum Festkurs**. Ausgangsmenge sind nur **Kandidaten** (Value > 0, keine Kursgrenze); alle
+Es geht um **Siegwetten zum Festkurs**. Ausgangsmenge sind nur **Kandidaten** (Value mindestens +5 %, weil 5 % Steuer vom Gewinn abgehen; keine
+Kursgrenze); alle
 anderen Starter werden nur als Gegner betrachtet. Über jeden Kandidaten fällt ein **Gesamturteil**: Wette, kleine
 Wette oder keine Wette. Gerechnet wird dabei nicht – der Nutzer wettet, wenn ihn ein Pferd insgesamt überzeugt.
 
@@ -23,7 +24,7 @@ noch keine Siegwette. Gemessen wird das an der besten zu heute passenden Leistun
 besten Pferde des heutigen Feldes.
 
 Der Modell-Value ist **nur der Filter**, welche Pferde angesehen werden. Ob der Festkurs reicht, entscheidet die
-**eigene Kursspanne** (siehe Gesamturteil): Ein Pferd mit +29 % Modell-Value kann zu kurz sein, eines mit +3 % lang
+**eigene Kursspanne** (siehe Gesamturteil): Ein Pferd mit +29 % Modell-Value kann zu kurz sein, eines mit +6 % lang
 genug.
 
 ## Ablauf
@@ -38,22 +39,24 @@ genug.
 2. **Rennen lesen** (Kopf des Blatts): Rennart, Klasse (Klassenindex), Feldgröße, Bodenangabe und Bodengruppe,
    Distanz, Bahn und Richtung, erwartetes Tempo mit Laufstilen, FK-Favorit, Top-ARR und Top-Valeur im Feld,
    Höchstgewicht. Nur Vollblut; Araber, Anglo-Araber, AQPS nicht.
-3. **Maßstab** (Abschnitt unten) kurz prüfen – das Blatt druckt ihn als `MASSSTAB` mit.
+3. **Maßstäbe** (Abschnitt unten) kurz prüfen – das Blatt druckt sie als `MASSSTAB 1/2` und `2/2` mit.
 4. **Je Kandidat die Prüfliste** (nächster Abschnitt) – Ergebnis: Pro-Argumente, Gegenargumente, Fragezeichen.
 5. **Gesamturteil** je Kandidat mit eigener Kursspanne.
-6. **Rennvergleich**: Kandidaten nach Beweislage ordnen, gegen den Maßstab stellen, Grenze ziehen.
+6. **Rennvergleich**: Kandidaten nach Beweislage ordnen, gegen die Maßstäbe stellen, Grenze ziehen.
 7. **Ausgabe** wie unten.
 
 ## Maßstab
 
-Je Rennen wird zusätzlich ein Pferd als Vergleichsmaßstab kurz geprüft: der **FK-Favorit**, oder der **Zweite im
-Festkurs**, wenn der Favorit selbst Kandidat ist (ist auch der Zweite Kandidat, entfällt der zusätzliche Maßstab). Der
-Maßstab ist **nie eine Wette** und braucht keinen Value. Kurz gefasst: beste zu heute passende Leistung (Referenzlauf,
-ARR), Beleg für Boden und Distanz, Verbindungen, Laufstil gegen Tempo, größtes Fragezeichen. Jeder Kandidat wird in der
-Leitfrage gegen ihn gemessen: Was müsste er besser können als der Maßstab, und ist das belegt? Ist der Maßstab ein
-Debütant oder kaum belegt, steht das ausdrücklich im Urteil („Maßstab offen“). Die Kursspanne bleibt eigene
-Einschätzung, nicht abgeleitet vom Festkurs des Maßstabs. (Vom Nutzer zur Regel erklärt:
-„ohne Referenz gegen das nächstbeste Pferd fehlt die Elle, gegen was man besser sein muss“.)
+Je Rennen werden zusätzlich **zwei Pferde als Maßstab** kurz geprüft: die **zwei Besten im Festkurs, die keine
+Kandidaten sind** (Kandidaten werden übersprungen, sie werden ohnehin geprüft). Ist der FK-Favorit kein Kandidat, ist
+er Maßstab 1; sonst rückt der nächstbeste ohne Kandidaten-Value nach. Ein Maßstab ist **nie eine Wette** und braucht
+keinen Value. Je Maßstab kurz: beste zu heute passende Leistung (Referenzlauf, ARR), Beleg für Boden und Distanz,
+Verbindungen, Laufstil gegen Tempo, größtes Fragezeichen. Zusammen zeigen die beiden, **was in diesem Rennen für den
+Sieg verlangt ist**. Jeder Kandidat wird in der Leitfrage gegen sie gemessen: Was müsste er besser können als die
+Maßstäbe, und ist das belegt? Ist ein Maßstab Debütant oder kaum belegt, steht das ausdrücklich im Urteil („Maßstab
+offen“). Die Kursspanne bleibt eigene Einschätzung, nicht abgeleitet von den Festkursen der Maßstäbe. (Vom Nutzer zur
+Regel erklärt: „ohne Referenz gegen das nächstbeste Pferd fehlt die Elle, gegen was man besser sein muss“; zweiter
+Maßstab auf seinen Wunsch.)
 
 ## Prüfliste je Kandidat
 
@@ -162,9 +165,9 @@ kann reichen“ beantwortet ist. Mindestquote = unterer Rand der Spanne.
 
 **Faustregel** (Orientierung, keine Rechenregel; Abweichungen ausdrücklich nennen):
 
-- Value nahe 0 (bis etwa +5 %): nur bei klarer, überzeugender Beweislage (z. B. CGD, Bewährung auf sehr
-  weichem Boden, Marke unter letzter Platzmarke) – und nur, wenn die eigene Spanne unter dem Festkurs liegt.
-- +5 % bis +50 %: höchstens ein Fragezeichen und kein gewichtiges Gegenargument.
+- Value knapp über der Grenze (+5 bis etwa +10 %): nur bei klarer, überzeugender Beweislage (z. B. CGD, Bewährung auf
+  sehr weichem Boden, Marke unter letzter Platzmarke) – und nur, wenn die eigene Spanne unter dem Festkurs liegt.
+- +10 % bis +50 %: höchstens ein Fragezeichen und kein gewichtiges Gegenargument.
 - Über +50 %: ein bis zwei Fragezeichen tragbar, **wenn genug für das Pferd spricht**. Viel Value ohne Pro-Argumente
   oder mit Aufgewicht, Klassenfrage und Höchstgewicht auf schwerem Boden zusammen reicht nicht.
 - Debütanten: nur wenn der Stall Debütanten bzw. Zweijährige siegfertig bringt **und** die Abstammung passt;
@@ -174,9 +177,9 @@ kann reichen“ beantwortet ist. Mindestquote = unterer Rand der Spanne.
 
 Bei mehreren Kandidaten im selben Rennen: nach Beweislage ordnen und eine Grenze ziehen; gewettet wird nur, wer klar
 überzeugt – in der Regel höchstens zwei. Auch der beste Kandidat kann unter der Grenze liegen (keine Wette im Rennen).
-Der Maßstab steht als Bezugslinie dabei (ohne Platz in der Reihenfolge), z. B. „Boomslang > Sir Dasch – Maßstab El
-Lagar (2,8): sieglos, ARR 32,4, erstmals 2000 m und PSF – Boomslang auf dem Papier klar besser; Grenze vor Platz 1
-(Kurs zu kurz)“.
+Die Maßstäbe stehen als Bezugslinie dabei (ohne Platz in der Reihenfolge), z. B. „Boomslang > Sir Dasch – Maßstäbe El
+Lagar (2,8): sieglos, ARR 32,4, erstmals 2000 m und PSF; Tiger Bay (4,5): ARR 34, PSF bewährt – Boomslang auf dem
+Papier besser als beide; Grenze vor Platz 1 (Kurs zu kurz)“.
 
 ## Ausgabe
 
@@ -184,13 +187,14 @@ Je Rennen:
 
 ```
 ## R2C7 Strasbourg 14:24 – Handicap 4j+, 2350 m, Très souple, 13 Starter (Klasse sehr schwach, Tempo schnell)
-**5 Algeciras** – FK 13 · Modell 7,9 % (Rang 5/13) · Value +3 %
+**5 Algeciras** – FK 13 · Modell 8,2 % (Rang 5/13) · Value +7 %
 - Pro: …
 - Gegen: …
 - Fragezeichen: …
 - Urteil: **Wette (1 Einheit)** – fair eher 9–11, Mindestquote 11. Ausschlag: …
 …
-Maßstab 3 Afterglow (FK 6,5): … (kurz, kein Urteil)
+Maßstab 1: 3 Afterglow (FK 6,5): … (kurz, kein Urteil)
+Maßstab 2: 8 … (FK 7): …
 Rennvergleich: Algeciras > Cole Chop > Lady Madeira > Afterglow > Go For It – Grenze nach Platz 2.
 ```
 
@@ -201,14 +205,15 @@ als `durchgang_JJJJMMTT_HHMM.json`, ausgewertet im Value-Dashboard), mit **allen
 
 ```json
 {"race_id": "20261111R2C7", "status": "bearbeitet", "vergleich": "Algeciras > Cole Chop > … – Grenze nach Platz 2",
- "hinweis": "", "massstab": {"no": 3, "horse": "…", "fk": 6.5, "befund": "…"},
+ "hinweis": "", "massstab": [{"no": 3, "horse": "…", "fk": 6.5, "befund": "…"},
+                           {"no": 8, "horse": "…", "fk": 7.0, "befund": "…"}],
  "kandidaten": [{"no": 5, "horse": "ALGECIRAS", "urteil": "wette", "fk": 13.0, "mq": 11, "spanne": [9, 11],
                  "p_modell": 0.079, "value": 0.03, "pro": ["…"], "gegen": ["…"], "fragen": ["…"],
                  "ausschlag": "…"}]}
 ```
 
-`urteil` ist `wette`, `klein` oder `nein` (1, ½, 0 Einheiten). `massstab` steht nicht unter den Kandidaten und zählt
-nie als Claude-Tipp (`null`, wenn kein zusätzlicher Maßstab). `status`: `bearbeitet`, bei Araber/AQPS `araber`
+`urteil` ist `wette`, `klein` oder `nein` (1, ½, 0 Einheiten). `massstab` ist eine Liste mit höchstens zwei Pferden in
+Festkurs-Reihenfolge, steht nicht unter den Kandidaten und zählt nie als Claude-Tipp (`[]`, wenn das Blatt keinen nennt). `status`: `bearbeitet`, bei Araber/AQPS `araber`
 (Kandidaten leer).
 
 ## Lernschleife

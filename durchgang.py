@@ -34,6 +34,8 @@ PARIS = ZoneInfo("Europe/Paris")
 DATEI = re.compile(r"durchgang_(\d{8})_(\d{4})\.json$")
 URTEILE = {"wette": 1.0, "klein": 0.5, "nein": 0.0}          # Urteil des Skills → Einheiten
 KENNZEICHEN = {"wette": "NAP", "klein": "BET"}               # Kennzeichen auf der Karte
+VALUE_MIN = 0.05                                             # Kandidat ab +5 % Value (wie blatt.py)
+MASSSTAEBE = 2                                               # höchstens so viele Maßstäbe je Rennen
 STATUS = ("bearbeitet", "kein_festkurs", "gelaufen", "araber", "keine_kandidaten", "fehler")
 
 
@@ -66,11 +68,11 @@ def _starter(r: dict) -> list[dict]:
 
 
 def kandidaten(r: dict) -> list[int]:
-    """Startnummern mit Value > 0 (Festkurs × Modell-Siegchance − 1), wie blatt.py."""
+    """Startnummern mit Value ≥ VALUE_MIN (Festkurs × Modell-Siegchance − 1), wie blatt.py."""
     out = []
     for x in _starter(r):
         fk, p = (x.get("fk") or {}).get("sieg"), (x.get("power") or {}).get("sieg")
-        if fk and p and fk * p - 1 > 0:
+        if fk and p and fk * p - 1 >= VALUE_MIN - 1e-9:
             out.append(int(x["no"]))
     return out
 
@@ -220,16 +222,22 @@ def rennen_pruefen(r: dict) -> dict:
             "hinweis": str(r.get("hinweis") or ""), "kandidaten": kand, "massstab": _massstab(r)}
 
 
-def _massstab(r: dict) -> dict | None:
-    """Vergleichsmaßstab des Rennens (FK-Favorit bzw. Zweiter im Festkurs): nur Vergleich, nie ein Claude-Tipp."""
-    m = r.get("massstab")
-    if not m:
-        return None
-    try:
-        no = int(m["no"])
-    except (KeyError, TypeError, ValueError):
-        raise ValueError(f"{r['race_id']}: Maßstab ohne gültige Nummer") from None
-    return {"no": no, "horse": m.get("horse"), "fk": _zahl(m.get("fk")), "befund": str(m.get("befund") or "")}
+def _massstab(r: dict) -> list[dict]:
+    """Vergleichsmaßstäbe des Rennens (die zwei Besten im Festkurs ohne Kandidaten): nur Vergleich, nie ein
+    Claude-Tipp. Ein einzelnes Objekt (früheres Format) wird zur Liste."""
+    ms = r.get("massstab") or []
+    if isinstance(ms, dict):
+        ms = [ms]
+    if len(ms) > MASSSTAEBE:
+        raise ValueError(f"{r['race_id']}: {len(ms)} Maßstäbe (höchstens {MASSSTAEBE})")
+    out = []
+    for m in ms:
+        try:
+            no = int(m["no"])
+        except (KeyError, TypeError, ValueError):
+            raise ValueError(f"{r['race_id']}: Maßstab ohne gültige Nummer") from None
+        out.append({"no": no, "horse": m.get("horse"), "fk": _zahl(m.get("fk")), "befund": str(m.get("befund") or "")})
+    return out
 
 
 def zusammenfuehren(datum: str, rennen: list[dict], stand: str | None = None, skill: str | None = None) -> dict:

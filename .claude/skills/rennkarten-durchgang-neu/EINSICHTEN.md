@@ -25,7 +25,7 @@ Beispiele in *kursiv* (Pferd, Datum) dienen nur dem Wiedererkennen der Lage; das
 4. **Die kleine Wette nur mit stimmiger Grundlage.** Sie ist kein Kompromiss bei Zweifeln (Regel in `SKILL.md`).
    *Crew Dragon, The Cat's 16.11.*
 5. **Am Festkurs gegen die eigene Kursspanne entscheiden**, nicht am Modell-Value. *Afterglow 11.11. (+29 %, zu kurz),
-   Algeciras 11.11. (+3 %, Wette).*
+   Algeciras 11.11. (+3 %, damals Wette).*
 6. **Boden, Distanz, Bahn aus den Vorlieben lesen** (Gesamtbilanz), nie nur aus den Formzeilen. *Algeciras: „nie auf
    Très souple“ war falsch.*
 7. **Herkunft der Formen einordnen.** Claimer → Handicap ist ein Aufstieg, kein Abstieg; „stärkere Rennen“ zählen nur,
@@ -124,12 +124,13 @@ Beispiele in *kursiv* (Pferd, Datum) dienen nur dem Wiedererkennen der Lage; das
 
 ## Gesamturteil, Maßstab, Rennvergleich
 
-- **[ausschlaggebend]** Value nahe 0 (bis etwa +5 %) und „wird gut laufen“ reicht nicht; es braucht etwas
-  Überzeugendes, sonst ist der Kurs „nicht mehr wert“. *Dublin Calling, Bosquet, Boomslang.*
+- **[ausschlaggebend]** Dünner Value (knapp über +5 %) und „wird gut laufen“ reicht nicht; es braucht etwas
+  Überzeugendes, sonst ist der Kurs „nicht mehr wert“. *Dublin Calling, Bosquet, Boomslang (0–4 %, damals noch
+  Kandidaten).*
 - **[gewichtig]** Viele Fragezeichen bei mittlerem Value (+15 bis +35 %) → keine Wette, auch mit starkem Trainer und
   bestem ARR. *Ozark James, Giovanni Giorgio (sieglos, Pause, erstmals Wallach, erstmals 2000 m).*
 - **[gewichtig]** Viel Value ohne Pro-Argumente ist kein Argument. *Interactiv (+135 %).*
-- **[gewichtig]** Ohne Maßstab fehlt „die Elle, gegen was man besser sein muss“ – erst den Maßstab lesen, dann
+- **[gewichtig]** Ohne Maßstab fehlt „die Elle, gegen was man besser sein muss“ – erst die zwei Maßstäbe lesen, dann
   urteilen. *Boomslang 18.11.*
 - **[gewichtig]** Rennvergleich: „wenn dann X“ heißt nicht, dass X gewettet wird; die Grenze kann vor Platz 1 liegen.
   *Verdansk, L'Annonciade.*

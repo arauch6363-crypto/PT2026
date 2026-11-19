@@ -1,8 +1,8 @@
 """Kandidaten-Blätter für den Skill rennkarten-durchgang-neu.
 
 Liest die Kartendaten von racecard.py – ``racecard_JJJJMMTT_daten.json.gz`` (Normalfall), ``…_daten.json`` oder die
-HTML-Karte (eingebettetes ``const DATA = …``) – und druckt je Rennen die Fakten, die die Prüfliste des Skills braucht – für Kandidaten (Value > 0) und je Rennen einen
-Maßstab (FK-Favorit bzw. Zweiter im Festkurs, nie eine Wette).
+HTML-Karte (eingebettetes ``const DATA = …``) – und druckt je Rennen die Fakten, die die Prüfliste des Skills braucht – für Kandidaten (Value ≥ +5 %) und je Rennen bis zu
+zwei Maßstäbe (die zwei Besten im Festkurs, die keine Kandidaten sind; nie eine Wette).
 
 Aufruf (aus einem beliebigen Ordner, Karte als Argument):
     python3 -I blatt.py KARTE.html                 # Übersicht: alle Rennen mit Kandidaten
@@ -26,6 +26,8 @@ GRUPPE = {"lourd": "Very slow", "très lourd": "Very slow", "tres lourd": "Very 
 SEHR_WEICH = {"très souple", "tres souple", "collant", "lourd", "très lourd", "tres lourd"}
 TRAINER_NEU_LAEUFE = 5       # Trainerwechsel in so vielen letzten Läufen eigens zeigen
 FENSTER_STARTS = 42          # Tage für die Startfolge (Gegenargument ab etwa 4 Starts)
+VALUE_MIN = 0.05             # Kandidat ab +5 % Value (5 % Steuer auf den Gewinn)
+MASSSTAEBE = 2               # so viele Maßstäbe je Rennen
 DIST_TOL = 200               # Meter für „ähnliche Distanz“ beim Referenzlauf
 
 
@@ -110,7 +112,7 @@ def drittel(rang: int, n: int) -> str:
 def uebersicht(d: dict) -> None:
     print(f"Karte {d.get('date')} · erzeugt {d.get('generated')} · Festkurse {d.get('festkurse_bahnen') or d.get('festkurse_stand')}")
     for r in rennen_liste(d):
-        k = [z for z in kennzahlen(r) if z["value"] is not None and z["value"] > 0]
+        k = [z for z in kennzahlen(r) if ist_kandidat(z)]
         if not k:
             continue
         teile = ", ".join(f"{z['x']['no']} {z['x']['horse']} FK {zahl(z['fk'])} {z['value'] * 100:+.0f} % (Rang {z['rang']}/{z['n']})"
@@ -193,18 +195,22 @@ def trainerwechsel(liste) -> str | None:
     return None
 
 
-def massstab(kz: list[dict]) -> tuple[dict | None, str]:
-    """Vergleichsmaßstab je Rennen: der FK-Favorit; ist er Kandidat, der Zweite im Festkurs; ist auch der Kandidat,
-    keiner (er wird ohnehin geprüft). Rückgabe (Kennzahlen oder None, Grund)."""
+def ist_kandidat(z: dict) -> bool:
+    """Kandidat = Value (Festkurs × Modell-Siegchance − 1) mindestens VALUE_MIN."""
+    return z["value"] is not None and z["value"] >= VALUE_MIN - 1e-9
+
+
+def massstaebe(kz: list[dict]) -> list[tuple[dict, str]]:
+    """Vergleichsmaßstäbe je Rennen: die MASSSTAEBE Besten nach Festkurs, die keine Kandidaten sind (Kandidaten werden
+    übersprungen, sie werden ohnehin geprüft). Rückgabe [(Kennzahlen, Grund)], leer ohne Festkurse."""
     nach_fk = sorted((z for z in kz if z["fk"]), key=lambda z: z["fk"])
-    ist_kand = lambda z: z["value"] is not None and z["value"] > 0
-    if not nach_fk:
-        return None, "keine Festkurse"
-    if not ist_kand(nach_fk[0]):
-        return nach_fk[0], "FK-Favorit"
-    if len(nach_fk) > 1 and not ist_kand(nach_fk[1]):
-        return nach_fk[1], "Zweiter im Festkurs, weil der Favorit Kandidat ist"
-    return None, "Favorit und Zweiter im Festkurs sind Kandidaten – kein zusätzlicher Maßstab"
+    out = []
+    for i, z in enumerate(nach_fk, 1):
+        if len(out) == MASSSTAEBE:
+            break
+        if not ist_kandidat(z):
+            out.append((z, "FK-Favorit" if i == 1 else f"{i}. im Festkurs"))
+    return out
 
 
 def blatt(z: dict, r: dict, top_kg: float, titel: str = "") -> None:
@@ -294,18 +300,18 @@ def main(argv: list[str]) -> None:
         if not any(f == rid or f in kurs for f in filter_):
             continue
         kz = kennzahlen(r)
-        kand = sorted((z for z in kz if z["value"] is not None and z["value"] > 0), key=lambda z: z["rang"])
+        kand = sorted((z for z in kz if ist_kandidat(z)), key=lambda z: z["rang"])
         if not kand:
             continue
         kopf(r, kz)
         top_kg = max((x.get("weight") or 0) for x in starter(r))
         for z in kand:
             blatt(z, r, top_kg)
-        m, grund = massstab(kz)
-        if m:
-            blatt(m, r, top_kg, titel=f"MASSSTAB · {grund} · kein Kandidat, nie eine Wette – ")
-        else:
-            print(f"\n### Maßstab: {grund}")
+        ms = massstaebe(kz)
+        for j, (m, grund) in enumerate(ms, 1):
+            blatt(m, r, top_kg, titel=f"MASSSTAB {j}/{len(ms)} · {grund} · kein Kandidat, nie eine Wette – ")
+        if not ms:
+            print("\n### Maßstab: keine Festkurse")
 
 
 if __name__ == "__main__":

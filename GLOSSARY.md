@@ -91,11 +91,11 @@ _Avoid_: Value (ohne „-Faktor“), Wert
 ### Auswahl
 
 **Kandidat**:
-Ein Starter mit Value > 0. Nur Kandidaten werden in der Analyse angesehen; eine Kursgrenze gibt es nicht.
+Ein Starter mit Value von mindestens +5 % (darunter frisst die Steuer von 5 % auf den Gewinn den Vorteil). Nur Kandidaten werden in der Analyse angesehen; eine Kursgrenze gibt es nicht.
 _Avoid_: Value-Pferd, Tipp
 
 **Maßstab**:
-Das Pferd, gegen das die Kandidaten eines Rennens gemessen werden: der FK-Favorit, oder der Zweite im Festkurs, wenn der Favorit selbst Kandidat ist. Er wird kurz geprüft, braucht keinen Value und ist nie eine Wette.
+Eines der zwei Pferde, gegen die die Kandidaten eines Rennens gemessen werden: die zwei Besten im Festkurs, die keine Kandidaten sind. Sie zeigen, was im Rennen für den Sieg verlangt ist, werden kurz geprüft, brauchen keinen Value und sind nie eine Wette.
 _Avoid_: Referenzpferd (verwechselbar mit Referenzlauf), Benchmark
 
 **Pro-Argument**:
@@ -152,8 +152,8 @@ _Avoid_: keine Wette (als Substantiv), Verworfener
 
 ## Relationships
 
-- Ein **Kandidat** ist ein Starter, dessen **Value** größer als 0 ist.
-- Jedes Rennen hat höchstens einen zusätzlichen **Maßstab**; die **Kandidaten** werden in der Leitfrage gegen ihn gemessen, gewettet wird er nie.
+- Ein **Kandidat** ist ein Starter, dessen **Value** mindestens +5 % beträgt.
+- Jedes Rennen hat höchstens zwei **Maßstäbe**; die **Kandidaten** werden in der Leitfrage gegen sie gemessen, gewettet werden sie nie.
 - **Value** entsteht aus **Festkurs** und **Modell-Siegchance**; der **Value-Faktor** geht nicht ein.
 - Über jeden **Kandidaten** fällt ein **Gesamturteil**; lautet es ja, ist er eine **Wette**.
 - Das **Gesamturteil** wägt **Pro-Argumente**, **Gegenargumente** und **Fragezeichen** ab und vergleicht die **Kursspanne** mit dem **Festkurs**; **Value** entscheidet nur, wer **Kandidat** ist.
