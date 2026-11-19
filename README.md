@@ -898,7 +898,7 @@ Beispiel ¼ Kelly → 2404,00 € bei 18 Wetten.
 ## Skill Rennkarten-Durchgang
 
 `.claude/skills/rennkarten-durchgang-neu/` ist der qualitative Durchgang durch eine Rennkarte: Aus den Kandidaten
-(Value > 0) wählt er die Siegwetten zum Festkurs aus – je Kandidat Pro-Argumente, Gegenargumente und Fragezeichen,
+(Value mindestens +5 %, wegen 5 % Steuer) wählt er die Siegwetten zum Festkurs aus – je Kandidat Pro-Argumente, Gegenargumente und Fragezeichen,
 Gesamturteil (Wette, kleine Wette, keine Wette) mit eigener Kursspanne und Mindestquote. Dazu gehören `DATEN.md`,
 `EINSICHTEN.md` (aus den Fällen verdichtete Gewichtung und typische Fehler), das Skript `scripts/blatt.py` (zieht die Fakten aus der HTML-Karte) und die Begriffe in
 `GLOSSARY.md`. Die Fälle selbst liegen als Archiv in `docs/faelle_rennkarten_durchgang.md` und werden beim Durchgang

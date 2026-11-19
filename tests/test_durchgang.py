@@ -95,9 +95,10 @@ def test_massstab_wird_uebernommen_und_ist_kein_tipp():
     r = _rennen("X", (1, "nein", 2.2, 2.5))
     r["massstab"] = {"no": "5", "horse": "EL LAGAR", "fk": 2.8, "befund": "sieglos, erstmals 2000 m und PSF"}
     d = dg.zusammenfuehren("2026-11-18", [r])["rennen"][0]
-    assert d["massstab"] == {"no": 5, "horse": "EL LAGAR", "fk": 2.8, "befund": "sieglos, erstmals 2000 m und PSF"}
+    # früheres Format (ein Objekt) wird zur Liste
+    assert d["massstab"] == [{"no": 5, "horse": "EL LAGAR", "fk": 2.8, "befund": "sieglos, erstmals 2000 m und PSF"}]
     assert [k["no"] for k in d["kandidaten"]] == [1]
-    assert dg.zusammenfuehren("2026-11-18", [_rennen("X", (1, "nein", 2.2, 2.5))])["rennen"][0]["massstab"] is None
+    assert dg.zusammenfuehren("2026-11-18", [_rennen("X", (1, "nein", 2.2, 2.5))])["rennen"][0]["massstab"] == []
     r["massstab"] = {"horse": "OHNE NUMMER"}
     with pytest.raises(ValueError):
         dg.zusammenfuehren("2026-11-18", [r])
@@ -226,3 +227,20 @@ def test_araber_ueber_ausschreibung():
     assert not racecard._nicht_vollblut_rennen(pd.Series({"race_name": "PRIX X", "conditions": "Pour tous chevaux de 3 ans."}))
     assert dg.ist_araber({"name": "PRIX DE LA GARONNE", "nicht_vollblut": True})
     assert not dg.ist_araber({"name": "PRIX DE LA GARONNE", "nicht_vollblut": False})
+
+
+def test_zwei_massstaebe_als_liste():
+    r = _rennen("X", (1, "nein", 2.2, 2.5))
+    r["massstab"] = [{"no": 5, "horse": "A", "fk": 2.8, "befund": "a"}, {"no": "7", "horse": "B", "fk": 4.0, "befund": "b"}]
+    d = dg.zusammenfuehren("2026-11-19", [r])["rennen"][0]
+    assert [m["no"] for m in d["massstab"]] == [5, 7]
+    r["massstab"] = r["massstab"] + [{"no": 9, "horse": "C", "fk": 6.0, "befund": "c"}]
+    with pytest.raises(ValueError):                     # höchstens zwei Maßstäbe
+        dg.zusammenfuehren("2026-11-19", [r])
+
+
+def test_kandidat_braucht_mindestens_fuenf_prozent_value():
+    def x(no, p, fk):
+        return {"no": no, "power": {"sieg": p}, "fk": {"sieg": fk}}
+    r = {"runners": [x(1, 0.25, 4.2), x(2, 0.25, 4.0), x(3, 0.25, 4.19)]}   # Value +5 %, 0 %, +4,75 %
+    assert dg.kandidaten(r) == [1]
