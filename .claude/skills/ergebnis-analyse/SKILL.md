@@ -50,14 +50,32 @@ Jeder Vorschlag ist eine **konkrete Textänderung**, über die der Nutzer mit Ja
 | `titel` | ein Satz, was sich ändert |
 | `fall` | `verpasster_sieger` oder `verlorener_tipp` (bei einer Regel unter Druck: `regel_unter_druck`) |
 | `rennen`, `race_id`, `no`, `horse` | der Fall |
-| `durchgang` | Urteil, Festkurs und Ausschlag mit Kennung, knapp |
+| `durchgang` | ein Satz: Urteil, Festkurs, woran es hing |
 | `datenpunkt` | Zitat aus dem Blatt |
-| `gegenprobe` | Ergebnis aus Schritt 3 |
+| `gegenprobe` | höchstens drei Sätze: wie viele Verlierer mit Namen, was den Vorschlag schwächt |
 | `art` | `neu`, `aendern`, `gewicht` oder `streichen` |
 | `zieldatei` | `SKILL.md` (Regel, Liste) oder `EINSICHTEN.md` (Gewichtung, typischer Fehler) |
 | `kennung` | bestehende Kennung oder eine neue nach dem Muster in `SKILL.md` („Kennungen“) |
 | `text` | **wörtlich** der neue oder geänderte Text, so wie er in der Datei stehen soll, mit Fallbeispiel in *kursiv* |
 | `gewicht` | `ausschlaggebend`, `gewichtig` oder `leicht` – Claudes Vorschlag |
+
+### So schreibt sich `text` und `titel`
+
+Der Nutzer liest den Text so, wie er in `EINSICHTEN.md` stehen wird – er muss ihn ohne Blatt verstehen:
+
+- **Kurz:** eine Regel in höchstens zwei Sätzen (etwa 35 Wörter), dahinter das Fallbeispiel in *kursiv* mit Pferd und
+  Datum. So lang wie die Einsichten, die schon dastehen. Eine Ausnahme höchstens als Halbsatz.
+- **Seine Wörter:** Begriffe aus `GLOSSARY.md` (Referenzlauf, Maßstab, Bodenangabe, Klassenindex, Rennverlauf,
+  Aufgewicht). Markierungen und Kürzel aus dem Blatt kommen nicht vor – `≈heute` heißt im Text „Referenzlauf“ bzw.
+  „Lauf unter heutigen Bedingungen“, `ber.` entfällt, „gegen den Verlauf“ heißt „gegen den Rennverlauf gelaufen“,
+  „Zwischenfall“ heißt „behindert, eingeklemmt“. Wörter wie „Blatt-Beleg“ oder „Datenpunkt“ gehören nicht in den Text.
+- **Zahlen nur, wo die Regel an ihnen hängt**, gerundet („etwa 2 Punkte ARR“, „5 Längen und mehr“).
+- **Positiv formuliert:** was gilt, nicht welche andere Regel nicht gilt.
+
+Blattzitate, Klassenindizes und Rechenwege stehen in `datenpunkt` und `gegenprobe`, nie in `text`. Beispiel:
+
+> `G-MASSSTAB-BESSER` Lief ein Maßstab in seinem Referenzlauf klar besser als der Kandidat in seinem (etwa 2 Punkte ARR
+> mehr, in einem stärkeren Rennen), reicht es bei kurzer Quote nicht für eine Wette. *X Rays 15.11.*
 
 Mehrere Fälle, die auf dieselbe Regel zeigen, ergeben **einen** Vorschlag mit allen Fällen. Vorschläge nach Stärke
 ordnen: klare Gegenprobe und klarer Regelbezug zuerst. Ein früher abgelehnter Vorschlag (`auswertung/vorschlaege.csv`,
