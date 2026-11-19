@@ -221,8 +221,11 @@ Festkurs-Reihenfolge, steht nicht unter den Kandidaten und zählt nie als Claude
 Gilt nur für die Durchsicht mit dem Nutzer, nicht für den automatischen Durchgang.
 
 - **Je besprochenem Rennen** ins Fallarchiv des Repos (eine Zeile je Kandidat, Art **Übereinstimmung**, **Claude
-  lernt** oder **Claudes Sicht behalten**; Ort und Format in `claude_projekt/task.md`). Das Archiv gehört nicht zum
-  Skill und wird beim Durchgang nicht gelesen.
+  lernt** oder **Claudes Sicht behalten**; Ort und Format in `claude_projekt/task.md`) und dazu ein **Testfall** im
+  Testsatz (`claude_projekt/aufgabe_testsatz.md`). Archiv und Testsatz gehören nicht zum Skill und werden beim
+  Durchgang nicht gelesen.
+- **Vor jeder Änderung** an diesem Skill den Testsatz laufen lassen; übernommen wird nur, was die Fehlerpunkte nicht
+  erhöht und keinen Rückschritt bringt (ADR 0002).
 - **Am Ende der Sitzung verdichten:** Änderungen an `EINSICHTEN.md` (Gewicht aus der Argumentation des Nutzers, ein
   Beispiel je Einsicht, Doppeltes zusammenfassen) und an `SKILL.md` vorschlagen, Zustimmung abwarten, dann eintragen.
 - **Regel in `SKILL.md`** erst, wenn zwei Fälle „Claude lernt“ in dieselbe Richtung zeigen oder der Nutzer sie
