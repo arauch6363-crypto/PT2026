@@ -1,0 +1,26 @@
+{
+ "hinweis": "Testsatz des Skills rennkarten-durchgang-neu (ADR 0002). Je Testfall (Rennen) die Urteile des Nutzers aus docs/faelle_rennkarten_durchgang.md; Kandidaten ohne Urteil laufen mit, zählen aber nicht. urteil: wette, klein, nein; erlaubt: weitere vertretbare Urteile (Ermessen, Claudes Sicht behalten). Kartenausschnitt karten/<race_id>.json.gz aus der Karte des Tages, geprüft gegen Kandidaten, Festkurs und Modell-Siegchance im Durchgang.",
+ "testfaelle": {
+  "20261116R3C7": {"rennen": "16.11. Mans R3C7", "durchgang": "durchgang_20261116_1147", "kandidaten": {
+   "2": {"horse": "THE CAT'S", "urteil": "nein", "art": "Claude lernt"},
+   "6": {"horse": "PIANO BAR", "urteil": "nein", "art": "Übereinstimmung"}}},
+  "20261116R3C8": {"rennen": "16.11. Mans R3C8", "durchgang": "durchgang_20261116_1147", "kandidaten": {
+   "1": {"horse": "TULPAR", "urteil": "nein", "art": "Übereinstimmung"},
+   "2": {"horse": "CREW DRAGON", "urteil": "nein", "art": "Claude lernt"}}},
+  "20261116R4C1": {"rennen": "16.11. Marseille R4C1", "durchgang": "durchgang_20261116_1555", "kandidaten": {
+   "1": {"horse": "SENORITO", "urteil": "klein", "art": "Claude lernt"}}},
+  "20261116R4C2": {"rennen": "16.11. Marseille R4C2", "durchgang": "durchgang_20261116_1555", "kandidaten": {
+   "1": {"horse": "GIOVANNI GIORGIO", "urteil": "nein", "art": "Übereinstimmung"},
+   "8": {"horse": "NATURALISTE", "urteil": "nein", "art": "Übereinstimmung"},
+   "9": {"horse": "MAGENTA MELODY", "urteil": "klein", "art": "Übereinstimmung"}}},
+  "20261116R4C3": {"rennen": "16.11. Marseille R4C3", "durchgang": "durchgang_20261116_1555", "kandidaten": {
+   "2": {"horse": "SILGREYPIT", "urteil": "nein", "art": "Übereinstimmung"},
+   "6": {"horse": "BLANC BLEU", "urteil": "nein", "art": "Übereinstimmung"},
+   "9": {"horse": "CERVARO", "urteil": "klein", "art": "Übereinstimmung"}}},
+  "20261116R4C4": {"rennen": "16.11. Marseille R4C4", "durchgang": "durchgang_20261116_1555", "kandidaten": {
+   "1": {"horse": "COME ALONE", "urteil": "klein", "art": "Übereinstimmung"},
+   "4": {"horse": "MORUS", "urteil": "nein", "art": "Übereinstimmung"}}},
+  "20261116R4C8": {"rennen": "16.11. Marseille R4C8", "durchgang": "durchgang_20261116_1555", "kandidaten": {
+   "3": {"horse": "LOVELY WARRIOR", "urteil": "nein", "art": "Claude lernt"}}}
+ }
+}

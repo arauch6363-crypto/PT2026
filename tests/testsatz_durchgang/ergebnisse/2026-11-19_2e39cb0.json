@@ -1,0 +1,113 @@
+{
+ "datum": "2026-11-19",
+ "commit": "2e39cb0",
+ "trefferquote": 1.0,
+ "punkte": 0.0,
+ "faelle": {
+  "20261116R3C7": {
+   "punkte": 0.0,
+   "je_lauf": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "richtig": [
+    true,
+    true,
+    true
+   ],
+   "stand": "stabil richtig",
+   "fehlt": []
+  },
+  "20261116R3C8": {
+   "punkte": 0.0,
+   "je_lauf": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "richtig": [
+    true,
+    true,
+    true
+   ],
+   "stand": "stabil richtig",
+   "fehlt": []
+  },
+  "20261116R4C1": {
+   "punkte": 0.0,
+   "je_lauf": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "richtig": [
+    true,
+    true,
+    true
+   ],
+   "stand": "stabil richtig",
+   "fehlt": []
+  },
+  "20261116R4C2": {
+   "punkte": 0.0,
+   "je_lauf": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "richtig": [
+    true,
+    true,
+    true
+   ],
+   "stand": "stabil richtig",
+   "fehlt": []
+  },
+  "20261116R4C3": {
+   "punkte": 0.0,
+   "je_lauf": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "richtig": [
+    true,
+    true,
+    true
+   ],
+   "stand": "stabil richtig",
+   "fehlt": []
+  },
+  "20261116R4C4": {
+   "punkte": 0.0,
+   "je_lauf": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "richtig": [
+    true,
+    true,
+    true
+   ],
+   "stand": "stabil richtig",
+   "fehlt": []
+  },
+  "20261116R4C8": {
+   "punkte": 0.0,
+   "je_lauf": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "richtig": [
+    true,
+    true,
+    true
+   ],
+   "stand": "stabil richtig",
+   "fehlt": []
+  }
+ }
+}

@@ -150,6 +150,32 @@ _Avoid_: halbe Wette
 Ein Kandidat, dessen Gesamturteil in einem Durchgang nein lautet. Er dient als Vergleichsgruppe für die Claude-Tipps.
 _Avoid_: keine Wette (als Substantiv), Verworfener
 
+### Prüfung des Skills
+
+**Testfall**:
+Ein Rennen, für das der Nutzer über einzelne Kandidaten geurteilt hat: das, was der Skill zu dem Rennen sieht, und die Urteile des Nutzers als erwartete Antwort. In Ermessenslagen gelten mehrere Urteile als richtig.
+_Avoid_: Fall (das ist der Eintrag in der Fallsammlung, je Pferd), Eval, Beispiel
+
+**Testsatz**:
+Alle Testfälle zusammen; damit wird jede Änderung am Skill geprüft. Er schützt vor Rückschritten, sagt aber nichts darüber, wie gut der Skill auf neue Rennen überträgt, weil die Regeln aus denselben Fällen stammen.
+_Avoid_: Eval-Set, Fallsammlung
+
+**Fehlwette**:
+Der Skill spielt einen Kandidaten (Wette oder Kleine Wette), den der Nutzer nicht gespielt hätte. Wiegt doppelt so schwer wie ein verpasster Kandidat.
+_Avoid_: Fehltipp, falsch positiv
+
+**Verpasster Kandidat**:
+Der Skill spielt einen Kandidaten nicht, den der Nutzer gespielt hätte.
+_Avoid_: verpasster Sieger (das ist ein abgelehnter Kandidat, der gewonnen hat), falsch negativ
+
+**Trefferquote**:
+Der Anteil der Testfälle, in denen der Skill bei jedem bewerteten Kandidaten so urteilt wie der Nutzer, über die Läufe eines Testfalls gemittelt.
+_Avoid_: Übereinstimmung (das ist eine Art von Fall in der Fallsammlung), Genauigkeit
+
+**Rückschritt**:
+Eine Änderung am Skill macht einen Testfall falsch, den der Skill bisher richtig beurteilt hat.
+_Avoid_: Regression (nur im Code), Verschlechterung
+
 ## Relationships
 
 - Ein **Kandidat** ist ein Starter, dessen **Value** mindestens +5 % beträgt.
@@ -161,8 +187,12 @@ _Avoid_: keine Wette (als Substantiv), Verworfener
 - Eine **Wette** kann zugleich ein **Tipp** der Karte sein, muss es aber nicht.
 - Ein **Durchgang** macht aus jedem **Kandidaten** einen **Claude-Tipp** (**NAP** oder **BET**) oder einen **abgelehnten Kandidaten**.
 - Ein **Claude-Tipp** wird zum **Festkurs** beim **Durchgang** abgerechnet; sein Kennzeichen erlischt nicht, wenn der Festkurs später unter die **Mindestquote** fällt.
+- Ein **Testfall** fasst die Fälle eines Rennens aus der Fallsammlung zusammen; Kandidaten ohne Urteil des Nutzers laufen mit, zählen aber nicht.
+- Eine Abweichung vom Urteil des Nutzers ist eine **Fehlwette** oder ein **verpasster Kandidat**; Wette gegen Kleine Wette zählt halb.
+- Gemessen wird der Skill am **Testsatz** (Urteil des Nutzers), nicht am Ertrag; Ertrag und verpasste Sieger der **Claude-Tipps** und **abgelehnten Kandidaten** prüfen die Regeln des Nutzers selbst.
 
 ## Flagged ambiguities
 
 - „Value“ wurde für drei Dinge benutzt: Festkurs × Chance − 1, den Value-Faktor und den Abstand der eigenen Chance zur Prognose. Geklärt: **Value** ist nur Ersteres; der Faktor heißt **Value-Faktor**.
 - „Kurs“ meint im Code teils die Quote, teils die Bahnkonfiguration. Für die Quote gilt **Festkurs**.
+- „Übereinstimmung“ ist in der Fallsammlung eine Art von Fall (Claude urteilte wie der Nutzer). Als Maß für den Skill heißt es **Trefferquote**.
