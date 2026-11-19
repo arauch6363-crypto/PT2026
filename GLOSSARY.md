@@ -176,6 +176,40 @@ _Avoid_: Übereinstimmung (das ist eine Art von Fall in der Fallsammlung), Genau
 Eine Änderung am Skill macht einen Testfall falsch, den der Skill bisher richtig beurteilt hat.
 _Avoid_: Regression (nur im Code), Verschlechterung
 
+### Ergebnisanalyse
+
+**Ergebnisanalyse**:
+Der Abgleich der Durchgänge eines Renntags mit dem Einlauf: Wo lag der Skill richtig, wo nicht, an welcher Regel lag es, welcher Datenpunkt der Karte hätte geholfen. Liefert Vorschläge, über die der Nutzer entscheidet. Nicht zu verwechseln mit der **Durchsicht**, in der der Nutzer Claudes Urteile bewertet.
+_Avoid_: Durchsicht, Nachbetrachtung, Auswertung (das ist `tipp_auswertung.py`)
+
+**Regelkennung**:
+Die feste Bezeichnung einer Regel oder Einsicht des Skills, z. B. `G-AUSRUESTUNG-WEG` (F Fragezeichen, G Gegen, P Pro, U Urteil). Wird nie umbenannt oder wiederverwendet.
+_Avoid_: Regelnummer, Punkt 6
+
+**Verpasster Sieger**:
+Ein abgelehnter Kandidat, der gewonnen hat.
+_Avoid_: verpasster Kandidat (das ist eine Abweichung vom Urteil des Nutzers)
+
+**Verlorener Claude-Tipp**:
+Ein Claude-Tipp (NAP oder BET), der nicht gewonnen hat.
+_Avoid_: Fehlwette (das ist eine Abweichung vom Urteil des Nutzers)
+
+**Siegergruppe**:
+Wohin der Sieger eines Rennens mit Durchgang gehört: **Treffer** (Claude-Tipp), **verpasster Sieger** (abgelehnter Kandidat), **Maßstab** oder **sonstiger Sieger** (weder Kandidat noch Maßstab). Nur Treffer und verpasste Sieger kann eine Änderung am Skill beeinflussen; die anderen betreffen den Kandidaten-Filter.
+_Avoid_: Kategorie, Klasse (das ist die Rennklasse)
+
+**Vorschlag**:
+Eine konkrete Änderung am Skill aus der Ergebnisanalyse: Fall, Regelbezug, Datenpunkt, Gegenprobe, wörtlicher Text mit Zieldatei, Kennung und Gewicht. Der Nutzer entscheidet ja, nein oder ändern.
+_Avoid_: Empfehlung, Hypothese
+
+**Gegenprobe**:
+Wie viele Verlierer desselben Tages (Kandidaten und Maßstäbe) den Datenpunkt eines Vorschlags ebenfalls hatten.
+_Avoid_: Backtest (das ist `regel_backtest.py` über die ganze Historie)
+
+**Regelprotokoll**:
+Je Regelkennung: wie oft sie in Durchgängen zitiert wurde, wie oft die Pferde gewonnen haben und wie viele Siege der Festkurs erwarten ließ (A/E, z). Nur vorwärts, ab Einführung der Kennungen. Eine Regel steht **unter Druck**, wenn n ≥ 20 und z ≤ −2 gegen ihre Richtung.
+_Avoid_: Regel-Backtest, Statistik
+
 ## Relationships
 
 - Ein **Kandidat** ist ein Starter, dessen **Value** mindestens +5 % beträgt.
@@ -189,6 +223,7 @@ _Avoid_: Regression (nur im Code), Verschlechterung
 - Ein **Claude-Tipp** wird zum **Festkurs** beim **Durchgang** abgerechnet; sein Kennzeichen erlischt nicht, wenn der Festkurs später unter die **Mindestquote** fällt.
 - Ein **Testfall** fasst die Fälle eines Rennens aus der Fallsammlung zusammen; Kandidaten ohne Urteil des Nutzers laufen mit, zählen aber nicht.
 - Eine Abweichung vom Urteil des Nutzers ist eine **Fehlwette** oder ein **verpasster Kandidat**; Wette gegen Kleine Wette zählt halb.
+- Die **Ergebnisanalyse** ordnet jeden Sieger einer **Siegergruppe** zu und untersucht **verpasste Sieger** und **verlorene Claude-Tipps**; ihre **Vorschläge** gehen erst nach Zustimmung des Nutzers und bestandenem **Testsatz** in den Skill.
 - Gemessen wird der Skill am **Testsatz** (Urteil des Nutzers), nicht am Ertrag; Ertrag und verpasste Sieger der **Claude-Tipps** und **abgelehnten Kandidaten** prüfen die Regeln des Nutzers selbst.
 
 ## Flagged ambiguities
