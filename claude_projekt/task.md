@@ -16,7 +16,7 @@ Wiederholung, Regeln (`SKILL.md`). **Ziel:** Ein NAP von Claude soll genau das s
 
 ## Zuerst lesen
 
-1. `.claude/skills/rennkarten-durchgang-neu/SKILL.md` – Vorgehen, Prüfliste, Regeln, Lernschleife
+1. `.claude/skills/rennkarten-durchgang-neu/SKILL.md` – Vorgehen, Prüfliste, Regeln (Lernschleife: `LERNSCHLEIFE.md` im Skill-Ordner)
 2. `.claude/skills/rennkarten-durchgang-neu/EINSICHTEN.md` – typische Fehler Claudes, Gewichte je Prüfschritt,
    vorläufige Einsichten, Ermessen; Fälle im Archiv `docs/faelle_rennkarten_durchgang.md` (nur für die Durchsicht)
 3. `GLOSSARY.md` – Begriffe (Festkurs, Kandidat, Kursspanne, Mindestquote, Verbindungen, Claimer …); Begriffe von dort

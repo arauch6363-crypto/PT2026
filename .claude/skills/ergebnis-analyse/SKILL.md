@@ -117,7 +117,7 @@ ohne „ja“ des Nutzers gestrichen.
 - **ja**: den Text unverändert eintragen; neue Einsichten in den Abschnitt ihres Prüfschritts, aus einem Fall mit
   Vermerk „vorläufig“. Bei `zusammenfassen` die alten Einträge entfernen und stillgelegte Kennungen eintragen. **geaendert**: den Text nach der Notiz des Nutzers umschreiben und vor dem
   Eintragen im Chat zeigen. **nein**: nichts eintragen; die Notiz ist die Begründung.
-- Kennungen bleiben dauerhaft (Regel in `SKILL.md`, Lernschleife).
+- Kennungen bleiben dauerhaft (Regel in `LERNSCHLEIFE.md` des Durchgang-Skills).
 - Danach den Testsatz laufen lassen (`claude_projekt/aufgabe_testsatz.md`). Zeigt er einen **Rückschritt**, dem Nutzer
   den Konflikt zeigen: Testfall, sein damaliges Urteil, das Urteil mit der neuen Regel. Er entscheidet: Regel
   umformulieren oder das erwartete Urteil im Testfall ändern. Eine Änderung am Testfall bekommt in

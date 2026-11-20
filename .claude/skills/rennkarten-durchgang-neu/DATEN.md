@@ -10,7 +10,7 @@ wo die Daten Lücken haben.
 | Angabe | Feld | Hinweis |
 |---|---|---|
 | Bodenangabe | `going` | z. B. „Très souple“; `going_source` PMU, PSF, manuell, France Galop (offizielle Angabe von france-galop.com, gleichwertig mit PMU) oder Annahme |
-| Bodengruppe | `going_label` | Very slow (Collant, Lourd – für uns gleichwertig), Slow (Souple, Très souple – unterscheiden), Fast (Bon souple, Bon), Very fast, PSF |
+| Bodengruppe | `going_label` | Very slow (Collant, Lourd), Slow (Souple, Très souple), Fast (Bon souple, Bon), Very fast, PSF |
 | Richtung | `corde` | CORDE_DROITE = Rechtskurs, CORDE_GAUCHE = Linkskurs, LIGNE_DROITE = gerade |
 | Klasse | `class.val_idx` | Ø Valeur der Teilnehmer, 100 = Ø aller Rennen; je Formzeile `cls_val_idx` |
 | Tempo | `pace.label`, `pace.groups` | F führend, V vorne dabei, M Mittelfeld, H hinten; `unknown` ohne Laufstil |
@@ -47,8 +47,7 @@ ein belegtes Plus), `rivals_stat` (wie die Gegner danach liefen: aufgewertet, we
 
 ## Lücken
 
-- **Formzeilen zeigen nur die letzten Läufe.** Für Boden, Distanz, Bahn immer die Vorlieben lesen (Fall Algeciras:
-  „nie auf Très souple“ war falsch, die Vorlieben zeigten einen Sieg auf sehr weichem Boden).
+- **Formzeilen zeigen nur die letzten Läufe** (höchstens sieben); die Gesamtbilanz steht in den Vorlieben (`pref`).
 - **Externe Läufe** (Belgien, PMH-Bahnen) haben oft keine Quote, Marke oder Ratings (`extern`).
 - Läufe, die PMU gar nicht meldet, fehlen ganz; `starts` (PMU-Gesamtzahl) kann größer sein als die Zahl der Formzeilen.
 - Eine fehlende Angabe ist eine Lücke, kein Negativbefund.

@@ -74,6 +74,9 @@ PY
 
 - Für jedes offene Rennen einen eigenen Subagenten mit dem Agent-Tool starten (subagent_type: general-purpose),
   höchstens 4 gleichzeitig, in Reihenfolge der Startzeit; die frühesten zuerst. Auf alle warten.
+- Jeder Subagent startet mit leerem Gesprächs- und Arbeitskontext und erhält ausschließlich die Skill-Grundlagen
+  (SKILL.md, GLOSSARY.md, DATEN.md, EINSICHTEN.md) und das mit blatt.py erzeugte Blatt seines Rennens. Ergebnisse,
+  Urteile und Argumentationen anderer Rennen nie in seinen Prompt übernehmen.
 - Prompt je Rennen (Platzhalter ersetzen):
 
   „Antworte auf Deutsch. Du bewertest genau ein Rennen: <race_id> (<RxCy>, <Zeit> Uhr, <Bahn>) auf der Karte
