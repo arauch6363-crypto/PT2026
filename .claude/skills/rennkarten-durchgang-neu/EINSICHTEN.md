@@ -30,16 +30,16 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
    Boden).*
 3. **Die Leitfrage ernst nehmen.** „Läuft solide, landet im Geld“ beantwortet sie nicht. Die beste passende Leistung
    muss an die Besten im Feld und an den Maßstab heranreichen. *The Cat's 16.11.*
-4. **Die kleine Wette nur mit stimmiger Grundlage.** Sie ist kein Kompromiss bei Zweifeln (Regel in `SKILL.md`).
+4. **Die kleine Wette nur mit stimmiger Grundlage.** Sie ist für Pferde mit fehlenden Belegen auf solider Grundlage (`U-KEIN-AUSWEG`).
    *Crew Dragon, The Cat's 16.11.*
 5. **Am Festkurs gegen die eigene Kursspanne entscheiden**, nicht am Modell-Value. *Afterglow 11.11. (+29 %, zu kurz),
-   Algeciras 11.11. (+3 %, damals Wette).*
+   Senorito 16.11. (+10 %, kleine Wette).*
 6. **Boden, Distanz, Bahn aus den Vorlieben lesen** (Gesamtbilanz), nie nur aus den Formzeilen. *Algeciras: „nie auf
    Très souple“ war falsch.*
 7. **Herkunft der Formen einordnen.** Claimer → Handicap ist ein Aufstieg, kein Abstieg; „stärkere Rennen“ zählen nur,
    wenn sie nicht abgewertet sind. *Crew Dragon 16.11., Littoral Nord 11.11.*
 8. **Verbindungen vollständig lesen:** kürzlicher Trainerwechsel (Blatt: „Trainer erst seit N Läufen“),
-   Spezialität des Trainers (Rennart, Alter), Gespann Trainer + Jockey statt nur Einzel-A/E. *Senorito 16.11., Littoral
+   Spezialität des Trainers (Rennart, Alter), Gespann Trainer + Jockey zusätzlich zum Einzel-A/E. *Senorito 16.11., Littoral
    Nord, Teardrop Explodes 11.11.*
 9. **Rennverlauf mitlesen.** Ein Platz hinter einem Gegner kann gegen den Verlauf ein Plus sein; ein Sieg mit dem
    Verlauf von vorne ist etwas weniger wert. *Teardrop Explodes 11.11., Boomslang 18.11.*
@@ -66,9 +66,10 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
 ## 2. Letzter Lauf
 
 - **[leicht]** `P-LETZTER-ANDERS` Ein schwacher letzter Lauf unter anderen Bedingungen (Boden, Distanz) wird übergangen.
-  *Mister Chang, Come Alone.* **[gewichtig · vorläufig]** `G-LETZTER-HEUTE-BODEN` Auf dem heutigen Boden nicht: Dort
-  ist ein klar verlorener Lauf (5 Längen und mehr) ein Gegenargument, außer das Pferd wurde behindert oder lief gegen
-  den Rennverlauf. *Fille d'Argentine 15.11.*
+  *Mister Chang, Come Alone.*
+- **[gewichtig]** `G-LETZTER-HEUTE-BODEN` Ein klar verlorener letzter Lauf (5 Längen und mehr) auf dem heutigen Boden
+  ist ein Gegenargument. Übergangen wird er nur, wenn das Pferd behindert wurde oder gegen den Rennverlauf gelaufen
+  ist. *Fille d'Argentine 15.11.*
 - **[leicht]** `P-ERSTER-ANSATZ` „Erster Ansatz“ nach einer Reihe schwacher Läufe ist ein Plus, trägt aber höchstens eine kleine Wette.
   *Cole Chop.*
 - **[gewichtig]** `G-FORMLOS` Lange formlose Phase („Formkurve seit Monaten schwach“) wiegt schwerer als einzelne gute Werte
@@ -95,7 +96,7 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
   und schlechter, schlechte Reife) → keine Wette. *Littoral Nord 11.11. (−17).*
 - **[leicht]** `F-ABSTAMMUNG-LEICHT` Leicht unpassende Abstammung (etwa −9) bei erstmals neuem Belag: nur Fragezeichen. *Magenta Melody
   16.11.*
-- **[gewichtig]** `P-BODEN-BEWAEHRT` Bewährung auf genau dem heutigen Boden (Very slow: Collant = Lourd) trägt auch dünnen Value.
+- **[gewichtig]** `P-BODEN-BEWAEHRT` Bewährung auf genau dem heutigen Boden trägt auch dünnen Value.
   *Algeciras.*
 - **[leicht]** `F-BODEN-SOUPLE` Nur auf Souple bewährt, heute Très souple: leicht dagegen, trägt hoher Value. *Kenergy 10.11.*
 - **[gewichtig]** `G-BODEN-WEICH-SCHWACH` Auf sehr weichem Boden deutlich schlechterer Schnitt bzw. erstmals Very slow bei weiteren
@@ -141,15 +142,12 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
 ## Gesamturteil, Maßstab, Rennvergleich
 
 - **[ausschlaggebend]** `U-VALUE-DUENN` Dünner Value (knapp über +5 %) und „wird gut laufen“ reicht nicht; es braucht etwas
-  Überzeugendes, sonst ist der Kurs „nicht mehr wert“. *Dublin Calling, Bosquet, Boomslang (0–4 %, damals noch
-  Kandidaten).*
+  Überzeugendes, sonst ist der Kurs „nicht mehr wert“. *Trevilly 10.11. (+7 %).*
 - **[gewichtig]** `U-VIELE-FRAGEN` Viele Fragezeichen bei mittlerem Value (+15 bis +35 %) → keine Wette, auch mit starkem Trainer und
   bestem ARR. *Ozark James, Giovanni Giorgio (sieglos, Pause, erstmals Wallach, erstmals 2000 m).*
 - **[gewichtig]** `U-VALUE-OHNE-PRO` Viel Value ohne Pro-Argumente ist kein Argument. *Interactiv (+135 %).*
 - **[gewichtig]** `U-MASSSTAB` Ohne Maßstab fehlt „die Elle, gegen was man besser sein muss“ – erst die zwei Maßstäbe lesen, dann
-  urteilen. *Boomslang 18.11.* **[gewichtig · vorläufig]** `G-MASSSTAB-BESSER` Lief ein Maßstab in seinem Referenzlauf
-  klar besser (etwa 2 Punkte ARR mehr, in einem stärkeren Rennen), reicht es bei kurzer Quote nicht für eine Wette.
-  *X Rays 15.11.*
+  urteilen. *Boomslang 18.11.*
 - **[gewichtig]** `U-GRENZE` Rennvergleich: „wenn dann X“ heißt nicht, dass X gewettet wird; die Grenze kann vor Platz 1 liegen.
   *Verdansk, L'Annonciade.*
 - **[leicht]** `U-KLEINE-WETTE` Kleine Wette passt zu: unexposed, starke Verbindungen, ein klares Fragezeichen (lange Pause, erstmals
@@ -158,9 +156,6 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
   *Lovely Warrior 16.11.*
 - **[gewichtig]** `G-MASSSTAB-BESSER` Lief ein Maßstab in seinem Referenzlauf klar besser als der Kandidat in seinem
   (etwa 2 Punkte ARR mehr, in einem stärkeren Rennen), reicht es bei kurzer Quote nicht für eine Wette. *X Rays 15.11.*
-- **[gewichtig]** `G-LETZTER-HEUTE-BODEN` Ein klar verlorener letzter Lauf (5 Längen und mehr) auf dem heutigen Boden ist
-  ein Gegenargument. Übergangen wird er nur, wenn das Pferd behindert wurde oder gegen den Rennverlauf gelaufen ist.
-  *Fille d'Argentine 15.11.*
 - **[leicht]** `U-ARR-ABSTAND` Liegt der Referenzlauf etwa 3 Punkte ARR oder mehr unter dem besten Pferd im Feld, reicht
   es höchstens für eine kleine Wette, auch bei einem wenig exposed Pferd. *Aura 17.11.*
 
