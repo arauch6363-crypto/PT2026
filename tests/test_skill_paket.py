@@ -40,4 +40,5 @@ def test_einsichten_nennen_nur_gueltige_gewichte():
     text = (SKILL / "EINSICHTEN.md").read_text(encoding="utf-8")
     gewichte = re.findall(r"\*\*\[([^\]]+)\]\*\*", text)
     assert gewichte, "keine Gewichte in EINSICHTEN.md"
-    assert set(gewichte) <= {"ausschlaggebend", "gewichtig", "leicht"}
+    # Gewicht, optional mit Vermerk „vorläufig“ (eine Einsicht aus einem Fall)
+    assert {g.removesuffix(" · vorläufig") for g in gewichte} <= {"ausschlaggebend", "gewichtig", "leicht"}

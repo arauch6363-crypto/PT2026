@@ -273,3 +273,13 @@ def test_streng_prueft_kennungen():
     r["kandidaten"][0]["gegen"] = ["erfunden (G-GIBT-ES-NICHT)"]
     with pytest.raises(ValueError, match="G-GIBT-ES-NICHT"):
         dg.rennen_pruefen_streng(r)
+
+
+def test_stillgelegte_kennungen(tmp_path):
+    (tmp_path / "SKILL.md").write_text("- `G-A` eins\n- `G-B` zwei\n", encoding="utf-8")
+    (tmp_path / "EINSICHTEN.md").write_text(
+        "- **[leicht]** `G-A` x\n- **[leicht]** `P-C` y\n\n## Stillgelegte Kennungen\n\n- `G-B` → `G-A`\n",
+        encoding="utf-8")
+    assert dg.stillgelegt(tmp_path) == {"G-B": "G-A"}
+    assert dg.kennungen(tmp_path) == {"G-A", "P-C"}
+    assert dg.stillgelegt() == {}          # im echten Skill bisher keine

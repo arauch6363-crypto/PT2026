@@ -38,7 +38,10 @@ Skill.
 3. **Gegenprobe.** Bei welchen Verlierern desselben Tages (Kandidaten und Maßstäbe aller Rennen im Material) stand
    derselbe Datenpunkt ebenfalls? Mit Namen und Anzahl, z. B. „2 von 9 Verlierern mit CGD: Afterglow, Tulpar“. Eine
    Gegenprobe, die den Datenpunkt bei vielen Verlierern zeigt, gehört in den Vorschlag, auch wenn sie ihn schwächt.
-4. **Schluss.** Hätte eine andere Gewichtung oder Regel das Urteil gedreht, ohne bei den Verlierern der Gegenprobe
+4. **Abgleich.** Gibt es im selben Abschnitt von `EINSICHTEN.md` (oder in den Listen von `SKILL.md`) schon eine
+   Einsicht zu dieser Lage? Dann ist der Vorschlag `aendern` (Text schärfen, Grenze ergänzen, Beispiel tauschen),
+   nicht `neu`. Eine neue Einsicht nur, wenn keine bestehende die Lage trifft.
+5. **Schluss.** Hätte eine andere Gewichtung oder Regel das Urteil gedreht, ohne bei den Verlierern der Gegenprobe
    falsch zu drehen? Ja → Vorschlag. Nein → Fall ohne Vorschlag mit einem Satz Befund.
 
 ## Vorschlag
@@ -53,9 +56,10 @@ Jeder Vorschlag ist eine **konkrete Textänderung**, über die der Nutzer mit Ja
 | `durchgang` | ein Satz: Urteil, Festkurs, woran es hing |
 | `datenpunkt` | Zitat aus dem Blatt |
 | `gegenprobe` | höchstens drei Sätze: wie viele Verlierer mit Namen, was den Vorschlag schwächt |
-| `art` | `neu`, `aendern`, `gewicht` oder `streichen` |
+| `art` | `neu`, `aendern`, `zusammenfassen`, `gewicht` oder `streichen` |
 | `zieldatei` | `SKILL.md` (Regel, Liste) oder `EINSICHTEN.md` (Gewichtung, typischer Fehler) |
 | `kennung` | bestehende Kennung oder eine neue nach dem Muster in `SKILL.md` („Kennungen“) |
+| `alt` | bei `aendern` und `zusammenfassen`: der bisherige Text, wörtlich (bei mehreren Einsichten alle) |
 | `text` | **wörtlich** der neue oder geänderte Text, so wie er in der Datei stehen soll, mit Fallbeispiel in *kursiv* |
 | `gewicht` | `ausschlaggebend`, `gewichtig` oder `leicht` – Claudes Vorschlag |
 
@@ -81,6 +85,27 @@ Mehrere Fälle, die auf dieselbe Regel zeigen, ergeben **einen** Vorschlag mit a
 ordnen: klare Gegenprobe und klarer Regelbezug zuerst. Ein früher abgelehnter Vorschlag (`auswertung/vorschlaege.csv`,
 `entscheidung` nein) kommt nur mit neuen Belegen wieder, und dann mit Verweis auf die Ablehnung.
 
+## Verdichten
+
+`EINSICHTEN.md` wird von jedem Subagenten in jedem Durchgang ganz gelesen; jede Zeile kostet Aufmerksamkeit. Deshalb bei
+jedem Lauf `python3 -I ergebnis_analyse.py verdichtung` prüfen. Jeder gemeldete Anlass ergibt Vorschläge:
+
+- **`abschnitt_voll`** (mehr als 8 Einsichten): Einsichten des Abschnitts suchen, die dieselbe Lage beschreiben, und
+  als `zusammenfassen` vorschlagen; wo nichts doppelt ist, die schwächste [leicht]-Einsicht ohne neuen Fall als
+  `streichen`.
+- **`datei_lang`** (mehr als 200 Zeilen): dasselbe für die längsten Abschnitte; Fallbeispiele auf höchstens zwei je
+  Einsicht kürzen (das neuere bleibt).
+- **`vorlaeufig_bestaetigt`**: Vorschlag `gewicht`, der den Vermerk „vorläufig“ streicht.
+  **`vorlaeufig_unter_druck`**: Vorschlag `streichen`.
+
+**Zusammenfassen:** Der neue Text ersetzt alle beteiligten Einsichten. Eine Kennung bleibt – die ältere oder die
+treffendere. Die übrigen kommen in `EINSICHTEN.md` unter „Stillgelegte Kennungen“ (`ALT` → `NEU`) und verschwinden aus
+Text und Listen; das Regelprotokoll zählt sie unter der verbleibenden weiter. Zeigen zwei Einsichten in verschiedene
+Richtungen (Pro und Gegen derselben Lage), stehen sie als ein Eintrag mit beiden Kennungen; keine wird stillgelegt.
+
+Vermerk **vorläufig** (eine Einsicht aus einem Fall): steht hinter dem Gewicht, `[gewichtig · vorläufig]`; die Einsicht
+kommt in den Abschnitt ihres Prüfschritts, nicht in einen eigenen Abschnitt.
+
 ## Regel unter Druck
 
 Meldet `ergebnis_analyse.py bericht` eine Regel als `unter_druck` (n ≥ 20, z gegen ihre Richtung), wird daraus ein
@@ -89,7 +114,8 @@ ohne „ja“ des Nutzers gestrichen.
 
 ## Integrieren (nur nach Entscheidung des Nutzers)
 
-- **ja**: den Text unverändert eintragen. **geaendert**: den Text nach der Notiz des Nutzers umschreiben und vor dem
+- **ja**: den Text unverändert eintragen; neue Einsichten in den Abschnitt ihres Prüfschritts, aus einem Fall mit
+  Vermerk „vorläufig“. Bei `zusammenfassen` die alten Einträge entfernen und stillgelegte Kennungen eintragen. **geaendert**: den Text nach der Notiz des Nutzers umschreiben und vor dem
   Eintragen im Chat zeigen. **nein**: nichts eintragen; die Notiz ist die Begründung.
 - Kennungen bleiben dauerhaft (Regel in `SKILL.md`, Lernschleife).
 - Danach den Testsatz laufen lassen (`claude_projekt/aufgabe_testsatz.md`). Zeigt er einen **Rückschritt**, dem Nutzer

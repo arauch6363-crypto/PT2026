@@ -147,3 +147,50 @@ def test_vorschlaege_ablegen_upsert(tmp_path):
     assert len(alle) == 1 and alle[0]["entscheidung"] == "nein" and alle[0]["entschieden"]
     with pytest.raises(ValueError, match="entscheidung"):
         ea.vorschlaege_ablegen(tmp_path, [{**v, "entscheidung": "vielleicht"}])
+
+
+def _skill(tmp_path, abschnitt_n=3, extra_zeilen=0, vorl="G-V"):
+    eintraege = "".join(f"- **[leicht]** `G-E{i}` Text.\n" for i in range(abschnitt_n))
+    t = ("# Einsichten\n\n## 1. Ausgangslage\n\n" + eintraege +
+         f"- **[gewichtig · vorläufig]** `{vorl}` Neu. *X 15.11.*\n\n## 2. Letzter Lauf\n\n- **[leicht]** `P-L` a\n"
+         + "\n" * extra_zeilen + "\n## Stillgelegte Kennungen\n\n- `G-ALT` → `G-E0`\n")
+    (tmp_path / "EINSICHTEN.md").write_text(t, encoding="utf-8")
+    (tmp_path / "SKILL.md").write_text("", encoding="utf-8")
+    return tmp_path
+
+
+def test_verdichtung_ohne_anlass(tmp_path):
+    v = ea.verdichtung(_skill(tmp_path), [])
+    assert v["anlaesse"] == []
+    assert v["abschnitte"] == {"1. Ausgangslage": 4, "2. Letzter Lauf": 1}
+    assert v["vorlaeufig"] == ["G-V"]
+
+
+def test_verdichtung_abschnitt_und_laenge(tmp_path):
+    v = ea.verdichtung(_skill(tmp_path, abschnitt_n=8, extra_zeilen=200), [])
+    arten = sorted(a["art"] for a in v["anlaesse"])
+    assert arten == ["abschnitt_voll", "datei_lang"]
+    assert next(a for a in v["anlaesse"] if a["art"] == "abschnitt_voll")["abschnitt"] == "1. Ausgangslage"
+
+
+def test_verdichtung_vorlaeufig_bestaetigt(tmp_path):
+    zeilen = [{"kennung": "G-V", "richtung": "gegen", "gewonnen": 0, "p_markt": 0.2} for _ in range(20)]
+    v = ea.verdichtung(_skill(tmp_path), zeilen)
+    assert v["anlaesse"] == [{"art": "vorlaeufig_bestaetigt", "kennung": "G-V", "n": 20, "z": pytest.approx(-2.24, abs=0.01)}]
+
+
+def test_bericht_zaehlt_stillgelegte_mit():
+    zeilen = [{"kennung": "G-ALT", "richtung": "gegen", "gewonnen": 0, "p_markt": 0.2},
+              {"kennung": "G-NEU", "richtung": "gegen", "gewonnen": 1, "p_markt": 0.2}]
+    b = ea.bericht(zeilen, {"G-ALT": "G-NEU"})
+    assert len(b) == 1 and b[0]["kennung"] == "G-NEU" and b[0]["n"] == 2
+
+
+def test_verdichtung_zwei_kennungen_in_einem_eintrag(tmp_path):
+    t = ("## 2. Letzter Lauf\n\n- **[leicht]** `P-L` Wird übergangen. *A.* Auf dem heutigen Boden gilt das nicht:\n"
+         "  **[gewichtig · vorläufig]** `G-H` Gegenargument. *B 15.11.*\n")
+    (tmp_path / "EINSICHTEN.md").write_text(t, encoding="utf-8")
+    (tmp_path / "SKILL.md").write_text("", encoding="utf-8")
+    v = ea.verdichtung(tmp_path, [])
+    assert v["abschnitte"] == {"2. Letzter Lauf": 1}
+    assert v["vorlaeufig"] == ["G-H"]

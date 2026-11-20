@@ -14,6 +14,8 @@ Aufruf:
         Regelprotokoll mit den Kennungen des Tages fortschreiben (ersetzt Zeilen desselben Tages).
     python3 -I ergebnis_analyse.py bericht [--ordner auswertung]
         Regelprotokoll je Kennung und Richtung als JSON (n, Siege, erwartet, A/E, z, unter_druck).
+    python3 -I ergebnis_analyse.py verdichtung [--ordner auswertung]
+        Anlässe zum Verdichten von EINSICHTEN.md als JSON (Abschnitt voll, Datei lang, vorläufige Einsicht mit 20 Fällen).
     python3 -I ergebnis_analyse.py naechster-tag JJJJMMTT … [--ordner auswertung]
         Ältester der genannten Tage, der noch nicht analysiert ist (oder „keiner“).
     python3 -I ergebnis_analyse.py tag-abschliessen JJJJMMTT --commit SHA --vorschlaege N [--ordner auswertung]
@@ -27,6 +29,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -46,7 +49,7 @@ DRUCK_N, DRUCK_Z = 20, 2.0          # Regel unter Druck: mindestens so viele Fä
 PROTOKOLL_FELDER = ["datum", "race_id", "no", "horse", "kennung", "richtung", "urteil", "fk", "p_markt", "gewonnen"]
 TAGE_FELDER = ["datum", "analysiert", "commit", "vorschlaege"]
 VORSCHLAG_FELDER = ["id", "datum", "titel", "fall", "rennen", "race_id", "no", "horse", "durchgang", "datenpunkt",
-                    "gegenprobe", "art", "zieldatei", "kennung", "text", "gewicht", "entscheidung", "notiz", "entschieden"]
+                    "gegenprobe", "art", "zieldatei", "kennung", "alt", "text", "gewicht", "entscheidung", "notiz", "entschieden"]
 ENTSCHEIDUNGEN = {"offen", "ja", "nein", "geaendert"}
 
 
@@ -209,12 +212,16 @@ def protokoll_fortschreiben(ordner: str | Path, m: dict) -> int:
     return len(neu)
 
 
-def bericht(zeilen: list[dict]) -> list[dict]:
+def bericht(zeilen: list[dict], stillgelegt: dict[str, str] | None = None) -> list[dict]:
     """Je Kennung und Richtung: n, Siege, erwartete Siege (Σ Marktchance), A/E, z; unter_druck, wenn n ≥ DRUCK_N und
     z gegen die Richtung (Pro-Regel: z ≤ −2; Gegen-Regel: z ≥ +2)."""
+    stillgelegt = stillgelegt or {}
     gruppen: dict[tuple[str, str], list[dict]] = {}
     for z in zeilen:
-        gruppen.setdefault((z["kennung"], z["richtung"]), []).append(z)
+        ken = z["kennung"]
+        while ken in stillgelegt:                     # zusammengefasste Einsicht zählt unter der verbleibenden
+            ken = stillgelegt[ken]
+        gruppen.setdefault((ken, z["richtung"]), []).append(z)
     out = []
     for (ken, rt), zs in sorted(gruppen.items()):
         n = len(zs)
@@ -227,6 +234,41 @@ def bericht(zeilen: list[dict]) -> list[dict]:
         out.append({"kennung": ken, "richtung": rt, "n": n, "siege": siege, "erwartet": round(erw, 2),
                     "ae": round(siege / erw, 2) if erw else None, "z": round(zwert, 2), "unter_druck": druck})
     return out
+
+
+# ---------------------------------------------------------------- Verdichtung
+
+ABSCHNITT_MAX = 8          # mehr Einsichten in einem Abschnitt → Verdichtung vorschlagen
+ZEILEN_MAX = 200           # EINSICHTEN.md länger → Verdichtung vorschlagen
+GEWICHT_KENNUNG = re.compile(r"\*\*\[([^\]]+)\]\*\* `([FGPU]-[A-Z0-9-]+)`")   # auch zweite Kennung in einem Eintrag
+
+
+def verdichtung(skill_ordner: str | Path, zeilen: list[dict]) -> dict:
+    """Anlässe zum Verdichten von EINSICHTEN.md (ADR 0003, Skill ergebnis-analyse): Abschnitt mit mehr als ABSCHNITT_MAX
+    Einsichten, Datei länger als ZEILEN_MAX Zeilen, vorläufige Einsicht mit mindestens DRUCK_N Fällen im
+    Regelprotokoll (bestätigt oder unter Druck)."""
+    text = (Path(skill_ordner) / "EINSICHTEN.md").read_text(encoding="utf-8")
+    abschnitte: dict[str, int] = {}
+    vorlaeufig: list[str] = []
+    titel = None
+    for z in text.split("\n"):
+        if z.startswith("## "):
+            titel = z[3:].strip()
+            continue
+        if not titel:
+            continue
+        if z.startswith("- **["):
+            abschnitte[titel] = abschnitte.get(titel, 0) + 1
+        vorlaeufig += [k for g, k in GEWICHT_KENNUNG.findall(z) if "vorläufig" in g]
+    anlaesse = [{"art": "abschnitt_voll", "abschnitt": a, "n": n} for a, n in abschnitte.items() if n > ABSCHNITT_MAX]
+    zeilen_n = len(text.rstrip("\n").split("\n"))
+    if zeilen_n > ZEILEN_MAX:
+        anlaesse.append({"art": "datei_lang", "zeilen": zeilen_n})
+    for b in bericht(zeilen, dg.stillgelegt(skill_ordner)):
+        if b["kennung"] in vorlaeufig and b["n"] >= DRUCK_N:
+            art = "vorlaeufig_unter_druck" if b["unter_druck"] else "vorlaeufig_bestaetigt"
+            anlaesse.append({"art": art, "kennung": b["kennung"], "n": b["n"], "z": b["z"]})
+    return {"abschnitte": abschnitte, "zeilen": zeilen_n, "vorlaeufig": vorlaeufig, "anlaesse": anlaesse}
 
 
 # ---------------------------------------------------------------- Tage und Vorschläge
@@ -300,7 +342,9 @@ def main(argv: list[str]) -> None:
         m = json.loads(Path(args[0]).read_text(encoding="utf-8"))
         print(f"{protokoll_fortschreiben(ordner, m)} Zeilen für {m['datum']}")
     elif cmd == "bericht":
-        print(json.dumps(bericht(protokoll_lesen(ordner)), ensure_ascii=False, indent=1))
+        print(json.dumps(bericht(protokoll_lesen(ordner), dg.stillgelegt()), ensure_ascii=False, indent=1))
+    elif cmd == "verdichtung":
+        print(json.dumps(verdichtung(dg.SKILL_ORDNER, protokoll_lesen(ordner)), ensure_ascii=False, indent=1))
     elif cmd == "naechster-tag":
         print(naechster_tag(ordner, args) or "keiner")
     elif cmd == "tag-abschliessen":

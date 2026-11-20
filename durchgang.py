@@ -227,13 +227,35 @@ KENNUNG = re.compile(r"\b[FGPU]-[A-Z0-9]+(?:-[A-Z0-9]+)*\b")
 ZITAT_FELDER = ("pro", "gegen", "fragen", "ausschlag")
 
 
-def kennungen(ordner: str | Path = SKILL_ORDNER) -> set[str]:
-    """Alle Regelkennungen, die SKILL.md und EINSICHTEN.md definieren (in Backticks, z. B. `G-AUSRUESTUNG-WEG`)."""
-    out: set[str] = set()
+STILLGELEGT_KOPF = "## Stillgelegte Kennungen"
+
+
+def _skilltexte(ordner: str | Path) -> tuple[str, str]:
+    """Text von SKILL.md und EINSICHTEN.md, jeweils ohne den Abschnitt der stillgelegten Kennungen, und dieser Abschnitt."""
+    aktiv, still = [], ""
     for name in ("SKILL.md", "EINSICHTEN.md"):
         text = (Path(ordner) / name).read_text(encoding="utf-8")
-        out |= {m for m in re.findall(r"`([FGPU]-[A-Z0-9-]+)`", text) if KENNUNG.fullmatch(m)}
-    return out
+        i = text.find(STILLGELEGT_KOPF)
+        if i >= 0:
+            j = text.find("\n## ", i + len(STILLGELEGT_KOPF))
+            still += text[i:] if j < 0 else text[i:j]
+            text = text[:i] + ("" if j < 0 else text[j:])
+        aktiv.append(text)
+    return "\n".join(aktiv), still
+
+
+def kennungen(ordner: str | Path = SKILL_ORDNER) -> set[str]:
+    """Alle gültigen Regelkennungen aus SKILL.md und EINSICHTEN.md (in Backticks, z. B. `G-AUSRUESTUNG-WEG`);
+    stillgelegte zählen nicht."""
+    text, _ = _skilltexte(ordner)
+    alle = {m for m in re.findall(r"`([FGPU]-[A-Z0-9-]+)`", text) if KENNUNG.fullmatch(m)}
+    return alle - set(stillgelegt(ordner))
+
+
+def stillgelegt(ordner: str | Path = SKILL_ORDNER) -> dict[str, str]:
+    """Zusammengefasste Einsichten: stillgelegte Kennung → Kennung, unter der sie weiterzählt."""
+    _, still = _skilltexte(ordner)
+    return dict(re.findall(r"`([FGPU]-[A-Z0-9-]+)`\s*→\s*`([FGPU]-[A-Z0-9-]+)`", still))
 
 
 def zitierte(k: dict) -> dict[str, list[str]]:

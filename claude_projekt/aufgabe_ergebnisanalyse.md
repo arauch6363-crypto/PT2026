@@ -54,6 +54,8 @@ Sitzung „entschieden“ schreibt (er nimmt sich die Seite im Lauf des Tages vo
 - Skill `ergebnis-analyse` anwenden: je verpasstem Sieger und verlorenem Claude-Tipp Regel, Datenpunkt, Gegenprobe,
   Schluss; daraus die Vorschläge. Für jede Regel mit `unter_druck` im Bericht ein Vorschlag nach dem Skill.
 - Frühere Entscheidungen beachten: `REPO/auswertung/vorschlaege.csv`.
+- `python3 -I REPO/ergebnis_analyse.py verdichtung` – jeder Anlass ergibt Vorschläge nach dem Skill (Abschnitt
+  „Verdichten“), id `TAG-V1`, `TAG-V2`, … Ohne Anlass nichts verdichten.
 - Vorschläge nummerieren: id = `TAG-1`, `TAG-2`, … (Regel unter Druck: `TAG-D1`, …).
 
 ### 5. Seite füllen

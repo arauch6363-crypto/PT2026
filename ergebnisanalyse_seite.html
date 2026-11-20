@@ -18,6 +18,7 @@ select{background:var(--card);border:1px solid var(--line);border-radius:6px;pad
 .karte{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
 .feld{margin:6px 0}.feld span{color:var(--muted);font-size:13px;display:block}
 .text{background:var(--soft);border-radius:6px;padding:8px 10px;white-space:pre-wrap}
+.text.alt{background:transparent;border:1px dashed var(--line);color:var(--muted)}
 .tag{display:inline-block;font-size:12px;border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin-right:4px}
 .knoepfe{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
 button{border:1px solid var(--line);background:var(--card);border-radius:6px;padding:6px 14px;cursor:pointer}
@@ -45,7 +46,8 @@ table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;p
 <script>
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const ART = {treffer: "Treffer", verpasster_sieger: "Verpasster Sieger", verlorener_tipp: "Verlorener Tipp"};
+const ART = {treffer: "Treffer", verpasster_sieger: "Verpasster Sieger", verlorener_tipp: "Verlorener Tipp",
+  verdichtung: "Verdichtung", regel_unter_druck: "Regel unter Druck"};
 const GRUPPE = {treffer: "Treffer", verpasster_sieger: "Verpasste Sieger", verlorener_tipp: "Verlorene Tipps",
   massstab: "Sieger war Maßstab", sonstig: "Sonstige Sieger", ohne_durchgang: "Rennen ohne Durchgang"};
 let tage = [], vorschlaege = [], db = null, gewaehlt = null;
@@ -88,7 +90,8 @@ function zeichnen() {
       <div class="feld"><span>Was der Durchgang sagte</span>${esc(v.durchgang)}</div>
       <div class="feld"><span>Datenpunkt auf der Karte (vor dem Rennen)</span>${esc(v.datenpunkt)}</div>
       <div class="feld"><span>Gegenprobe</span>${esc(v.gegenprobe)}</div>
-      <div class="feld"><span>${esc(v.art)} · ${esc(v.zieldatei)} · ${esc(v.kennung)}</span><div class="text">${esc(v.text)}</div></div>
+      ${v.alt ? `<div class="feld"><span>Bisher</span><div class="text alt">${esc(v.alt)}</div></div>` : ""}
+      <div class="feld"><span>${v.alt ? "Neu · " : ""}${esc(v.art)} · ${esc(v.zieldatei)} · ${esc(v.kennung)}</span><div class="text">${esc(v.text)}</div></div>
       <div class="knoepfe">
         <label class="small">Gewicht <select data-gewicht>${["ausschlaggebend", "gewichtig", "leicht"].map(g =>
           `<option ${g === v.gewicht ? "selected" : ""}>${g}</option>`).join("")}</select></label>

@@ -266,7 +266,7 @@ Gilt nur für die Durchsicht mit dem Nutzer, nicht für den automatischen Durchg
 - **Am Ende der Sitzung verdichten:** Änderungen an `EINSICHTEN.md` (Gewicht aus der Argumentation des Nutzers, ein
   Beispiel je Einsicht, Doppeltes zusammenfassen) und an `SKILL.md` vorschlagen, Zustimmung abwarten, dann eintragen.
 - **Regel in `SKILL.md`** erst, wenn zwei Fälle „Claude lernt“ in dieselbe Richtung zeigen oder der Nutzer sie
-  ausdrücklich zur Regel erklärt; bis dahin unter „Vorläufig“ in `EINSICHTEN.md`. Abweichende, vom Nutzer nicht
+  ausdrücklich zur Regel erklärt; bis dahin in `EINSICHTEN.md` im Abschnitt ihres Prüfschritts mit dem Vermerk „vorläufig“. Abweichende, vom Nutzer nicht
   abgelehnte Urteile und Lagen, in denen der Nutzer selbst schwankte, kommen unter „Ermessen“.
 - **Kennungen sind dauerhaft:** Eine neue Regel oder Einsicht bekommt eine neue Kennung; eine bestehende wird nie
   umbenannt oder für eine andere Bedeutung wiederverwendet (das Regelprotokoll der Ergebnisanalyse zählt nach ihr).

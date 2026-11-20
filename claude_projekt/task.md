@@ -53,7 +53,7 @@ Wiederholung, Regeln (`SKILL.md`). **Ziel:** Ein NAP von Claude soll genau das s
 - **Am Ende der Sitzung verdichten** (nicht je Rennen): Änderungen an `EINSICHTEN.md` vorschlagen – Gewicht
   (ausschlaggebend / gewichtig / leicht) aus der Argumentation des Nutzers ableiten, kein Fallzähler; je Einsicht ein
   Beispiel in einem Satz; Doppeltes zusammenfassen; so kurz wie möglich, aber keine wesentliche Idee verlieren.
-  Einzelfälle unter „Vorläufig“, vom Nutzer nicht abgelehnte abweichende Urteile unter „Ermessen“. Zustimmung
+  Einzelfälle mit Vermerk „vorläufig“ im Abschnitt ihres Prüfschritts, vom Nutzer nicht abgelehnte abweichende Urteile unter „Ermessen“. Zustimmung
   abwarten, dann PR. `SKILL.md` bleibt ohne Pferdenamen als Beleg (nur die Formatbeispiele nennen Pferde).
 - **Regel in `SKILL.md`** erst, wenn **zwei Fälle „Claude lernt“ in dieselbe Richtung** zeigen oder der Nutzer es
   ausdrücklich zur Regel erklärt – dann Wortlaut vorschlagen, Zustimmung abwarten, eintragen.
@@ -79,7 +79,7 @@ Wiederholung, Regeln (`SKILL.md`). **Ziel:** Ein NAP von Claude soll genau das s
 - **Regeln seit der Durchsicht:** Claimer → Handicap (Gegenargument); keine kleine Wette als Ausweg für exposed
   Pferde mit schwachen Verbindungen; Ausrüstungswechsel nach Bilanzen mit/ohne; **Maßstab** (FK-Favorit bzw. Zweiter
   im Festkurs je Rennen mitprüfen, nie wetten; `blatt.py` druckt ihn, Durchgang hat Feld `massstab`).
-- **Einzelfälle, noch keine Regel (auf zweiten Fall achten):** stehen unter „Vorläufig“ in `EINSICHTEN.md`.
+- **Einzelfälle, noch keine Regel (auf zweiten Fall achten):** stehen in `EINSICHTEN.md` mit Vermerk „vorläufig“ (Gewicht `[gewichtig · vorläufig]`).
 - Paumy und Give Me A Shivers (16.11. R3C6) standen schon in der alten Muster-Liste, obwohl der Fall noch nicht
   besprochen ist – in `EINSICHTEN.md` bewusst nicht übernommen; beim Abschluss von R3C6 einordnen.
 

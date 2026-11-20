@@ -13,7 +13,12 @@ gewichtete, und Vorläufiges zählt am wenigsten.
 Die **Kennung** hinter dem Gewicht (z. B. `G-AUSRUESTUNG-WEG`) ist dieselbe wie in den Listen von `SKILL.md`;
 im Durchgang wird sie hinter dem Satz zitiert, der sich auf die Einsicht stützt.
 
-Beispiele in *kursiv* (Pferd, Datum) dienen nur dem Wiedererkennen der Lage; das Archiv liegt außerhalb des Skills.
+**vorläufig** hinter dem Gewicht: aus einem Fall, noch nicht bestätigt. Darf als Hinweis dienen; wer sich darauf stützt,
+nennt es im Urteil („vorläufige Einsicht“). Der Vermerk fällt, wenn ein zweiter Fall in dieselbe Richtung zeigt oder das
+Regelprotokoll die Einsicht nach 20 Fällen nicht unter Druck sieht.
+
+Die Einsichten stehen nach Prüfschritt geordnet; Ähnliches steht im selben Abschnitt. Beispiele in *kursiv* (Pferd,
+Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das Archiv liegt außerhalb des Skills.
 
 ## Claudes typische Fehler – vor dem ersten Rennen lesen
 
@@ -55,6 +60,8 @@ Beispiele in *kursiv* (Pferd, Datum) dienen nur dem Wiedererkennen der Lage; das
   *Algeciras, Mister Chang, Cervaro.*
 - **[gewichtig]** `G-UEBER-SIEGMARKE` Im Handicap: über der letzten Siegmarke ist bei exposed Pferden ein Gegenargument, bei jungen nur
   ein Fragezeichen. *The Cat's, Silgreypit (+3,5 kg).*
+- **[gewichtig · vorläufig]** `G-MODELL-UNSICHER` Sehr hoher Value (über etwa +100 %) auf Formen, die das Modell schlecht einschätzen kann
+  (Ausland, extern, wenig Daten) → eher Modell unsicher als Markt falsch; eher keine Wette. *Arkansas 11.11.*
 
 ## 2. Letzter Lauf
 
@@ -64,6 +71,9 @@ Beispiele in *kursiv* (Pferd, Datum) dienen nur dem Wiedererkennen der Lage; das
   *Cole Chop.*
 - **[gewichtig]** `G-FORMLOS` Lange formlose Phase („Formkurve seit Monaten schwach“) wiegt schwerer als einzelne gute Werte
   (höchster ARR, Bahnsieg, gefallene Marke). *Piano Bar 16.11.*
+- **[gewichtig · vorläufig]** `G-LETZTER-HEUTE-BODEN` Ein klar verlorener letzter Lauf (5 Längen und mehr) auf dem heutigen Boden ist
+  ein Gegenargument. Übergangen wird er nur, wenn das Pferd behindert wurde oder gegen den Rennverlauf gelaufen ist.
+  *Fille d'Argentine 15.11.*
 
 ## 3. Referenzlauf und Leitfrage
 
@@ -109,6 +119,9 @@ Beispiele in *kursiv* (Pferd, Datum) dienen nur dem Wiedererkennen der Lage; das
 - **[gewichtig]** `G-STALL-KLEIN` Kleiner Stall ohne Sieg in zwei Jahren → Gegenargument („fehlt die Klasse“); klein, aber geschickt
   operierend → neutral bis Pro. *Go For It gegen L'Annonciade, Verdansk.*
 - **[leicht]** `P-JOCKEY-KENNT` Jockey kennt das Pferd (Siege zusammen), Jockey-A/E über 1. *Mister Chang, Verdansk.*
+- **[gewichtig · vorläufig]** `P-NEUER-TRAINER` Pferd steigert sich gerade beim neuen Trainer (Siege kurz nach dem Wechsel) → ältere Formen und
+  Durchschnitts-ARR weniger streng, auch mit Höchstgewicht auf PSF (Gewicht + Klassenfrage auf Collant/Lourd bleibt
+  ausschlaggebend). *Senorito 16.11. (klein, fair 3,5–4).*
 
 ## 6. Umstände heute
 
@@ -139,23 +152,10 @@ Beispiele in *kursiv* (Pferd, Datum) dienen nur dem Wiedererkennen der Lage; das
   *Verdansk, L'Annonciade.*
 - **[leicht]** `U-KLEINE-WETTE` Kleine Wette passt zu: unexposed, starke Verbindungen, ein klares Fragezeichen (lange Pause, erstmals
   PSF) oder viel Klasse, aber lange sieglos. *Come Alone, Magenta Melody, Cervaro.*
-
-## Vorläufig (ein Fall)
-
-Darf als Hinweis dienen; wer sich darauf stützt, nennt es im Urteil („vorläufige Einsicht“).
-
-- **[gewichtig]** `P-NEUER-TRAINER` Pferd steigert sich gerade beim neuen Trainer (Siege kurz nach dem Wechsel) → ältere Formen und
-  Durchschnitts-ARR weniger streng, auch mit Höchstgewicht auf PSF (Gewicht + Klassenfrage auf Collant/Lourd bleibt
-  ausschlaggebend). *Senorito 16.11. (klein, fair 3,5–4).*
-- **[gewichtig]** `G-MODELL-UNSICHER` Sehr hoher Value (über etwa +100 %) auf Formen, die das Modell schlecht einschätzen kann
-  (Ausland, extern, wenig Daten) → eher Modell unsicher als Markt falsch; eher keine Wette. *Arkansas 11.11.*
-- **[leicht]** `U-KURZE-QUOTE` Bei kurzer Quote tragen Fragezeichen schwerer (wenig Kurs als Puffer); die Faustregel nach Value bleibt.
+- **[leicht · vorläufig]** `U-KURZE-QUOTE` Bei kurzer Quote tragen Fragezeichen schwerer (wenig Kurs als Puffer); die Faustregel nach Value bleibt.
   *Lovely Warrior 16.11.*
-- **[gewichtig]** `G-MASSSTAB-BESSER` Lief ein Maßstab in seinem Referenzlauf klar besser als der Kandidat in seinem
+- **[gewichtig · vorläufig]** `G-MASSSTAB-BESSER` Lief ein Maßstab in seinem Referenzlauf klar besser als der Kandidat in seinem
   (etwa 2 Punkte ARR mehr, in einem stärkeren Rennen), reicht es bei kurzer Quote nicht für eine Wette. *X Rays 15.11.*
-- **[gewichtig]** `G-LETZTER-HEUTE-BODEN` Ein klar verlorener letzter Lauf (5 Längen und mehr) auf dem heutigen Boden ist
-  ein Gegenargument. Übergangen wird er nur, wenn das Pferd behindert wurde oder gegen den Rennverlauf gelaufen ist.
-  *Fille d'Argentine 15.11.*
 
 ## Ermessen (beide Urteile vertretbar)
 
@@ -164,3 +164,10 @@ kein Fehler ist: Fälle „Claudes Sicht behalten“ (bisher keiner) und Lagen, 
 
 - Kalte Trainerin mit starker Bahnbilanz und Boden ohne Plus: „eher nicht“. *Little Lady 11.11.*
 - Erster Ansatz bei hinterem Rang und guten Vorlieben: „vielleicht kleine Wette“. *Cole Chop.*
+
+## Stillgelegte Kennungen
+
+Zusammengefasste Einsichten: Die Kennung links wird nicht mehr zitiert; das Regelprotokoll zählt sie unter der
+Kennung rechts mit. Format: `ALT` → `NEU`.
+
+- bisher keine
