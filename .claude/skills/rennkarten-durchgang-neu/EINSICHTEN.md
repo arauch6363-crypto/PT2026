@@ -66,14 +66,13 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
 ## 2. Letzter Lauf
 
 - **[leicht]** `P-LETZTER-ANDERS` Ein schwacher letzter Lauf unter anderen Bedingungen (Boden, Distanz) wird übergangen.
-  *Mister Chang, Come Alone, Afterglow.*
+  *Mister Chang, Come Alone.* **[gewichtig · vorläufig]** `G-LETZTER-HEUTE-BODEN` Auf dem heutigen Boden nicht: Dort
+  ist ein klar verlorener Lauf (5 Längen und mehr) ein Gegenargument, außer das Pferd wurde behindert oder lief gegen
+  den Rennverlauf. *Fille d'Argentine 15.11.*
 - **[leicht]** `P-ERSTER-ANSATZ` „Erster Ansatz“ nach einer Reihe schwacher Läufe ist ein Plus, trägt aber höchstens eine kleine Wette.
   *Cole Chop.*
 - **[gewichtig]** `G-FORMLOS` Lange formlose Phase („Formkurve seit Monaten schwach“) wiegt schwerer als einzelne gute Werte
   (höchster ARR, Bahnsieg, gefallene Marke). *Piano Bar 16.11.*
-- **[gewichtig · vorläufig]** `G-LETZTER-HEUTE-BODEN` Ein klar verlorener letzter Lauf (5 Längen und mehr) auf dem heutigen Boden ist
-  ein Gegenargument. Übergangen wird er nur, wenn das Pferd behindert wurde oder gegen den Rennverlauf gelaufen ist.
-  *Fille d'Argentine 15.11.*
 
 ## 3. Referenzlauf und Leitfrage
 
@@ -147,15 +146,15 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
   bestem ARR. *Ozark James, Giovanni Giorgio (sieglos, Pause, erstmals Wallach, erstmals 2000 m).*
 - **[gewichtig]** `U-VALUE-OHNE-PRO` Viel Value ohne Pro-Argumente ist kein Argument. *Interactiv (+135 %).*
 - **[gewichtig]** `U-MASSSTAB` Ohne Maßstab fehlt „die Elle, gegen was man besser sein muss“ – erst die zwei Maßstäbe lesen, dann
-  urteilen. *Boomslang 18.11.*
+  urteilen. *Boomslang 18.11.* **[gewichtig · vorläufig]** `G-MASSSTAB-BESSER` Lief ein Maßstab in seinem Referenzlauf
+  klar besser (etwa 2 Punkte ARR mehr, in einem stärkeren Rennen), reicht es bei kurzer Quote nicht für eine Wette.
+  *X Rays 15.11.*
 - **[gewichtig]** `U-GRENZE` Rennvergleich: „wenn dann X“ heißt nicht, dass X gewettet wird; die Grenze kann vor Platz 1 liegen.
   *Verdansk, L'Annonciade.*
 - **[leicht]** `U-KLEINE-WETTE` Kleine Wette passt zu: unexposed, starke Verbindungen, ein klares Fragezeichen (lange Pause, erstmals
   PSF) oder viel Klasse, aber lange sieglos. *Come Alone, Magenta Melody, Cervaro.*
 - **[leicht · vorläufig]** `U-KURZE-QUOTE` Bei kurzer Quote tragen Fragezeichen schwerer (wenig Kurs als Puffer); die Faustregel nach Value bleibt.
   *Lovely Warrior 16.11.*
-- **[gewichtig · vorläufig]** `G-MASSSTAB-BESSER` Lief ein Maßstab in seinem Referenzlauf klar besser als der Kandidat in seinem
-  (etwa 2 Punkte ARR mehr, in einem stärkeren Rennen), reicht es bei kurzer Quote nicht für eine Wette. *X Rays 15.11.*
 
 ## Ermessen (beide Urteile vertretbar)
 
