@@ -10,7 +10,7 @@ Aus dem Interview vom 10./11.11.2026 (`docs/interview_rennkarten_durchgang.md`).
 ersten Durchgang lesen. Daten: `DATEN.md`. **Gewichtung und typische Fehler: `EINSICHTEN.md`** – vor dem ersten Rennen
 lesen; jedes Argument im Urteil so schwer nehmen, wie es dort eingestuft ist.
 Automatisch läuft der Skill über die Aufgabe „Racecard-Durchgang API“ (`claude_projekt/aufgabe_durchgang.md`, je Rennen
-ein Subagent); von Hand gilt dasselbe Vorgehen und dasselbe Ergebnisformat.
+ein Subagent mit leerem Gesprächs- und Arbeitskontext gestartet. Er erhält ausschließlich die allgemeinen Skill-Grundlagen (SKILL.md, GLOSSARY.md, DATEN.md, EINSICHTEN.md) sowie das mit blatt.py erzeugte Blatt des zu bearbeitenden Rennens. Ergebnisse, Urteile und Argumentationen anderer Rennen dürfen nicht in seinen Kontext übernommen werden.); von Hand gilt dasselbe Vorgehen und dasselbe Ergebnisformat.
 
 ## Ziel und Leitfrage
 
