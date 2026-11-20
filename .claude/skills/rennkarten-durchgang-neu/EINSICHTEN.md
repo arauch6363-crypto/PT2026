@@ -101,8 +101,9 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
 - **[gewichtig]** `G-BODEN-WEICH-SCHWACH` Auf sehr weichem Boden deutlich schlechterer Schnitt bzw. erstmals Very slow bei weiteren
   Fragezeichen. *Crew Dragon, Tulpar, Piano Bar.*
 - **[gewichtig]** `G-RICHTUNG` In der heutigen Kursrichtung klar schlechter. *Fireman 11.11.*
-- **[leicht]** `F-BELAG-NEU` Beim Belag zählt der Vater mehr als der Muttervater; Rohwerte prüfen, wenn das Blatt „neutral“ sagt.
-  *Boomslang 18.11.*
+- **[leicht]** `F-BELAG-NEU` Erstmals PSF wiegt bei einem Pferd mit Form kaum negativ, vorausgesetzt die Abstammung passt
+  zum Belag; schwer wird es erst bei unpassender Abstammung. Dabei zählt der Vater mehr als der Muttervater, Rohwerte
+  prüfen, wenn das Blatt „neutral“ sagt. *Touessrok, Baila Nak 17.11.; Boomslang 18.11.*
 
 ## 5. Trainer und Jockey
 
@@ -155,6 +156,13 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
   PSF) oder viel Klasse, aber lange sieglos. *Come Alone, Magenta Melody, Cervaro.*
 - **[leicht · vorläufig]** `U-KURZE-QUOTE` Bei kurzer Quote tragen Fragezeichen schwerer (wenig Kurs als Puffer); die Faustregel nach Value bleibt.
   *Lovely Warrior 16.11.*
+- **[gewichtig]** `G-MASSSTAB-BESSER` Lief ein Maßstab in seinem Referenzlauf klar besser als der Kandidat in seinem
+  (etwa 2 Punkte ARR mehr, in einem stärkeren Rennen), reicht es bei kurzer Quote nicht für eine Wette. *X Rays 15.11.*
+- **[gewichtig]** `G-LETZTER-HEUTE-BODEN` Ein klar verlorener letzter Lauf (5 Längen und mehr) auf dem heutigen Boden ist
+  ein Gegenargument. Übergangen wird er nur, wenn das Pferd behindert wurde oder gegen den Rennverlauf gelaufen ist.
+  *Fille d'Argentine 15.11.*
+- **[leicht]** `U-ARR-ABSTAND` Liegt der Referenzlauf etwa 3 Punkte ARR oder mehr unter dem besten Pferd im Feld, reicht
+  es höchstens für eine kleine Wette, auch bei einem wenig exposed Pferd. *Aura 17.11.*
 
 ## Ermessen (beide Urteile vertretbar)
 
