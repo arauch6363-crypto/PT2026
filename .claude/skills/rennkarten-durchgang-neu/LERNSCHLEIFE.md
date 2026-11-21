@@ -9,10 +9,8 @@ Gilt nur für die Durchsicht mit dem Nutzer, nicht für den automatischen Durchg
   Durchgang nicht gelesen.
 - **Vor jeder Änderung** an diesem Skill den Testsatz laufen lassen (gestuft, einmal für alle Änderungen der Sitzung); übernommen wird nur, was die Fehlerpunkte nicht
   erhöht und keinen Rückschritt bringt (ADR 0002).
-- **Texte für diesen Skill schreibt man für Agenten:** vor jeder vorgeschlagenen Änderung an `SKILL.md`,
-  `EINSICHTEN.md` oder `LERNSCHLEIFE.md` den Skill `writing-for-agents` (`.claude/skills/writing-for-agents/`) lesen
-  und anwenden – eine Bedeutung an einem Ort, kein No-op, Leitwörter aus `GLOSSARY.md`, positiv, kurz. Für Vorschläge
-  aus der Ergebnisanalyse gilt dazu deren Abschnitt „Schreiben für den Durchgang“.
+- **Vor jeder vorgeschlagenen Änderung** an `SKILL.md`, `EINSICHTEN.md` oder `LERNSCHLEIFE.md`
+  `.claude/skills/writing-for-agents/SKILL.md` lesen und anwenden: Jeder Text steht danach im Kontext jedes Durchgangs.
 - **Am Ende der Sitzung verdichten:** Änderungen an `EINSICHTEN.md` (Gewicht aus der Argumentation des Nutzers, ein
   Beispiel je Einsicht, Doppeltes zusammenfassen) und an `SKILL.md` vorschlagen, Zustimmung abwarten, dann eintragen.
   `SKILL.md` bleibt ohne Pferdenamen als Beleg (nur die Formatbeispiele nennen Pferde).

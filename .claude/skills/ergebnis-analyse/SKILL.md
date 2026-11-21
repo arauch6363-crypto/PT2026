@@ -1,29 +1,24 @@
 ---
 name: ergebnis-analyse
-description: "Gleicht die Durchgänge eines Renntags (Skill rennkarten-durchgang-neu) mit dem Einlauf ab: je verpasstem Sieger und verlorenem Claude-Tipp, an welcher Regel es lag und welcher Datenpunkt der Karte geholfen hätte, mit Gegenprobe; daraus wörtliche Vorschläge für SKILL.md oder EINSICHTEN.md, über die der Nutzer entscheidet. Verwenden für die Aufgabe „Ergebnisanalyse“ oder wenn ein vergangener Renntag auf Lehren für den Durchgang-Skill durchgesehen werden soll."
+description: "Ergebnisanalyse eines Renntags: Durchgänge des Skills rennkarten-durchgang-neu gegen den Einlauf abgleichen und daraus Vorschläge für dessen SKILL.md oder EINSICHTEN.md ableiten. Verwenden für die Aufgabe „Ergebnisanalyse“ oder Lehren aus einem vergangenen Renntag."
 ---
 
 # Ergebnisanalyse
 
 Die Ergebnisanalyse **liefert Vorschläge, der Nutzer entscheidet** (ADR 0003). Ein Fall genügt für einen Vorschlag; ob
 er sich verallgemeinern lässt, beurteilt der Nutzer. Begriffe (Siegergruppe, verpasster Sieger, verlorener
-Claude-Tipp, Vorschlag, Gegenprobe, Regelkennung, Regelprotokoll) stehen in `GLOSSARY.md`. Ablauf mit Drive, Seite und
-PR: `claude_projekt/aufgabe_ergebnisanalyse.md`; dieser Skill ist der Urteilsteil.
+Claude-Tipp, Vorschlag, Gegenprobe, Regelkennung, Regelprotokoll) stehen in `GLOSSARY.md`. Ablauf mit
+Drive, Seite und PR: `claude_projekt/aufgabe_ergebnisanalyse.md`; dieser Skill ist der Urteilsteil.
 
-Jeder Vorschlag ist ein Text, den ab dann **jeder Subagent in jedem Durchgang** liest. Darum schreibt die
-Ergebnisanalyse für Agenten: Vor dem ersten Vorschlag `.claude/skills/writing-for-agents/SKILL.md` lesen (Skill
-`writing-for-agents`) und nach dem Abschnitt „Schreiben für den Durchgang“ unten anwenden.
-
-## 1. Lesen – sparsam
+## 1. Lesen
 
 - `SKILL.md` und `EINSICHTEN.md` von `.claude/skills/rennkarten-durchgang-neu/` ganz: Ein Vorschlag muss wissen, was
   schon dasteht.
-- Das Material (`analyse_JJJJMMTT.json`) **nur über das Skript**: `python3 -I ergebnis_analyse.py faelle ANALYSE`
-  zeigt Zählung und je Fall eine Zeile, `… faelle ANALYSE RxCy` den Eintrag eines Rennens (Pro/Gegen, Maßstäbe). Die
-  Mechanik ist dort erledigt – nichts nachrechnen.
-- Fakten zur Karte nur für das **Rennen des Falls**:
-  `python3 -I .claude/skills/rennkarten-durchgang-neu/scripts/blatt.py KARTE RxCy`. Die Blätter der übrigen Rennen
-  liest die Gegenprobe per Skript.
+- Das Material über das Skript: `python3 -I ergebnis_analyse.py faelle ANALYSE` zeigt Zählung und je Fall eine Zeile,
+  `… faelle ANALYSE RxCy` den Eintrag eines Rennens (Pro/Gegen, Maßstäbe). Seine Zahlen gelten, wie sie dastehen.
+- Das Blatt des **Rennens, um das es im Fall geht**:
+  `python3 -I .claude/skills/rennkarten-durchgang-neu/scripts/blatt.py KARTE RxCy`. Die übrigen Rennen erreicht die
+  Gegenprobe per Skript.
 
 Fertig, wenn die Fallliste vorliegt und beide Skill-Dateien gelesen sind.
 
@@ -35,21 +30,19 @@ Sieger aus Maßstab oder sonstige Sieger werden nur gezählt: Sie betreffen den 
 1. **Regel.** Woran hing das Urteil? Die Kennung aus dem Ausschlag; fehlt sie, die Regel aus dem Text zuordnen und
    „(zugeordnet)“ dazuschreiben. Passt keine: „Ermessen“ – eine Häufung davon ist selbst ein Befund: Dort fehlt eine
    Regel.
-2. **Datenpunkt.** Was im Blatt hätte das richtige Urteil gestützt? Nur Angaben, die **vor dem Rennen** im Blatt
-   standen; Einlauf, Endquote, Rennkommentar und Tracking dieses Rennens sind Nachwissen. Wörtlich zitiert. Kein
-   Datenpunkt ist ein gültiges Ergebnis („Rennen nicht lesbar, Sieg aus dem Nichts“) – dann kein Vorschlag.
-3. **Gegenprobe.** `python3 -I ergebnis_analyse.py gegenprobe KARTE ANALYSE 'MUSTER'` mit einem regulären Ausdruck,
-   der den Datenpunkt trifft (z. B. `'CGD \S*D'`, `'Trainerwechsel'`). Es meldet, bei wie vielen Verlierern des Tages
-   (Kandidaten und Maßstäbe aller Rennen) er ebenfalls stand, mit Namen und Zeile. Hängt der Datenpunkt an einer Zahl
-   oder einem Vergleich, den kein Muster fasst, die gemeldeten Zeilen prüfen statt weitere Blätter zu lesen. Eine
-   Gegenprobe, die den Datenpunkt bei vielen Verlierern zeigt, gehört in den Vorschlag, auch wenn sie ihn schwächt.
+2. **Datenpunkt.** Was im Blatt hätte das richtige Urteil gestützt? Nur was **vor dem Rennen** im Blatt stand (Einlauf,
+   Endquote, Rennkommentar und Tracking dieses Rennens kamen danach), wörtlich zitiert. Kein Datenpunkt ist ein
+   gültiges Ergebnis („Rennen nicht lesbar, Sieg aus dem Nichts“) – dann kein Vorschlag.
+3. **Gegenprobe.** `python3 -I ergebnis_analyse.py gegenprobe KARTE ANALYSE 'MUSTER'` mit einem regulären Ausdruck für
+   den Datenpunkt (z. B. `'CGD \S*D'`, `'Trainerwechsel'`) meldet, bei wie vielen Verlierern des Tages er ebenfalls
+   stand, mit Namen und Zeile. Hängt er an einer Zahl oder einem Vergleich, die gemeldeten Zeilen von Hand prüfen.
+   Schwächt die Gegenprobe den Datenpunkt, gehört sie trotzdem in den Vorschlag.
 4. **Abgleich.** Trifft eine bestehende Einsicht (selber Abschnitt von `EINSICHTEN.md`) oder Regel (`SKILL.md`) die
-   Lage, ist der Vorschlag `aendern` oder `zusammenfassen` – eine Bedeutung, ein Ort. `neu` nur, wenn keine bestehende
-   die Lage trifft.
+   Lage, ist der Vorschlag `aendern` oder `zusammenfassen`; `neu` nur für eine Lage, die keine bestehende trifft.
 5. **Schluss.** Hätte eine andere Gewichtung oder Regel das Urteil gedreht, ohne bei den Verlierern der Gegenprobe
    falsch zu drehen? Ja → Vorschlag. Nein → ein Satz Befund.
 
-Fertig, wenn **jeder** verpasste Sieger und verlorene Tipp entweder in einem Vorschlag steht oder einen Satz Befund hat.
+Fertig, wenn **jeder** verpasste Sieger und verlorene Tipp in einem Vorschlag steht oder einen Satz Befund hat.
 
 ## 3. Vorschlag
 
@@ -71,72 +64,40 @@ Jeder Vorschlag ist eine **konkrete Textänderung**, über die der Nutzer mit Ja
 | `gewicht` | `ausschlaggebend`, `gewichtig` oder `leicht` – Claudes Vorschlag |
 
 Mehrere Fälle, die auf dieselbe Regel zeigen, ergeben **einen** Vorschlag mit allen Fällen. Reihenfolge nach Stärke:
-klare Gegenprobe und klarer Regelbezug zuerst. Ein früher abgelehnter Vorschlag (`auswertung/vorschlaege.csv`,
-`entscheidung` nein) kommt nur mit neuen Belegen wieder, mit Verweis auf die Ablehnung.
+klare Gegenprobe und klarer Regelbezug zuerst. Ein abgelehnter Vorschlag (`auswertung/vorschlaege.csv`, `entscheidung`
+nein) kommt nur mit neuen Belegen wieder, mit Verweis auf die Ablehnung. `titel` und `text` nach dem nächsten
+Abschnitt.
 
-## Schreiben für den Durchgang
+### Schreiben für den Durchgang
 
-`titel` und `text` liest der Nutzer so, wie der Text in der Datei stehen wird; danach liest ihn der Durchgang-Agent.
-Die Hebel aus `writing-for-agents`, angewandt auf einen Vorschlag:
+Ein angenommener `text` steht ab dann im Kontext **jedes Subagenten in jedem Durchgang**. Vor dem ersten Vorschlag
+deshalb `.claude/skills/writing-for-agents/SKILL.md` lesen. Angewandt auf einen Vorschlag:
 
-- **Eine Bedeutung, ein Ort** (single source of truth): Was eine bestehende Einsicht schon sagt, wird dort geschärft
-  (`aendern`), nicht neu daneben gestellt. Ein `text`, der eine andere Einsicht teilweise wiederholt, nennt sie in
-  `alt` und wird `zusammenfassen`.
-- **Kein No-op:** Ein Text, den der Durchgang ohnehin befolgt (etwa „Boden prüfen“, „Form beachten“), ändert kein
-  Urteil – dann Befund statt Vorschlag. Jeder Text muss ein Urteil in mindestens einem Fall drehen.
+- **Eine Bedeutung, ein Ort:** Was eine bestehende Einsicht schon sagt, wird dort geschärft (`aendern`). Deckt sich ein
+  neuer Text teilweise mit einer Einsicht, steht sie in `alt` und die Art ist `zusammenfassen`.
+- **Dreht ein Urteil:** Jeder Text dreht das Urteil in mindestens einem Fall. Ein Text, den der Durchgang ohnehin
+  befolgt („Boden prüfen“), ist ein No-op und wird ein Satz Befund.
 - **Leitwörter:** Begriffe aus `GLOSSARY.md` (Referenzlauf, Maßstab, Bodenangabe, Klassenindex, Rennverlauf,
-  Aufgewicht) statt Umschreibungen; jede Lage mit demselben Wort, mit dem sie in `SKILL.md` geprüft wird. Kürzel und
-  Markierungen aus dem Blatt heißen im Text so: `≈heute` → „Referenzlauf“ bzw. „Lauf unter heutigen Bedingungen“,
-  „gegen den Verlauf“ → „gegen den Rennverlauf gelaufen“, „Zwischenfall“ → „behindert, eingeklemmt“; `ber.` entfällt.
-- **Positiv:** was gilt und was dann zu tun ist, nicht welche andere Regel nicht gilt.
-- **Kurz** (gegen Sprawl): eine Regel in höchstens zwei Sätzen (etwa 35 Wörter), dahinter das Fallbeispiel in
-  *kursiv* mit Pferd und Datum; eine Ausnahme höchstens als Halbsatz. Zahlen nur, wo die Regel an ihnen hängt,
-  gerundet („etwa 2 Punkte ARR“, „5 Längen und mehr“).
-- **Beleg getrennt:** Blattzitate, Klassenindizes und Rechenwege stehen in `datenpunkt` und `gegenprobe`, nie in
-  `text`.
-
-Beispiel:
+  Aufgewicht), für jede Lage dasselbe Wort wie in `SKILL.md`. Blattkürzel übersetzt: `≈heute` → „Referenzlauf“ bzw.
+  „Lauf unter heutigen Bedingungen“, „gegen den Verlauf“ → „gegen den Rennverlauf gelaufen“, „Zwischenfall“ →
+  „behindert, eingeklemmt“; `ber.` entfällt.
+- **Positiv:** was gilt und was dann zu tun ist.
+- **Kurz:** eine Regel in höchstens zwei Sätzen (etwa 35 Wörter), dahinter das Fallbeispiel in *kursiv* mit Pferd und
+  Datum; eine Ausnahme höchstens als Halbsatz. Zahlen nur, wo die Regel an ihnen hängt, gerundet („etwa 2 Punkte ARR“,
+  „5 Längen und mehr“).
+- **Beleg getrennt:** Blattzitate, Klassenindizes und Rechenwege stehen in `datenpunkt` und `gegenprobe`.
 
 > `G-MASSSTAB-BESSER` Lief ein Maßstab in seinem Referenzlauf klar besser als der Kandidat in seinem (etwa 2 Punkte ARR
 > mehr, in einem stärkeren Rennen), reicht es bei kurzer Quote nicht für eine Wette. *X Rays 15.11.*
 
 Fertig, wenn jeder `text` alle sechs Punkte erfüllt.
 
-## Verdichten
+## 4. Anlässe
 
-`EINSICHTEN.md` wird von jedem Subagenten in jedem Durchgang ganz gelesen; jede Zeile kostet Aufmerksamkeit. Bei jedem
-Lauf `python3 -I ergebnis_analyse.py verdichtung` prüfen; jeder gemeldete Anlass ergibt Vorschläge:
+`python3 -I ergebnis_analyse.py verdichtung` und `… bericht`. Meldet eines einen Anlass (`abschnitt_voll`,
+`datei_lang`, `vorlaeufig_*`, eine Regel `unter_druck`): [`VERDICHTEN.md`](VERDICHTEN.md) lesen und je Anlass
+Vorschläge nach Abschnitt 3 machen. Fertig, wenn jeder gemeldete Anlass einen Vorschlag hat.
 
-- **`abschnitt_voll`** (mehr als 8 Einsichten): Einsichten, die dieselbe Lage beschreiben, als `zusammenfassen`; wo
-  nichts doppelt ist, die schwächste [leicht]-Einsicht ohne neuen Fall als `streichen`.
-- **`datei_lang`** (mehr als 200 Zeilen): dasselbe für die längsten Abschnitte; Fallbeispiele auf höchstens zwei je
-  Einsicht kürzen (das neuere bleibt).
-- **`vorlaeufig_bestaetigt`**: `gewicht`, der den Vermerk „vorläufig“ streicht. **`vorlaeufig_unter_druck`**:
-  `streichen`.
+## Nach der Entscheidung des Nutzers
 
-**Zusammenfassen:** Der neue Text ersetzt alle beteiligten Einsichten. Eine Kennung bleibt – die ältere oder die
-treffendere. Die übrigen kommen in `EINSICHTEN.md` unter „Stillgelegte Kennungen“ (`ALT` → `NEU`) und verschwinden aus
-Text und Listen; das Regelprotokoll zählt sie unter der verbleibenden weiter. Zeigen zwei Einsichten in verschiedene
-Richtungen (Pro und Gegen derselben Lage), stehen sie als ein Eintrag mit beiden Kennungen; keine wird stillgelegt.
-
-Vermerk **vorläufig** (eine Einsicht aus einem Fall): steht hinter dem Gewicht, `[gewichtig · vorläufig]`; die Einsicht
-kommt in den Abschnitt ihres Prüfschritts.
-
-## Regel unter Druck
-
-Meldet `ergebnis_analyse.py bericht` eine Regel als `unter_druck` (n ≥ 20, z gegen ihre Richtung), wird daraus ein
-Vorschlag `streichen` oder `gewicht` mit den Zahlen in `gegenprobe` (n, Siege, erwartet, A/E, z). Eine Regel wird nur
-mit „ja“ des Nutzers gestrichen.
-
-## Integrieren (nach Entscheidung des Nutzers)
-
-- **ja**: den Text unverändert eintragen; neue Einsichten in den Abschnitt ihres Prüfschritts, aus einem Fall mit
-  Vermerk „vorläufig“. Bei `zusammenfassen` die alten Einträge entfernen und stillgelegte Kennungen eintragen.
-  **geaendert**: den Text nach der Notiz des Nutzers umschreiben (Abschnitt „Schreiben für den Durchgang“) und vor dem
-  Eintragen im Chat zeigen. **nein**: nichts eintragen; die Notiz ist die Begründung.
-- Kennungen bleiben dauerhaft (Regel in `LERNSCHLEIFE.md` des Durchgang-Skills).
-- Danach **einmal** den Testsatz für alle eingetragenen Änderungen zusammen (`claude_projekt/aufgabe_testsatz.md`,
-  gestuft). Zeigt er einen **Rückschritt**, dem Nutzer den Konflikt zeigen: Testfall, sein damaliges Urteil, das
-  Urteil mit der neuen Regel. Er entscheidet: Regel umformulieren oder das erwartete Urteil im Testfall ändern. Eine
-  Änderung am Testfall bekommt in `tests/testsatz_durchgang/erwartet.json` beim Kandidaten `geaendert` mit Datum und
-  Grund.
+Eintragen der Entscheidungen und Testsatz: [`INTEGRIEREN.md`](INTEGRIEREN.md).
