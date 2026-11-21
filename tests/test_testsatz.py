@@ -116,3 +116,17 @@ def test_ablegen_verweigert_ohne_uebernahme_und_vergleicht_mit_letzter_ablage(tm
     with pytest.raises(ValueError, match="nicht übernehmen"):
         ts.ablegen(tmp_path, schlecht, commit="bbb", datum="2026-11-20")
     assert ts.letztes(tmp_path)["commit"] == "aaa"
+
+
+def test_gestuft_ein_richtiger_lauf_genuegt():
+    erwartet = {"R1": ERWARTET["R1"], "R2": {"kandidaten": {"1": {"horse": "C", "urteil": "wette"}}}}
+    laeufe = {"R1": [_lauf("R1", n2="nein", n5="klein")], "R2": [_lauf("R2", n1="nein")]}
+    assert ts.nachlauf(erwartet, laeufe) == ["R2"]                  # abweichender erster Lauf braucht n = 2, 3
+    assert ts.nachlauf(erwartet, {"R2": laeufe["R2"]}) == ["R1", "R2"]  # ohne Lauf
+    with pytest.raises(ValueError, match="R2"):
+        ts.bewerten(erwartet, laeufe)
+    laeufe["R2"] += [_lauf("R2", n1="wette")] * 2
+    assert ts.nachlauf(erwartet, laeufe) == []
+    e = ts.bewerten(erwartet, laeufe)
+    assert e["faelle"]["R1"]["stand"] == "stabil richtig"
+    assert e["faelle"]["R2"]["stand"] == "schwankend"

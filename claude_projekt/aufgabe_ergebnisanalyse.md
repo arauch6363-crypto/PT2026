@@ -45,13 +45,15 @@ Sitzung „entschieden“ schreibt (er nimmt sich die Seite im Lauf des Tages vo
   `~/.claude/projects/*/tool-results/` oder `/tmp/claude-tool-results/`, entweder roh (Binärdatei) oder als JSON mit
   base64 im Feld `content`. Je Datei unter ihrem Titel nach AO kopieren bzw. dekodieren; nie den Inhalt in die
   Unterhaltung holen.
+- Das Material nie ganz in die Unterhaltung lesen (`cat`, Read): Es enthält Pro/Gegen aller Kandidaten des Tages.
+  Gelesen wird es über `ergebnis_analyse.py faelle` und `gegenprobe` (Skill, Abschnitt 1).
 - `python3 -I REPO/ergebnis_analyse.py material AO/racecard_TAG_daten.json.gz AO/TAG.parquet AO/durchgang_TAG_*.json --aus AO/analyse_TAG.json`
 - `python3 -I REPO/ergebnis_analyse.py protokoll AO/analyse_TAG.json` (schreibt `REPO/auswertung/regelprotokoll.csv`),
   dann `python3 -I REPO/ergebnis_analyse.py bericht > AO/bericht.json`.
 
 ### 4. Analysieren
 
-- Skill `ergebnis-analyse` anwenden: je verpasstem Sieger und verlorenem Claude-Tipp Regel, Datenpunkt, Gegenprobe,
+- Skill `ergebnis-analyse` anwenden (er lädt `writing-for-agents` für die Vorschlagstexte): je verpasstem Sieger und verlorenem Claude-Tipp Regel, Datenpunkt, Gegenprobe,
   Schluss; daraus die Vorschläge. Für jede Regel mit `unter_druck` im Bericht ein Vorschlag nach dem Skill.
 - Frühere Entscheidungen beachten: `REPO/auswertung/vorschlaege.csv`.
 - `python3 -I REPO/ergebnis_analyse.py verdichtung` – jeder Anlass ergibt Vorschläge nach dem Skill (Abschnitt
@@ -84,7 +86,8 @@ auf der Seite und schreib mir dann ‚entschieden‘.“ Dann die Antwort beende
 2. Für **ja** und **geaendert** den Text in `SKILL.md` bzw. `EINSICHTEN.md` von `rennkarten-durchgang-neu` eintragen
    (Skill `ergebnis-analyse`, Abschnitt „Integrieren“; bei „geaendert“ den neuen Text zuerst im Chat zeigen und auf
    ein Ok warten). Eine neue Kennung muss danach von `durchgang.kennungen()` gefunden werden.
-3. Gab es eine Änderung am Skill: Testsatz nach `claude_projekt/aufgabe_testsatz.md` laufen lassen. Rückschritt →
+3. Gab es eine Änderung am Skill: Testsatz **einmal** für alle Änderungen zusammen nach
+   `claude_projekt/aufgabe_testsatz.md` laufen lassen (gestuft: erst ein Lauf je Testfall). Rückschritt →
    Konflikt dem Nutzer zeigen und seine Entscheidung abwarten (Regel umformulieren oder Testfall ändern), dann den
    Testsatz erneut. Erst bei „Übernehmen: ja“ ablegen (`--ablegen`).
 4. `python3 -I REPO/ergebnis_analyse.py tag-abschliessen TAG --commit <Commit> --vorschlaege <Anzahl>`.

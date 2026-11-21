@@ -7,9 +7,9 @@ Skills“). Läuft in einer Claude-Code-Sitzung im Repo; REPO = Wurzel des Repos
 ## Ablauf
 
 1. **Lauf-Ordner** anlegen, z. B. im Scratchpad: LAUF = `…/testsatz_<commit>`. Nicht im Repo.
-2. **Je Testfall drei Subagenten**: für jede race_id in `tests/testsatz_durchgang/erwartet.json` (Schlüssel
-   `testfaelle`) die Läufe n = 1, 2, 3 mit dem Agent-Tool (subagent_type: general-purpose), höchstens 7 gleichzeitig.
-   Prompt (Platzhalter ersetzen, RxCy = letzte vier Zeichen der race_id):
+2. **Erste Stufe – ein Subagent je Testfall**: für jede race_id in `tests/testsatz_durchgang/erwartet.json`
+   (Schlüssel `testfaelle`) den Lauf n = 1 mit dem Agent-Tool (subagent_type: general-purpose), höchstens 7
+   gleichzeitig. Prompt (Platzhalter ersetzen, RxCy = letzte vier Zeichen der race_id):
 
    „Antworte auf Deutsch. Du bewertest genau ein Rennen: <race_id> (<RxCy>) auf der Karte
    REPO/tests/testsatz_durchgang/karten/<race_id>.json.gz. Lies zuerst vollständig mit dem Read-Tool
@@ -32,10 +32,14 @@ Skills“). Läuft in einer Claude-Code-Sitzung im Repo; REPO = Wurzel des Repos
    hier nicht vorkommen); ändert sich jener, diesen mitziehen.
 
    Fehlt danach eine Datei oder ist sie fehlerhaft: diesen Lauf einmal neu starten. Urteile nie selbst nachbessern.
-3. **Bewerten:** `python3 -I REPO/testsatz.py bewerten LAUF`. Der Bericht nennt Trefferquote und Fehlerpunkte, den
+3. **Zweite Stufe – nur wo nötig:** `python3 -I REPO/testsatz.py nachlauf LAUF` nennt die Testfälle, deren erster Lauf
+   vom Urteil des Nutzers abweicht; nur für diese die Läufe n = 2 und 3 mit demselben Prompt. Fertig, wenn `nachlauf`
+   „keine“ meldet. (Ein richtiger erster Lauf gilt als stabil richtig; drei Läufe braucht nur ein abweichender Fall,
+   um schwankend von mehrheitlich falsch zu trennen.)
+4. **Bewerten:** `python3 -I REPO/testsatz.py bewerten LAUF`. Der Bericht nennt Trefferquote und Fehlerpunkte, den
    Vergleich mit dem zuletzt abgelegten Stand, Rückschritte und je Testfall den Stand (stabil richtig, schwankend,
    mehrheitlich falsch).
-4. **Entscheiden:** Übernommen wird eine Änderung, wenn die Fehlerpunkte nicht steigen und es keinen Rückschritt gibt
+5. **Entscheiden:** Übernommen wird eine Änderung, wenn die Fehlerpunkte nicht steigen und es keinen Rückschritt gibt
    (Bericht: „Übernehmen: ja“). Dann mit `--ablegen <commit>` erneut bewerten (verweigert, wenn die Regel nicht
    erfüllt ist; Commit = letzter Commit, der den Skill ändert) und `verlauf.csv` sowie die Datei unter
    `ergebnisse/` mit der Änderung committen. Sonst nichts ablegen; der Nutzer entscheidet, ob die Änderung verworfen
@@ -45,8 +49,10 @@ Skills“). Läuft in einer Claude-Code-Sitzung im Repo; REPO = Wurzel des Repos
 
 - Der Testsatz schützt vor Rückschritten. Die Regeln stammen aus denselben Fällen; eine hohe Trefferquote sagt nicht,
   wie gut der Skill auf neue Rennen überträgt (ADR 0002).
-- Drei Läufe je Testfall dämpfen den Zufall, schließen ihn nicht aus: Ein Testfall, der „schwankend“ ist, ist kein
-  Rückschritt, aber ein Hinweis, dass die Regel dort nicht eindeutig greift.
+- Drei Läufe bei einem abweichenden Testfall dämpfen den Zufall, schließen ihn nicht aus: Ein Testfall, der
+  „schwankend“ ist, ist kein Rückschritt, aber ein Hinweis, dass die Regel dort nicht eindeutig greift. Ein einzelner
+  richtiger Lauf kann eine Schwankung übersehen; das nimmt die gestufte Prüfung für etwa zwei Drittel weniger Läufe in
+  Kauf (ADR 0002, Nachtrag).
 
 ## Neuer Testfall (in der Durchsicht, je besprochenem Rennen)
 
