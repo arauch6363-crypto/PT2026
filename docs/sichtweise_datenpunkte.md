@@ -16,9 +16,8 @@ HTML-Karte (`racecard_template.html`), abgeglichen mit dem, was `blatt.py` dem D
   Gewichte („kippt allein“, „zählt deutlich“, „nur am Rande“). Wo der Skill stimmt: „passt“. Bei ❌ zusätzlich: soll
   der Durchgang es sehen, oder bleibt es weg? Auch im Chat diktierbar; Claude trägt es ein.
 
-> **Befund vorab:** Der **Rennkommentar** fehlt im Blatt. `blatt.py` sucht das Feld `comment_de`, die Karte liefert
-> `comment` (französisch, 233 von 622 Formzeilen am 21.11.). Der Skill verlangt, gestörte Läufe aus dem Kommentar zu
-> erkennen – im Moment bekommt der Durchgang keinen. Behebung in `blatt.py` ist eine Skill-Änderung (Testsatz).
+> **Behoben am 21.11.:** Das Blatt zeigt jetzt den Rennkommentar (übersetzt, sonst das französische Original) und
+> die älteren Läufe mit gleicher Bahn, Distanz oder Boden, die die Karte nach den letzten sieben anhängt (G11, G12).
 
 ---
 
@@ -437,18 +436,17 @@ HTML-Karte (`racecard_template.html`), abgeglichen mit dem, was `blatt.py` dem D
 
 > **Deine Sicht:**
 
-### G11 Rennkommentar · Blatt ❌ (Fehler, siehe Befund oben)
+### G11 Rennkommentar · Blatt ✅ (seit 21.11.)
 
 - **Skill heute:** gestörte Läufe aus dem Kommentar höher einordnen.
 - **Offen:** Formulierungen, die für dich ein klares Signal sind („a fini fort“, „sans être inquiété“)?
 
 > **Deine Sicht:**
 
-### G12 Ältere Läufe mit gleicher Bahn, Distanz oder Boden · Blatt ❌
+### G12 Ältere Läufe mit gleicher Bahn, Distanz oder Boden · Blatt ✅ (seit 21.11.)
 
-- **Karte:** zeigt nach den letzten Läufen zusätzlich den letzten Lauf mit gleicher Bahn, Distanz bzw. Boden; das
-  Blatt schneidet nach sieben Formzeilen ab.
-- **Offen:** Braucht der Durchgang diesen Lauf als Referenzlauf, wenn er älter ist?
+- **Karte und Blatt:** nach den letzten sieben Läufen der letzte ältere Lauf mit gleicher Bahn, Distanz bzw. Boden.
+- **Offen:** Wie alt darf ein Referenzlauf sein, bis er nicht mehr zählt?
 
 > **Deine Sicht:**
 
