@@ -35,3 +35,29 @@ def test_kandidaten_werden_uebersprungen_auch_mehrere():
 def test_ohne_festkurs_kein_massstab():
     assert nummern([_z(1, None, None)]) == []
     assert nummern([_z(1, 2.0, 0.3), _z(2, 3.0, -0.1)]) == [2]   # nur einer übrig
+
+
+def _lauf(**k):
+    return {"date": "2026-11-01", "course": "PAU", "dist": 1600, "going": "Souple", "type": "Handicap", "pos": 3,
+            "ran": 10, "margin": 1.5, **k}
+
+
+RENNEN = {"course": "PAU", "distance": 1600, "going_label": "Slow"}
+
+
+def test_kommentar_deutsch_sonst_original():
+    assert "„Stark außen beendet.“" in blatt.formzeile(_lauf(comment="A fini fort.", comment_de="Stark außen beendet."), RENNEN)
+    assert "„A fini fort.“" in blatt.formzeile(_lauf(comment="A fini fort."), RENNEN)     # ohne Übersetzung
+    assert "„" not in blatt.formzeile(_lauf(), RENNEN)
+
+
+def test_aeltere_laeufe_mit_gleicher_bahn_distanz_boden_bleiben(capsys):
+    """Die Karte hängt nach den letzten sieben Läufen ältere mit gleicher Bahn/Distanz/Boden an (extra)."""
+    fl = [_lauf(date=f"2026-10-{20 - i:02d}", dist=1200) for i in range(7)]
+    fl += [_lauf(date="2025-06-01", extra=["K", "D"]), _lauf(date="2025-05-01", extra=["B"])]
+    x = {"no": 3, "horse": "X", "form_lines": fl}
+    blatt.blatt({"x": x, "fk": 5.0, "p": 0.2, "rang": 1, "n": 8, "value": 0.1}, {**RENNEN, "race_id": "20261121R1C1"}, 60)
+    out = capsys.readouterr().out
+    assert out.count("   - 2026-10-") == 7
+    assert "Ältere Läufe (zuletzt mit gleicher Bahn, Distanz, Boden):" in out
+    assert "   - 2025-06-01" in out and "   - 2025-05-01" in out

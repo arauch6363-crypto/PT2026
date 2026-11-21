@@ -28,6 +28,7 @@ TRAINER_NEU_LAEUFE = 5       # Trainerwechsel in so vielen letzten Läufen eigen
 FENSTER_STARTS = 42          # Tage für die Startfolge (Gegenargument ab etwa 4 Starts)
 VALUE_MIN = 0.05             # Kandidat ab +5 % Value (5 % Steuer auf den Gewinn)
 MASSSTAEBE = 2               # so viele Maßstäbe je Rennen
+SAME = {"K": "Bahn", "D": "Distanz", "B": "Boden"}   # Kennzeichen der angehängten älteren Läufe
 DIST_TOL = 200               # Meter für „ähnliche Distanz“ beim Referenzlauf
 
 
@@ -175,8 +176,9 @@ def formzeile(f: dict, r: dict) -> str:
          f"{zahl(f.get('weight'))} kg{bl}, Kl.-Index {f.get('cls_val_idx')}, ARR {zahl(f.get('arr'))} (ber. {zahl(f.get('arr_adj'))})")
     if ref or warn:
         s += " [" + "; ".join(ref + warn) + "]"
-    if f.get("comment_de"):
-        s += f"\n       „{f['comment_de'][:220]}“"
+    kommentar = f.get("comment_de") or f.get("comment")    # Original (französisch), wenn die Übersetzung fehlt
+    if kommentar:
+        s += f"\n       „{kommentar[:220]}“"
     return s
 
 
@@ -283,8 +285,14 @@ def blatt(z: dict, r: dict, top_kg: float, titel: str = "") -> None:
     if crib:
         print(f"- Crible (Kontext): „{crib[:240]}“")
     print("- Formzeilen (neueste zuerst):")
-    for f in fl[:7]:
+    for f in [f for f in fl if not f.get("extra")][:7]:
         print(formzeile(f, r))
+    aeltere = [f for f in fl if f.get("extra")]          # von der Karte angehängt: letzter Lauf auf Bahn/Distanz/Boden
+    if aeltere:
+        merkmale = sorted({k for f in aeltere for k in f["extra"]}, key="KDB".index)
+        print("- Ältere Läufe (zuletzt mit gleicher " + ", ".join(SAME[k] for k in merkmale) + "):")
+        for f in aeltere:
+            print(formzeile(f, r))
 
 
 def main(argv: list[str]) -> None:
