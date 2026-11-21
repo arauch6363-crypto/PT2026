@@ -4,7 +4,7 @@ Gilt nur für die Durchsicht mit dem Nutzer, nicht für den automatischen Durchg
 10./11.11.2026 (`docs/interview_rennkarten_durchgang.md`).
 
 - **Je besprochenem Rennen** ins Fallarchiv des Repos (eine Zeile je Kandidat, Art **Übereinstimmung**, **Claude
-  lernt** oder **Claudes Sicht behalten**; Ort und Format in `claude_projekt/task.md`) und dazu ein **Testfall** im
+  lernt** oder **Claudes Sicht behalten**; Ort und Format in `claude_projekt/aufgabe_durchsicht.md`) und dazu ein **Testfall** im
   Testsatz (`claude_projekt/aufgabe_testsatz.md`). Archiv und Testsatz gehören nicht zum Skill und werden beim
   Durchgang nicht gelesen.
 - **Vor jeder Änderung** an diesem Skill den Testsatz laufen lassen (gestuft, einmal für alle Änderungen der Sitzung); übernommen wird nur, was die Fehlerpunkte nicht
