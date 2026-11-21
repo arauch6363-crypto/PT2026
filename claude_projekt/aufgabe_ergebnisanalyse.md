@@ -51,12 +51,8 @@ Sitzung „entschieden“ schreibt (er nimmt sich die Seite im Lauf des Tages vo
 
 ### 4. Analysieren
 
-- Skill `ergebnis-analyse` anwenden: je verpasstem Sieger und verlorenem Claude-Tipp Regel, Datenpunkt, Gegenprobe,
-  Schluss; daraus die Vorschläge. Für jede Regel mit `unter_druck` im Bericht ein Vorschlag nach dem Skill.
-- Frühere Entscheidungen beachten: `REPO/auswertung/vorschlaege.csv`.
-- `python3 -I REPO/ergebnis_analyse.py verdichtung` – jeder Anlass ergibt Vorschläge nach dem Skill (Abschnitt
-  „Verdichten“), id `TAG-V1`, `TAG-V2`, … Ohne Anlass nichts verdichten.
-- Vorschläge nummerieren: id = `TAG-1`, `TAG-2`, … (Regel unter Druck: `TAG-D1`, …).
+- Skill `ergebnis-analyse` Schritt 1 bis 4 mit KARTE = `AO/racecard_TAG_daten.json.gz`, ANALYSE = `AO/analyse_TAG.json`.
+- Vorschläge nummerieren: id = `TAG-1`, `TAG-2`, … (Verdichtung: `TAG-V1`, …; Regel unter Druck: `TAG-D1`, …).
 
 ### 5. Seite füllen
 
@@ -82,9 +78,10 @@ auf der Seite und schreib mir dann ‚entschieden‘.“ Dann die Antwort beende
    Entscheidungen nach `vorschlaege.csv` übernehmen (`ergebnis_analyse.py vorschlaege` mit id, entscheidung, notiz,
    gewicht). Noch offene bleiben offen und erscheinen beim nächsten Lauf wieder.
 2. Für **ja** und **geaendert** den Text in `SKILL.md` bzw. `EINSICHTEN.md` von `rennkarten-durchgang-neu` eintragen
-   (Skill `ergebnis-analyse`, Abschnitt „Integrieren“; bei „geaendert“ den neuen Text zuerst im Chat zeigen und auf
-   ein Ok warten). Eine neue Kennung muss danach von `durchgang.kennungen()` gefunden werden.
-3. Gab es eine Änderung am Skill: Testsatz nach `claude_projekt/aufgabe_testsatz.md` laufen lassen. Rückschritt →
+   (Skill `ergebnis-analyse`, `INTEGRIEREN.md`; bei „geaendert“ den neuen Text zuerst im Chat zeigen und auf ein Ok
+   warten). Eine neue Kennung muss danach von `durchgang.kennungen()` gefunden werden.
+3. Gab es eine Änderung am Skill: Testsatz **einmal** für alle Änderungen zusammen nach
+   `claude_projekt/aufgabe_testsatz.md` laufen lassen (gestuft: erst ein Lauf je Testfall). Rückschritt →
    Konflikt dem Nutzer zeigen und seine Entscheidung abwarten (Regel umformulieren oder Testfall ändern), dann den
    Testsatz erneut. Erst bei „Übernehmen: ja“ ablegen (`--ablegen`).
 4. `python3 -I REPO/ergebnis_analyse.py tag-abschliessen TAG --commit <Commit> --vorschlaege <Anzahl>`.

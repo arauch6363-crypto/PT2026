@@ -7,8 +7,10 @@ Gilt nur für die Durchsicht mit dem Nutzer, nicht für den automatischen Durchg
   lernt** oder **Claudes Sicht behalten**; Ort und Format in `claude_projekt/task.md`) und dazu ein **Testfall** im
   Testsatz (`claude_projekt/aufgabe_testsatz.md`). Archiv und Testsatz gehören nicht zum Skill und werden beim
   Durchgang nicht gelesen.
-- **Vor jeder Änderung** an diesem Skill den Testsatz laufen lassen; übernommen wird nur, was die Fehlerpunkte nicht
+- **Vor jeder Änderung** an diesem Skill den Testsatz laufen lassen (gestuft, einmal für alle Änderungen der Sitzung); übernommen wird nur, was die Fehlerpunkte nicht
   erhöht und keinen Rückschritt bringt (ADR 0002).
+- **Vor jeder vorgeschlagenen Änderung** an `SKILL.md`, `EINSICHTEN.md` oder `LERNSCHLEIFE.md`
+  `.claude/skills/writing-for-agents/SKILL.md` lesen und anwenden: Jeder Text steht danach im Kontext jedes Durchgangs.
 - **Am Ende der Sitzung verdichten:** Änderungen an `EINSICHTEN.md` (Gewicht aus der Argumentation des Nutzers, ein
   Beispiel je Einsicht, Doppeltes zusammenfassen) und an `SKILL.md` vorschlagen, Zustimmung abwarten, dann eintragen.
   `SKILL.md` bleibt ohne Pferdenamen als Beleg (nur die Formatbeispiele nennen Pferde).

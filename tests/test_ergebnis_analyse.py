@@ -194,3 +194,35 @@ def test_verdichtung_zwei_kennungen_in_einem_eintrag(tmp_path):
     v = ea.verdichtung(tmp_path, [])
     assert v["abschnitte"] == {"2. Letzter Lauf": 1}
     assert v["vorlaeufig"] == ["G-H"]
+
+
+BLATT = """## R1C1 PAU 13:00 – PRIX A
+Kopfzeile
+### 2 H2 – FK 4,0 · Modell 30 %
+- Kennzeichen CGD cgD
+- Formzeilen
+### MASSSTAB 1/1 · bester FK · kein Kandidat, nie eine Wette – 1 H1 – FK 2,0
+- Kennzeichen CGD ·g·
+## R1C2 PAU 13:30 – PRIX B
+### 3 H3 – FK 4,0
+- Kennzeichen CGD C◦D
+"""
+
+
+def test_bloecke_je_rennen_und_pferd():
+    b = ea.bloecke(BLATT)
+    assert set(b) == {("R1C1", 2), ("R1C1", 1), ("R1C2", 3)}
+    assert "cgD" in b[("R1C1", 2)] and "cgD" not in b[("R1C1", 1)]
+
+
+def test_gegenprobe_zaehlt_nur_verlierer():
+    m = {"rennen": [
+        {"rennen": "R1C1", "kandidaten": [{"no": 2, "horse": "H2", "urteil": "nein", "gewonnen": False}],
+         "massstab": [{"no": 1, "horse": "H1", "gewonnen": True}]},
+        {"rennen": "R1C2", "kandidaten": [{"no": 3, "horse": "H3", "urteil": "wette", "gewonnen": False},
+                                          {"no": 4, "horse": "H4", "urteil": "nein", "gewonnen": False,
+                                           "nichtstarter": True}], "massstab": []}]}
+    g = ea.gegenprobe(m, ea.bloecke(BLATT), r"CGD \S*D")
+    assert g["verlierer"] == 2 and g["mit_muster"] == 2      # Sieger H1 und Nichtstarter H4 zählen nicht
+    assert [t["horse"] for t in g["treffer"]] == ["H2", "H3"]
+    assert ea.gegenprobe(m, ea.bloecke(BLATT), "cgD$")["mit_muster"] == 1

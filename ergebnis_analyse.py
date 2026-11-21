@@ -10,6 +10,10 @@ Nur Standardbibliothek, außer zum Lesen des Parquets (pyarrow, in der Aufgabe p
 Aufruf:
     python3 -I ergebnis_analyse.py material KARTE RUNNERS.parquet DURCHGANG.json … --aus analyse_JJJJMMTT.json
         Tagesmaterial (Datum aus der Karte).
+    python3 -I ergebnis_analyse.py faelle analyse_JJJJMMTT.json [RxCy]
+        Zählung und je Fall eine Zeile; mit RxCy der Materialeintrag dieses Rennens (Pro/Gegen, Maßstäbe).
+    python3 -I ergebnis_analyse.py gegenprobe KARTE analyse_JJJJMMTT.json MUSTER
+        Verlierer des Tages (Kandidaten, Maßstäbe), deren Blatt MUSTER (Regex) enthält: Anzahl, Namen, Zeile.
     python3 -I ergebnis_analyse.py protokoll analyse_JJJJMMTT.json [--ordner auswertung]
         Regelprotokoll mit den Kennungen des Tages fortschreiben (ersetzt Zeilen desselben Tages).
     python3 -I ergebnis_analyse.py bericht [--ordner auswertung]
@@ -153,6 +157,78 @@ def material(datum: str, karte: dict, durchgaenge: dict[str, dict], ein: dict[st
                 faelle.append({"art": art, "race_id": rid, "rennen": kurz, "bahn": r.get("course"),
                                **{f: k[f] for f in ("no", "horse", "urteil", "fk", "pos", "ausschlag", "kennungen")}})
     return {"datum": datum, "rennen": rennen_out, "faelle": faelle, "zaehlung": zaehlung}
+
+
+# ---------------------------------------------------------------- Fälle und Gegenprobe (sparsam lesen)
+
+def faelle_kurz(m: dict) -> str:
+    """Zählung und je Fall eine Zeile – statt das ganze Material zu lesen."""
+    z = [json.dumps(m["zaehlung"], ensure_ascii=False)]
+    for f in m["faelle"]:
+        z.append(f"{f['art']:<18} {f['rennen']:<6} {f['no']:>2} {f['horse']} · {f['urteil']} · FK {f.get('fk')} · "
+                 f"Platz {f.get('pos')} · {' '.join(f.get('kennungen') or []) or '–'} · {f.get('ausschlag') or ''}")
+    return "\n".join(z)
+
+
+def verlierer(m: dict) -> list[dict]:
+    """Verlierer des Tages für die Gegenprobe: Kandidaten (ohne Nichtstarter) und Maßstäbe, die nicht gewonnen haben."""
+    aus = []
+    for r in m["rennen"]:
+        for k in r["kandidaten"]:
+            if not k["gewonnen"] and not k.get("nichtstarter"):
+                aus.append({"rennen": r["rennen"], "no": int(k["no"]), "horse": k["horse"], "rolle": k["urteil"]})
+        for ms in r["massstab"]:
+            if not ms.get("gewonnen"):
+                aus.append({"rennen": r["rennen"], "no": int(ms["no"]), "horse": ms.get("horse"), "rolle": "massstab"})
+    return aus
+
+
+BLOCK = re.compile(r"^### (?:MASSSTAB [^–]*– )?(\d+) ")
+
+
+def bloecke(text: str) -> dict[tuple[str, int], str]:
+    """Ausgabe von blatt.py → {(RxCy, Nr.): Blatt des Pferdes}."""
+    aus: dict[tuple[str, int], str] = {}
+    rennen, key = None, None
+    for zeile in text.splitlines():
+        if zeile.startswith("## "):
+            rennen, key = zeile[3:].split()[0].upper(), None
+            continue
+        mt = BLOCK.match(zeile)
+        if mt and rennen:
+            key = (rennen, int(mt.group(1)))
+            aus[key] = ""
+        if key:
+            aus[key] += zeile + "\n"
+    return aus
+
+
+def gegenprobe(m: dict, blaetter: dict[tuple[str, int], str], muster: str) -> dict:
+    """Verlierer, deren Blatt ``muster`` (regulärer Ausdruck, ohne Groß/klein) enthält, mit der ersten passenden Zeile."""
+    rx = re.compile(muster, re.IGNORECASE)
+    alle = verlierer(m)
+    treffer = []
+    for v in alle:
+        b = blaetter.get((v["rennen"].upper(), v["no"]), "")
+        zeile = next((z.strip() for z in b.splitlines() if rx.search(z)), None)
+        if zeile:
+            treffer.append({**v, "zeile": zeile[:200]})
+    return {"muster": muster, "verlierer": len(alle), "mit_muster": len(treffer), "treffer": treffer,
+            "ohne_blatt": [f"{v['rennen']} {v['no']}" for v in alle if (v["rennen"].upper(), v["no"]) not in blaetter]}
+
+
+def blaetter_lesen(karte: str, rennen: list[str]) -> dict[tuple[str, int], str]:
+    """blatt.py des Durchgang-Skills für die Rennen ausführen und in Blöcke je Pferd zerlegen."""
+    import contextlib
+    import importlib.util
+    import io
+    spec = importlib.util.spec_from_file_location("blatt", dg.SKILL_ORDNER / "scripts" / "blatt.py")
+    blatt = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(blatt)
+    puffer = io.StringIO()
+    with contextlib.redirect_stdout(puffer):
+        blatt.main(["blatt.py", karte, *rennen])
+    return bloecke(puffer.getvalue())
 
 
 # ---------------------------------------------------------------- Regelprotokoll
@@ -338,6 +414,17 @@ def main(argv: list[str]) -> None:
         aus = Path(rest[rest.index("--aus") + 1])
         aus.write_text(json.dumps(m, ensure_ascii=False, indent=1), encoding="utf-8")
         print(json.dumps({"datei": str(aus), "zaehlung": m["zaehlung"], "faelle": len(m["faelle"])}, ensure_ascii=False))
+    elif cmd == "faelle":
+        m = json.loads(Path(args[0]).read_text(encoding="utf-8"))
+        if len(args) > 1:
+            r = [x for x in m["rennen"] if x["rennen"].upper() == args[1].upper()]
+            print(json.dumps(r[0] if r else None, ensure_ascii=False, indent=1))
+        else:
+            print(faelle_kurz(m))
+    elif cmd == "gegenprobe":
+        m = json.loads(Path(args[1]).read_text(encoding="utf-8"))
+        b = blaetter_lesen(args[0], sorted({r["rennen"] for r in m["rennen"]}))
+        print(json.dumps(gegenprobe(m, b, args[2]), ensure_ascii=False, indent=1))
     elif cmd == "protokoll":
         m = json.loads(Path(args[0]).read_text(encoding="utf-8"))
         print(f"{protokoll_fortschreiben(ordner, m)} Zeilen für {m['datum']}")

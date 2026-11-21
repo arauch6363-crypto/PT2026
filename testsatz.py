@@ -1,7 +1,7 @@
 """Testsatz des Skills rennkarten-durchgang-neu: Urteile des Skills gegen die Urteile des Nutzers (ADR 0002).
 
 Ein Testfall ist ein Rennen: Kartenausschnitt ``tests/testsatz_durchgang/karten/<race_id>.json.gz`` und die Urteile
-des Nutzers in ``tests/testsatz_durchgang/erwartet.json``. Eine Fehlwette zählt doppelt so schwer wie ein verpasster
+des Nutzers in ``tests/testsatz_durchgang/erwartet.json``. Gestuft: ein Lauf je Testfall, drei nur, wo der erste abweicht. Eine Fehlwette zählt doppelt so schwer wie ein verpasster
 Kandidat; Wette gegen Kleine Wette zählt halb. Ablauf: ``claude_projekt/aufgabe_testsatz.md``.
 """
 from __future__ import annotations
@@ -50,12 +50,27 @@ def testfall(erwartet: dict, laeufe: list[dict]) -> dict:
             "fehlt": sorted(fehlt)}
 
 
+LAEUFE_VOLL = 3   # so viele Läufe braucht ein Testfall, dessen erster Lauf abweicht (gestufter Testsatz)
+
+
+def nachlauf(erwartet: dict[str, dict], laeufe: dict[str, list[dict]]) -> list[str]:
+    """Testfälle, die noch Läufe brauchen: ohne Lauf, oder mit weniger als drei Läufen und einem abweichenden Lauf.
+    Ein Testfall, dessen erster Lauf richtig ist, gilt mit diesem einen Lauf als stabil richtig (gestufter Testsatz)."""
+    aus = []
+    for rid, e in erwartet.items():
+        ls = laeufe.get(rid) or []
+        if not ls or (len(ls) < LAEUFE_VOLL and not all(testfall(e, ls)["richtig"])):
+            aus.append(rid)
+    return aus
+
+
 def bewerten(erwartet: dict[str, dict], laeufe: dict[str, list[dict]]) -> dict:
     """Alle Testfälle: ``trefferquote`` = Anteil der Testfälle ohne Fehlerpunkte, über die Läufe gemittelt (Anteil
-    richtiger Läufe), ``punkte`` = Summe der mittleren Fehlerpunkte je Testfall."""
-    fehlen = [rid for rid in erwartet if not laeufe.get(rid)]
+    richtiger Läufe), ``punkte`` = Summe der mittleren Fehlerpunkte je Testfall. ValueError, solange ``nachlauf``
+    Testfälle meldet."""
+    fehlen = nachlauf(erwartet, laeufe)
     if fehlen:
-        raise ValueError(f"Kein Lauf für: {', '.join(fehlen)}")
+        raise ValueError(f"Läufe fehlen (bis n = {LAEUFE_VOLL}) für: {', '.join(fehlen)}")
     faelle = {rid: testfall(e, laeufe[rid]) for rid, e in erwartet.items()}
     richtig = [x for t in faelle.values() for x in t["richtig"]]
     return {"trefferquote": sum(richtig) / len(richtig), "punkte": sum(t["punkte"] for t in faelle.values()),
@@ -144,6 +159,7 @@ def bericht(ergebnis: dict, vorher: dict, erwartet: dict) -> str:
 ORDNER = Path(__file__).resolve().parent / "tests" / "testsatz_durchgang"
 AUFRUF = """Aufruf:
     python3 -I testsatz.py ausschnitt KARTE RACE_ID…           # Kartenausschnitte nach tests/testsatz_durchgang/karten/
+    python3 -I testsatz.py nachlauf LAUFORDNER                  # race_ids, die noch Läufe n = 2, 3 brauchen (oder „keine“)
     python3 -I testsatz.py bewerten LAUFORDNER [--ablegen COMMIT]   # Läufe gegen erwartet.json und den letzten Stand"""
 
 
@@ -151,7 +167,7 @@ def main(argv: list[str]) -> None:
     import gzip
     from datetime import date
 
-    if len(argv) < 3 or argv[1] not in ("ausschnitt", "bewerten"):
+    if len(argv) < 3 or argv[1] not in ("ausschnitt", "nachlauf", "bewerten"):
         raise SystemExit(AUFRUF)
     if argv[1] == "ausschnitt":
         daten = laden(argv[2])
@@ -163,6 +179,9 @@ def main(argv: list[str]) -> None:
             print(ziel)
         return
     erwartet = json.loads((ORDNER / "erwartet.json").read_text(encoding="utf-8"))["testfaelle"]
+    if argv[1] == "nachlauf":
+        print(" ".join(nachlauf(erwartet, laeufe_laden(argv[2]))) or "keine")
+        return
     ergebnis = bewerten(erwartet, laeufe_laden(argv[2]))
     print(bericht(ergebnis, letztes(ORDNER), erwartet))
     commit = _opt(argv, "--ablegen")
