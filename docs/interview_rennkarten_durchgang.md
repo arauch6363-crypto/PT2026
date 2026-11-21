@@ -249,3 +249,7 @@ Skill v1 geschrieben: `.claude/skills/rennkarten-durchgang-neu/` (SKILL.md, DATE
 - Rückmeldung zu Claudes Vorhersagen in 10.11. R1C5 fehlt.
 - `tipp_auswertung.py` auf den neuen Protokoll-Block (`wetten`) umstellen.
 - Erprobung v1 an weiteren Rennen; danach alten Skill ersetzen und README anpassen.
+- Durchsicht (Stand 18.11.): erledigt 16.11. Marseille R4C1–R4C8, Mans
+  R3C7–R3C8; 18.11. Pau R2C3. Offen: 18.11. Pau R2C4–R2C8 (Durchgang 11:40); 16.11. Mans R3C6 Zartop (gezeigt,
+  Antwort fehlt), R3C5, R3C3, R3C2, R3C1 (Durchgang 11:47); 17.11. ab Angers R2C1 (Allez Papa/Ipanema Rose gezeigt,
+  Antwort fehlt); 15.11. Paumy und Give Me A Shivers (16.11. R3C6) beim Abschluss von R3C6 einordnen.
