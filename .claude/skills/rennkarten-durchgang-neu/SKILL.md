@@ -88,7 +88,7 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
    Referenzlauf schlecht und gibt es kein Argument, warum es heute besser sein sollte, ist das ein starkes
    Gegenargument.
 4. **Vorlieben (Gesamtbilanz), dann Abstammung.** Boden, Distanz, Bahn, Richtung, Ausrüstung aus den **Vorlieben**
-   des Blatts lesen – die Formzeilen zeigen höchstens sieben Läufe. **Boden vergleichen:** Collant und Lourd bilden
+   des Blatts lesen – die Formzeilen zeigen nur die letzten sieben und wenige ältere Läufe. **Boden vergleichen:** Collant und Lourd bilden
    zusammen die Gruppe Very slow und sind für uns gleichwertig – ein Lauf auf Collant belegt Lourd und umgekehrt.
    Innerhalb der Gruppe Slow wird unterschieden: Souple belegt Très souple nicht vollständig. Ein Lauf auf genau
    diesem Boden bzw. in dieser Gruppe ist ein starkes Argument.

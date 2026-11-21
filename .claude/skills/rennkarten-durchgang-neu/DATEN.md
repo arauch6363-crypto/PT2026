@@ -48,7 +48,9 @@ ein belegtes Plus), `rivals_stat` (wie die Gegner danach liefen: aufgewertet, we
 
 ## Lücken
 
-- **Formzeilen zeigen nur die letzten Läufe** (höchstens sieben); die Gesamtbilanz steht in den Vorlieben (`pref`).
+- **Formzeilen zeigen nur die letzten Läufe** (höchstens sieben) und, falls darunter keiner auf derselben Bahn, Distanz
+  (±100 m) oder Bodengruppe war, je Merkmal den letzten älteren (Feld `extra`, im Blatt „Ältere Läufe“); die
+  Gesamtbilanz steht in den Vorlieben (`pref`).
 - **Externe Läufe** (Belgien, PMH-Bahnen) haben oft keine Quote, Marke oder Ratings (`extern`).
 - Läufe, die PMU gar nicht meldet, fehlen ganz; `starts` (PMU-Gesamtzahl) kann größer sein als die Zahl der Formzeilen.
 - Eine fehlende Angabe ist eine Lücke, kein Negativbefund.
