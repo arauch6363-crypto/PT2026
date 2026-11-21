@@ -35,3 +35,17 @@ def test_kandidaten_werden_uebersprungen_auch_mehrere():
 def test_ohne_festkurs_kein_massstab():
     assert nummern([_z(1, None, None)]) == []
     assert nummern([_z(1, 2.0, 0.3), _z(2, 3.0, -0.1)]) == [2]   # nur einer übrig
+
+
+def _lauf(**k):
+    return {"date": "2026-11-01", "course": "PAU", "dist": 1600, "going": "Souple", "type": "Handicap", "pos": 3,
+            "ran": 10, "margin": 1.5, **k}
+
+
+RENNEN = {"course": "PAU", "distance": 1600, "going_label": "Slow"}
+
+
+def test_kommentar_deutsch_sonst_original():
+    assert "„Stark außen beendet.“" in blatt.formzeile(_lauf(comment="A fini fort.", comment_de="Stark außen beendet."), RENNEN)
+    assert "„A fini fort.“" in blatt.formzeile(_lauf(comment="A fini fort."), RENNEN)     # ohne Übersetzung
+    assert "„" not in blatt.formzeile(_lauf(), RENNEN)

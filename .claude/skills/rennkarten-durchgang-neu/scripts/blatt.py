@@ -175,8 +175,9 @@ def formzeile(f: dict, r: dict) -> str:
          f"{zahl(f.get('weight'))} kg{bl}, Kl.-Index {f.get('cls_val_idx')}, ARR {zahl(f.get('arr'))} (ber. {zahl(f.get('arr_adj'))})")
     if ref or warn:
         s += " [" + "; ".join(ref + warn) + "]"
-    if f.get("comment_de"):
-        s += f"\n       „{f['comment_de'][:220]}“"
+    kommentar = f.get("comment_de") or f.get("comment")    # Original (französisch), wenn die Übersetzung fehlt
+    if kommentar:
+        s += f"\n       „{kommentar[:220]}“"
     return s
 
 

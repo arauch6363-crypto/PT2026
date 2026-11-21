@@ -43,7 +43,8 @@ Je Lauf: `dist`, `going`, `type`, `pos`/`ran`, `margin` (Längen geschlagen), `o
 `weight`, `cls_val_idx`, `arr`/`arr_adj`, `blinkers`, `incident`, `unreliable` (> 10 L geschlagen), `verlauf`
 (Rennen begünstigte vorne/hinten), `verlauf_pferd` (mit/gegen), `verlauf_plus` (gegen den Verlauf vorne gelandet –
 ein belegtes Plus), `rivals_stat` (wie die Gegner danach liefen: aufgewertet, wenn mindestens die Hälfte besser),
-`comment_de` (Rennkommentar, übersetzt).
+`comment_de` (Rennkommentar, übersetzt; fehlt die Übersetzung, zeigt das Blatt das französische Original
+`comment`).
 
 ## Lücken
 
