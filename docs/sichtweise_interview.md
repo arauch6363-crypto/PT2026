@@ -340,10 +340,34 @@ Fontainebleau)? Fehlende Bahnen einordnen, z. B. Saint-Cloud, Craon, Nantes, Ang
 - Kleines Feld: oft **taktisch**; Rennverlauf (mit/gegen den Verlauf) besonders beachten.
 - **Jockey-Bilanz nach Feldgröße: unwichtig** → muss nicht ins Blatt.
 
+## A9 Klassenindex und Preisgeld
+
+**Antwort (23.11.):**
+
+> Der **Klassenindex ist mir etwas wichtiger als die Dotierung.** Allerdings ist bei **Maidenrennen, Dreijährigen- und
+> Zweijährigenrennen die Dotierung entscheidender**, weil wir uns beim Klassenindex dort noch nicht so sehr auf die
+> Durchschnittswerte verlassen können. **Bei Rennen für Drei- und Vierjährige und älter** schauen wir mehr auf den
+> **Klassenindex** als auf die Dotierung.
+>
+> „Deutlich stärker“ kann man so sehen wie vorgeschlagen: **ab 5 Punkten ein leichter Vorteil, ab 10 Punkten ein
+> größerer Vorteil** und so weiter.
+>
+> Ich schaue mir den Klassenindex aus der Karte an – auch bei den **letzten Formen und beim Referenzlauf**: War diese Form
+> aus einem Rennen mit **höherem oder niedrigerem Klassenindex**?
+
+**Notiert (Claude, zur Kontrolle):**
+
+- Rennstärke früher Läufe: **Klassenindex** vor Dotierung – außer bei **jungen Pferden** (Maiden, Zwei- und
+  Dreijährigenrennen): dort **Dotierung** vor Klassenindex (Index dort wenig verlässlich).
+- Schwellen: Klassenindex **ab 5 Punkten höher = leichter Vorteil, ab 10 Punkten = größerer Vorteil** (gestuft).
+- Bei Referenzlauf und letzten Formen immer den Klassenindex des Laufs gegen heute lesen.
+- Zweiter Index (Gewinn je Lauf der Teilnehmer): nicht angesprochen → bleibt außen vor.
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
 - Erledigt zusätzlich: A6, C9 teilweise (CGD-Gewichtung).
 - Erledigt zusätzlich: A6 Nachfragen, A7.
 - Erledigt zusätzlich: A8.
-- Offen: A9 bis H.
+- Erledigt zusätzlich: A9.
+- Offen: A10 bis H.
