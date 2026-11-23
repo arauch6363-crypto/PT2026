@@ -363,6 +363,22 @@ Fontainebleau)? Fehlende Bahnen einordnen, z. B. Saint-Cloud, Craon, Nantes, Ang
 - Bei Referenzlauf und letzten Formen immer den Klassenindex des Laufs gegen heute lesen.
 - Zweiter Index (Gewinn je Lauf der Teilnehmer): nicht angesprochen → bleibt außen vor.
 
+## A10 Tempo und Laufstile
+
+**Antwort (23.11.):**
+
+> Langsames Tempo / einzelner Führender als Pro-Argument für dieses Pferd: **kannst du so stehen lassen, allerdings nur
+> ein leichtes Pro-Argument.** **Tempo unbekannt** musst du nicht als Fragezeichen notieren, sondern **ignorieren**. Tempo
+> und Distanz: **kann ich pauschal nicht sagen.**
+
+**Notiert (Claude, zur Kontrolle):**
+
+- Langsames Tempo bzw. einzelner Führender = **leichtes Pro** für den (einzigen) Vorreiter.
+- Tempo „unbekannt“ → **ignorieren**, kein Fragezeichen.
+- Tempo × Distanz: keine pauschale Regel.
+- Gesamtgewicht Tempo/Laufstil: **leicht** (vgl. A7: Laufstildaten nur Indikator). Bestehende `G-TEMPO-VORNE` und
+  „von hinten bei schnellem Tempo = Pro“ bleiben unwidersprochen, Gewicht dort bei der Destillation prüfen.
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -370,4 +386,5 @@ Fontainebleau)? Fehlende Bahnen einordnen, z. B. Saint-Cloud, Craon, Nantes, Ang
 - Erledigt zusätzlich: A6 Nachfragen, A7.
 - Erledigt zusätzlich: A8.
 - Erledigt zusätzlich: A9.
-- Offen: A10 bis H.
+- Erledigt zusätzlich: A10.
+- Offen: A11 bis H.
