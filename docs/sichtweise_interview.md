@@ -432,6 +432,38 @@ Besten → höchstens klein), `G-MASSSTAB-BESSER` [gewichtig]. Deine Sicht läss
 **Notiert:** Value als Filter, Rang nach Drittel (`P-RANG-VORNE`, `G-RANG-HINTEN`), Faustregel nach Value
 (`U-FAUSTREGEL`), `U-VALUE-DUENN`, `G-MODELL-UNSICHER` [vorläufig] bleiben wie im Skill.
 
+## B2 Value-Faktor (gold, Warnung), Siegchance ohne Markt
+
+**Antwort (23.11.):**
+
+> **Gold und Warnung ziehe ich aktuell gar nicht heran**; das können wir erstmal **ignorieren**. Ich ziehe auch die
+> **Siegchance mit oder ohne Markt** oder den Abstand daraus **nicht** heran.
+
+**Notiert:** Value-Faktor (gold/Warnung) und Siegchance ohne Markt **ignorieren**. (Der Value-Faktor steht heute im Blatt;
+ob er dort bleiben muss, ist bei der Destillation zu entscheiden – er kostet Tokens ohne Wirkung.)
+
+## B3 Platzkurs, Toto, Kelly-Tipp
+
+**Antwort (23.11.):**
+
+> Den **Totokurs** könntest du vielleicht **ganz leicht** heranziehen, um zu prüfen, ob ein Pferd, das für uns ein
+> Value-Kandidat ist, **am Toto überhaupt nicht gespielt** ist. Wenn die Totoquote **deutlich, deutlich höher** ist als
+> das, was das Value-Modell angesagt hätte, ist das vielleicht ein Zeichen, dass **der Value nicht wirklich da ist.**
+> Nichtsdestotrotz kann man einem solchen Totokurs **nicht vertrauen**, da er bis zum Start noch **stark fallen** kann.
+> Wenn das Pferd aber **gar nicht am Toto angefasst** ist, kann man doch **ein bisschen vorsichtig** werden.
+
+**Notiert (Claude, zur Kontrolle):**
+
+- **Totokurs als leichtes Warnsignal:** Liegt die Totoquote **weit über** dem Festkurs bzw. der fairen Quote des Modells
+  („gar nicht angefasst“), ist der Value vielleicht nicht echt → **etwas Vorsicht, leicht**.
+- Einschränkung: Toto ist früh am Tag unzuverlässig, kann bis zum Start stark fallen.
+- Platzkurs, Kelly-Tipp der Karte: nicht angesprochen → **ignorieren**.
+- *Achtung, Widerspruch zur bisherigen Absicht:* Tagesquoten sind bisher **bewusst nicht** im Blatt (Durchgang soll nicht
+  dem Markt folgen). Dein Wunsch ist eng begrenzt (nur „gar nicht gespielt“ als Warnung) – bei der Destillation klären,
+  ob der Toto ins Blatt kommt und wie (z. B. nur als Hinweis ab einem Faktor X über dem Festkurs).
+
+**Offen:** Ab welchem Verhältnis Toto zu Festkurs ist ein Pferd „gar nicht angefasst“ (doppelt, dreifach)?
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -443,4 +475,5 @@ Besten → höchstens klein), `G-MASSSTAB-BESSER` [gewichtig]. Deine Sicht läss
 - Erledigt zusätzlich: A11.
 - Erledigt zusätzlich: A12 (Block A vollständig).
 - Erledigt zusätzlich: B1.
-- Offen: B2 bis H.
+- Erledigt zusätzlich: B2, B3 (Block B vollständig).
+- Offen: C bis H.
