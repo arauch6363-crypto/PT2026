@@ -115,3 +115,29 @@ def test_qualitaet_der_linie_mit_rang_im_feld():
         return {"ae": {"pedigree": {"sire": {"pos_idx": pos, "epr_idx": epr, "max_val3_idx": val, "horses": 50}}}}
     r = {"runners": [{"no": 1, **ped(120, 90, 100)}, {"no": 2, **ped(100, 130, 110)}, {"no": 3, **ped(80, 70, 90)}]}
     assert blatt.linie(r["runners"][0], r) == ("Vater Pos+ 120 (1/3), €/L+ 90 (2/3), maxVal+ 100 (2/3), 50 Nachkommen")
+
+
+def test_karriere_relativ_zum_feld():
+    def k(runs, places, epr):
+        return {"career": {"all": {"runs": runs, "wins": 1, "places": places, "epr": epr}}}
+    r = {"runners": [{"no": 1, **k(20, 10, 3000)}, {"no": 2, **k(10, 2, 5000)}, {"no": 3, **k(0, 0, None)}]}
+    assert blatt.karriere(r["runners"][0], r) == "Karriere 20 L/1 S/10 P: Platzquote 50 % (1/2), Gewinn je Lauf 3 000 € (2/2)"
+
+
+def test_formzeile_klassenindex_gegen_heute_und_preis():
+    z = blatt.formzeile(_lauf(cls_val_idx=82, prize=16300), {**RENNEN, "class": {"val_idx": 75}})
+    assert "Kl.-Index 82 (+7)" in z and "Preis 16 k€" in z
+
+
+def test_ratings_in_reihenfolge_des_nutzers():
+    x = {"arr": {"adj": 30.0, "rank": 1, "n": 8, "best": 32.0}, "tr": {"heute": 31, "rank": 2, "n": 8},
+         "summary": {"dl600_a": 0.8, "dl600_a_rank": 3, "dl600_a_n": 8}, "rtr": {"rank": 4},
+         "duel_rank": {"score_l": 1.2, "rank": 2, "of": 8, "n_direct": 3, "n_indirect": 1}, "draw_stat": {"dev": 0.1}}
+    z = blatt.ratings(x)
+    assert z.index("ARR") < z.index("TR heute 31 (Rang 2/8)") < z.index("ΔL600 +0,8 km/h (Rang 3/8)") < z.index("RTR") < z.index("Duelle")
+    assert "3 direkt, 1 indirekt" in z
+
+
+def test_crible_original_wenn_uebersetzung_fehlt():
+    assert blatt.crible({"prono": {"crible": "Il devrait lutter."}}) == "Il devrait lutter."
+    assert blatt.crible({"prono": {"crible": "x", "crible_de": "Deutsch"}}) == "Deutsch"

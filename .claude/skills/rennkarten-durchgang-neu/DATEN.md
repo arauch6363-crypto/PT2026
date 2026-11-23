@@ -33,7 +33,8 @@ wo die Daten Lücken haben.
 | Vorlieben | `pref.horse.going/distance/course/richtung/blinkers/trainer` | **Gesamtbilanz** der Datenbank; `today` markiert die heutige Gruppe; das Blatt zeigt die Platzquote statt A/E |
 | Trainer | `ae.trainer.d30` (Form), `pref.trainer.course/racetype/age` | `trend` hot/cold; Trainerwechsel aus `pref.horse.trainer` (Läufe beim heutigen Trainer gegen alle) – Blatt: „Trainer erst seit N Läufen“ (bis 5) |
 | Jockey | `ae.jockey.d365`, `pref.jockey.course/horse/trainer` | `pref.jockey.trainer` = Gespann |
-| Ratings | `arr.adj` (gewichtsbereinigt), `arr.rank`, `tr.rank`, `rtr.rank` | Top-ARR des Feldes im Blattkopf |
+| Ratings | `arr.adj` (gewichtsbereinigt), `arr.rank`, `tr.heute`, `tr.rank`, `rtr.rank`, `summary.dl600_a` | Top-ARR des Feldes im Blattkopf; ΔL600 = Tempo der letzten 600 m gegen Erwartung (km/h), Ø der Läufe |
+| Karriere | `career.all`: Läufe, Siege, Plätze (einschließlich Siege), Gewinn je Lauf | Platzquote und Gewinn je Lauf mit Rang im Feld |
 | Duelle | `duel_rank.score_l` | Längen vor (+) oder hinter (−) den Gegnern, direkt und indirekt |
 | Box | `draw_stat.dev`, `sig` | Abweichung der Ø relativen Platzierung aus dieser Box von 0,5 (1 = Sieger, 0 = Letzter): **positiv = Box besser**, negativ = schlechter; nur `sig` = belastbar (Blatt: „signifikant besser/schlechter“) |
 | Abstammung | `abst.sire/dam_sire.boden/dist.passung` | `sicher` = genug Läufe |

@@ -183,6 +183,46 @@ def kopf(r: dict, kz: list[dict]) -> None:
           else "Kein Handicap: Marken-Vergleich ohne Belang, es zählt die gewichtsbereinigte Valeur im Feld.")
 
 
+def ratings(x: dict) -> str:
+    """Kennzahlen in der Reihenfolge des Nutzers: ARR, TR, ΔL600, RTR, Duelle (Valeur steht eigens); dazu die Box."""
+    a, t, du, ds = x.get("arr") or {}, x.get("tr") or {}, x.get("duel_rank") or {}, x.get("draw_stat") or {}
+    sm = x.get("summary") or {}
+    dl = sm.get("dl600_a")
+    s = (f"Ratings: ARR ber. {zahl(a.get('adj'))} (Rang {a.get('rank')}/{a.get('n')}, Bestwert roh {zahl(a.get('best'))})"
+         f" · TR heute {t.get('heute') if t.get('heute') is not None else '–'} (Rang {t.get('rank')}/{t.get('n')})"
+         + (f" · ΔL600 {'+' if dl > 0 else ''}{zahl(dl)} km/h (Rang {sm.get('dl600_a_rank')}/{sm.get('dl600_a_n')})" if dl is not None else "")
+         + f" · RTR Rang {(x.get('rtr') or {}).get('rank')}"
+         + (f" · Duelle {zahl(du.get('score_l'))} L (Rang {du.get('rank')}/{du.get('of')}; {du.get('n_direct', 0)} direkt, "
+            f"{du.get('n_indirect', 0)} indirekt)" if du else " · Duelle keine")
+         + f" · Box {zahl(ds.get('dev'), 2)}"
+         + ((" signifikant " + ("besser" if (ds.get("dev") or 0) > 0 else "schlechter")) if ds.get("sig") else ""))
+    return s
+
+
+def crible(x: dict) -> str:
+    """Pressetext (Crible): deutsch, sonst das französische Original."""
+    p = x.get("prono") or {}
+    return (p.get("crible_de") or p.get("crible") or "").strip()
+
+
+def karriere(x: dict, r: dict) -> str | None:
+    """Karriere aus der Datenbank: Platzquote (Plätze einschließlich Siege je Lauf) und Gewinn je Lauf, je mit Rang im
+    Feld – Klasse und „vorne dabei“ relativ zum Feld."""
+    k = ((x.get("career") or {}).get("all")) or {}
+    if not k.get("runs"):
+        return None
+    feld = [((y.get("career") or {}).get("all") or {}) for y in r.get("runners") or [] if not y.get("nr")]
+    quoten = [e["places"] / e["runs"] for e in feld if e.get("runs")]
+    q = k["places"] / k["runs"]
+    s = (f"Karriere {k['runs']} L/{k.get('wins', 0)} S/{k['places']} P: Platzquote {100 * q:.0f} % "
+         f"({1 + sum(v > q for v in quoten)}/{len(quoten)})")
+    if k.get("epr") is not None:
+        eprs = [e["epr"] for e in feld if e.get("epr") is not None]
+        betrag = f"{k['epr']:,.0f}".replace(",", " ")
+        s += f", Gewinn je Lauf {betrag} € ({1 + sum(v > k['epr'] for v in eprs)}/{len(eprs)})"
+    return s
+
+
 def linie(x: dict, r: dict) -> str | None:
     """Qualität der Linie: Platzierungs-, Gewinn- und Valeur-Index der Nachkommen von Vater und Muttervater, je mit
     Rang unter den Startern des Rennens (relativ zum Feld)."""
@@ -282,6 +322,13 @@ def laufanalyse(f: dict, r: dict, x: dict) -> str | None:
     return "       Lauf: " + " · ".join(t) if t else None
 
 
+def klasse_lauf(f: dict, r: dict) -> str:
+    """Klassenindex des Laufs, Abstand zu heute und Preisgeld (bei jungen Pferden zählt die Dotierung)."""
+    k, heute_k = f.get("cls_val_idx"), (r.get("class") or {}).get("val_idx")
+    s = f"{k}" + (f" ({k - heute_k:+d})" if isinstance(k, int) and isinstance(heute_k, int) else "")
+    return s + (f", Preis {f['prize'] / 1000:.0f} k€" if f.get("prize") else "")
+
+
 def formzeile(f: dict, r: dict) -> str:
     gr, heute_gr = gruppe(f.get("going")), r.get("going_label")
     dist, d0 = f.get("dist"), r.get("distance")
@@ -312,7 +359,7 @@ def formzeile(f: dict, r: dict) -> str:
     bl = "" if not bl or bl.startswith("SANS") else " Skl."
     s = (f"   - {f.get('date')} {f.get('course')} {dist or '?'} m {f.get('going') or '?'} {f.get('type') or '?'}: "
          f"{f.get('pos')}/{f.get('ran')}, {zahl(f.get('margin'))} L, Quote {zahl(f.get('odds'))}, Marke {zahl(f.get('valeur'))}, "
-         f"{zahl(f.get('weight'))} kg{bl}, Kl.-Index {f.get('cls_val_idx')}, ARR {zahl(f.get('arr'))} (ber. {zahl(f.get('arr_adj'))})")
+         f"{zahl(f.get('weight'))} kg{bl}, Kl.-Index {klasse_lauf(f, r)}, ARR {zahl(f.get('arr'))} (ber. {zahl(f.get('arr_adj'))})")
     if ref or warn:
         s += " [" + "; ".join(ref + warn) + "]"
     kommentar = f.get("comment_de") or f.get("comment")    # Original (französisch), wenn die Übersetzung fehlt
@@ -376,6 +423,9 @@ def blatt(z: dict, r: dict, top_kg: float, titel: str = "") -> None:
     print(f"- Pferd: {x.get('age')}j {x.get('sex')}, {x.get('starts')} Starts, {x.get('wins')} S, {x.get('places')} P · "
           f"{x.get('weight')} kg (Höchstgewicht {top_kg}) · Marke {zahl(x.get('rating'))} · Box {x.get('draw')} · Laufstil {x.get('style_label')} · "
           f"{x.get('days')} Tage seit letztem Start · {dicht} Starts in {FENSTER_STARTS} Tagen")
+    kar = karriere(x, r)
+    if kar:
+        print(f"- {kar}")
     if not ist_handicap(r) and x.get("rating_adj") is not None:
         print(f"- Valeur bereinigt (Valeur − Gewicht + 55): {zahl(x.get('rating_adj'))}, Rang {x.get('rating_rank')}/{x.get('rating_n')} im Feld")
     if hm and ist_handicap(r):
@@ -422,14 +472,10 @@ def blatt(z: dict, r: dict, top_kg: float, titel: str = "") -> None:
     j365 = (ae.get("jockey") or {}).get("d365") or {}
     print(f"- Jockey {x.get('jockey')}: 365 Tage A/E {zahl(j365.get('ae'), 2)} · Bahn {bilanz(pj.get('course'))} · auf diesem Pferd {bilanz(pj.get('horse'))} · "
           f"Gespann mit Trainer {bilanz(pj.get('trainer'))}")
-    a, t, du, ds = x.get("arr") or {}, x.get("tr") or {}, x.get("duel_rank") or {}, x.get("draw_stat") or {}
-    print(f"- Ratings: ARR ber. {zahl(a.get('adj'))} (Rang {a.get('rank')}/{a.get('n')}, Bestwert roh {zahl(a.get('best'))}) · TR Rang {t.get('rank')}/{t.get('n')} · "
-          f"RTR Rang {(x.get('rtr') or {}).get('rank')} · Duelle {zahl(du.get('score_l'))} L (Rang {du.get('rank')}/{du.get('of')}) · "
-          f"Box {zahl(ds.get('dev'), 2)}"
-          + ((" signifikant " + ("besser" if (ds.get("dev") or 0) > 0 else "schlechter")) if ds.get("sig") else ""))
-    crib = ((x.get("prono") or {}).get("crible_de") or "").strip()
+    print(f"- {ratings(x)}")
+    crib = crible(x)
     if crib:
-        print(f"- Crible (Kontext): „{crib[:240]}“")
+        print(f"- Crible (Pressetext): „{crib[:240]}“")
     letzte = [f for f in fl if not f.get("extra")][:7]
     aeltere = [f for f in fl if f.get("extra")]          # von der Karte angehängt: letzter Lauf auf Bahn/Distanz/Boden
     referenz = next((f for f in letzte + aeltere if ist_heute(f, r)), None)

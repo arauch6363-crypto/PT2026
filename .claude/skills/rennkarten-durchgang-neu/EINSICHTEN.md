@@ -46,7 +46,7 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
 10. **Exposure relativ zum Alter, Abstand vor Platzierung.** Nah dran in stärkerem Rennen zählt mehr als ein Platz in
     schwächerem. *Roi du Ciel, L'Annonciade 11.11.*
 
-## 1. Ausgangslage
+## 1. Ausgangslage und Klasse
 
 - **[gewichtig]** `P-RANG-VORNE` Vorderer Modell-Rang mit solidem Value ist ein guter Start, aber kein Urteil: Rang 1 wird oft
   abgelehnt, wenn die Leitfrage scheitert. *Verdansk, Afterglow, Silgreypit, Tulpar.*
@@ -60,15 +60,24 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
   *Algeciras, Mister Chang, Cervaro.*
 - **[gewichtig]** `G-UEBER-SIEGMARKE` Im Handicap: über der letzten Siegmarke ist bei exposed Pferden ein Gegenargument, bei jungen nur
   ein Fragezeichen. *The Cat's, Silgreypit (+3,5 kg).*
+- **[gewichtig]** `P-MARKE-UNTER` Im Handicap: leicht unter einer Sieg- oder Platzmarke, die höchstens etwa ein Jahr
+  zurückliegt, ist ein Plus für exposed Pferde – außer die Marke fiel in stetigem Abstieg; eine ältere Marke zählt kaum.
+- **[leicht]** `P-MARKE-HOCH` / `P-MARKE-BEWIESEN` Im Handicap sind hohe Marken leicht im Vorteil, im Sprint mehr. Wer
+  seine Marke im Handicap verteidigt hat, bringt außerhalb des Handicaps eine verlässliche Valeur mit.
+- **[leicht]** `G-DREIJAEHRIG-FRUEH` / `P-DREIJAEHRIG-HERBST` Dreijährige gegen Ältere im Handicap: bis zum Sommer
+  trotz Gewichtsvorteil eher im Nachteil, ab Sommer und im Herbst eher im Vorteil.
 - **[gewichtig · vorläufig]** `G-MODELL-UNSICHER` Sehr hoher Value (über etwa +100 %) auf Formen, die das Modell schlecht einschätzen kann
   (Ausland, extern, wenig Daten) → eher Modell unsicher als Markt falsch; eher keine Wette. *Arkansas 11.11.*
 
 ## 2. Referenzlauf und Leitfrage
 
-- **[ausschlaggebend]** `G-ARR-UNTER` ARR auch im Referenzlauf nicht unter den vorderen im Feld, dazu selten gewinnend oder exposed
-  → keine Siegwette, auch bei Value über +30 %. *The Cat's, Roi du Ciel, Silgreypit, Bosquet, Go For It.*
+- **[gewichtig]** `G-ARR-UNTER` ARR auch im Referenzlauf nicht unter den vorderen im Feld, dazu selten vorne oder
+  exposed → keine Siegwette, auch bei Value über +30 %; nur viele andere klare Pluspunkte tragen einen ARR-Rückstand. *The Cat's, Roi du Ciel, Silgreypit, Bosquet, Go For It.*
 - **[ausschlaggebend]** `G-REFERENZ-SCHWACH` Referenzlauf schwach (z. B. hier im vergleichbaren Rennen weit hinten) und kein Grund für eine
   Steigerung. *Marakana 11.11., Naturaliste 16.11.*
+- **[gewichtig]** `P-ABSTIEG` Formen aus stärkeren Rennen zählen mehr als ihre Platzierung: Klassenindex ab etwa
+  5 Punkten höher leicht, ab 10 deutlich; Listed und Gruppe am meisten; bei jungen Pferden zählt die Dotierung (hoch ab
+  etwa 30 000 €). Abgewertete Rennen zählen nicht.
 - **[gewichtig]** `P-GEGNER-GESCHLAGEN` Referenzlauf mit ähnlicher Marke, heutige Gegner direkt geschlagen, trägt auch ein Pferd mit leicht
   kaltem Trainer. *Grand Scoop 10.11.*
 - **[gewichtig]** `P-GEGEN-VERLAUF` Gegen den Verlauf gut gelaufen oder ohne Deckung („Nase im Wind“) – die Form ist besser, als die
@@ -164,6 +173,8 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
   *Lovely Warrior 16.11.*
 - **[gewichtig]** `G-MASSSTAB-BESSER` Lief ein Maßstab in seinem Referenzlauf klar besser als der Kandidat in seinem
   (etwa 2 Punkte ARR mehr, in einem stärkeren Rennen), reicht es bei kurzer Quote nicht für eine Wette. *X Rays 15.11.*
+- **[leicht]** `U-FAVORIT-KLAR` Steht ein klarer Favorit (Festkurs unter 2) im Rennen, ist sich der Markt sehr sicher;
+  ein Value-Kandidat dagegen braucht eine klare Beweislage.
 - **[leicht]** `U-ARR-ABSTAND` Liegt der Referenzlauf etwa 3 Punkte ARR oder mehr unter dem besten Pferd im Feld, reicht
   es höchstens für eine kleine Wette, auch bei einem wenig exposed Pferd. *Aura 17.11.*
 

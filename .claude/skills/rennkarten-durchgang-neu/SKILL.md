@@ -68,14 +68,17 @@ offen“). Die Kursspanne bleibt eigene Einschätzung, nicht abgeleitet von den 
 
 Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargument oder Fragezeichen liefern.
 
-1. **Ausgangslage.** Value und **Modell-Rang relativ zur Feldgröße** (vorderes/mittleres/hinteres Drittel; ein
-   hinterer Rang ist ein Gegenargument, ein vorderer mit solidem Value „erstmal sehr positiv“). **Exposure** relativ
-   zum Alter (21 Starts als 3-Jähriger sind sehr viel; 4-jährig mit 25 Starts gilt noch als „relativ jung“).
+1. **Ausgangslage und Klasse.** Value und **Modell-Rang relativ zur Feldgröße** (vorderes/mittleres/hinteres
+   Drittel; ein hinterer Rang ist ein Gegenargument, ein vorderer mit solidem Value „erstmal sehr positiv“). **Klasse
+   relativ zum Feld,** in dieser Reihenfolge: ARR, Valeur (außerhalb des Handicaps), TR, ΔL600, RTR, Duelle (nur mit
+   mehreren Duellen); dazu Platzquote und Gewinn je Lauf mit Rang im Feld (Blatt: Karriere). **Exposure** relativ zum
+   Alter (21 Starts als 3-Jähriger sind sehr viel; 4-jährig mit 25 Starts gilt noch als „relativ jung“); wenig
+   gelaufene Pferde steigern sich bis ins vierte Jahr, der Zenit liegt bei 3 bis 5 Jahren.
    **Marke – nur im Handicap:** Dort zählt die heutige Marke gegen die letzte Sieg- bzw. Platzmarke, weil das Gewicht
-   die Valeur ausgleicht. **In allen anderen Rennen** (Conditions, Claimer, Listed, Gruppe, Rennart unbekannt) gleicht
+   die Valeur ausgleicht – nicht ganz, hohe Marken sind leicht im Vorteil. **In allen anderen Rennen** (Conditions, Claimer, Listed, Gruppe, Rennart unbekannt) gleicht
    niemand die Valeurs aus: Dort zählt, wer die **höchste gewichtsbereinigte Valeur** im Feld hat (Valeur − Gewicht +
    55, Rang im Blatt). Eine Marke unter der letzten Platzmarke ist dort ein Zeichen, dass das Pferd nachlässt.
-   Kennzeichen **CGD** (auf Bahn, Distanz, Boden gewonnen) „lässt aufhorchen“.
+   Kennzeichen **CGD** (auf Bahn, Distanz, Boden gewonnen) „lässt aufhorchen“; C wiegt am meisten, dann G, dann D.
 2. **Referenzlauf.** Der jüngste Lauf unter heutigen Bedingungen (Blatt: `≈heute`), höchstens etwa ein Jahr alt, je
    jünger desto besser. Ihn gründlich lesen, in dieser Reihenfolge (Blatt: Zeile „Lauf:“ darunter):
    - **kompetitiv?** Platz relativ zur Starterzahl und Abstand in Längen; knapp geschlagen im großen Feld ist oft ein
@@ -85,6 +88,8 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
    - **Kommentar, Position, Tempo:** klarer Lauf, Effort in der Geraden, kämpferisch – oder behindert, „Nase im Wind“,
      außen herum. Von weit hinten Boden gutgemacht, als vorne gewonnen wurde, hinten bei langsamem oder vorne bei sehr
      schnellem Tempo: Der Lauf war besser, als der Platz zeigt.
+   - **Klasse des Laufs:** Klassenindex gegen heute (Blatt: Abstand), bei jungen Pferden die Dotierung; Listed- und
+     Gruppe-Formen wiegen am meisten, Claimer am wenigsten (`P-ABSTIEG`, `G-CLAIMER-AUFSTIEG`).
    - **Gegner:** wie sie danach liefen (aufgewertet/abgewertet; bei jungen Pferden besonders wichtig) und welche
      heutigen Gegner es direkt oder indirekt schlug.
    - **Marke damals gegen heute** (nur im Handicap).
@@ -154,8 +159,7 @@ Handicap-Form auf ähnlicher Marke.
 - `G-RANG-HINTEN` hinterer Modell-Rang
 - `G-REFERENZ-SCHWACH` schwacher Referenzlauf ohne Grund zur Steigerung
 - `G-ARR-UNTER` ARR deutlich unter den Besten im Feld
-- `G-SELTEN-SIEG` selten gewinnend: weniger als ein Sieg aus etwa 14 Starts, dazu viele Plätze. Wer öfter gewinnt,
-  ist kein seltener Sieger, auch nach einer Reihe zweiter Plätze.
+- `G-SELTEN-VORNE` selten vorne: Platzquote weit hinten im Feld (Blatt: Karriere)
 - `G-TRAINER-KALT` kalter Trainer (abgestuft)
 - `G-AUSRUESTUNG-WEG` Ausrüstung fällt weg, mit der die besten Läufe kamen (Punkt 6)
 - `G-RICHTUNG` in der heutigen Richtung klar schlechter
