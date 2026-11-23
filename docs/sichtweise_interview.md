@@ -188,7 +188,59 @@ nur, wenn ordentlich gelaufen; völlig abgeschlagen* → Skepsis zur Übertragba
 **Offen:** Was heißt „völlig aus dem Rennen“ in Zahlen (Längen, Platz im Feld, Kommentar)? Wie viele Läufe zwischen
 Referenzlauf und heute zählen (nur der letzte, die letzten zwei)?
 
+## Q1 Nachfragen (23.11.)
+
+> **„Völlig aus dem Rennen“** kann ich wieder nicht genau sagen: man kann auf das **ARR** schauen und darauf, **wie viele
+> Längen** man geschlagen war. **Pauschal kann ich das nicht sagen.**
+>
+> **Wie viele Läufe** zwischen Referenzlauf und heute: hängt davon ab, wie viele Läufe nach dem Referenzlauf
+> stattgefunden haben. Ich schaue **vor allem den letzten und vielleicht noch den vorletzten** an.
+
+**Notiert:** „völlig aus dem Rennen“ = Urteil aus ARR **und** Längen zusammen, keine feste Schwelle; geprüft werden die
+letzten ein bis zwei Läufe nach dem Referenzlauf.
+
+## A5 Belag (Gras, PSF)
+
+**Antwort (23.11.):**
+
+> **Übertragbarkeit von Formen von PSF nach Gras sehe ich immer relativ kritisch.** Darauf verlasse ich mich meistens
+> nicht. Ich schaue höchstens: Findet ein Rennen auf Gras statt und die Form vorher auf PSF war ordentlich, dann ist es
+> okay; war sie schlecht, ist es nicht so gut. **Eine gute Form von PSF heißt nicht unbedingt, dass das Pferd auch auf
+> Gras eine gute Form zeigen wird.**
+>
+> Bei Wechseln beachten: **die Bilanz des Pferdes auf PSF und auf Gras.** Hat ein Pferd auf PSF eine bessere Bilanz als
+> auf Gras und wechselt von PSF auf Gras, rechne ich damit, dass die Form etwas nach unten geht. Hat es auf PSF eine gute
+> Form gezeigt, aber auf Gras insgesamt den besseren Rekord, ist die gute PSF-Form **noch glaubwürdiger**, und ich
+> erwarte, dass es **sogar noch besser** performt.
+>
+> **Das gilt bei allen Wechseln:** Hat ein Pferd eine gute Form auf einem Untergrund gezeigt, auf dem es bisher weniger
+> erfolgreich war, kann man beim Wechsel auf den **vermeintlich vorteilhafteren Untergrund mit einer weiteren
+> Formsteigerung** rechnen.
+>
+> **Fehlen Records**, ziehe ich **Abstammungsvorlieben** zu Rate: Ein Pferd, das erst einmal gelaufen ist, und zwar auf
+> PSF, dessen Abstammung aber in der Regel auf Gras deutlich besser ist – bei PSF → Gras rechne ich damit, dass es seine
+> Form aus dem ersten Lauf **möglicherweise deutlich steigern** kann.
+
+**Notiert (Claude, zur Kontrolle):**
+
+- PSF → Gras: Übertragbarkeit **kritisch**; PSF-Form zählt nur, wenn sie ordentlich war (dann „okay“, schlechte
+  Form ist ein Gegenargument). Gute PSF-Form ist **kein** Beleg für gute Grasform.
+- Allgemeine Wechselregel (**gilt bei allen Untergründen, Boden und Belag**): Die **Bilanz des Pferdes auf dem alten
+  und dem neuen Untergrund** bestimmt die Erwartung.
+  - Alte Form auf dem **besseren** Untergrund, Wechsel auf den schlechteren → Form eher **nach unten**.
+  - Gute Form auf dem **schlechteren** Untergrund, Wechsel auf den besseren → Form **glaubwürdiger, weitere
+    Steigerung** zu erwarten.
+- Fehlen Bilanzen (junge, wenig gelaufene Pferde): **Abstammungsvorlieben** zu Rate ziehen; passt die Abstammung zum
+  neuen Untergrund, ist deutliche Steigerung gegenüber dem ersten Lauf möglich.
+
+**Hinweis auf vorhandene Regeln (nur Beobachtung):** `F-BELAG-NEU` [leicht] sagt heute „erstmals PSF wiegt bei einem Pferd
+mit Form kaum negativ“. Deine Sicht ist differenzierter: Es hängt an der **Bilanz auf beiden Belägen** und am **Wechsel
+in Richtung des besseren Untergrunds**; PSF → Gras sehe ich kritisch.
+
+**Offen:** PSF-Spezialisten (woran erkennt man sie? – durch die Bilanzregel größtenteils beantwortet); Winter-PSF;
+Gras bei sehr weichem Boden gegen PSF.
+
 ## Stand
 
-- Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe).
-- Offen: A5 (Fragen gestellt, noch unbeantwortet) bis H.
+- Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
+- Offen: A6 bis H.
