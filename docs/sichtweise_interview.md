@@ -55,7 +55,41 @@ damit offen; Maiden/Debüt: Verbindungen (Trainer × Jockey), Besitzer und Absta
 
 **Offen:** Wert von Listed/Gruppe in Zahlen; Besitzer – welche Besitzer sind ein Signal (siehe E4).
 
+## A2 Altersklasse und Geschlecht des Rennens
+
+**Antwort (23.11.):**
+
+> Dreijährige tragen in Handicaps weniger Gewicht als ältere Pferde. Das ist kein Vorteil per se, sondern damit versucht
+> der Handicapper, die Entwicklung der Dreijährigen einzupreisen – dass sie innerlich noch nicht so weit sind. Diese
+> Lücke schließt sich über das Jahr zunehmend.
+>
+> Aus meiner Erfahrung: **Bis zum Sommer haben es Dreijährige gegen Ältere auch mit Gewichtsvorteil oft schwer. Ab
+> Sommer und speziell im Herbst haben Dreijährige gegen Ältere eher Vorteile**, weil sie vielfach noch
+> Entwicklungspotenzial haben und ältere Pferde schon am Limit ihres Handicaps angekommen sind. Das gilt vor allem für
+> Handicaps.
+>
+> Steigerungsfähig können Dreijährige auch noch **im vierjährigen Alter** sein, bzw. junge Pferde im vierjährigen Alter
+> – **vorausgesetzt, sie sind noch nicht so viel gelaufen.**
+>
+> Wann ältere Pferde nachlassen, lässt sich nicht pauschal sagen. Man kann sich die Entwicklung der Handicap-Marke der
+> letzten Starts anschauen; grundsätzlich ist **der Zenit der Rennpferde im Alter von 3 bis 5**, danach lassen die meisten
+> etwas nach.
+>
+> **Stuten** sind gegenüber Hengsten für mich meistens etwas schwächer einzuschätzen. In Conditions Races bekommen sie
+> daher häufig 2 Kilo Nachlass. Stuten sind etwas weniger verlässlich hinsichtlich der Übertragbarkeit ihrer Formen –
+> nicht grundsätzlich, aber manchmal; sie können rossig sein, und das kann die Leistungsfähigkeit beeinflussen.
+
+**Notiert (Claude, zur Kontrolle):**
+
+- Dreijährige im Handicap: bis etwa Sommer trotz Gewichtsvorteil eher schwer gegen Ältere; ab Sommer, besonders im
+  Herbst, eher im Vorteil (Entwicklungspotenzial, Ältere am Limit der Marke). Nur Handicaps.
+- Steigerung ist an wenig Läufe gebunden und reicht ins vierte Jahr.
+- Zenit 3 bis 5 Jahre; Nachlassen älterer Pferde am Verlauf der Handicap-Marke der letzten Starts ablesen.
+- Stuten: meist etwas schwächer, Formen weniger verlässlich übertragbar (rossig); Conditions: 2 kg Nachlass.
+
+**Offen:** Was ist „nicht so viel gelaufen“ (Zahl der Starts)? Wie viel weniger zählen Stutenformen gegen Hengste?
+
 ## Stand
 
-- Erledigt: A1.
-- Offen: A2 bis H.
+- Erledigt: A1, A2.
+- Offen: A3 bis H.
