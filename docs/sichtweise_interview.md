@@ -285,8 +285,35 @@ Gras bei sehr weichem Boden gegen PSF.
 **Offen:** Welche Bahnen haben für dich Eigenheiten, und was folgt daraus (bisher im Skill nur Strasbourg,
 Fontainebleau)? Fehlende Bahnen einordnen, z. B. Saint-Cloud, Craon, Nantes, Angers, Dieppe, Lion d'Angers, Pau.
 
+## A6 Nachfragen (23.11.)
+
+> **Saint-Cloud ist eine große Bahn.** Nantes, Angers, Caen (im Diktat; evtl. Craon), Dieppe, Pau, Lion d'Angers (im
+> Diktat „Lyon, Angers“) sind **Provinzbahnen**.
+>
+> **Strasbourg und Fontainebleau haben für mich keine klaren Eigenheiten**, die im Skill benannt werden müssten.
+> Wahrscheinlich kannst du die dann auch wieder rausnehmen.
+
+**Notiert:** groß + Saint-Cloud; Provinz + Nantes, Angers, Caen/Craon, Dieppe, Pau, Lion d'Angers.
+**Für die Destillation vorgemerkt (nicht jetzt umgesetzt):** `F-BAHN-EIGENHEIT` (Strasbourg, Fontainebleau) streichen.
+
+## A7 Bahn-Bias
+
+**Antwort (23.11.):**
+
+> Der Bahn-Bias ist für mich durchaus ein **eigener Faktor**, den man heranziehen sollte, der aber **immer nur leicht
+> wirken** sollte, weil die **Verlässlichkeit der Daten begrenzt** ist – genauso wie die **Laufstildaten**. Hier haben
+> wir eine geringe Verlässlichkeit. Sie sind ein **Indikator**; ich würde sie **leicht** heranziehen.
+
+**Notiert (Claude, zur Kontrolle):**
+
+- Bahn-Bias = eigener Faktor, Gewicht **[leicht]**, wegen begrenzter Datenqualität.
+- Gleiche Einschränkung für **Laufstildaten** (betrifft A10, C7): nur Indikator, leicht.
+- Zusammen mit A4: auf schnellem Boden (Bon bis Bon souple) zusätzlich leichter Vorteil für Vorreiter.
+- Soll der Durchgang den Bias sehen? Aus der Antwort: **ja, als leichter Indikator** (zu bestätigen bei der Destillation).
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
-- Erledigt zusätzlich: A6 (Bahneigenheiten und fehlende Bahnen offen), C9 teilweise (CGD-Gewichtung).
-- Offen: A7 bis H.
+- Erledigt zusätzlich: A6, C9 teilweise (CGD-Gewichtung).
+- Erledigt zusätzlich: A6 Nachfragen, A7.
+- Offen: A8 bis H.
