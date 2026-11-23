@@ -681,6 +681,24 @@ Lesart; bei der Destillation klären, ob A/E aus dem Blatt fallen kann.
 (`pref.sire.distance`, `pref.dam_sire.distance`); das Blatt zeigt davon nur die Passung („passt / neutral / passt
 nicht“). Für deinen Split müsste das Blatt die Verteilung zeigen.
 
+## D3 Nachkommen-Statistik (Qualität der Linie)
+
+**Antwort (23.11.):**
+
+> Der **Cross** (im Diktat „Kost“) ist bei wenigen Nachkommen natürlich **häufig zu dünn**, um hier etwas zu bewerten. Ich
+> schaue vor allem auf **Pos+, €/L+ und maxVal+** (im Diktat „Post Plus, Europolar Plus, Maxval Plus“), **ob die hoch sind
+> oder nicht.** Klare Grenzen gibt es da nicht, sondern das ist meistens **relativ zum Feld** zu entscheiden.
+
+**Notiert (Claude, zur Kontrolle):**
+
+- Qualität der Linie über drei Indizes der Karte: **Pos+** (Ø Platzierung der Nachkommen), **€/L+** (Gewinn je Lauf),
+  **maxVal+** (Ø höchste Valeur der Dreijährigen-Nachkommen); jeweils für Vater und Muttervater.
+- **Keine festen Schwellen, relativ zum Feld** (wie Gewinn je Lauf und Top-3-Quote in C3).
+- **Cross:** meist zu dünn → ignorieren.
+
+**Hinweis auf Daten (nur Beobachtung):** Das Blatt zeigt heute **maxVal+ und €/L+**, aber **nicht Pos+**, und keinen
+Vergleich zum Feld (Rang).
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -693,7 +711,7 @@ nicht“). Für deinen Split müsste das Blatt die Verteilung zeigen.
 - Erledigt zusätzlich: A12 (Block A vollständig).
 - Erledigt zusätzlich: B1.
 - Erledigt zusätzlich: B2, B3 (Block B vollständig).
-- Erledigt zusätzlich: C1 bis C10 (Block C), D1, D2.
-- Offen: D3 bis H.
+- Erledigt zusätzlich: C1 bis C10 (Block C), D1 bis D3 (Block D).
+- Offen: E bis H.
 - Später auswerten: Verteilung der Starts je Alter (Exposure, C2).
 - Datenlücke: Gewichtserlaubnis des Jockeys fehlt in der Karte (C4).
