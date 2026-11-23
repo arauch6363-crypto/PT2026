@@ -522,6 +522,38 @@ Siegregel, oder kommt sie dazu?
   (keine absolute Schwelle).
 - Zeitraum (Karriere oder letzte 365 Tage): nicht angesprochen.
 
+## C4 Gewicht
+
+**Antwort (23.11.):**
+
+> **62 kg auf Très souple oder schwererem Boden** ist für mich ein **leichtes Gegenargument**; es schließt ein positives
+> Laufen noch nicht aus.
+>
+> Auf den **Gewichtsunterschied zum letzten Lauf achte ich eher nicht**, sondern eher auf Unterschiede in der **Valeur**
+> oder im **ARR**.
+>
+> **Gewichtserlaubnisse** – weiß nicht, ob wir die aktuell sehen können. Es kann ein **Vorteil** sein, wenn ein
+> **Lehrlingsjockey** mit Gewichtsnachlass drauf sitzt, **vor allem wenn dieser gut ist**, also gute Ergebnisse erzielt hat.
+>
+> **Auf kurzen Distanzen spielt Gewicht weniger eine Rolle als auf langen.** Das heißt: **Aufgewicht** – eine Penalty für
+> einen Handicap-Sieg – kann auf kurzen Distanzen **eher kompensiert** werden als auf längeren. Und Pferde mit **hoher
+> Valeur** haben gegenüber Pferden mit niedriger Valeur, selbst wenn es über die Handicap-Marken ausgeglichen wird, in
+> **Kurzdistanzrennen nochmal ein bisschen mehr Vorteil**.
+
+**Notiert (Claude, zur Kontrolle):**
+
+- Hohes Gewicht (ab etwa 62 kg) auf Très souple oder schwerer: **leichtes** Gegenargument.
+- Gewichtsänderung gegen den letzten Lauf: **unwichtig**; maßgeblich sind Valeur- und ARR-Unterschiede.
+- **Lehrling mit Erlaubnis:** Vorteil, **wenn der Jockey gute Ergebnisse** hat. *(Datenlage: Die Pipeline kennt
+  zugeteiltes und getragenes Gewicht – die Differenz ist die Erlaubnis –, die Karte gibt aber nur das getragene Gewicht
+  weiter; Rennart „Apprentice“ ist bekannt. Erlaubnis müsste erst in die Karte.)*
+- **Distanz:** Gewicht wiegt auf **kurzen Distanzen weniger** → Aufgewicht (Penalty) im Sprint eher kompensierbar; hohe
+  Valeur im Handicap-Sprint **zusätzlich leicht im Vorteil** (verstärkt A1: hohe Marken leicht bevorteilt).
+
+**Hinweis auf vorhandene Regeln (nur Beobachtung):** `G-GEWICHT-BODEN` steht heute ohne Gewicht als Gegenargument in
+`SKILL.md`; deine Einordnung: **leicht**. `G-GEWICHT-KLASSE-BODEN` [ausschlaggebend] (Kombination Aufgewicht +
+Höchstgewicht auf Collant/Lourd + Klassenfrage) nicht angesprochen → bleibt.
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -534,6 +566,7 @@ Siegregel, oder kommt sie dazu?
 - Erledigt zusätzlich: A12 (Block A vollständig).
 - Erledigt zusätzlich: B1.
 - Erledigt zusätzlich: B2, B3 (Block B vollständig).
-- Erledigt zusätzlich: C1, C2, C3.
-- Offen: C4 bis H.
+- Erledigt zusätzlich: C1, C2, C3, C4.
+- Offen: C5 bis H.
 - Später auswerten: Verteilung der Starts je Alter (Exposure, C2).
+- Datenlücke: Gewichtserlaubnis des Jockeys fehlt in der Karte (C4).
