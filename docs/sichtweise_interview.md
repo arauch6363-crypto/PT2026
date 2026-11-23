@@ -379,6 +379,34 @@ Fontainebleau)? Fehlende Bahnen einordnen, z. B. Saint-Cloud, Craon, Nantes, Ang
 - Gesamtgewicht Tempo/Laufstil: **leicht** (vgl. A7: Laufstildaten nur Indikator). Bestehende `G-TEMPO-VORNE` und
   „von hinten bei schnellem Tempo = Pro“ bleiben unwidersprochen, Gewicht dort bei der Destillation prüfen.
 
+## A11 FK-Favorit, Maßstab, ARR-Abstand
+
+**Antwort (23.11.):**
+
+> Ein **klarer Favorit** (Festkurs unter 2; im Diktat „festgesunderweise“): da bin ich manchmal **eher vorsichtig**, weil
+> da **sehr große Confidence** zu sein scheint, dass der gewinnt. Wenn man woanders sehr viel Value sieht, kann das zu
+> einer **sehr hohen Quote an verlorenen Wetten** führen. Da bin ich eher etwas vorsichtig.
+>
+> Zum **ARR-Vergleich**: Die Vorgehensweise ist erstmal richtig – schauen, was der **Maßstab** hinsichtlich Form und ARR
+> verlangt, und ob man bei unseren Value-Pferden Formen findet, die da besser sind. **Allerdings ist ARR nicht das
+> einzig selig machende Argument.** Findet man jemanden, dessen ARR ausreichend gut ist, um den Maßstab zu schlagen, ist
+> es gut. Es kann aber auch Fälle geben, wo **andere Argumente zu so vielen Pluspunkten** geführt haben, dass auch ein
+> Pferd, das **im ARR nicht ganz die Maßstabsformen erreicht, eine gute Wette** sein kann.
+
+**Notiert (Claude, zur Kontrolle):**
+
+- Klarer Favorit (FK unter 2): **Vorsicht** bei Value-Kandidaten gegen ihn – der Markt ist sich sehr sicher; Value
+  anderswo führt dann oft zu verlorenen Wetten.
+- ARR gegen Maßstab ist der richtige erste Schritt (Leitfrage), aber **nicht allein entscheidend**: Viele andere
+  Pluspunkte können ein Pferd tragen, das im ARR knapp unter dem Maßstab liegt.
+
+**Hinweis auf vorhandene Regeln (nur Beobachtung):** `G-ARR-UNTER` ist heute **[ausschlaggebend]** (ARR nicht unter den
+vorderen, dazu selten gewinnend oder exposed → keine Siegwette), `U-ARR-ABSTAND` [leicht] (etwa 3 Punkte unter dem
+Besten → höchstens klein), `G-MASSSTAB-BESSER` [gewichtig]. Deine Sicht lässt mehr Raum für andere Pluspunkte; ob das
+`G-ARR-UNTER` abschwächt oder nur `U-ARR-ABSTAND` betrifft, ist bei der Destillation zu klären.
+
+**Offen:** Wie viele / welche Pluspunkte gleichen einen ARR-Rückstand aus? Ab welchem Rückstand nicht mehr?
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -387,4 +415,5 @@ Fontainebleau)? Fehlende Bahnen einordnen, z. B. Saint-Cloud, Craon, Nantes, Ang
 - Erledigt zusätzlich: A8.
 - Erledigt zusätzlich: A9.
 - Erledigt zusätzlich: A10.
-- Offen: A11 bis H.
+- Erledigt zusätzlich: A11.
+- Offen: A12 bis H.
