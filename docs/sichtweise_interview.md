@@ -860,6 +860,38 @@ Duell-Score; **TR-Wert, ΔL600 und ΔB200 fehlen**. Der Skill nutzt bisher nur A
 **Pace je Lauf**, Gegner mit „danach“, heutige Gegner je Lauf. Der **Kommentar** ist seit 21.11. drin. Der
 **Finish-Index** muss nicht hinein.
 
+## G9, G10, G13 Quote, Box und Jockey damals, Auslandsformen
+
+**Antwort (23.11.):**
+
+> Wenn das Pferd bei seinen letzten Läufen **gut gewettet** worden ist, hat man sich etwas erwartet; dann noch einmal
+> genau hinschauen – **vielleicht ist einmal etwas schiefgelaufen** und wir können heute einen **besseren Lauf** erwarten.
+> War das Pferd **gar nicht gut gewettet**, ist das ein **leichter Nachteil**.
+>
+> Die **Box im damaligen Lauf** können wir ein wenig berücksichtigen, aber **nur im Zusammenhang mit dem Kommentar**: Hatte
+> man eine **Außenbox**, war das Pferd hinten und kam nicht mehr weit nach vorne, kann die schlechte Box eine Rolle
+> gespielt haben.
+>
+> Bei den **Jockeys** kann man schauen: Hatte man zuletzt einen **schwachen Jockey und jetzt einen stärkeren**, kann man
+> vielleicht eine **gewisse Steigerung** erwarten.
+>
+> **Auslandsformen** haben **deutlich weniger Informationstiefe**; je mehr Auslandsformen eine Rennkarte hat, desto
+> **weniger sicher** können wir uns bei unserer Analyse sein. Ich schätze vor allem **Auslandsformen aus Großbritannien**,
+> dann mit großem Abstand **Spanien, Italien und Deutschland**. Die **wenigste Relevanz** haben **Belgien und Holland**.
+
+**Notiert (Claude, zur Kontrolle):**
+
+- **Quote damals (G9):** gut gewettet und enttäuscht → genauer hinsehen, eher **Steigerung** heute möglich (etwas lief
+  schief); **gar nicht gewettet** (hohe Quote) → **leichter Nachteil**.
+- **Box damals (G10):** nur **zusammen mit dem Kommentar** (Außenbox + hinten + kam nicht nach vorne = entlastend).
+- **Jockey damals (G10):** schwacher Jockey zuletzt, heute **stärkerer** → **gewisse Steigerung** möglich.
+- **Auslandsformen (G13):** weniger Informationstiefe; viele Auslandsformen im Feld = **weniger Sicherheit** im ganzen
+  Rennen. Wert der Formen: **Großbritannien** ≫ **Spanien, Italien, Deutschland** > **Belgien, Niederlande**.
+
+**Hinweis (nur Beobachtung):** In E2 nanntest du den Wechsel **zu einem Spitzenjockey kein Signal**; hier ist der Wechsel
+**von schwach zu stärker** eine mögliche Steigerung. Kein Widerspruch, eher Abstufung – bei der Destillation zusammen
+lesen. `P-BRITE` (britischer Trainer) und `F-AUSLAND` bestehen schon; die Länderreihenfolge ist neu.
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -876,6 +908,7 @@ Duell-Score; **TR-Wert, ΔL600 und ΔB200 fehlen**. Der Skill nutzt bisher nur A
 - Erledigt zusätzlich: E1 (Trainer, Jockey, Besitzer über die A/E-Matrix).
 - Erledigt zusätzlich: E2/E3, E4 (Block E vollständig).
 - Erledigt zusätzlich: F (Reihenfolge der Ratings), G1 bis G7 (Lesen eines Laufs).
-- Offen: G8 bis G13 (kurz), H.
+- Erledigt zusätzlich: G9, G10, G13.
+- Offen: G12 (Höchstalter eines Referenzlaufs), H (was fehlt), Rückfragen unten.
 - Später auswerten: Verteilung der Starts je Alter (Exposure, C2).
 - Datenlücke: Gewichtserlaubnis des Jockeys fehlt in der Karte (C4); Besitzerwechsel nicht erkennbar (E4).
