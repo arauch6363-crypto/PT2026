@@ -128,3 +128,24 @@ Der Nutzer nahm am 23.11. alle Vorschläge an und gab die übrigen Blöcke pausc
 | V1-4 | ja (23.11., pauschal) | |
 | V1-5 | ja (23.11., pauschal) | |
 | V1-6 | ja (23.11., pauschal) | |
+
+---
+
+## Blöcke 2 bis 6 (pauschal freigegeben, 23.11.)
+
+Umgesetzt ohne Einzelvorlage, nach den Leitlinien oben. Wortlaut steht in den Dateien; hier nur was wohin ging.
+
+| Block | `SKILL.md` | `EINSICHTEN.md` | `blatt.py` | `GLOSSARY.md` |
+|---|---|---|---|---|
+| 2 Wechsel | Prüfschritt 4: Platzquote, Wechsel, Distanzklasse, Distanzwechsel ab 250 m, Nachkommen-Split, Linie relativ zum Feld | `F-BELAG-NEU` geschärft; neu `P-WECHSEL-BESSER` / `G-WECHSEL-SCHLECHTER` | Distanzklasse im Kopf, Platzquote statt A/E in den Vorlieben, Distanzwechsel, Nachkommen je Distanzklasse, Linie mit Pos+/€/L+/maxVal+ und Rang | Distanzklasse |
+| 3 Klasse | Prüfschritt 1 „Ausgangslage und Klasse“ (Kennzahl-Reihenfolge, Karriere relativ zum Feld, Zenit, hohe Marken, CGD C > G > D); Klasse des Referenzlaufs; `G-SELTEN-SIEG` → `G-SELTEN-VORNE` | `G-ARR-UNTER` gewichtig mit Ausnahme; neu `P-ABSTIEG`, `P-MARKE-UNTER`, `P-MARKE-HOCH`/`P-MARKE-BEWIESEN`, `G-DREIJAEHRIG-FRUEH`/`P-DREIJAEHRIG-HERBST`, `U-FAVORIT-KLAR` | Karriere (Platzquote, Gewinn je Lauf, Rang), Klassenindex des Laufs gegen heute mit Preis, Ratings mit TR-Wert und ΔL600, Crible auch im Original | – |
+| 4 Verbindungen | Prüfschritt 5 „Trainer, Jockey, Besitzer“ (A/E-Matrix 365 Tage zuerst, dann 30 Tage); `F-PAUSE` mit Schwelle | `G-TRAINER-KALT`, `P-TRAINER` auf die Matrix; neu `P-JOCKEY-STARK`, `P-BESITZER` | Matrixlage für Trainer, Jockey, Besitzer; Besitzer = Züchter | – |
+| 5 Umstände | Prüfschritt 6 (Gewicht, Tempo/Bias als Indikatoren, Bahnkategorie, PSF-Geläufe, Crible, Toto); `F-WALLACH`, `F-BAHN-EIGENHEIT` gestrichen; `P-WALLACH`; `F-AUSLAND` mit Länderfolge | `G-STUTE`/`P-WALLACH` allgemein; neu `G-GEWICHT-BODEN`, `P-BIAS`/`G-BIAS`, `G-PRESSE`/`G-TOTO` | Bahnkategorie und Bias im Kopf, Bahnwechsel, Land bei Auslandsläufen, Toto-Warnung | Bahnkategorie |
+| 6 Aufräumen | – | typische Fehler 6–10 entfernt (stehen jetzt in den Prüfschritten); unter 200 Zeilen | Value-Faktor und Badges entfallen | – |
+
+**Nicht umgesetzt:** Gewichtserlaubnis des Lehrlingsjockeys (fehlt in der Karte); Verteilung der Starts je Alter
+(spätere Auswertung); offene Punkte aus dem Interview.
+
+**Umfang danach:** `SKILL.md` 18,5 → 20,6 KB, `EINSICHTEN.md` 13,6 → 15,9 KB, Blatt je Rennen etwa +30 %
+(Karte 21.11.). Die Verdichtungsprüfung meldet weiterhin fünf volle Abschnitte – Anlass für die nächste
+Ergebnisanalyse.
