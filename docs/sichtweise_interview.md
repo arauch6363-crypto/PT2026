@@ -123,7 +123,37 @@ damit offen; Maiden/Debüt: Verbindungen (Trainer × Jockey), Besitzer und Absta
 **Offen:** ob 250 m auf jeder Distanz gleich gilt (nicht beantwortet, Richtwert gilt pauschal); welche Richtung des
 Wechsels das größere Fragezeichen ist (nicht beantwortet).
 
+## A4 Boden
+
+**Antwort (23.11.):**
+
+> Generell kann man wahrscheinlich sagen, dass **mehr Pferde mit gutem Boden (Bon und Bon souple) zurechtkommen als mit
+> sehr weichem Boden**. Bei sehr weichem Boden sind eher **Spezialisten** manchmal im Vorteil; mit schnellem Boden
+> kommen mehr Pferde zurecht. Natürlich gibt es auch welche, die auf weichen Boden angewiesen sind und für die schneller
+> Boden nicht so gut ist.
+>
+> Frage 2 (angenommene/wechselnde Bodenangabe) muss ich jetzt nicht beantworten. **PSF-Zustände unterscheiden wir
+> erstmal nicht. Den Penetrometerwert müssen wir auch nicht unterscheiden.** Uns reichen erstmal die Unterscheidungen
+> **very slow, slow, fast und very fast.**
+>
+> Eine Kleinigkeit: Ich habe beobachtet, **wenn der Boden schnell ist (Bereich Bon, bis maximal Bon souple), wird der
+> Bahn-Bias** (im Diktat „Bahnbeiß“) **wichtiger: Pferde, die ein Rennen von vorne angehen, sind von weiter hinten
+> postierten Pferden schwerer einzuholen.** Das ist nur ein leichter Vorteil.
+
+**Notiert (Claude, zur Kontrolle):**
+
+- Schneller Boden (Bon, Bon souple) trägt mehr Pferde als sehr weicher; bei sehr weichem Boden zählen Spezialisten.
+  Es gibt Pferde, die auf weichen Boden angewiesen sind und auf schnellem Boden abfallen.
+- Bodengruppen bleiben: Very slow, Slow, Fast, Very fast. **PSF-Zustände und Penetrometerwert werden nicht
+  unterschieden.**
+- Bei schnellem Boden (Bon bis Bon souple): Vorne laufende Pferde leicht im Vorteil, schwerer von hinten einzuholen
+  (Bahn-Bias, Laufstil; siehe A7, A10) – **leicht**.
+
+**Nicht beantwortet / zurückgestellt:** Umgang mit angenommener oder wechselnder Bodenangabe; ob „noch nie auf
+schnellem Boden“ ein Fragezeichen ist (aus der Antwort nur: eher weniger als bei weichem Boden); Einordnung von Bon
+souple (aus „Bereich Bon bis maximal Bon souple“ = schnell/Fast, wie die Karte).
+
 ## Stand
 
-- Erledigt: A1, A2, A3.
-- Offen: A4 bis H.
+- Erledigt: A1, A2, A3, A4.
+- Offen: A5 bis H.
