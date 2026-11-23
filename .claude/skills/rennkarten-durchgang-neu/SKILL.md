@@ -123,10 +123,14 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
    **Gespann Trainer + Jockey** – zählt mehr als die Einzelbilanzen, sobald es einige gemeinsame Starts gibt.
    Besitzer: nur 365 Tage. Bei Maiden und Debütanten sind Verbindungen, Besitzer und Abstammung die Hauptkriterien.
 6. **Umstände heute.** Box (nur `signifikant` zählt), Gewicht (ab etwa 62 kg auf Très souple oder schwerer =
-   Gegenargument), Tempo gegen Laufstil (Führender bei schnellem Tempo mit mehreren Führenden = Gegen; Pferd von
-   hinten bei schnellem Tempo = Pro), Startfolge (ab etwa 4 Starts in 6 Wochen = Gegenargument, „irgendwann ist die
-   Luft raus“), Bahnkategorie (von großen Bahnen in die Provinz = Pro, umgekehrt Gegen), Reise (britischer Trainer =
-   Pro; spanisch, deutsch, weit reisend französisch nur begrenzt). Crible und Rennkommentar sind Kontext.
+   leichtes Gegenargument; im Sprint wiegt Gewicht weniger), Tempo gegen Laufstil und Bahn-Bias (Blatt; alles nur
+   Indikatoren: Führender bei schnellem Tempo mit mehreren Führenden = Gegen; von hinten bei schnellem Tempo = Pro;
+   einzelner Führender bei langsamem Tempo = leichtes Pro; Tempo unbekannt zählt nicht), Startfolge (ab etwa 4 Starts
+   in 6 Wochen = Gegenargument, „irgendwann ist die Luft raus“), Bahn (Blatt: Kategorie groß, mittel, Provinz; von
+   großen Bahnen in die Provinz = Pro, umgekehrt Gegen; Formen großer Bahnen übertragen sich besser; die letzte Form
+   auf genau dieser Bahn zählt besonders, auf PSF unterscheiden sich die Geläufe je Bahn), Reise (britischer Trainer =
+   Pro; spanisch, deutsch, weit reisend französisch nur begrenzt). Der **Crible** (Pressetext) bringt oft
+   Zusatzwissen (Trainer- oder Besitzerwechsel, Vorform auf der Bahn); der Totokurs warnt nur (Blatt).
    **Ausrüstungswechsel** (Scheuklappen, australische Scheuklappen) nach den Bilanzen mit und ohne bewerten (Blatt:
    „Ausrüstung“), der Wechsel an sich sagt nichts:
    - fällt weg, **mit ihr kamen die besten Läufe** → `G-AUSRUESTUNG-WEG`;
@@ -144,12 +148,11 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
 - `F-KLASSE-HOCH` Bewährung nur aus tieferer Klasse (z. B. Claimer) oder erstmals deutlich höhere Klasse
 - `F-PAUSE` Rückkehr nach langer Pause (ab etwa 60 Tagen; wiegt weniger bei jungen Pferden und erfolgreichen
   Trainern)
-- `F-WALLACH` erstmals Wallach
 - `F-TRAINERWECHSEL` Trainerwechsel
 - `F-AUFGEWICHT` **Aufgewicht** (nur im Handicap; umso größer, je exposed)
-- `F-BAHN-EIGENHEIT` erster Start auf einer Bahn mit Eigenheiten (Strasbourg, Fontainebleau)
 - `F-KLASSENFRAGE` Klassenfrage (kleiner Stall, Formen nur aus schwachen Rennen)
-- `F-AUSLAND` nicht einzuordnende Auslandsformen
+- `F-AUSLAND` nicht einzuordnende Auslandsformen (Wert: Großbritannien weit vorne, dann Spanien, Italien,
+  Deutschland, zuletzt Belgien und Niederlande; viele Auslandsformen machen das ganze Rennen unsicherer)
 
 Fragezeichen **wiegen, nicht zählen**. Ein Fragezeichen ist **entkräftet** (zählt nicht oder wird zum Pro-Argument),
 wenn Belege dafür sprechen: erstmals eine längere Distanz, aber die Abstammung trägt sie und das Pferd lief bisher umso
@@ -198,6 +201,7 @@ Handicap-Form auf ähnlicher Marke.
 - `P-PROVINZ` Abstieg in die Provinz
 - `P-ABSTIEG` Abstieg aus stärkeren Rennen (nur wenn diese Rennen nicht abgewertet sind)
 - `P-BRITE` britischer Trainer
+- `P-WALLACH` erster bis dritter Start als Wallach
 - `P-UNEXPOSED` unexposed mit Steigerungspotenzial
 - `P-AUSRUESTUNG-ZURUECK` Ausrüstung kommt zurück, mit der die besten Läufe kamen
 - `P-ERSTER-ANSATZ` „erster Ansatz“ nach einer Reihe schwacher Läufe

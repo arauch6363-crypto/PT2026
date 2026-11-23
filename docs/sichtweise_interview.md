@@ -1006,4 +1006,4 @@ Rückfrage A/E beim Pferd vs. Trainer (E1, Claudes Lesart notiert) · H: was wed
 - Erledigt zusätzlich: G12; Übersicht für die Destillation geschrieben.
 - Offen: H (was fehlt) und die Liste „Offen geblieben“.
 - Später auswerten: Verteilung der Starts je Alter (Exposure, C2).
-- Datenlücke: Gewichtserlaubnis des Jockeys fehlt in der Karte (C4); Besitzerwechsel nicht erkennbar (E4).
+- Datenlücke: Gewichtserlaubnis des Jockeys fehlt in der Karte (C4). (Besitzerwechsel ist doch erkennbar: Karte und Blatt führen ihn unter „Änderungen“.)

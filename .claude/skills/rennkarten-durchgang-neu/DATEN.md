@@ -11,6 +11,8 @@ wo die Daten Lücken haben.
 |---|---|---|
 | Bodenangabe | `going` | z. B. „Très souple“; `going_source` PMU, PSF, manuell, France Galop (offizielle Angabe von france-galop.com, gleichwertig mit PMU) oder Annahme |
 | Bodengruppe | `going_label` | Very slow (Collant, Lourd), Slow (Souple, Très souple), Fast (Bon souple, Bon), Very fast, PSF |
+| Bahnkategorie | aus dem Bahnnamen (`blatt.py`) | groß, mittel, Provinz nach dem Nutzer; ausländische Bahnen mit Land |
+| Bahn-Bias | `bias.iv_front`, `iv_back`, `races` | Sieg-Impact des vorderen bzw. hinteren Drittels (früh) auf Bahn und Distanz; begrenzt verlässlich |
 | Richtung | `corde` | CORDE_DROITE = Rechtskurs, CORDE_GAUCHE = Linkskurs, LIGNE_DROITE = gerade |
 | Klasse | `class.val_idx` | Ø Valeur der Teilnehmer, 100 = Ø aller Rennen; je Formzeile `cls_val_idx` |
 | Tempo | `pace.label`, `pace.groups` | F führend, V vorne dabei, M Mittelfeld, H hinten; `unknown` ohne Laufstil |
@@ -24,7 +26,8 @@ wo die Daten Lücken haben.
 | Modell-Siegchance | `power.sieg` | `sieg_blind` = ohne Schichten; derzeit meist gleich |
 | Modell-Rang | aus `power.p` | 1 + Zahl der Starter mit höherer Power-Zahl (wie die Karte) |
 | Festkurs | `fk.sieg` | Value = `fk.sieg × power.sieg − 1` |
-| Value-Faktor | `power.wert`, `gold`, `warn` | nicht dasselbe wie Value |
+| Value-Faktor | `power.wert`, `gold`, `warn` | nicht im Blatt (im Urteil ohne Belang) |
+| Toto | `fk.toto` | nur als Warnung im Blatt, wenn mindestens doppelt so hoch wie der Festkurs; fällt bis zum Start oft stark |
 | Marke | `rating`; `hcp_mark` | `hcp_mark.kind` sieg/platz, `diff` = heute − damalige Marke (positiv = Aufgewicht); **nur im Handicap aussagekräftig** |
 | Valeur bereinigt | `rating_adj`, `rating_rank`/`rating_n` | Valeur − Gewicht + 55; zählt außerhalb des Handicaps (wer hat heute die meiste Klasse fürs Gewicht) |
 | Qualität der Linie | `ae.pedigree.sire/dam_sire`: `pos_idx`, `epr_idx`, `max_val3_idx`, `horses` | Ø Platzierung, Gewinn je Lauf, Ø höchste Valeur der Dreijährigen der Nachkommen, als Index; das Blatt zeigt den Rang im Feld |

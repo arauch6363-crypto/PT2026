@@ -152,3 +152,23 @@ def test_ae_matrix_relativ_zum_feld():
     z = blatt.matrix(r["runners"][0], r, "trainer")
     assert z == "365 Tage A/E+ 120 (1/2), Pos+ 110 (2/2) · 30 Tage 10 L/1 S/3 P, A/E 0,50"
     assert blatt.matrix(r["runners"][0], r, "trainer", kurz=False) == "365 Tage A/E+ 120 (1/2), Pos+ 110 (2/2)"
+
+
+def test_bahnkategorie_und_land():
+    assert [blatt.bahnkategorie(b) for b in ("PARISLONGCHAMP", "SAINT CLOUD", "LYON LA SOIE", "MARSEILLE PONT DE VIVAUX",
+                                              "TESTE DE BUCH", "MANS", "NEWMARKET")] == \
+        ["groß", "groß", "mittel", "mittel", "mittel", "Provinz", None]
+    assert [blatt.land(b) for b in ("NEWMARKET", "COLOGNE", "WAREGEM", "DUINDIGT", "MADRID", "PAU")] == \
+        ["Großbritannien", "Deutschland", "Belgien", "Niederlande", "Spanien", None]
+
+
+def test_toto_nur_als_warnung():
+    assert blatt.toto({"fk": {"sieg": 18.0, "toto": 41.8}}) == "Toto 41,8 – am Toto kaum gespielt"
+    assert blatt.toto({"fk": {"sieg": 18.0, "toto": 20.0}}) is None
+
+
+def test_kopfzeile_ohne_value_faktor(capsys):
+    x = {"no": 3, "horse": "X", "power": {"wert": 1.2, "gold": True}, "badges": ["BF"], "form_lines": []}
+    blatt.blatt({"x": x, "fk": 5.0, "p": 0.2, "rang": 1, "n": 8, "value": 0.1}, {**RENNEN, "race_id": "20261121R1C1"}, 60)
+    out = capsys.readouterr().out
+    assert "Value-Faktor" not in out and "Badges" not in out

@@ -34,18 +34,6 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
    *Crew Dragon, The Cat's 16.11.*
 5. **Am Festkurs gegen die eigene Kursspanne entscheiden**, nicht am Modell-Value. *Afterglow 11.11. (+29 %, zu kurz),
    Senorito 16.11. (+10 %, kleine Wette).*
-6. **Boden, Distanz, Bahn aus den Vorlieben lesen** (Gesamtbilanz), nie nur aus den Formzeilen. *Algeciras: „nie auf
-   Très souple“ war falsch.*
-7. **Herkunft der Formen einordnen.** Claimer → Handicap ist ein Aufstieg, kein Abstieg; „stärkere Rennen“ zählen nur,
-   wenn sie nicht abgewertet sind. *Crew Dragon 16.11., Littoral Nord 11.11.*
-8. **Verbindungen vollständig lesen:** kürzlicher Trainerwechsel (Blatt: „Trainer erst seit N Läufen“),
-   Spezialität des Trainers (Rennart, Alter), Gespann Trainer + Jockey zusätzlich zum Einzel-A/E. *Senorito 16.11., Littoral
-   Nord, Teardrop Explodes 11.11.*
-9. **Rennverlauf mitlesen.** Ein Platz hinter einem Gegner kann gegen den Verlauf ein Plus sein; ein Sieg mit dem
-   Verlauf von vorne ist etwas weniger wert. *Teardrop Explodes 11.11., Boomslang 18.11.*
-10. **Exposure relativ zum Alter, Abstand vor Platzierung.** Nah dran in stärkerem Rennen zählt mehr als ein Platz in
-    schwächerem. *Roi du Ciel, L'Annonciade 11.11.*
-
 ## 1. Ausgangslage und Klasse
 
 - **[gewichtig]** `P-RANG-VORNE` Vorderer Modell-Rang mit solidem Value ist ein guter Start, aber kein Urteil: Rang 1 wird oft
@@ -123,7 +111,7 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
   schwächeren Bilanz, heute die mit der besseren → weitere Steigerung zu erwarten; umgekehrt eher Abfall. Ohne Bilanz
   entscheidet die Abstammung.
 
-## 5. Trainer und Jockey
+## 5. Trainer, Jockey, Besitzer
 
 - **[gewichtig]** `G-TRAINER-KALT` Trainer in der A/E-Matrix über 365 Tage weit hinten im Feld oder in den letzten
   30 Tagen auffällig schlecht (etwa 2/40, A/E um 0,5) → klares Gegenargument; leicht kalt nur [leicht]. *Crew Dragon gegen Grand Scoop.*
@@ -159,7 +147,15 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
 - **[gewichtig]** `P-BRITE` Britischer Trainer reist an. *Kenergy 10.11.*
 - **[gewichtig]** `P-PROVINZ` Von großen Bahnen in die Provinz. *Teardrop Explodes.*
 - **[gewichtig]** `G-BOX` Box signifikant schlecht. *Afterglow.* Box signifikant gut (`P-BOX`): [leicht]. *Crew Dragon.*
-- **[leicht]** `G-STUTE` Stute gegen Hengste bei jungen Pferden. *Blue Blossom Cen, Magenta Melody.*
+- **[leicht]** `G-STUTE` / `P-WALLACH` Stuten sind gegen Hengste und Wallache etwas schwächer und ihre Formen weniger
+  verlässlich, Hengste leicht vor Wallachen; der erste bis dritte Start als Wallach ist ein leichtes Plus. *Blue Blossom
+  Cen, Magenta Melody.*
+- **[leicht]** `G-GEWICHT-BODEN` Ab etwa 62 kg auf Très souple oder schwerer leicht dagegen; im Sprint wiegt Gewicht
+  weniger, dort lässt sich auch Aufgewicht eher tragen.
+- **[leicht]** `P-BIAS` / `G-BIAS` Laufstil passt zum Bahn-Bias bzw. gegen ihn (Vorreiter auf einer Bahn, die vorne
+  begünstigt); auf schnellem Boden (Bon bis Bon souple) sind Vorreiter zusätzlich leicht im Vorteil.
+- **[leicht]** `G-PRESSE` / `G-TOTO` Ein stichhaltiges Gegenargument im Crible oder ein am Toto kaum gespielter
+  Kandidat (Blatt) machen einen hohen Value etwas verdächtig.
 
 ## Gesamturteil, Maßstab, Rennvergleich
 

@@ -85,6 +85,47 @@ DIST_WECHSEL = 250           # Meter: Distanzwechsel zum letzten Lauf ab hier ei
 PREF_ALLE: dict = {}         # Tabellen der Karte (pref_alle), von main gesetzt
 
 
+BAHNEN_GROSS = ("PARISLONGCHAMP", "LONGCHAMP", "CHANTILLY", "DEAUVILLE", "FONTAINEBLEAU", "COMPIEGNE", "CLAIREFONTAINE",
+                "CAGNES", "SAINT CLOUD", "SAINT-CLOUD")
+BAHNEN_MITTEL = ("MARSEILLE", "BEAUVAIS", "BORDEAUX", "TOULOUSE", "PORNICHET", "VICHY", "LYON", "TESTE")
+LAENDER = {"Großbritannien": ("NEWMARKET", "ASCOT", "KEMPTON", "LINGFIELD", "WOLVERHAMPTON", "CHELMSFORD", "SOUTHWELL",
+                              "NEWCASTLE", "YORK", "DONCASTER", "GOODWOOD", "SANDOWN", "EPSOM", "HAYDOCK", "LEICESTER",
+                              "NOTTINGHAM", "WINDSOR", "BATH", "BRIGHTON", "CHESTER", "SALISBURY", "NEWBURY", "LEOPARDSTOWN",
+                              "CURRAGH", "DUNDALK"),
+           "Deutschland": ("BADEN", "COLOGNE", "KOLN", "DORTMUND", "DUSSELDORF", "HAMBOURG", "HAMBURG", "KREFELD",
+                           "MANNHEIM", "MULHEIM", "HOPPEGARTEN", "MUNICH", "MUNCHEN", "HANOVRE", "HANNOVER", "LEIPZIG"),
+           "Spanien": ("MADRID", "ZARZUELA", "SAN SEBASTIAN", "DOS HERMANAS", "PINEDA"),
+           "Italien": ("MILAN", "MILANO", "SAN SIRO", "ROMA", "ROME", "CAPANNELLE", "NAPOLI", "PISA", "MERANO"),
+           "Belgien": ("MONS", "OSTENDE", "WAREGEM", "SINT-TRUIDEN", "KUURNE"),
+           "Niederlande": ("DUINDIGT",),
+           "Schweiz": ("SAINT MORITZ", "AVENCHES", "FRAUENFELD", "DIELSDORF", "ZURICH")}
+TOTO_FAKTOR = 2.0            # Totokurs ab dem Doppelten des Festkurses: „am Toto kaum gespielt“ (leichte Warnung)
+
+
+def land(bahn: str | None) -> str | None:
+    """Land einer ausländischen Bahn (None für Frankreich oder unbekannt)."""
+    b = (bahn or "").upper()
+    return next((l for l, namen in LAENDER.items() if any(n in b for n in namen)), None)
+
+
+def bahnkategorie(bahn: str | None) -> str | None:
+    """Bahnkategorie des Nutzers in Frankreich: groß, mittel, Provinz (None für ausländische Bahnen)."""
+    b = (bahn or "").upper()
+    if not b or land(b):
+        return None
+    if any(n in b for n in BAHNEN_GROSS):
+        return "groß"
+    return "mittel" if any(n in b for n in BAHNEN_MITTEL) else "Provinz"
+
+
+def toto(x: dict) -> str | None:
+    """Leichte Warnung, wenn der Totokurs weit über dem Festkurs liegt (kann bis zum Start noch stark fallen)."""
+    fk = x.get("fk") or {}
+    if fk.get("toto") and fk.get("sieg") and fk["toto"] >= TOTO_FAKTOR * fk["sieg"]:
+        return f"Toto {zahl(fk['toto'])} – am Toto kaum gespielt"
+    return None
+
+
 def distanzklasse(m) -> str | None:
     """Grobe Distanzklasse des Nutzers (Sprint bis 1400 m, Steher ab 2400 m, Extremsteher ab 2800 m)."""
     return next((name for bis, name in DISTANZKLASSEN if m <= bis), None) if m else None
@@ -173,7 +214,11 @@ def kopf(r: dict, kz: list[dict]) -> None:
     print(f"\n## {r['race_id'][-4:]} {r.get('course')} {r.get('time')} – {r.get('name')}")
     print(f"{r.get('type')} · {r.get('age')} · {r.get('distance')} m ({distanzklasse(r.get('distance'))}) · Bodenangabe {r.get('going')} (Gruppe {r.get('going_label')}, Quelle {r.get('going_source')}) · "
           f"{r.get('corde')} · {len(st)} Starter · Klassenindex {cls.get('val_idx')} · Preis {r.get('prize')} €")
-    print(f"Tempo {pace.get('label')} · Laufstile {pace.get('groups')} · unbekannt {pace.get('unknown') or '–'}")
+    bias = r.get("bias") or {}
+    print(f"Bahn {r.get('course')} ({bahnkategorie(r.get('course')) or '–'}) · Tempo {pace.get('label')} · Laufstile {pace.get('groups')} · "
+          f"unbekannt {pace.get('unknown') or '–'}"
+          + (f" · Bahn-Bias Sieg-Impact vorne {zahl(bias.get('iv_front'), 2)}, hinten {zahl(bias.get('iv_back'), 2)} "
+             f"({bias.get('races')} Rennen)" if bias.get("iv_front") is not None else ""))
     if fav:
         print(f"FK-Favorit {fav['x']['no']} {fav['x']['horse']} FK {zahl(fav['fk'])}, Modell {pct(fav['p'], 1)} · "
               f"Top-ARR (gew.-bereinigt) {', '.join(f'{zahl(a)} (#{n})' for a, n in top_arr)} · Top-Valeur {', '.join(f'{zahl(v)} (#{n})' for v, n in top_val)}"
@@ -376,7 +421,8 @@ def formzeile(f: dict, r: dict) -> str:
             verlauf += " und landete vorne (Plus)"
     warn = [w for w in (f"Zwischenfall {f['incident']}" if f.get("incident") else None,
                         "unzuverlässig (weit geschlagen)" if f.get("unreliable") else None,
-                        verlauf, "externer Lauf (ohne volle Daten)" if f.get("extern") else None) if w]
+                        verlauf, "externer Lauf (ohne volle Daten)" if f.get("extern") else None,
+                        f"Ausland: {land(f.get('course')) or 'unbekannt'}" if f.get("ausland") else None) if w]
     bl = (f.get("blinkers") or "")
     bl = "" if not bl or bl.startswith("SANS") else " Skl."
     s = (f"   - {f.get('date')} {f.get('course')} {dist or '?'} m {f.get('going') or '?'} {f.get('type') or '?'}: "
@@ -437,11 +483,9 @@ def blatt(z: dict, r: dict, top_kg: float, titel: str = "") -> None:
         dicht = sum(1 for f in fl if f.get("date") and (d0 - date.fromisoformat(f["date"])).days <= FENSTER_STARTS)
     except ValueError:
         dicht = None
-    vf = pw.get("wert")
-    vf_txt = f"{zahl(vf, 2)}{' gold' if pw.get('gold') else ''}{' Warnung' if pw.get('warn') else ''}" if vf is not None else "–"
     val = "–" if z["value"] is None else f"{z['value'] * 100:+.0f} %"
     print(f"\n### {titel}{x['no']} {x['horse']} – FK {zahl(z['fk'])} · Modell {pct(z['p'], 1)} · Modell-Rang {z['rang']}/{z['n']} ({drittel(z['rang'], z['n'])}) · "
-          f"Value {val} · Value-Faktor {vf_txt}")
+          f"Value {val}" + (f" · {toto(x)}" if toto(x) else ""))
     print(f"- Pferd: {x.get('age')}j {x.get('sex')}, {x.get('starts')} Starts, {x.get('wins')} S, {x.get('places')} P · "
           f"{x.get('weight')} kg (Höchstgewicht {top_kg}) · Marke {zahl(x.get('rating'))} · Box {x.get('draw')} · Laufstil {x.get('style_label')} · "
           f"{x.get('days')} Tage seit letztem Start · {dicht} Starts in {FENSTER_STARTS} Tagen")
@@ -452,12 +496,16 @@ def blatt(z: dict, r: dict, top_kg: float, titel: str = "") -> None:
         print(f"- Valeur bereinigt (Valeur − Gewicht + 55): {zahl(x.get('rating_adj'))}, Rang {x.get('rating_rank')}/{x.get('rating_n')} im Feld")
     if hm and ist_handicap(r):
         print(f"- Marke: letzte {'Sieg' if hm.get('kind') == 'sieg' else 'Platz'}-Marke {zahl(hm.get('val'))} ({hm.get('date')}, {hm.get('course')}), heute {hm.get('diff'):+.1f} kg")
-    print(f"- Kennzeichen CGD {x.get('cgd') or '–'} · Badges {x.get('badges') or '–'} · Änderungen {[c.get('text') for c in x.get('changes') or []] or '–'} · Ausrüstung {x.get('blinkers')}")
+    print(f"- Kennzeichen CGD {x.get('cgd') or '–'} · Änderungen {[c.get('text') for c in x.get('changes') or []] or '–'} · Ausrüstung {x.get('blinkers')}")
     gs = ph.get("going") or []
     print(f"- Vorlieben Boden (Very slow = Collant und Lourd): " + "; ".join(f"{e['label']}{' (heute)' if e.get('today') else ''} {bilanz(e, True)}" for e in gs) if gs else "- Vorlieben Boden: –")
     print(f"- Vorlieben Distanz heute: {bilanz(heute(ph.get('distance')), True)} · Bahn heute: {bilanz(heute(ph.get('course')), True)} · "
           f"Richtung heute: {bilanz(heute(ph.get('richtung')), True)} (andere: {bilanz(next((e for e in ph.get('richtung') or [] if not e.get('today')), None), True)})")
     dw = distanzwechsel(r, [f for f in fl if not f.get("extra")])
+    if fl and not fl[0].get("extra"):
+        k0, k1 = bahnkategorie(r.get("course")), (land(fl[0].get("course")) or bahnkategorie(fl[0].get("course")))
+        if k0 and k1 and k0 != k1:
+            print(f"- Bahn: zuletzt {k1} ({fl[0].get('course')}), heute {k0}")
     if dw:
         print(f"- {dw}")
     bl = ph.get("blinkers") or []
