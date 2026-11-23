@@ -554,6 +554,41 @@ Siegregel, oder kommt sie dazu?
 `SKILL.md`; deine Einordnung: **leicht**. `G-GEWICHT-KLASSE-BODEN` [ausschlaggebend] (Kombination Aufgewicht +
 Höchstgewicht auf Collant/Lourd + Klassenfrage) nicht angesprochen → bleibt.
 
+## C5 Marke (Handicap) und Valeur
+
+**Antwort (23.11.):**
+
+> Hier achte ich vor allem bei **älteren, exposed Pferden** darauf, dass sie eine **günstige Marke** haben, also eine
+> Marke, die **nicht deutlich oberhalb der letzten Sieg- oder Platzmarke** liegt.
+>
+> Vorsicht, wenn ein Pferd in einem **absteigenden Entwicklungsszenario** ist: Es kann immer weiter in der Marke fallen,
+> diese Form aber **einfach nicht mehr leisten**.
+>
+> Mir gefallen vor allem Pferde, die **vor einem überschaubaren Zeitraum – nicht länger als ein Jahr her, eher ein halbes
+> bis ein Jahr –** eine Form mit einer Marke gezeigt haben, **unter der sie heute stehen**. Finde ich dagegen eine Form, wo
+> man heute **deutlich drunter steht (z. B. 7 Kilo), die aber schon 1,5 Jahre her ist, nützt mir das relativ wenig.**
+>
+> Klar formuliert: **Exposed Pferde, die leicht unterhalb ihrer Platz- oder Siegmarke stehen, und diese Marke ist noch
+> nicht so lange her.** Es spielt eine Rolle: **Wie lange ist es her**, dass man mit dieser Marke platziert war oder
+> gesiegt hat, und **wie viel steht man jetzt darunter**? Und: Ist es ein **stetiger Abstieg**, oder sind die schlechten
+> Formen, wegen derer die Marke gesunken ist, **durch irgendwas zu erklären**? All diese Faktoren spielen eine Rolle.
+
+**Notiert (Claude, zur Kontrolle):**
+
+- Gilt vor allem für **ältere, exposed** Pferde im Handicap.
+- **Plus:** heute **leicht unter** einer Sieg- oder Platzmarke, die **höchstens etwa ein halbes bis ein Jahr** zurückliegt.
+- **Wenig wert:** großer Abstand zu einer **alten** Marke (Beispiel: 7 kg darunter, aber 1,5 Jahre her).
+- **Drei Fragen** zusammen: (1) Wie lange her ist die Sieg-/Platzmarke? (2) Wie weit steht man heute darunter? (3) Ist der
+  Markenverlust ein **stetiger Abstieg** (dann Vorsicht: Pferd kann es nicht mehr) oder **erklärbar** (gestörte Läufe,
+  falsche Bedingungen – dann Plus)?
+- Sieg- oder Platzmarke: **beide** gelten („Platz- oder Siegmarke“), keine Rangfolge genannt.
+- Schwelle „deutlich“: nicht in kg festgelegt; „leicht unterhalb“ wird bevorzugt.
+
+**Hinweis auf vorhandene Regeln und Daten (nur Beobachtung):** `P-MARKE-UNTER` heute ohne Zeitbezug; das Blatt zeigt nur
+die **letzte** Sieg- bzw. Platzmarke mit Datum (`hcp_mark`). Dein Zeitfenster (½ bis 1 Jahr) und die Frage
+„stetiger Abstieg oder erklärbar“ fehlen dort. `G-FORMLOS` [gewichtig] (lange formlose Phase) liegt nah an „stetiger
+Abstieg“.
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -566,7 +601,7 @@ Höchstgewicht auf Collant/Lourd + Klassenfrage) nicht angesprochen → bleibt.
 - Erledigt zusätzlich: A12 (Block A vollständig).
 - Erledigt zusätzlich: B1.
 - Erledigt zusätzlich: B2, B3 (Block B vollständig).
-- Erledigt zusätzlich: C1, C2, C3, C4.
-- Offen: C5 bis H.
+- Erledigt zusätzlich: C1, C2, C3, C4, C5.
+- Offen: C6 bis H.
 - Später auswerten: Verteilung der Starts je Alter (Exposure, C2).
 - Datenlücke: Gewichtserlaubnis des Jockeys fehlt in der Karte (C4).
