@@ -635,6 +635,30 @@ Box nach Distanz und Bahn: nicht angesprochen.
 - **C10:** Ausrüstungsregeln (`G-AUSRUESTUNG-WEG` [ausschlaggebend], `P-AUSRUESTUNG-ZURUECK` [gewichtig],
   `F-AUSRUESTUNG-NEU`) **bestätigt**.
 
+## D1 Vorlieben des Pferdes (Bilanzen)
+
+**Antwort (23.11.):**
+
+> Bei den Vorlieben schaue ich **vor allem auf die Platzbilanz**, weil **A/E und Siegbilanz einfach zu sprunghaft** sind.
+> Darauf würde ich weniger achten. **Ein Sieg ist ein zusätzliches Plus.**
+>
+> **Belastbar können sie schon ab geringen Laufzahlen sein**, weil wir nun mal nicht mehr Daten haben. Je mehr Starts,
+> desto belastbarer. Wenn ein Pferd zum Beispiel gezeigt hat, dass es auf einem bestimmten Boden nach vorne laufen
+> kann, dann kann auch **eine einzige Platzierung auf sehr weicher Bahn belastbar genug** sein, um zu sagen: **das Pferd
+> kann den Boden.**
+
+**Notiert (Claude, zur Kontrolle):**
+
+- Vorlieben lesen über die **Platzbilanz** (Plätze je Läufe), **nicht über A/E** und nicht über die Siegbilanz (zu
+  sprunghaft). **Sieg = zusätzliches Plus.**
+- Belastbarkeit: **schon wenige Läufe zählen**, mehr Läufe = belastbarer. Eine **Platzierung** auf dem Boden kann als
+  Beleg reichen („kann den Boden“).
+- A/E-Schwellen (Karte: grün ab 1,25, rot unter 0,8): **nicht gewünscht**.
+
+**Hinweis auf Daten (nur Beobachtung):** Das Blatt zeigt je Gruppe Läufe, Siege, Plätze **und** A/E (z. B. „8 L/0 S/2 P,
+A/E 0,93“) – die Platzbilanz ist also schon ablesbar; A/E steht prominent daneben. Der Skill-Text nennt keine
+Lesart; bei der Destillation klären, ob A/E aus dem Blatt fallen kann.
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -647,7 +671,7 @@ Box nach Distanz und Bahn: nicht angesprochen.
 - Erledigt zusätzlich: A12 (Block A vollständig).
 - Erledigt zusätzlich: B1.
 - Erledigt zusätzlich: B2, B3 (Block B vollständig).
-- Erledigt zusätzlich: C1 bis C10.
-- Offen: C11 bis H.
+- Erledigt zusätzlich: C1 bis C10 (Block C), D1.
+- Offen: D2 bis H.
 - Später auswerten: Verteilung der Starts je Alter (Exposure, C2).
 - Datenlücke: Gewichtserlaubnis des Jockeys fehlt in der Karte (C4).
