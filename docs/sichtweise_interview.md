@@ -407,6 +407,24 @@ Besten → höchstens klein), `G-MASSSTAB-BESSER` [gewichtig]. Deine Sicht läss
 
 **Offen:** Wie viele / welche Pluspunkte gleichen einen ARR-Rückstand aus? Ab welchem Rückstand nicht mehr?
 
+## A12 Presse (Crible, Prognose, Tipps)
+
+**Antwort (23.11.):**
+
+> Ich lese die **Pressetexte auf jeden Fall.** Manchmal bieten sie **Zusatzinformationen**, die sonst nirgendwo in den
+> Formen zu sehen sind, bzw. machen auf bestimmte Sachverhalte aufmerksam, zum Beispiel **Trainer- oder Besitzerwechsel,
+> Vorform auf der Bahn** etc.
+>
+> Wenn ich unsere Value-Wetten anschaue und in einem Pressetext ein **stichhaltiges Gegenargument** zu einem Pferd lese,
+> das das Modell als sehr wertvoll eingestuft hat, kann man **noch einmal ein bisschen skeptisch** werden.
+
+**Notiert (Claude, zur Kontrolle):**
+
+- **Crible (Pressetext): lesen**, als Quelle für Zusatzinfos (Trainer-/Besitzerwechsel, Vorform auf der Bahn).
+- Ein **stichhaltiges Gegenargument** im Pressetext bei hohem Modell-Value → **etwas mehr Skepsis** (Gewicht: leicht bis
+  gewichtig, nicht festgelegt).
+- PMU-Prognose und Tipp-Konsens: **nicht angesprochen** → bleiben wie bisher aus dem Blatt.
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -416,4 +434,5 @@ Besten → höchstens klein), `G-MASSSTAB-BESSER` [gewichtig]. Deine Sicht läss
 - Erledigt zusätzlich: A9.
 - Erledigt zusätzlich: A10.
 - Erledigt zusätzlich: A11.
-- Offen: A12 bis H.
+- Erledigt zusätzlich: A12 (Block A vollständig).
+- Offen: B bis H.
