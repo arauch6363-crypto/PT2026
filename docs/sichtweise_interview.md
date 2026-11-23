@@ -623,6 +623,18 @@ Box nach Distanz und Bahn: nicht angesprochen.
 **Offen:** Trainer mit „gutem Schnitt“ – gemessen woran (Sieg-A/E nach Pause gibt es in der Karte nicht; Trainerform
 30/90/365 Tage)?
 
+## C9 CGD und Badges · C10 Ausrüstung
+
+**Antwort (23.11.):** „Ja, das passt alles so, kannst du so lassen.“
+
+**Notiert:**
+
+- **C9:** CGD-Gewichtung C > G > D (aus A6). Groß gegen klein (gewonnen gegen platziert) und **Badges** (C, D, CD, BF):
+  **keine eigene Regel** gewünscht – bleiben wie bisher (Badges ungenutzt). *(Auslegung von „passt alles so“; die beiden
+  Teilfragen wurden nicht einzeln beantwortet.)*
+- **C10:** Ausrüstungsregeln (`G-AUSRUESTUNG-WEG` [ausschlaggebend], `P-AUSRUESTUNG-ZURUECK` [gewichtig],
+  `F-AUSRUESTUNG-NEU`) **bestätigt**.
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -635,7 +647,7 @@ Box nach Distanz und Bahn: nicht angesprochen.
 - Erledigt zusätzlich: A12 (Block A vollständig).
 - Erledigt zusätzlich: B1.
 - Erledigt zusätzlich: B2, B3 (Block B vollständig).
-- Erledigt zusätzlich: C1 bis C8.
-- Offen: C9 bis H.
+- Erledigt zusätzlich: C1 bis C10.
+- Offen: C11 bis H.
 - Später auswerten: Verteilung der Starts je Alter (Exposure, C2).
 - Datenlücke: Gewichtserlaubnis des Jockeys fehlt in der Karte (C4).
