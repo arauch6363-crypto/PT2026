@@ -311,9 +311,39 @@ Fontainebleau)? Fehlende Bahnen einordnen, z. B. Saint-Cloud, Craon, Nantes, Ang
 - Zusammen mit A4: auf schnellem Boden (Bon bis Bon souple) zusätzlich leichter Vorteil für Vorreiter.
 - Soll der Durchgang den Bias sehen? Aus der Antwort: **ja, als leichter Indikator** (zu bestätigen bei der Destillation).
 
+## A8 Feldgröße
+
+**Antwort (23.11.):**
+
+> Feldgröße spielt insofern eine Rolle, als eine **vordere Position in einem großen Feld aussagefähiger** ist als im
+> kleinen Feld, weil man mehr andere Pferde geschlagen hat.
+>
+> Bei einer **hinteren Platzierung in einem großen Feld** muss man verstärkt auf den **Rennverlauf** achten: Die Gefahr ist
+> deutlich größer, dass man keinen idealen Verlauf hatte bzw. in der Geraden Probleme mit der Position oder einem freien
+> Lauf hatte.
+>
+> **Kleine Felder sind häufig taktischer geprägt.** Auch hier auf den Rennverlauf achten, ob man zum Beispiel **gegen den
+> Verlauf** gelaufen ist – etwa wenn nur Pferde vorne angekommen sind, die die ganze Zeit vorne (oder hinten) waren.
+>
+> Auf die **Bilanz der Jockeys nach Feldgröße achte ich nicht sehr.**
+>
+> Oft kann man im großen Feld **Siebter oder Achter** gewesen sein und trotzdem **ein sehr gutes Rennen** gelaufen sein,
+> weil man **nicht weit geschlagen** war und **viele Pferde hinter sich gelassen** hat. **Das wird in der
+> Leistungsbewertung oft unterschätzt.**
+
+**Notiert (Claude, zur Kontrolle):**
+
+- Platz relativ zur **Feldgröße** lesen: vorne in großem Feld zählt mehr als vorne in kleinem.
+- Großes Feld, hinterer Platz: verstärkt **Rennverlauf** prüfen (kein freier Lauf, eingeklemmt in der Geraden).
+- Großes Feld, Mittelfeld (z. B. 7./8.) **bei geringem Abstand** = oft ein sehr gutes Rennen, **wird unterschätzt**
+  (passt zu „Abstand vor Platzierung“ im Skill, verstärkt durch die Feldgröße).
+- Kleines Feld: oft **taktisch**; Rennverlauf (mit/gegen den Verlauf) besonders beachten.
+- **Jockey-Bilanz nach Feldgröße: unwichtig** → muss nicht ins Blatt.
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
 - Erledigt zusätzlich: A6, C9 teilweise (CGD-Gewichtung).
 - Erledigt zusätzlich: A6 Nachfragen, A7.
-- Offen: A8 bis H.
+- Erledigt zusätzlich: A8.
+- Offen: A9 bis H.
