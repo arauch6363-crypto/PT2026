@@ -79,7 +79,7 @@ Ein Verkaufsrennen (*à réclamer*): Jedes Pferd kann nach dem Rennen zu einem f
 _Avoid_: Verkaufsrennen ohne Zusatz, Reclamer
 
 **Exposed**:
-Ein Pferd mit vielen Starts und eher höherem Alter, von dem kaum noch Steigerung zu erwarten ist. Eine Skala, keine Grenze. Gegenteil: **unexposed** (wenige Starts, jung, Steigerung möglich).
+Ein Pferd mit vielen Starts und eher höherem Alter, von dem kaum noch Steigerung zu erwarten ist. Eine Skala, keine Grenze, gelesen relativ zum Feld (Kandidaten und Maßstäbe): Sind die Gegner ebenso exposed, zählt es kaum; ein weniger exposed Pferd unter ihnen ist ein Plus. Gegenteil: **unexposed** (wenige Starts, jung, Steigerung möglich).
 _Avoid_: ausgereizt, erfahren
 
 ### Boden

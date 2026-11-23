@@ -272,6 +272,15 @@ def crible(x: dict) -> str:
     return (p.get("crible_de") or p.get("crible") or "").strip()
 
 
+def starts_im_feld(x: dict, r: dict) -> str:
+    """Starts mit Rang im Feld (1 = die meisten) – Exposure relativ zum Feld."""
+    feld = [y.get("starts") for y in r.get("runners") or [] if not y.get("nr") and y.get("starts") is not None]
+    n = x.get("starts")
+    if n is None or not feld:
+        return f"{n} Starts"
+    return f"{n} Starts ({1 + sum(v > n for v in feld)}. meiste von {len(feld)} im Feld)"
+
+
 def karriere(x: dict, r: dict) -> str | None:
     """Karriere aus der Datenbank: Platzquote (Plätze einschließlich Siege je Lauf) und Gewinn je Lauf, je mit Rang im
     Feld – Klasse und „vorne dabei“ relativ zum Feld."""
@@ -486,7 +495,7 @@ def blatt(z: dict, r: dict, top_kg: float, titel: str = "") -> None:
     val = "–" if z["value"] is None else f"{z['value'] * 100:+.0f} %"
     print(f"\n### {titel}{x['no']} {x['horse']} – FK {zahl(z['fk'])} · Modell {pct(z['p'], 1)} · Modell-Rang {z['rang']}/{z['n']} ({drittel(z['rang'], z['n'])}) · "
           f"Value {val}" + (f" · {toto(x)}" if toto(x) else ""))
-    print(f"- Pferd: {x.get('age')}j {x.get('sex')}, {x.get('starts')} Starts, {x.get('wins')} S, {x.get('places')} P · "
+    print(f"- Pferd: {x.get('age')}j {x.get('sex')}, {starts_im_feld(x, r)}, {x.get('wins')} S, {x.get('places')} P · "
           f"{x.get('weight')} kg (Höchstgewicht {top_kg}) · Marke {zahl(x.get('rating'))} · Box {x.get('draw')} · Laufstil {x.get('style_label')} · "
           f"{x.get('days')} Tage seit letztem Start · {dicht} Starts in {FENSTER_STARTS} Tagen")
     kar = karriere(x, r)
