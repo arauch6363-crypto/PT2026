@@ -114,13 +114,17 @@ Unter der Formzeile des **Referenzlaufs** (`≈heute`, der jüngste) und des **l
 > abgeschlagen stellt die Übertragbarkeit des Referenzlaufs in Frage.
 > _Avoid_: letzte Form (als Urteilsgrundlage)
 
-## Entscheidungen
+## Entscheidungen Block 1
+
+Der Nutzer nahm am 23.11. alle Vorschläge an und gab die übrigen Blöcke pauschal frei („ich vertraue deinen
+Änderungen pauschal“). Testsatz einmal am Ende über alle Blöcke.
+
 
 | Vorschlag | Entscheidung | Notiz |
 |---|---|---|
-| V1-1 | offen | |
-| V1-2 | offen | |
-| V1-3 | offen | |
-| V1-4 | offen | |
-| V1-5 | offen | |
-| V1-6 | offen | |
+| V1-1 | ja (23.11., pauschal) | |
+| V1-2 | ja (23.11., pauschal) | |
+| V1-3 | ja (23.11., pauschal) | |
+| V1-4 | ja (23.11., pauschal) | |
+| V1-5 | ja (23.11., pauschal) | |
+| V1-6 | ja (23.11., pauschal) | |

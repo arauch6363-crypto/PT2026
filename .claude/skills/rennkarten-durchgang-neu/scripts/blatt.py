@@ -143,11 +143,89 @@ def kopf(r: dict, kz: list[dict]) -> None:
           else "Kein Handicap: Marken-Vergleich ohne Belang, es zählt die gewichtsbereinigte Valeur im Feld.")
 
 
+def ist_heute(f: dict, r: dict) -> bool:
+    """Lauf unter heutigen Bedingungen: gleiche Bodengruppe (PSF eigene Gruppe), Distanz höchstens DIST_TOL entfernt."""
+    gr, dist, d0 = gruppe(f.get("going")), f.get("dist"), r.get("distance")
+    return bool(gr and gr == r.get("going_label") and dist and d0 and abs(dist - d0) <= DIST_TOL)
+
+
+def _arr_raenge(f: dict, r: dict, no=None) -> str | None:
+    """Rang des ARR dieses Laufs unter allen Läufen der heutigen Starter (kpi: ARR aufs heutige Gewicht) in den
+    Fenstern 30/90/365 Tage, soweit der Lauf darin liegt; der Lauf selbst zählt als einer von n (wie die Karte)."""
+    wert, tag = f.get("arr_adj"), (r.get("race_id") or "")[:8]
+    if wert is None or not f.get("date") or len(tag) != 8:
+        return None
+    try:
+        d0 = date(int(tag[:4]), int(tag[4:6]), int(tag[6:8]))
+        alter = (d0 - date.fromisoformat(f["date"])).days
+    except ValueError:
+        return None
+    pool = []
+    for x in r.get("runners") or []:
+        for e in x.get("kpi") or []:
+            if x.get("no") == no and len(e) > 7 and e[7] == f.get("race_id"):
+                continue                                 # der Lauf selbst
+            try:
+                pool.append(((d0 - date.fromisoformat(e[0])).days, e[4]))
+            except (ValueError, TypeError, IndexError):
+                continue
+    teile = []
+    for t in (30, 90, 365):
+        if alter > t:
+            continue
+        werte = [v for a, v in pool if a <= t and v is not None]
+        if werte:
+            teile.append(f"{t} T {1 + sum(v > wert for v in werte)}/{len(werte) + 1}")
+    return "ARR-Rang unter den Läufen der heutigen Starter: " + " · ".join(teile) if teile else None
+
+
+def laufanalyse(f: dict, r: dict, x: dict) -> str | None:
+    """Zusatzzeile für Referenzlauf und letzten Lauf: Position, Plätze ab 800 m, Weg, Tempo, ARR-Rang im Feld, TR,
+    Gegner danach, heutige Gegner direkt und indirekt. None, wenn die Karte nichts davon hat."""
+    t = []
+    if f.get("early_pos") or f.get("pos_before"):
+        s = (f"früh {f['early_pos']}. → " if f.get("early_pos") else "") + \
+            (f"{f.get('pos_before_m') or 400} m vor dem Ziel {f['pos_before']}." if f.get("pos_before") else "")
+        t3 = [str(v) for v in f.get("top3_fifth") or [] if v]
+        zus = ([f"Fünftel {f['fifth']}/5"] if f.get("fifth") else []) + ([f"erste drei aus {', '.join(t3)}"] if t3 else [])
+        t.append(s.strip() + (f" ({'; '.join(zus)})" if zus else ""))
+    if f.get("pos_gain") is not None:
+        t.append(f"{f['pos_gain']:+d} Plätze ab 800 m")
+    if f.get("weg_med") is not None:
+        t.append(f"Weg {f['weg_med']:+.0f} m" + (" (außen herum)" if f["weg_med"] >= 7.5 else ""))
+    pr = f.get("pace_ratio")
+    if pr is not None:
+        t.append("Tempo " + ("schnell früh" if pr >= 102 else "langsam früh" if pr <= 98 else "gleichmäßig"))
+    rang = _arr_raenge(f, r, x.get("no"))
+    if rang:
+        t.append(rang)
+    tr = f.get("tr_heute") if f.get("tr_heute") is not None else f.get("tr")
+    if tr is not None:
+        t.append(f"TR {tr}")
+    rs = f.get("rivals_stat") or {}
+    if rs.get("better") or rs.get("worse"):
+        t.append(f"Gegner danach {rs.get('better', 0)}↑ {rs.get('worse', 0)}↓")
+    sieger = next((g for g in f.get("rivals") or [] if g.get("pos") == 1 and g.get("next")), None)
+    if sieger:
+        n = sieger["next"]
+        t.append(f"Sieger {sieger.get('horse')} danach {n.get('pos') or '–'}./{n.get('ran') or '–'}")
+    rid = f.get("race_id")
+    for d in (x.get("duels") or []) if rid else []:
+        if d.get("race_id") == rid and d.get("diff_l") is not None:
+            t.append(f"{'vor' if d['diff_l'] > 0 else 'hinter'} {d.get('rival_no')} {d.get('rival')} "
+                     f"{zahl(abs(d['diff_l']))} L")
+    for e in ((x.get("indirect") or {}).get("rivals") or []) if rid else []:
+        if any(v and v[0] == rid for v in e.get("via") or []) and e.get("exp_kg") is not None:
+            t.append(f"indirekt {'vor' if e['exp_kg'] > 0 else 'hinter'} {e.get('rival_no')} {e.get('rival')} "
+                     f"(über {', '.join(e.get('common') or [])})")
+    return "       Lauf: " + " · ".join(t) if t else None
+
+
 def formzeile(f: dict, r: dict) -> str:
     gr, heute_gr = gruppe(f.get("going")), r.get("going_label")
     dist, d0 = f.get("dist"), r.get("distance")
     ref = []
-    if gr and gr == heute_gr and dist and d0 and abs(dist - d0) <= DIST_TOL:
+    if ist_heute(f, r):
         ref.append("≈heute")
     if f.get("course") == r.get("course"):
         ref.append("gleiche Bahn")
@@ -284,15 +362,24 @@ def blatt(z: dict, r: dict, top_kg: float, titel: str = "") -> None:
     crib = ((x.get("prono") or {}).get("crible_de") or "").strip()
     if crib:
         print(f"- Crible (Kontext): „{crib[:240]}“")
-    print("- Formzeilen (neueste zuerst):")
-    for f in [f for f in fl if not f.get("extra")][:7]:
-        print(formzeile(f, r))
+    letzte = [f for f in fl if not f.get("extra")][:7]
     aeltere = [f for f in fl if f.get("extra")]          # von der Karte angehängt: letzter Lauf auf Bahn/Distanz/Boden
+    referenz = next((f for f in letzte + aeltere if ist_heute(f, r)), None)
+    tief = {id(f) for f in (letzte[:1] + [referenz]) if f is not None}   # ausführlich nur Referenz- und letzter Lauf
+
+    def zeile(f):
+        print(formzeile(f, r))
+        analyse = laufanalyse(f, r, x) if id(f) in tief else None
+        if analyse:
+            print(analyse)
+    print("- Formzeilen (neueste zuerst):")
+    for f in letzte:
+        zeile(f)
     if aeltere:
         merkmale = sorted({k for f in aeltere for k in f["extra"]}, key="KDB".index)
         print("- Ältere Läufe (zuletzt mit gleicher " + ", ".join(SAME[k] for k in merkmale) + "):")
         for f in aeltere:
-            print(formzeile(f, r))
+            zeile(f)
 
 
 def main(argv: list[str]) -> None:

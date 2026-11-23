@@ -63,19 +63,7 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
 - **[gewichtig · vorläufig]** `G-MODELL-UNSICHER` Sehr hoher Value (über etwa +100 %) auf Formen, die das Modell schlecht einschätzen kann
   (Ausland, extern, wenig Daten) → eher Modell unsicher als Markt falsch; eher keine Wette. *Arkansas 11.11.*
 
-## 2. Letzter Lauf
-
-- **[leicht]** `P-LETZTER-ANDERS` Ein schwacher letzter Lauf unter anderen Bedingungen (Boden, Distanz) wird übergangen.
-  *Mister Chang, Come Alone.*
-- **[gewichtig]** `G-LETZTER-HEUTE-BODEN` Ein klar verlorener letzter Lauf (5 Längen und mehr) auf dem heutigen Boden
-  ist ein Gegenargument. Übergangen wird er nur, wenn das Pferd behindert wurde oder gegen den Rennverlauf gelaufen
-  ist. *Fille d'Argentine 15.11.*
-- **[leicht]** `P-ERSTER-ANSATZ` „Erster Ansatz“ nach einer Reihe schwacher Läufe ist ein Plus, trägt aber höchstens eine kleine Wette.
-  *Cole Chop.*
-- **[gewichtig]** `G-FORMLOS` Lange formlose Phase („Formkurve seit Monaten schwach“) wiegt schwerer als einzelne gute Werte
-  (höchster ARR, Bahnsieg, gefallene Marke). *Piano Bar 16.11.*
-
-## 3. Referenzlauf und Leitfrage
+## 2. Referenzlauf und Leitfrage
 
 - **[ausschlaggebend]** `G-ARR-UNTER` ARR auch im Referenzlauf nicht unter den vorderen im Feld, dazu selten gewinnend oder exposed
   → keine Siegwette, auch bei Value über +30 %. *The Cat's, Roi du Ciel, Silgreypit, Bosquet, Go For It.*
@@ -87,6 +75,23 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
   Platzierung zeigt. *Teardrop Explodes, Cervaro, Lady Madeira.*
 - **[gewichtig]** `G-KEIN-REFERENZ` Kein Referenzlauf (erster Start auf dem Belag, nur Formen anderswo) bei mittlerem Value → keine
   Wette, wenn sonst wenig dafür spricht. *Laith, Morus.*
+
+## 3. Läufe seit dem Referenzlauf
+
+- **[leicht]** `P-LETZTER-ANDERS` Ein ordentlicher Lauf seit dem Referenzlauf unter anderen Bedingungen (Belag,
+  Boden, Distanz) zählt nicht gegen das Pferd. *Mister Chang, Come Alone.*
+- **[gewichtig]** `G-HYGIENE` War das Pferd seit dem Referenzlauf unter anderen Bedingungen völlig abgeschlagen, ist
+  fraglich, ob der Referenzlauf heute übertragbar ist.
+- **[leicht]** `P-GEWETTET` / `G-UNGEWETTET` War das Pferd in einem enttäuschenden Lauf gut gewettet, erwartete der
+  Stall mehr – heute ist eine Steigerung möglich, erst recht mit stärkerem Jockey als damals; war es kaum gewettet,
+  leicht dagegen.
+- **[gewichtig]** `G-LETZTER-HEUTE-BODEN` Ein klar verlorener letzter Lauf (5 Längen und mehr) auf dem heutigen Boden
+  ist ein Gegenargument. Übergangen wird er nur, wenn das Pferd behindert wurde oder gegen den Rennverlauf gelaufen
+  ist. *Fille d'Argentine 15.11.*
+- **[leicht]** `P-ERSTER-ANSATZ` „Erster Ansatz“ nach einer Reihe schwacher Läufe ist ein Plus, trägt aber höchstens eine kleine Wette.
+  *Cole Chop.*
+- **[gewichtig]** `G-FORMLOS` Lange formlose Phase („Formkurve seit Monaten schwach“) wiegt schwerer als einzelne gute Werte
+  (höchster ARR, Bahnsieg, gefallene Marke). *Piano Bar 16.11.*
 
 ## 4. Vorlieben und Abstammung
 

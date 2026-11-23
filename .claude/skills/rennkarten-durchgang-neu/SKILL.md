@@ -76,17 +76,24 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
    niemand die Valeurs aus: Dort zählt, wer die **höchste gewichtsbereinigte Valeur** im Feld hat (Valeur − Gewicht +
    55, Rang im Blatt). Eine Marke unter der letzten Platzmarke ist dort ein Zeichen, dass das Pferd nachlässt.
    Kennzeichen **CGD** (auf Bahn, Distanz, Boden gewonnen) „lässt aufhorchen“.
-2. **Letzter Lauf im Zusammenhang.** Welches Rennen, welche Klasse, welche Bahn (groß oder Provinz), welcher Boden,
-   wie weit geschlagen, Kommentar und Rennverlauf. Ein schwacher Lauf unter ganz anderen Bedingungen (andere
-   Distanz, anderer Boden, nicht weit geschlagen) darf übergangen werden. „Nicht weit geschlagen in stärkerem Rennen“
-   zählt mehr als die Platzierung.
-3. **Referenzlauf.** Der jüngste Lauf unter heutigen Bedingungen (Blatt: `≈heute`, `gleiche Bahn`, `sehr weich`):
-   Platz, Abstand, Marke damals gegen heute (nur im Handicap), **ARR dort gegen Top-ARR im heutigen Feld** (Leitfrage),
-   welche heutigen Gegner er dort geschlagen hat, ob das Rennen **aufgewertet** ist. Gestörte Läufe (Kommentar:
-   behindert, eingeklemmt, „Nase im Wind“/ohne Deckung, am Rand galoppiert; Blatt: gegen den Verlauf, Zwischenfall)
-   unterschätzen das Pferd – entsprechend höher einordnen. Kein Referenzlauf ist selbst ein Fragezeichen. Ist der
-   Referenzlauf schlecht und gibt es kein Argument, warum es heute besser sein sollte, ist das ein starkes
-   Gegenargument.
+2. **Referenzlauf.** Der jüngste Lauf unter heutigen Bedingungen (Blatt: `≈heute`), höchstens etwa ein Jahr alt, je
+   jünger desto besser. Ihn gründlich lesen, in dieser Reihenfolge (Blatt: Zeile „Lauf:“ darunter):
+   - **kompetitiv?** Platz relativ zur Starterzahl und Abstand in Längen; knapp geschlagen im großen Feld ist oft ein
+     sehr gutes Rennen.
+   - **ARR** des Laufs relativ zum Feld (Rang unter den Läufen der heutigen Starter) und gegen Top-ARR und Maßstäbe
+     (Leitfrage); TR bestätigt.
+   - **Kommentar, Position, Tempo:** klarer Lauf, Effort in der Geraden, kämpferisch – oder behindert, „Nase im Wind“,
+     außen herum. Von weit hinten Boden gutgemacht, als vorne gewonnen wurde, hinten bei langsamem oder vorne bei sehr
+     schnellem Tempo: Der Lauf war besser, als der Platz zeigt.
+   - **Gegner:** wie sie danach liefen (aufgewertet/abgewertet; bei jungen Pferden besonders wichtig) und welche
+     heutigen Gegner es direkt oder indirekt schlug.
+   - **Marke damals gegen heute** (nur im Handicap).
+
+   Kein Referenzlauf ist selbst ein Fragezeichen.
+3. **Läufe seit dem Referenzlauf (Hygienefaktor).** Die letzten ein bis zwei Läufe unter anderen Bedingungen nur
+   prüfen, nicht bewerten: Lief das Pferd dort ordentlich, zählen sie nicht; war es völlig abgeschlagen (ARR und
+   Abstand zusammen), ist fraglich, ob der Referenzlauf heute übertragbar ist. Kommentar, Box, Jockey und Quote
+   erklären einen schwachen Lauf oft.
 4. **Vorlieben (Gesamtbilanz), dann Abstammung.** Boden, Distanz, Bahn, Richtung, Ausrüstung aus den **Vorlieben**
    des Blatts lesen – die Formzeilen zeigen nur die letzten sieben und wenige ältere Läufe. **Boden vergleichen:** Collant und Lourd bilden
    zusammen die Gruppe Very slow und sind für uns gleichwertig – ein Lauf auf Collant belegt Lourd und umgekehrt.

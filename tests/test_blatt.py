@@ -61,3 +61,32 @@ def test_aeltere_laeufe_mit_gleicher_bahn_distanz_boden_bleiben(capsys):
     assert out.count("   - 2026-10-") == 7
     assert "Ältere Läufe (zuletzt mit gleicher Bahn, Distanz, Boden):" in out
     assert "   - 2025-06-01" in out and "   - 2025-05-01" in out
+
+
+def test_laufanalyse_fuer_referenzlauf_und_letzten_lauf():
+    rennen = {**RENNEN, "race_id": "20261121R1C1", "date": "2026-11-21",
+              "runners": [{"no": 2, "kpi": [["2026-11-01", "PAU", 1600, "SLOW", 30.0], ["2026-06-01", "PAU", 1600, "SLOW", 25.0]]}]}
+    f = _lauf(race_id="20261101R1C1", date="2026-11-01", early_pos=9, pos_before=4, pos_before_m=400, fifth=2,
+              top3_fifth=[1, 1, 3], pos_gain=4, weg_med=9.0, pace_ratio=103.0, arr_adj=28.0, tr_heute=31,
+              rivals_stat={"better": 5, "worse": 2, "ran": 7},
+              rivals=[{"horse": "SIEGER", "pos": 1, "next": {"pos": 1, "ran": 9}}])
+    x = {"no": 3, "duels": [{"race_id": "20261101R1C1", "rival_no": 4, "rival": "Y", "diff_l": 2.5}],
+         "indirect": {"rivals": [{"rival_no": 2, "rival": "Z", "exp_kg": -1.0, "common": ["W"],
+                                  "via": [["20261101R1C1", "W", 0.5]]}]}}
+    z = blatt.laufanalyse(f, rennen, x)
+    assert z.startswith("       Lauf: früh 9. → 400 m vor dem Ziel 4. (Fünftel 2/5; erste drei aus 1, 1, 3)")
+    for teil in ("+4 Plätze ab 800 m", "Weg +9 m (außen herum)", "Tempo schnell früh",
+                 "ARR-Rang unter den Läufen der heutigen Starter: 30 T 2/2", "TR 31", "Gegner danach 5↑ 2↓",
+                 "Sieger SIEGER danach 1./9", "vor 4 Y 2,5 L", "indirekt hinter 2 Z (über W)"):
+        assert teil in z, teil
+    assert blatt.laufanalyse(_lauf(), rennen, {}) is None       # ohne Daten keine Zeile
+
+
+def test_analyse_nur_unter_referenzlauf_und_letztem_lauf(capsys):
+    fl = [_lauf(date="2026-11-10", dist=1200, pos_gain=1),                 # letzter Lauf, nicht ≈heute
+          _lauf(date="2026-11-01", pos_gain=2),                            # Referenzlauf (≈heute)
+          _lauf(date="2026-10-01", pos_gain=3)]                            # weder noch
+    x = {"no": 3, "horse": "X", "form_lines": fl}
+    blatt.blatt({"x": x, "fk": 5.0, "p": 0.2, "rang": 1, "n": 8, "value": 0.1}, {**RENNEN, "race_id": "20261121R1C1"}, 60)
+    out = capsys.readouterr().out
+    assert "+1 Plätze" in out and "+2 Plätze" in out and "+3 Plätze" not in out
