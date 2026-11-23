@@ -183,6 +183,28 @@ def kopf(r: dict, kz: list[dict]) -> None:
           else "Kein Handicap: Marken-Vergleich ohne Belang, es zählt die gewichtsbereinigte Valeur im Feld.")
 
 
+def matrix(x: dict, r: dict, rolle: str, kurz: bool = True) -> str | None:
+    """Lage in der A/E-Matrix der Karte relativ zum Feld: 365 Tage A/E+ (100 × A/E Platz) und Pos+ mit Rang unter den
+    verschiedenen Personen dieser Rolle im Rennen; kurz=True ergänzt die 30-Tage-Bilanz (heiß oder kalt)."""
+    e = ((x.get("ae") or {}).get(rolle) or {})
+    j = e.get("d365") or {}
+    if j.get("ae") is None:
+        return None
+    feld = {}
+    for y in r.get("runners") or []:
+        w = (((y.get("ae") or {}).get(rolle) or {}).get("d365") or {})
+        if not y.get("nr") and y.get(rolle) and w.get("ae") is not None:
+            feld[y[rolle]] = w
+    aes = [w["ae"] for w in feld.values()]
+    poss = [w["pos_idx"] for w in feld.values() if w.get("pos_idx") is not None]
+    s = f"365 Tage A/E+ {100 * j['ae']:.0f} ({1 + sum(v > j['ae'] for v in aes)}/{len(aes)})"
+    if j.get("pos_idx") is not None:
+        s += f", Pos+ {j['pos_idx']} ({1 + sum(v > j['pos_idx'] for v in poss)}/{len(poss)})"
+    if kurz and e.get("d30"):
+        s += f" · 30 Tage {bilanz(e['d30'])}" + (f", Trend {e['trend']}" if e.get("trend") else "")
+    return s
+
+
 def ratings(x: dict) -> str:
     """Kennzahlen in der Reihenfolge des Nutzers: ARR, TR, ΔL600, RTR, Duelle (Valeur steht eigens); dazu die Box."""
     a, t, du, ds = x.get("arr") or {}, x.get("tr") or {}, x.get("duel_rank") or {}, x.get("draw_stat") or {}
@@ -466,12 +488,14 @@ def blatt(z: dict, r: dict, top_kg: float, titel: str = "") -> None:
     tw = trainerwechsel(ph.get("trainer"))
     if tw:
         print(f"- {tw}")
-    t30, ttr = (ae.get("trainer") or {}).get("d30") or {}, (ae.get("trainer") or {}).get("trend")
-    print(f"- Trainer {x.get('trainer')}: 30 Tage {bilanz(t30)}{f', Trend {ttr}' if ttr else ''} · Bahn {bilanz(pt.get('course'))} · "
+    print(f"- Trainer {x.get('trainer')}: {matrix(x, r, 'trainer') or '–'} · Bahn {bilanz(pt.get('course'))} · "
           f"Rennart {bilanz(pt.get('racetype'))} · Alter {bilanz(pt.get('age'))} · mit diesem Pferd {bilanz(heute(ph.get('trainer')))}")
-    j365 = (ae.get("jockey") or {}).get("d365") or {}
-    print(f"- Jockey {x.get('jockey')}: 365 Tage A/E {zahl(j365.get('ae'), 2)} · Bahn {bilanz(pj.get('course'))} · auf diesem Pferd {bilanz(pj.get('horse'))} · "
+    print(f"- Jockey {x.get('jockey')}: {matrix(x, r, 'jockey') or '–'} · Bahn {bilanz(pj.get('course'))} · auf diesem Pferd {bilanz(pj.get('horse'))} · "
           f"Gespann mit Trainer {bilanz(pj.get('trainer'))}")
+    besitzer = matrix(x, r, "owner", kurz=False)
+    if x.get("owner"):
+        zuechter = " · zugleich Züchter" if x.get("breeder") and x.get("breeder") == x.get("owner") else ""
+        print(f"- Besitzer {x.get('owner')}: {besitzer or '–'}{zuechter}")
     print(f"- {ratings(x)}")
     crib = crible(x)
     if crib:

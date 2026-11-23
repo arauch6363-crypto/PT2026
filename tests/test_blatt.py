@@ -141,3 +141,14 @@ def test_ratings_in_reihenfolge_des_nutzers():
 def test_crible_original_wenn_uebersetzung_fehlt():
     assert blatt.crible({"prono": {"crible": "Il devrait lutter."}}) == "Il devrait lutter."
     assert blatt.crible({"prono": {"crible": "x", "crible_de": "Deutsch"}}) == "Deutsch"
+
+
+def test_ae_matrix_relativ_zum_feld():
+    def ae(rolle, a, pos, a30=None):
+        return {"ae": {rolle: {"d365": {"runs": 100, "ae": a, "pos_idx": pos},
+                               "d30": {"runs": 10, "wins": 1, "places": 3, "ae": a30}}}}
+    r = {"runners": [{"no": 1, "trainer": "A", **ae("trainer", 1.2, 110, 0.5)}, {"no": 2, "trainer": "B", **ae("trainer", 0.9, 120)},
+                     {"no": 3, "trainer": "A", **ae("trainer", 1.2, 110)}]}
+    z = blatt.matrix(r["runners"][0], r, "trainer")
+    assert z == "365 Tage A/E+ 120 (1/2), Pos+ 110 (2/2) · 30 Tage 10 L/1 S/3 P, A/E 0,50"
+    assert blatt.matrix(r["runners"][0], r, "trainer", kurz=False) == "365 Tage A/E+ 120 (1/2), Pos+ 110 (2/2)"

@@ -125,9 +125,10 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
 
 ## 5. Trainer und Jockey
 
-- **[gewichtig]** `G-TRAINER-KALT` Trainer auffällig schlecht in Form (etwa 2/40, A/E um 0,5) → klares Gegenargument; leicht kalt nur
-  [leicht]. *Crew Dragon gegen Grand Scoop.*
-- **[gewichtig]** `P-TRAINER` Starke Bahnbilanz des Trainers gleicht eine kalte Form aus. *Little Lady, Afterglow, Algeciras.*
+- **[gewichtig]** `G-TRAINER-KALT` Trainer in der A/E-Matrix über 365 Tage weit hinten im Feld oder in den letzten
+  30 Tagen auffällig schlecht (etwa 2/40, A/E um 0,5) → klares Gegenargument; leicht kalt nur [leicht]. *Crew Dragon gegen Grand Scoop.*
+- **[gewichtig]** `P-TRAINER` Trainer in der A/E-Matrix über 365 Tage rechts oben im Feld; eine starke Bahnbilanz
+  gleicht eine kalte Form aus. *Little Lady, Afterglow, Algeciras.*
 - **[ausschlaggebend]** `G-DEBUET-STALL` Debütant: Stall ohne Sieg in den letzten 20 Starts bzw. schwach mit Zweijährigen „spricht
   Bände“. *Matinera 11.11.*
 - **[gewichtig]** `G-TRAINER-SPEZIALITAET` Spezialität des Trainers zählt: schwach in Handicaps, mit Dreijährigen oder in Conditions (0/58)
@@ -136,7 +137,11 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
   Blossom Cen, Come Alone.*
 - **[gewichtig]** `G-STALL-KLEIN` Kleiner Stall ohne Sieg in zwei Jahren → Gegenargument („fehlt die Klasse“); klein, aber geschickt
   operierend → neutral bis Pro. *Go For It gegen L'Annonciade, Verdansk.*
-- **[leicht]** `P-JOCKEY-KENNT` Jockey kennt das Pferd (Siege zusammen), Jockey-A/E über 1. *Mister Chang, Verdansk.*
+- **[leicht]** `P-JOCKEY-KENNT` Jockey kennt das Pferd (Siege zusammen). *Mister Chang, Verdansk.*
+- **[leicht]** `P-JOCKEY-STARK` Jockey in der A/E-Matrix über 365 Tage rechts oben im Feld; vom schwachen zum stärkeren
+  Jockey lässt eine Steigerung erwarten – ein Spitzenjockey allein ist noch kein Signal.
+- **[leicht]** `P-BESITZER` Besitzer in der A/E-Matrix über 365 Tage vorne im Feld; große Besitzer, die zugleich
+  Züchter sind (Wertheimer, Aga Khan), sind immer gefährlich; ein Besitzerwechsel ist ein leichtes Plus.
 - **[gewichtig · vorläufig]** `P-NEUER-TRAINER` Pferd steigert sich gerade beim neuen Trainer (Siege kurz nach dem Wechsel) → ältere Formen und
   Durchschnitts-ARR weniger streng, auch mit Höchstgewicht auf PSF (Gewicht + Klassenfrage auf Collant/Lourd bleibt
   ausschlaggebend). *Senorito 16.11. (klein, fair 3,5–4).*

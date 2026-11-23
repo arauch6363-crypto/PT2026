@@ -31,6 +31,7 @@ wo die Daten Lücken haben.
 | Nachkommen je Distanzklasse | `pref_ref.sire/dam_sire.distance` → `pref_alle` | Läufe und Platzquote je Distanzklasse; das Blatt zeigt sie bei Distanzwechsel ab 250 m oder ohne Lauf in der heutigen Distanzgruppe |
 | CGD | `cgd` | Je Buchstabe Bahn mit Belag (C), Bodengruppe (G), Distanzgruppe (D): Großbuchstabe = dort gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals, – = unbekannt |
 | Vorlieben | `pref.horse.going/distance/course/richtung/blinkers/trainer` | **Gesamtbilanz** der Datenbank; `today` markiert die heutige Gruppe; das Blatt zeigt die Platzquote statt A/E |
+| A/E-Matrix | `ae.trainer/jockey/owner.d365`: `ae`, `pos_idx` | A/E+ = 100 × A/E Platz, Pos+ = Ø Platzierung als Index; das Blatt zeigt den Rang unter den Personen dieser Rolle im Rennen |
 | Trainer | `ae.trainer.d30` (Form), `pref.trainer.course/racetype/age` | `trend` hot/cold; Trainerwechsel aus `pref.horse.trainer` (Läufe beim heutigen Trainer gegen alle) – Blatt: „Trainer erst seit N Läufen“ (bis 5) |
 | Jockey | `ae.jockey.d365`, `pref.jockey.course/horse/trainer` | `pref.jockey.trainer` = Gespann |
 | Ratings | `arr.adj` (gewichtsbereinigt), `arr.rank`, `tr.heute`, `tr.rank`, `rtr.rank`, `summary.dl600_a` | Top-ARR des Feldes im Blattkopf; ΔL600 = Tempo der letzten 600 m gegen Erwartung (km/h), Ø der Läufe |

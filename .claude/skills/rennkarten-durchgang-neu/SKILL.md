@@ -115,12 +115,13 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
    längere Wege trägt. Differenziert lesen: Frankels mögen sehr weichen Boden manchmal nicht – Souple ist dafür nicht
    weich genug. Bei jungen Pferden zählt zusätzlich die **Qualität** der Linie relativ zum Feld (Blatt: Platzierungs-,
    Gewinn- und Valeur-Index der Nachkommen), weil sie etwas über das Potenzial sagt.
-5. **Trainer und Jockey.** Trainerwechsel in den letzten Läufen beachten (Blatt: „Trainer erst seit N Läufen“).
-   Trainer: Form 30 Tage (kalt = Gegenargument, abgestuft), Bilanz auf der Bahn (kann eine kalte Form ausgleichen),
-   Spezialität (Rennart, Alter, Debütanten), Stallgröße und -erfolg (kleiner Stall ohne Sieg in zwei Jahren =
-   Gegenargument; klein, aber „geschickt operierend“ = neutral bis Pro). Jockey: Bilanz auf der Bahn, kennt das Pferd
-   (Siege zusammen = Pro), Jockey-A/E (holt mehr heraus = Pro), **Gespann Trainer + Jockey** – zählt bei genug
-   Starts mehr als die Einzelbilanzen.
+5. **Trainer, Jockey, Besitzer.** Zuerst die Lage in der **A/E-Matrix über 365 Tage** relativ zum Feld (Blatt: A/E+
+   und Pos+ mit Rang; rechts oben = gut), dann die 30 Tage: aktuell heiß oder kalt. Trainerwechsel beachten (Blatt:
+   „Trainer erst seit N Läufen“). Trainer: Bilanz auf der Bahn (kann eine kalte Form ausgleichen), Spezialität
+   (Rennart, Alter, Debütanten), Stallgröße und -erfolg (kleiner Stall ohne Sieg in zwei Jahren = Gegenargument; klein,
+   aber „geschickt operierend“ = neutral bis Pro). Jockey: Bilanz auf der Bahn, kennt das Pferd (Siege zusammen = Pro),
+   **Gespann Trainer + Jockey** – zählt mehr als die Einzelbilanzen, sobald es einige gemeinsame Starts gibt.
+   Besitzer: nur 365 Tage. Bei Maiden und Debütanten sind Verbindungen, Besitzer und Abstammung die Hauptkriterien.
 6. **Umstände heute.** Box (nur `signifikant` zählt), Gewicht (ab etwa 62 kg auf Très souple oder schwerer =
    Gegenargument), Tempo gegen Laufstil (Führender bei schnellem Tempo mit mehreren Führenden = Gegen; Pferd von
    hinten bei schnellem Tempo = Pro), Startfolge (ab etwa 4 Starts in 6 Wochen = Gegenargument, „irgendwann ist die
@@ -141,7 +142,8 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
 - `F-BELAG-NEU` erstmals dieser Belag
 - `F-AUSRUESTUNG-NEU` erstmals Scheuklappen oder andere Ausrüstung („warum heute?“)
 - `F-KLASSE-HOCH` Bewährung nur aus tieferer Klasse (z. B. Claimer) oder erstmals deutlich höhere Klasse
-- `F-PAUSE` Rückkehr nach langer Pause
+- `F-PAUSE` Rückkehr nach langer Pause (ab etwa 60 Tagen; wiegt weniger bei jungen Pferden und erfolgreichen
+  Trainern)
 - `F-WALLACH` erstmals Wallach
 - `F-TRAINERWECHSEL` Trainerwechsel
 - `F-AUFGEWICHT` **Aufgewicht** (nur im Handicap; umso größer, je exposed)
