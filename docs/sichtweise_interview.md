@@ -89,7 +89,41 @@ damit offen; Maiden/Debüt: Verbindungen (Trainer × Jockey), Besitzer und Absta
 
 **Offen:** Was ist „nicht so viel gelaufen“ (Zahl der Starts)? Wie viel weniger zählen Stutenformen gegen Hengste?
 
+## A3 Distanz
+
+**Entwurf (Chat, 21.11.):**
+
+> Sprintrennen bis 1400 m, unter 1200 m an Sprintspezialisten gerichtet. Steherrennen ab 2400 m, ab 2800 m an
+> Extremsteher gerichtet. Je extremer die Distanz, desto mehr achte ich auf die Abstammung und die bisherigen Leistungen
+> auf dieser Strecke; bei Mitteldistanz weniger entscheidend. Bei Zwei- und Dreijährigen wächst die Distanzreichweite
+> bis etwa zum Sommer; Zweijährige laufen zu Beginn nur Sprintdistanzen, 1600 m kann im Sommer für einen Zweijährigen
+> schon eine Steherdistanz sein. Distanzänderungen seit dem letzten Start ab etwa 250 m sind auffällig; dann achte ich
+> verstärkt auf Abstammungssignale zur Distanz und auf frühere Leistungen auf der neuen Distanz.
+
+**Antwort auf die Nachfragen (23.11.):**
+
+> Meine Klassen sind natürlich nur **sehr grob**. 1600 m kannst du der **Mitteldistanz** zuordnen.
+>
+> **CGD** (im Diktat „TDG“) soll **nicht auf meine Klassen umgestellt werden** – da ist es nützlich, wenn wir mehr
+> Differenzierung drin haben (also die feineren Klassen der Karte).
+>
+> **250 Meter** ist ein **gefühlter Richtwert** erstmal, den können wir so stehen lassen. **Wechsel nach unten sind genauso
+> auffällig** wie nach oben. Und beim Referenzlauf passen **200 Meter**.
+
+**Notiert (Claude, zur Kontrolle):**
+
+- Deine Distanzklassen sind grob und nur zur Einordnung: Sprint bis 1400 m (unter 1200 m Spezialisten), Mitteldistanz
+  inklusive 1600 m, Steher ab 2400 m, Extremsteher ab 2800 m. **Keine Umstellung** von CGD und Vorlieben; die feinere
+  Gruppierung der Karte (bis 1300, 1301–1700, 1701–2100, 2101–2600, über 2600 m) bleibt.
+- Distanzwechsel ab etwa 250 m auffällig (Richtwert, vorläufig), nach unten wie nach oben gleich.
+- Referenzlauf: höchstens 200 m Abweichung, bleibt.
+- Je extremer die Distanz, desto stärker zählen Abstammung und frühere Leistungen auf der Strecke; Mitteldistanz weniger.
+- Junge Pferde: Reichweite wächst bis zum Sommer (siehe A2).
+
+**Offen:** ob 250 m auf jeder Distanz gleich gilt (nicht beantwortet, Richtwert gilt pauschal); welche Richtung des
+Wechsels das größere Fragezeichen ist (nicht beantwortet).
+
 ## Stand
 
-- Erledigt: A1, A2.
-- Offen: A3 bis H.
+- Erledigt: A1, A2, A3.
+- Offen: A4 bis H.
