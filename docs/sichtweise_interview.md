@@ -728,6 +728,31 @@ stellt 365 Tage vor 30 Tage.
 **Offen:** Gilt die Platzbilanz-Vorliebe aus D1 (A/E sprunghaft) hier nicht? – Hier nutzt du A/E+ ausdrücklich, aber
 über 365 Tage und viele Läufe. Trainer namentlich: nicht angesprochen.
 
+## E2/E3 Jockey und Gespann Trainer × Jockey
+
+**Antwort (23.11.):**
+
+> **Jockey kennt das Pferd**, war mit dem Pferd bereits erfolgreich: auf jeden Fall ein **leichtes Plus**. **Starkes
+> Gespann Trainer + Jockey** ist auch ein **Plus**. Ab wie vielen Starts das Gespann zählt, **kann ich pauschal nicht
+> sagen.**
+>
+> **Jockeywechsel zu einem Spitzenjockey** – kann ein Signal sein, weiß ich nicht, würde ich eher **nicht** sagen. Ich
+> habe zum Beispiel beobachtet, dass ein Stall einen Spitzenjockey engagiert hat, das Pferd **nicht so gut lief**, man
+> danach **wieder zum normalen Jockey** ging – aber vom Spitzenjockey im Lauf zuvor eine **wichtige Info** bekommen hatte:
+> man hat die **Distanz deutlich erhöht**, weil der Jockey sagte, das Pferd braucht mehr Weg – und **auf einmal gewonnen**.
+
+**Notiert (Claude, zur Kontrolle):**
+
+- `P-JOCKEY-KENNT` [leicht] **bestätigt**; `P-GESPANN` als **Plus** bestätigt (Gewicht nicht genannt; heute [gewichtig]).
+- Gespann: **keine feste Mindestzahl** an gemeinsamen Starts.
+- Jockeywechsel zum Spitzenjockey: **kein Signal**.
+- Beobachtung (Beispiel, keine Regel): Ein **schwacher Lauf unter einem Spitzenjockey** kann eine Erkenntnis bringen (z. B.
+  „braucht mehr Weg“); der **folgende Lauf mit geänderten Bedingungen** (deutlich längere Distanz) kann dann die
+  Steigerung bringen. → passt zur Wechselregel A5 und zu Q1 (schwacher Lauf unter anderen Bedingungen).
+
+**Rückfrage aus E1 (nicht beantwortet), Claudes Lesart:** A/E ist beim **Pferd** wegen weniger Läufe zu sprunghaft (D1),
+bei **Trainer und Jockey über 365 Tage** mit vielen Läufen verlässlich (E1).
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -742,6 +767,7 @@ stellt 365 Tage vor 30 Tage.
 - Erledigt zusätzlich: B2, B3 (Block B vollständig).
 - Erledigt zusätzlich: C1 bis C10 (Block C), D1 bis D3 (Block D).
 - Erledigt zusätzlich: E1 (Trainer, Jockey, Besitzer über die A/E-Matrix).
-- Offen: E2 bis H.
+- Erledigt zusätzlich: E2/E3.
+- Offen: E4 bis H.
 - Später auswerten: Verteilung der Starts je Alter (Exposure, C2).
 - Datenlücke: Gewichtserlaubnis des Jockeys fehlt in der Karte (C4).
