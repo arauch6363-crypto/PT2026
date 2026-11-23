@@ -775,6 +775,32 @@ bei **Trainer und Jockey über 365 Tage** mit vielen Läufen verlässlich (E1).
 **Besitzerwechsel** erkennt die Karte nicht direkt (es gibt eine Bilanz je Trainer, keine je Besitzer); heute nur über
 den Crible (A12).
 
+## F Ratings: Reihenfolge (F1 bis F4)
+
+**Antwort (23.11.):**
+
+> Zu den Ratings allgemein, von der Reihenfolge her: **ARR ist das wichtigste Rating.** In **Nicht-Handicaps** kommt
+> **Valeur** als zweitwichtigstes. Kennzahlen **immer relativ im Feld** lesen. In **Handicaps** spielt Valeur eine
+> geringere Rolle (hohe Valeur leicht im Vorteil, aber hier weniger wichtig).
+>
+> Als nächstwichtigste Kennzahl **TR**, danach **ΔL600**, dann der **RTR-Rang**. **Duell und ΔB200** (im Diktat „Delta
+> W200“) sind die **am wenigsten wichtigen**. **Duell** schätze ich etwas wichtiger ein, **wenn wir tatsächlich einige
+> Duellwerte haben**; manchmal haben wir gar keine, dann steckt wenig dahinter.
+
+**Notiert (Claude, zur Kontrolle) – Reihenfolge der Kennzahlen, jeweils relativ zum Feld:**
+
+1. **ARR**
+2. **Valeur** (nur Nicht-Handicap; im Handicap gering)
+3. **TR**
+4. **ΔL600** (Tempo letzte 600 m gegen Erwartung)
+5. **RTR-Rang**
+6. **Duell** (wichtiger bei mehreren Duellen; ohne Duelle bedeutungslos) und **ΔB200** – am wenigsten wichtig
+
+**Hinweis auf Daten (nur Beobachtung):** Das Blatt zeigt ARR (Wert, Rang, Bestwert), Valeur, TR- und RTR-**Rang** und den
+Duell-Score; **TR-Wert, ΔL600 und ΔB200 fehlen**. Der Skill nutzt bisher nur ARR und Valeur.
+
+**Nicht beantwortet:** ob eine **große ARR-Streuung** (unbeständiges Pferd) gegen das Pferd zählt.
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -790,6 +816,7 @@ den Crible (A12).
 - Erledigt zusätzlich: C1 bis C10 (Block C), D1 bis D3 (Block D).
 - Erledigt zusätzlich: E1 (Trainer, Jockey, Besitzer über die A/E-Matrix).
 - Erledigt zusätzlich: E2/E3, E4 (Block E vollständig).
-- Offen: F bis H.
+- Erledigt zusätzlich: F (Reihenfolge der Ratings).
+- Offen: G bis H.
 - Später auswerten: Verteilung der Starts je Alter (Exposure, C2).
 - Datenlücke: Gewichtserlaubnis des Jockeys fehlt in der Karte (C4); Besitzerwechsel nicht erkennbar (E4).
