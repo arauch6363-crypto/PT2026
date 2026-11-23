@@ -505,7 +505,22 @@ gilt allgemein.
 vielen Plätzen wäre dann eher **kein** Gegenargument. Zu klären bei der Destillation: Ersetzt die Top-3-Quote die
 Siegregel, oder kommt sie dazu?
 
-**Offen:** Ab welcher Top-3-Quote ist ein Pferd „selten vorne“ (z. B. unter 20 %, unter 30 %)?
+**Beantwortet in C3:** keine feste Quote, sondern der **Rang im Feld**.
+
+## C3 Gewinnsumme und Gewinn je Lauf
+
+**Antwort (23.11.):**
+
+> **Gewinn je Lauf** (im Diktat „Community Lauf“) ist für mich auf jeden Fall ein **Maß für Klasse**. Es zählt eher der
+> **Rang im Feld als die absolute Höhe.** Genauso übrigens für unsere neue Metrik **„vorne dabei“ (Top-3-Quote)**: Auch
+> hier zählt vor allem **der Rang im Feld** und nicht die absolute Höhe.
+
+**Notiert (Claude, zur Kontrolle):**
+
+- **Gewinn je Lauf = Klassenmaß**, gelesen als **Rang im Feld** (die Karte liefert den Rang; heute nicht im Blatt).
+- **Top-3-Quote (C2)** ebenfalls als **Rang im Feld**, nicht als feste Quote → beantwortet die offene Frage aus C2
+  (keine absolute Schwelle).
+- Zeitraum (Karriere oder letzte 365 Tage): nicht angesprochen.
 
 ## Stand
 
@@ -519,6 +534,6 @@ Siegregel, oder kommt sie dazu?
 - Erledigt zusätzlich: A12 (Block A vollständig).
 - Erledigt zusätzlich: B1.
 - Erledigt zusätzlich: B2, B3 (Block B vollständig).
-- Erledigt zusätzlich: C1, C2.
-- Offen: C3 bis H.
+- Erledigt zusätzlich: C1, C2, C3.
+- Offen: C4 bis H.
 - Später auswerten: Verteilung der Starts je Alter (Exposure, C2).
