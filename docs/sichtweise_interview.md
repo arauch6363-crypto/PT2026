@@ -753,6 +753,28 @@ stellt 365 Tage vor 30 Tage.
 **Rückfrage aus E1 (nicht beantwortet), Claudes Lesart:** A/E ist beim **Pferd** wegen weniger Läufe zu sprunghaft (D1),
 bei **Trainer und Jockey über 365 Tage** mit vielen Läufen verlässlich (E1).
 
+## E4 Besitzer und Züchter
+
+**Antwort (23.11.):**
+
+> Der **Besitzer spielt eine Rolle**, der **Züchter eher nicht**. Eine Rolle könnte nur spielen, wenn **Besitzer und Züchter
+> gleich sind** und einen **großen, erfolgreichen Stall** haben, zum Beispiel **Wertheimer, Aga Khan**. Das sind große
+> Besitzer-Züchter, die **immer als sehr gefährlich** einzustufen sind; da kann man **ein bisschen Aufschlag** geben.
+>
+> Ein **Besitzerwechsel** ist eher ein **leichtes, gutes Signal**: Jemand war bereit, für das Pferd eine bestimmte Summe
+> hinzulegen, und sieht vielleicht noch **Potenzial**. Das ist eher positiv einzuschätzen.
+
+**Notiert (Claude, zur Kontrolle):**
+
+- **Besitzer zählt** (A/E-Matrix 365 Tage, E1; bei Maiden/Debüt besonders, A1).
+- **Züchter: unwichtig** – außer **Besitzer = Züchter** bei großen, erfolgreichen Häusern (Beispiele: Wertheimer, Aga
+  Khan) → **leichter Aufschlag** („immer gefährlich“).
+- **Besitzerwechsel = leichtes Plus** (Käufer sieht Potenzial).
+
+**Hinweis auf Daten (nur Beobachtung):** Besitzer und Züchter stehen in der Karte (Name, A/E), nicht im Blatt. Einen
+**Besitzerwechsel** erkennt die Karte nicht direkt (es gibt eine Bilanz je Trainer, keine je Besitzer); heute nur über
+den Crible (A12).
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -767,7 +789,7 @@ bei **Trainer und Jockey über 365 Tage** mit vielen Läufen verlässlich (E1).
 - Erledigt zusätzlich: B2, B3 (Block B vollständig).
 - Erledigt zusätzlich: C1 bis C10 (Block C), D1 bis D3 (Block D).
 - Erledigt zusätzlich: E1 (Trainer, Jockey, Besitzer über die A/E-Matrix).
-- Erledigt zusätzlich: E2/E3.
-- Offen: E4 bis H.
+- Erledigt zusätzlich: E2/E3, E4 (Block E vollständig).
+- Offen: F bis H.
 - Später auswerten: Verteilung der Starts je Alter (Exposure, C2).
-- Datenlücke: Gewichtserlaubnis des Jockeys fehlt in der Karte (C4).
+- Datenlücke: Gewichtserlaubnis des Jockeys fehlt in der Karte (C4); Besitzerwechsel nicht erkennbar (E4).
