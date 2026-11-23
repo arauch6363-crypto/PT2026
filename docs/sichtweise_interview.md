@@ -659,6 +659,28 @@ Box nach Distanz und Bahn: nicht angesprochen.
 A/E 0,93“) – die Platzbilanz ist also schon ablesbar; A/E steht prominent daneben. Der Skill-Text nennt keine
 Lesart; bei der Destillation klären, ob A/E aus dem Blatt fallen kann.
 
+## D2 Abstammungs-Passung
+
+**Antwort (23.11.):**
+
+> Das **passt so im Wesentlichen.** Eine Sache zur Einordnung der **Distanzpassung über die Abstammung**: Wenn ein
+> **junges Pferd** in der Distanz **erstmals um einen signifikanten Betrag nach oben** geht, **beide Distanzen aber noch
+> zur Mitteldistanz zählen**, kann ich mich auf **das Delta nicht verlassen.** Ich schaue trotzdem rein: **Wie ist der
+> Split für diesen Hengst** (Vater bzw. Muttervater; im Diktat „Mutter, Vater oder Vater“) **zwischen Sprinter,
+> Mitteldistanz und Steher?** Sehen wir eine **Verbesserung hin zu längeren Distanzen?**
+
+**Notiert (Claude, zur Kontrolle):**
+
+- Regeln und Schwellen (−15 ausschlaggebend, −9 leicht, Vater vor Muttervater, Frankel) **bestätigt**; Reife und weitere
+  Hengste nicht angesprochen.
+- **Distanzsteigerung innerhalb einer Klasse** (z. B. junges Pferd von 1600 auf 2000 m, beides Mitteldistanz): Die
+  Passung „heutige Distanzgruppe“ sagt dann wenig. Stattdessen: **Bilanz der Nachkommen von Vater bzw. Muttervater über
+  Sprint, Mittel und Steher** ansehen – **steigt sie zu längeren Distanzen hin**, trägt die Linie die Steigerung.
+
+**Hinweis auf Daten (nur Beobachtung):** Die Karte hat die Nachkommen-Bilanzen je Distanz für Vater und Muttervater
+(`pref.sire.distance`, `pref.dam_sire.distance`); das Blatt zeigt davon nur die Passung („passt / neutral / passt
+nicht“). Für deinen Split müsste das Blatt die Verteilung zeigen.
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -671,7 +693,7 @@ Lesart; bei der Destillation klären, ob A/E aus dem Blatt fallen kann.
 - Erledigt zusätzlich: A12 (Block A vollständig).
 - Erledigt zusätzlich: B1.
 - Erledigt zusätzlich: B2, B3 (Block B vollständig).
-- Erledigt zusätzlich: C1 bis C10 (Block C), D1.
-- Offen: D2 bis H.
+- Erledigt zusätzlich: C1 bis C10 (Block C), D1, D2.
+- Offen: D3 bis H.
 - Später auswerten: Verteilung der Starts je Alter (Exposure, C2).
 - Datenlücke: Gewichtserlaubnis des Jockeys fehlt in der Karte (C4).
