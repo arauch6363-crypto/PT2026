@@ -425,6 +425,13 @@ Besten → höchstens klein), `G-MASSSTAB-BESSER` [gewichtig]. Deine Sicht läss
   gewichtig, nicht festgelegt).
 - PMU-Prognose und Tipp-Konsens: **nicht angesprochen** → bleiben wie bisher aus dem Blatt.
 
+## B1 Modell-Siegchance, Rang, Value, Faustregel
+
+**Antwort (23.11.):** „Passt so.“
+
+**Notiert:** Value als Filter, Rang nach Drittel (`P-RANG-VORNE`, `G-RANG-HINTEN`), Faustregel nach Value
+(`U-FAUSTREGEL`), `U-VALUE-DUENN`, `G-MODELL-UNSICHER` [vorläufig] bleiben wie im Skill.
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -435,4 +442,5 @@ Besten → höchstens klein), `G-MASSSTAB-BESSER` [gewichtig]. Deine Sicht läss
 - Erledigt zusätzlich: A10.
 - Erledigt zusätzlich: A11.
 - Erledigt zusätzlich: A12 (Block A vollständig).
-- Offen: B bis H.
+- Erledigt zusätzlich: B1.
+- Offen: B2 bis H.
