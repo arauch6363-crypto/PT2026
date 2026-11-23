@@ -892,6 +892,100 @@ Duell-Score; **TR-Wert, ΔL600 und ΔB200 fehlen**. Der Skill nutzt bisher nur A
 **von schwach zu stärker** eine mögliche Steigerung. Kein Widerspruch, eher Abstufung – bei der Destillation zusammen
 lesen. `P-BRITE` (britischer Trainer) und `F-AUSLAND` bestehen schon; die Länderreihenfolge ist neu.
 
+## G12 Alter des Referenzlaufs
+
+**Antwort (23.11.):**
+
+> Referenzläufe: **halbes Jahr bis Jahr passt. Je kürzer, desto besser** – das ist immer so.
+
+**Notiert:** Ein Referenzlauf zählt bis etwa **ein halbes bis ein Jahr** zurück, je jünger desto mehr (wie die Marke in
+C5).
+
+---
+
+## Übersicht für die Destillation (Claude, Stand 23.11.)
+
+Nur Ordnung der Antworten oben, keine Entscheidung. Jeder Punkt wird bei der Destillation einzeln vorgeschlagen.
+
+### Bestätigt, bleibt wie im Skill
+
+`U-FAUSTREGEL`, `U-VALUE-DUENN`, `G-MODELL-UNSICHER` (B1) · `G-STARTFOLGE` (C8) · Ausrüstungsregeln (C10) ·
+`G-BOX` [gewichtig] (C6) · `G-ABSTAMMUNG` −15, `F-ABSTAMMUNG-LEICHT` −9, Vater vor Muttervater (D2) ·
+`P-JOCKEY-KENNT` [leicht] (E2) · Referenzlauf ±200 m (A3) · Bodengruppen ohne PSF-Zustände und Penetrometer (A4)
+
+### Weicht vom heutigen Skill ab
+
+| Heute | Sicht des Nutzers | Quelle |
+|---|---|---|
+| `P-LETZTER-ANDERS`: schwacher Lauf unter anderen Bedingungen wird übergangen | nur, wenn **ordentlich** gelaufen; **völlig abgeschlagen** → Skepsis zur Übertragbarkeit (Hygienefaktor) | Q1 |
+| `F-BELAG-NEU` [leicht]: erstmals PSF kaum negativ | **Bilanz auf beiden Belägen** entscheidet; PSF → Gras **kritisch** | A5 |
+| `F-WALLACH`: erstmals Wallach = Fragezeichen | 1. bis 3. Start als Wallach = **leichtes Plus** | C1 |
+| `G-STUTE` [leicht] nur bei jungen Pferden | allgemein **Hengst > Wallach > Stute**, leicht | C1 |
+| `G-SELTEN-SIEG`: unter 1 Sieg je 14 Starts, viele Plätze | **„selten vorne“**: Top-3-Quote, **Rang im Feld** | C2, C3 |
+| `G-GEWICHT-BODEN` ohne Gewicht | **leicht** | C4 |
+| `G-ARR-UNTER` [ausschlaggebend], `U-ARR-ABSTAND` | ARR wichtig, aber **viele andere Pluspunkte** können einen Rückstand tragen | A11 |
+| `F-BAHN-EIGENHEIT` (Strasbourg, Fontainebleau) | **streichen** | A6 |
+| `G-TRAINER-KALT` u. a. auf 30-Tage-Form | **A/E-Matrix 365 Tage zuerst**, 30 Tage nur heiß/kalt | E1 |
+| `P-MARKE-UNTER` ohne Zeitbezug | Marke **höchstens ½–1 Jahr alt**, leicht darunter; **stetiger Abstieg** vs. **erklärbar** | C5 |
+| `F-PAUSE` ohne Schwelle | ab etwa **60 Tagen**; abgeschwächt bei **erfolgreichem Trainer** und bei **jungen Pferden** | C8 |
+
+### Neu (bisher keine Regel)
+
+- **Rennart als Formquelle:** Black Type > Conditions/Handicap (nach Dotierung, hoch ab etwa 30 000 €; Gruppe ab
+  etwa 55 000 €) > Claimer; Handicap → anderes Rennen mit verteidigter Marke = Plus; im Handicap hohe Marken leicht im
+  Vorteil, im **Sprint** stärker (A1, C4).
+- **Maiden/Debüt:** Verbindungen, Besitzer, Abstammung (A1); Rennstärke dort über **Dotierung** statt Klassenindex (A9).
+- **Dreijährige gegen Ältere:** bis Sommer im Nachteil, ab Sommer/Herbst im Vorteil (Handicap); Zenit 3–5 Jahre (A2).
+- **Distanzklassen** (grob, nur Einordnung): Sprint bis 1400 m, Mittel, Steher ab 2400 m, Extremsteher ab 2800 m; je
+  extremer, desto mehr zählen Abstammung und Leistung auf der Strecke; Wechsel ab etwa 250 m auffällig (A3).
+- **Distanzsteigerung innerhalb einer Klasse:** Distanz-Split der Nachkommen von Vater/Muttervater (D2).
+- **Allgemeine Wechselregel** (Belag, Boden, Distanz): gute Form auf dem schlechteren Untergrund + Wechsel auf den
+  besseren = Steigerung; umgekehrt Abfall; ohne Bilanz Abstammung (A5).
+- **Schneller Boden:** trägt mehr Pferde; Vorreiter leicht im Vorteil (A4).
+- **Bahnkategorien** groß/mittel/Provinz mit Liste; große Bahnen = Formen besser übertragbar; **PSF-Geläufe je Bahn
+  verschieden**; letzte Form auf genau dieser Bahn wichtig; CGD: **C > G > D** (A6).
+- **Bahn-Bias** als eigener Faktor, **leicht** (A7). **Laufstil/Tempo** leicht; langsames Tempo = leichtes Pro für den
+  Vorreiter; Tempo unbekannt ignorieren (A7, A10).
+- **Feldgröße:** Platz relativ zum Feld; knapp geschlagen im großen Feld oft unterschätzt; kleine Felder taktisch (A8).
+- **Klassenindex** ab 5 Punkten leichter, ab 10 größerer Vorteil (A9).
+- **Klarer Favorit** (FK unter 2): Vorsicht (A11).
+- **Crible:** stichhaltiges Gegenargument bei hohem Value → Skepsis (A12). **Toto:** gar nicht gespielt → leichte
+  Warnung (B3).
+- **Gewinn je Lauf, Top-3-Quote, Qualität der Linie (Pos+, €/L+, maxVal+): jeweils relativ zum Feld** (C3, D3).
+- **Vorlieben über die Platzbilanz**, nicht A/E; eine Platzierung kann reichen (D1).
+- **Lehrling mit Erlaubnis** und guter Bilanz = Vorteil (C4). **Gewicht** wiegt im Sprint weniger (C4).
+- **Besitzer** (A/E-Matrix 365 Tage); große Besitzer-Züchter (Wertheimer, Aga Khan) leichter Aufschlag;
+  **Besitzerwechsel** leichtes Plus; Züchter sonst unwichtig (E1, E4).
+- **Reihenfolge der Kennzahlen:** ARR > Valeur (Nicht-Handicap) > TR > ΔL600 > RTR-Rang > Duell/ΔB200 (F).
+- **Lesen eines Laufs** in neun Schritten, gründlich nur beim Referenzlauf (G).
+- **Quote/Box/Jockey damals**, **Auslandsformen** nach Land (G9, G10, G13).
+
+### Blatt: fehlt und wäre nötig
+
+ARR-/TR-Rang des Laufs unter den Läufen der heutigen Starter (30/90/365 Tage) · TR-Wert und TR je Lauf · ΔL600 ·
+Position im Rennen mit Positionen der ersten drei · Plätze gutgemacht ab 800 m, Weg · Pace je Lauf · Gegner des Laufs
+mit „danach“ · heutige Gegner je Lauf (direkt/indirekt) · Bahn-Bias · Bahnkategorie · Dotierung früherer Läufe ·
+Gewinn je Lauf und Top-3-Quote mit Rang im Feld · Pos+ der Linie und Rang im Feld · Distanz-Split der Nachkommen ·
+A/E-Matrix (Lage im Feld) für Trainer, Jockey, Besitzer über 365 Tage · Besitzer · Toto (nur als Warnung) ·
+Land der Auslandsformen
+
+### Blatt: kann weg (vom Nutzer nicht genutzt)
+
+Value-Faktor (gold/Warnung) · Layout · Jockey nach Feldgröße · Finish-Index (ohnehin nicht im Blatt) · evtl. A/E
+in den Vorlieben
+
+### Datenlücken und spätere Auswertungen
+
+Gewichtserlaubnis des Jockeys fehlt in der Karte (C4) · Besitzerwechsel nicht erkennbar (E4) · Quinté-Merkmal fehlt
+(A1) · Verteilung der Starts je Alter für „exposed“ (C2)
+
+### Offen geblieben
+
+Wert von Listed/Gruppe in Zahlen (A1) · Stuten: wie viel weniger (A2) · 250 m je Distanz gleich? (A3) · angenommene
+Bodenangabe (A4) · Winter-PSF (A5) · welche Bahnen haben Eigenheiten (A6) · Pluspunkte gegen ARR-Rückstand (A11) ·
+Toto-Schwelle (B3) · ARR-Streuung (F1) · „nah dran“ in Längen (G1) · Trainer „guter Schnitt“ nach Pause (C8) ·
+Rückfrage A/E beim Pferd vs. Trainer (E1, Claudes Lesart notiert) · H: was weder Karte noch Blatt zeigt
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -909,6 +1003,7 @@ lesen. `P-BRITE` (britischer Trainer) und `F-AUSLAND` bestehen schon; die Lände
 - Erledigt zusätzlich: E2/E3, E4 (Block E vollständig).
 - Erledigt zusätzlich: F (Reihenfolge der Ratings), G1 bis G7 (Lesen eines Laufs).
 - Erledigt zusätzlich: G9, G10, G13.
-- Offen: G12 (Höchstalter eines Referenzlaufs), H (was fehlt), Rückfragen unten.
+- Erledigt zusätzlich: G12; Übersicht für die Destillation geschrieben.
+- Offen: H (was fehlt) und die Liste „Offen geblieben“.
 - Später auswerten: Verteilung der Starts je Alter (Exposure, C2).
 - Datenlücke: Gewichtserlaubnis des Jockeys fehlt in der Karte (C4); Besitzerwechsel nicht erkennbar (E4).
