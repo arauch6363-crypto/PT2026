@@ -40,7 +40,7 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
   abgelehnt, wenn die Leitfrage scheitert. *Verdansk, Afterglow, Silgreypit, Tulpar.*
 - **[gewichtig]** `G-RANG-HINTEN` Hinterer Modell-Rang ist ein Gegenargument; dort braucht es klare Belege (CGD, passender Boden),
   eher kleine Wette. *Cole Chop (Rang 10/13, klein), Mister Chang (7/16, Wette mit CGD und Bahnbewährung).*
-- **[gewichtig]** `G-EXPOSED-ALT` Sehr exposed und älter (7–8 Jahre, viele Starts) senkt die Siegchance auch bei Bahnspezialisten
+- **[gewichtig]** `G-EXPOSED-ALT` Sehr exposed und älter (7–8 Jahre, viele Starts) senkt die Siegchance – relativ zum Feld – auch bei Bahnspezialisten
   und tiefer Marke. *Afterglow, Blanc Bleu (99 Starts).*
 - **[gewichtig]** `P-UNEXPOSED` Unexposed in einem exposed Feld ist ein echtes Plus, besonders mit Abstammung, die Steigerung
   erwarten lässt. *Come Alone 16.11.*

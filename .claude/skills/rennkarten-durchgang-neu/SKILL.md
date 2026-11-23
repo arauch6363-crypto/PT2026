@@ -72,7 +72,7 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
    Drittel; ein hinterer Rang ist ein Gegenargument, ein vorderer mit solidem Value „erstmal sehr positiv“). **Klasse
    relativ zum Feld,** in dieser Reihenfolge: ARR, Valeur (außerhalb des Handicaps), TR, ΔL600, RTR, Duelle (nur mit
    mehreren Duellen); dazu Platzquote und Gewinn je Lauf mit Rang im Feld (Blatt: Karriere). **Exposure** relativ zum
-   Alter (21 Starts als 3-Jähriger sind sehr viel; 4-jährig mit 25 Starts gilt noch als „relativ jung“); wenig
+   Alter und zum Feld (21 Starts als 3-Jähriger sind sehr viel; 4-jährig mit 25 Starts gilt noch als „relativ jung“); wenig
    gelaufene Pferde steigern sich bis ins vierte Jahr, der Zenit liegt bei 3 bis 5 Jahren.
    **Marke – nur im Handicap:** Dort zählt die heutige Marke gegen die letzte Sieg- bzw. Platzmarke, weil das Gewicht
    die Valeur ausgleicht – nicht ganz, hohe Marken sind leicht im Vorteil. **In allen anderen Rennen** (Conditions, Claimer, Listed, Gruppe, Rennart unbekannt) gleicht

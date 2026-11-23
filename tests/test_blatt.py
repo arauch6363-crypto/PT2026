@@ -172,3 +172,8 @@ def test_kopfzeile_ohne_value_faktor(capsys):
     blatt.blatt({"x": x, "fk": 5.0, "p": 0.2, "rang": 1, "n": 8, "value": 0.1}, {**RENNEN, "race_id": "20261121R1C1"}, 60)
     out = capsys.readouterr().out
     assert "Value-Faktor" not in out and "Badges" not in out
+
+
+def test_starts_relativ_zum_feld():
+    r = {"runners": [{"no": 1, "starts": 40}, {"no": 2, "starts": 12}, {"no": 3, "starts": 25}, {"no": 4, "starts": 50, "nr": True}]}
+    assert blatt.starts_im_feld(r["runners"][2], r) == "25 Starts (2. meiste von 3 im Feld)"
