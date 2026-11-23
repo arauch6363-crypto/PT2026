@@ -604,6 +604,25 @@ Box nach Distanz und Bahn: nicht angesprochen.
 
 **Notiert:** wie A7/A10 – Laufstil nur Indikator, **leicht**, zusammen mit Tempo und Bahn-Bias; „früh Ø %“ nicht nötig.
 
+## C8 Pause und Startfolge
+
+**Antwort (23.11.):**
+
+> Ab wie vielen Tagen eine Pause lang ist, **hängt ein bisschen vom Trainer ab.** Trainer mit einem **guten Schnitt** bzw.
+> erfolgreiche Trainer können Pferde eher **aus einer Pause erfolgreich vorstellen**. Ansonsten **passt das so**, wie du
+> es aufgeschrieben hast. Insgesamt brauchen **junge Pferde ein bisschen mehr Pause als ältere.**
+
+**Notiert (Claude, zur Kontrolle):**
+
+- Pause „lang“: die vorgeschlagenen 60 Tage (Färbung der Karte) **passen** als Richtwert.
+- `F-PAUSE` wird **entkräftet bzw. abgeschwächt**, wenn der Trainer erfolgreich ist bzw. einen guten Schnitt hat.
+- **Junge Pferde** brauchen mehr Pause → eine Pause wiegt bei ihnen **weniger** als bei älteren.
+- `G-STARTFOLGE` (etwa 4 Starts in 6 Wochen) **passt**; kurze Pause von 7–14 Tagen als Plus: nicht gesondert bestätigt
+  („passt so“ bezieht sich auf das Aufgeschriebene).
+
+**Offen:** Trainer mit „gutem Schnitt“ – gemessen woran (Sieg-A/E nach Pause gibt es in der Karte nicht; Trainerform
+30/90/365 Tage)?
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -616,7 +635,7 @@ Box nach Distanz und Bahn: nicht angesprochen.
 - Erledigt zusätzlich: A12 (Block A vollständig).
 - Erledigt zusätzlich: B1.
 - Erledigt zusätzlich: B2, B3 (Block B vollständig).
-- Erledigt zusätzlich: C1 bis C7.
-- Offen: C8 bis H.
+- Erledigt zusätzlich: C1 bis C8.
+- Offen: C9 bis H.
 - Später auswerten: Verteilung der Starts je Alter (Exposure, C2).
 - Datenlücke: Gewichtserlaubnis des Jockeys fehlt in der Karte (C4).
