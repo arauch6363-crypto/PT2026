@@ -153,7 +153,42 @@ Wechsels das größere Fragezeichen ist (nicht beantwortet).
 schnellem Boden“ ein Fragezeichen ist (aus der Antwort nur: eher weniger als bei weichem Boden); Einordnung von Bon
 souple (aus „Bereich Bon bis maximal Bon souple“ = schnell/Fast, wie die Karte).
 
+## Q1 Querschnitt: Referenzläufe und Hygienefaktor (Ergänzung zu A4, gilt für Belag, Boden, Distanz)
+
+**Antwort (23.11.):**
+
+> Ich möchte meine Antwort zur vorherigen Frage ergänzen und auf die **Formanalyse** zu sprechen kommen. Wenn ich heute
+> ein **PSF-Rennen** analysiere, schaue ich vor allem auf die **letzten PSF-Formen**. Zusätzlich schaue ich, ob ein Pferd,
+> das zuletzt zum Beispiel **auf Gras** gelaufen ist, dort **völlig aus dem Rennen gefallen** ist. Ist es dort einigermaßen
+> ordentlich gelaufen, **verzeichne ich diese Form nicht**. War es völlig aus dem Rennen, bin ich **eher skeptisch**.
+>
+> **Entscheidend sind aber die letzten Referenzläufe.** Der letzte Lauf auf Gras, der die letzte Form darstellt, ist quasi
+> ein **Hygienefaktor**.
+>
+> Diese Vorgehensweise kannst du auf andere Rennarten übertragen. Beispiel: heute ein Rennen auf **sehr schneller Bahn**.
+> Dann schaue ich vor allem die **letzten Läufe auf sehr schneller Bahn** an, **vorausgesetzt, die Distanzen sind
+> vergleichbar**. Waren seit diesem letzten schnellen Lauf **zwei PSF-Läufe**, schaue ich auch dort, ob das Pferd
+> **einigermaßen performt** hat. Wenn es **völlig aus dem Rennen gefallen, abgeschlagen** war, muss man **bezüglich der
+> Übertragbarkeit der Leistung aus den Referenzläufen skeptisch** sein.
+
+**Notiert (Claude, zur Kontrolle):**
+
+- Zweistufig: (1) **Referenzlauf** = letzter Lauf unter heutigen Bedingungen (Belag/Boden, bei vergleichbarer Distanz)
+  ist entscheidend. (2) **Hygienefaktor** = Läufe seit dem Referenzlauf unter anderen Bedingungen (anderer Belag oder
+  Boden) werden nicht bewertet, solange das Pferd dort **einigermaßen ordentlich** lief („Form verzeichne ich nicht“).
+- Ist das Pferd dort **völlig aus dem Rennen gefallen / abgeschlagen**, ist das ein Grund zur Skepsis, ob die Leistung
+  aus dem Referenzlauf **übertragbar** ist. Der Referenzlauf selbst zählt weiter, wird aber angezweifelt.
+- Gilt allgemein: PSF, Gras, schneller/weicher Boden, Distanz (Voraussetzung: vergleichbare Distanz).
+
+**Hinweis auf vorhandene Regeln (nur Beobachtung, keine Änderung):** Im Skill steht heute `P-LETZTER-ANDERS` [leicht]
+„ein schwacher letzter Lauf unter anderen Bedingungen (Boden, Distanz) wird übergangen“ und `G-LETZTER-HEUTE-BODEN`
+[gewichtig] (verlorener letzter Lauf auf dem heutigen Boden ab 5 Längen). Deine Sicht präzisiert die erste: *übergangen
+nur, wenn ordentlich gelaufen; völlig abgeschlagen* → Skepsis zur Übertragbarkeit. Zu klären bei der Destillation.
+
+**Offen:** Was heißt „völlig aus dem Rennen“ in Zahlen (Längen, Platz im Feld, Kommentar)? Wie viele Läufe zwischen
+Referenzlauf und heute zählen (nur der letzte, die letzten zwei)?
+
 ## Stand
 
-- Erledigt: A1, A2, A3, A4.
-- Offen: A5 bis H.
+- Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe).
+- Offen: A5 (Fragen gestellt, noch unbeantwortet) bis H.
