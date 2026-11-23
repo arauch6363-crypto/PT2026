@@ -464,6 +464,49 @@ ob er dort bleiben muss, ist bei der Destillation zu entscheiden – er kostet T
 
 **Offen:** Ab welchem Verhältnis Toto zu Festkurs ist ein Pferd „gar nicht angefasst“ (doppelt, dreifach)?
 
+## C1 Alter und Geschlecht (Ergänzung zu A2)
+
+**Antwort (23.11.):**
+
+> **Erstmals Wallach** (im Diktat „erstmals war nach“) ist ein **leichtes Plus**. **Zweiter, dritter Start nach dem
+> ersten Mal Wallach** ist auch ein **leichtes Plus**. Sonst eher **neutral**.
+>
+> Wenn ich eine Reihenfolge machen müsste: **Hengste vor Wallachen vor Stuten.** Allerdings auch das nur ein **leichter
+> Faktor**.
+
+**Notiert (Claude, zur Kontrolle):**
+
+- Erster bis dritter Start als Wallach = **leichtes Plus**; danach neutral.
+- Geschlecht als leichter Faktor: **Hengst > Wallach > Stute**.
+
+**Hinweis auf vorhandene Regeln (nur Beobachtung):** `F-WALLACH` führt „erstmals Wallach“ heute als **Fragezeichen** –
+deine Sicht dreht das zum **leichten Plus**. `G-STUTE` [leicht] gilt heute nur bei jungen Pferden; deine Reihenfolge
+gilt allgemein.
+
+## C2 Starts, Siege, Plätze (Exposure, Siegquote)
+
+**Antwort (23.11.):**
+
+> Bei **Exposure relativ zum Alter** fällt es mir schwer, eine feste Grenze zu sagen. Vielleicht können wir eine
+> **Verteilung** machen, um das **statistisch zu untersuchen**, und dann schauen, wo es eher hohe und wo niedrige
+> Exposure gibt.
+>
+> **„Selten Sieg“** würde ich abändern zu **„selten vorne platziert“**: Starts und **Plätze unter den ersten drei als
+> Anteil an den Starts** berücksichtigen, um zu schauen, ob ein Pferd **häufig nach vorne läuft oder eben nicht**.
+
+**Notiert (Claude, zur Kontrolle):**
+
+- Exposure: **keine feste Grenze**; Vorschlag des Nutzers: **Verteilung der Starts je Alter auswerten** (Daten aus der
+  Historie), daraus „hoch“ und „niedrig“ ableiten. → Auswertung später, nicht Teil der Datenaufnahme.
+- `G-SELTEN-SIEG` umbauen zu **„selten vorne“**: Anteil **Top-3-Platzierungen an den Starts** statt Siege je Starts.
+
+**Hinweis auf vorhandene Regeln (nur Beobachtung):** `G-SELTEN-SIEG` heute: weniger als ein Sieg aus etwa 14 Starts,
+**dazu viele Plätze** (der „ewige Zweite“ ist das Gegenargument). Deine Sicht misst die Top-3-Quote – ein Pferd mit
+vielen Plätzen wäre dann eher **kein** Gegenargument. Zu klären bei der Destillation: Ersetzt die Top-3-Quote die
+Siegregel, oder kommt sie dazu?
+
+**Offen:** Ab welcher Top-3-Quote ist ein Pferd „selten vorne“ (z. B. unter 20 %, unter 30 %)?
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -476,4 +519,6 @@ ob er dort bleiben muss, ist bei der Destillation zu entscheiden – er kostet T
 - Erledigt zusätzlich: A12 (Block A vollständig).
 - Erledigt zusätzlich: B1.
 - Erledigt zusätzlich: B2, B3 (Block B vollständig).
-- Offen: C bis H.
+- Erledigt zusätzlich: C1, C2.
+- Offen: C3 bis H.
+- Später auswerten: Verteilung der Starts je Alter (Exposure, C2).
