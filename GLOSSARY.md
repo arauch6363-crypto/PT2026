@@ -27,8 +27,20 @@ Eine Bedingung, unter der sich ein Pferd heute noch nicht bewiesen hat (z. B. er
 _Avoid_: Gegenargument, Risiko, Zweifel
 
 **Referenzlauf**:
-Der jüngste frühere Lauf, der den heutigen Bedingungen (Bodenangabe, Distanz, Marke/Klasse) am nächsten kommt. Ein älterer Lauf auf derselben Bahn kann vorgehen; ein gestörter Lauf taugt nur eingeschränkt als Referenz.
+Der jüngste frühere Lauf, der den heutigen Bedingungen (Belag, Bodengruppe, Distanz ±200 m) am nächsten kommt, höchstens etwa ein Jahr alt. Ein älterer Lauf auf derselben Bahn kann vorgehen; ein gestörter Lauf taugt nur eingeschränkt als Referenz.
 _Avoid_: Vergleichslauf, Formlauf
+
+**Bahnkategorie**:
+Einordnung der französischen Bahnen: groß (ParisLongchamp, Saint-Cloud, Chantilly, Deauville, Fontainebleau, Compiègne, Clairefontaine, Cagnes-sur-Mer), mittel (Marseille, Beauvais, Bordeaux, Toulouse, Pornichet, Vichy, Lyon, La Teste), sonst Provinz. Formen großer Bahnen übertragen sich besser.
+_Avoid_: Bahnklasse
+
+**Distanzklasse**:
+Grobe Einordnung der Distanz: Sprint bis 1400 m (unter 1200 m für Sprintspezialisten), Mitteldistanz, Steher ab 2400 m, Extremsteher ab 2800 m. Bei Zwei- und Dreijährigen wächst die Reichweite bis etwa zum Sommer. CGD und Vorlieben rechnen mit den feineren Distanzgruppen der Karte.
+_Avoid_: Distanzgruppe (die feine 200-m-Gruppe der Karte)
+
+**Hygienefaktor**:
+Die Prüfung der Läufe seit dem Referenzlauf unter anderen Bedingungen: Ordentlich gelaufen zählt nicht, völlig abgeschlagen stellt die Übertragbarkeit des Referenzlaufs in Frage.
+_Avoid_: letzte Form (als Urteilsgrundlage)
 
 **Bahnbewährung**:
 Das Pferd hat auf der heutigen Bahn schon gewonnen oder ist platziert gelaufen. Ein Pro-Argument; bloße Bahnerfahrung ohne Platzierung zählt nicht.

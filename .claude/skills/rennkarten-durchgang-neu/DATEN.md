@@ -11,6 +11,8 @@ wo die Daten Lücken haben.
 |---|---|---|
 | Bodenangabe | `going` | z. B. „Très souple“; `going_source` PMU, PSF, manuell, France Galop (offizielle Angabe von france-galop.com, gleichwertig mit PMU) oder Annahme |
 | Bodengruppe | `going_label` | Very slow (Collant, Lourd), Slow (Souple, Très souple), Fast (Bon souple, Bon), Very fast, PSF |
+| Bahnkategorie | aus dem Bahnnamen (`blatt.py`) | groß, mittel, Provinz nach dem Nutzer; ausländische Bahnen mit Land |
+| Bahn-Bias | `bias.iv_front`, `iv_back`, `races` | Sieg-Impact des vorderen bzw. hinteren Drittels (früh) auf Bahn und Distanz; begrenzt verlässlich |
 | Richtung | `corde` | CORDE_DROITE = Rechtskurs, CORDE_GAUCHE = Linkskurs, LIGNE_DROITE = gerade |
 | Klasse | `class.val_idx` | Ø Valeur der Teilnehmer, 100 = Ø aller Rennen; je Formzeile `cls_val_idx` |
 | Tempo | `pace.label`, `pace.groups` | F führend, V vorne dabei, M Mittelfeld, H hinten; `unknown` ohne Laufstil |
@@ -24,15 +26,19 @@ wo die Daten Lücken haben.
 | Modell-Siegchance | `power.sieg` | `sieg_blind` = ohne Schichten; derzeit meist gleich |
 | Modell-Rang | aus `power.p` | 1 + Zahl der Starter mit höherer Power-Zahl (wie die Karte) |
 | Festkurs | `fk.sieg` | Value = `fk.sieg × power.sieg − 1` |
-| Value-Faktor | `power.wert`, `gold`, `warn` | nicht dasselbe wie Value |
+| Value-Faktor | `power.wert`, `gold`, `warn` | nicht im Blatt (im Urteil ohne Belang) |
+| Toto | `fk.toto` | nur als Warnung im Blatt, wenn mindestens doppelt so hoch wie der Festkurs; fällt bis zum Start oft stark |
 | Marke | `rating`; `hcp_mark` | `hcp_mark.kind` sieg/platz, `diff` = heute − damalige Marke (positiv = Aufgewicht); **nur im Handicap aussagekräftig** |
 | Valeur bereinigt | `rating_adj`, `rating_rank`/`rating_n` | Valeur − Gewicht + 55; zählt außerhalb des Handicaps (wer hat heute die meiste Klasse fürs Gewicht) |
-| Qualität der Linie | `ae.pedigree.sire/dam_sire`: `max_val3_idx`, `epr_idx`, `horses` | Ø höchste Valeur der Nachkommen als Dreijährige bzw. Gewinn je Lauf, als Index; v. a. bei jungen Pferden |
+| Qualität der Linie | `ae.pedigree.sire/dam_sire`: `pos_idx`, `epr_idx`, `max_val3_idx`, `horses` | Ø Platzierung, Gewinn je Lauf, Ø höchste Valeur der Dreijährigen der Nachkommen, als Index; das Blatt zeigt den Rang im Feld |
+| Nachkommen je Distanzklasse | `pref_ref.sire/dam_sire.distance` → `pref_alle` | Läufe und Platzquote je Distanzklasse; das Blatt zeigt sie bei Distanzwechsel ab 250 m oder ohne Lauf in der heutigen Distanzgruppe |
 | CGD | `cgd` | Je Buchstabe Bahn mit Belag (C), Bodengruppe (G), Distanzgruppe (D): Großbuchstabe = dort gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals, – = unbekannt |
-| Vorlieben | `pref.horse.going/distance/course/richtung/blinkers/trainer` | **Gesamtbilanz** der Datenbank; `today` markiert die heutige Gruppe |
+| Vorlieben | `pref.horse.going/distance/course/richtung/blinkers/trainer` | **Gesamtbilanz** der Datenbank; `today` markiert die heutige Gruppe; das Blatt zeigt die Platzquote statt A/E |
+| A/E-Matrix | `ae.trainer/jockey/owner.d365`: `ae`, `pos_idx` | A/E+ = 100 × A/E Platz, Pos+ = Ø Platzierung als Index; das Blatt zeigt den Rang unter den Personen dieser Rolle im Rennen |
 | Trainer | `ae.trainer.d30` (Form), `pref.trainer.course/racetype/age` | `trend` hot/cold; Trainerwechsel aus `pref.horse.trainer` (Läufe beim heutigen Trainer gegen alle) – Blatt: „Trainer erst seit N Läufen“ (bis 5) |
 | Jockey | `ae.jockey.d365`, `pref.jockey.course/horse/trainer` | `pref.jockey.trainer` = Gespann |
-| Ratings | `arr.adj` (gewichtsbereinigt), `arr.rank`, `tr.rank`, `rtr.rank` | Top-ARR des Feldes im Blattkopf |
+| Ratings | `arr.adj` (gewichtsbereinigt), `arr.rank`, `tr.heute`, `tr.rank`, `rtr.rank`, `summary.dl600_a` | Top-ARR des Feldes im Blattkopf; ΔL600 = Tempo der letzten 600 m gegen Erwartung (km/h), Ø der Läufe |
+| Karriere | `career.all`: Läufe, Siege, Plätze (einschließlich Siege), Gewinn je Lauf | Platzquote und Gewinn je Lauf mit Rang im Feld |
 | Duelle | `duel_rank.score_l` | Längen vor (+) oder hinter (−) den Gegnern, direkt und indirekt |
 | Box | `draw_stat.dev`, `sig` | Abweichung der Ø relativen Platzierung aus dieser Box von 0,5 (1 = Sieger, 0 = Letzter): **positiv = Box besser**, negativ = schlechter; nur `sig` = belastbar (Blatt: „signifikant besser/schlechter“) |
 | Abstammung | `abst.sire/dam_sire.boden/dist.passung` | `sicher` = genug Läufe |

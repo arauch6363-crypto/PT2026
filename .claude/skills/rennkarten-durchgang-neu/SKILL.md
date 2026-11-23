@@ -68,49 +68,69 @@ offen“). Die Kursspanne bleibt eigene Einschätzung, nicht abgeleitet von den 
 
 Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargument oder Fragezeichen liefern.
 
-1. **Ausgangslage.** Value und **Modell-Rang relativ zur Feldgröße** (vorderes/mittleres/hinteres Drittel; ein
-   hinterer Rang ist ein Gegenargument, ein vorderer mit solidem Value „erstmal sehr positiv“). **Exposure** relativ
-   zum Alter (21 Starts als 3-Jähriger sind sehr viel; 4-jährig mit 25 Starts gilt noch als „relativ jung“).
+1. **Ausgangslage und Klasse.** Value und **Modell-Rang relativ zur Feldgröße** (vorderes/mittleres/hinteres
+   Drittel; ein hinterer Rang ist ein Gegenargument, ein vorderer mit solidem Value „erstmal sehr positiv“). **Klasse
+   relativ zum Feld,** in dieser Reihenfolge: ARR, Valeur (außerhalb des Handicaps), TR, ΔL600, RTR, Duelle (nur mit
+   mehreren Duellen); dazu Platzquote und Gewinn je Lauf mit Rang im Feld (Blatt: Karriere). **Exposure** relativ zum
+   Alter (21 Starts als 3-Jähriger sind sehr viel; 4-jährig mit 25 Starts gilt noch als „relativ jung“); wenig
+   gelaufene Pferde steigern sich bis ins vierte Jahr, der Zenit liegt bei 3 bis 5 Jahren.
    **Marke – nur im Handicap:** Dort zählt die heutige Marke gegen die letzte Sieg- bzw. Platzmarke, weil das Gewicht
-   die Valeur ausgleicht. **In allen anderen Rennen** (Conditions, Claimer, Listed, Gruppe, Rennart unbekannt) gleicht
+   die Valeur ausgleicht – nicht ganz, hohe Marken sind leicht im Vorteil. **In allen anderen Rennen** (Conditions, Claimer, Listed, Gruppe, Rennart unbekannt) gleicht
    niemand die Valeurs aus: Dort zählt, wer die **höchste gewichtsbereinigte Valeur** im Feld hat (Valeur − Gewicht +
    55, Rang im Blatt). Eine Marke unter der letzten Platzmarke ist dort ein Zeichen, dass das Pferd nachlässt.
-   Kennzeichen **CGD** (auf Bahn, Distanz, Boden gewonnen) „lässt aufhorchen“.
-2. **Letzter Lauf im Zusammenhang.** Welches Rennen, welche Klasse, welche Bahn (groß oder Provinz), welcher Boden,
-   wie weit geschlagen, Kommentar und Rennverlauf. Ein schwacher Lauf unter ganz anderen Bedingungen (andere
-   Distanz, anderer Boden, nicht weit geschlagen) darf übergangen werden. „Nicht weit geschlagen in stärkerem Rennen“
-   zählt mehr als die Platzierung.
-3. **Referenzlauf.** Der jüngste Lauf unter heutigen Bedingungen (Blatt: `≈heute`, `gleiche Bahn`, `sehr weich`):
-   Platz, Abstand, Marke damals gegen heute (nur im Handicap), **ARR dort gegen Top-ARR im heutigen Feld** (Leitfrage),
-   welche heutigen Gegner er dort geschlagen hat, ob das Rennen **aufgewertet** ist. Gestörte Läufe (Kommentar:
-   behindert, eingeklemmt, „Nase im Wind“/ohne Deckung, am Rand galoppiert; Blatt: gegen den Verlauf, Zwischenfall)
-   unterschätzen das Pferd – entsprechend höher einordnen. Kein Referenzlauf ist selbst ein Fragezeichen. Ist der
-   Referenzlauf schlecht und gibt es kein Argument, warum es heute besser sein sollte, ist das ein starkes
-   Gegenargument.
+   Kennzeichen **CGD** (auf Bahn, Distanz, Boden gewonnen) „lässt aufhorchen“; C wiegt am meisten, dann G, dann D.
+2. **Referenzlauf.** Der jüngste Lauf unter heutigen Bedingungen (Blatt: `≈heute`), höchstens etwa ein Jahr alt, je
+   jünger desto besser. Ihn gründlich lesen, in dieser Reihenfolge (Blatt: Zeile „Lauf:“ darunter):
+   - **kompetitiv?** Platz relativ zur Starterzahl und Abstand in Längen; knapp geschlagen im großen Feld ist oft ein
+     sehr gutes Rennen.
+   - **ARR** des Laufs relativ zum Feld (Rang unter den Läufen der heutigen Starter) und gegen Top-ARR und Maßstäbe
+     (Leitfrage); TR bestätigt.
+   - **Kommentar, Position, Tempo:** klarer Lauf, Effort in der Geraden, kämpferisch – oder behindert, „Nase im Wind“,
+     außen herum. Von weit hinten Boden gutgemacht, als vorne gewonnen wurde, hinten bei langsamem oder vorne bei sehr
+     schnellem Tempo: Der Lauf war besser, als der Platz zeigt.
+   - **Klasse des Laufs:** Klassenindex gegen heute (Blatt: Abstand), bei jungen Pferden die Dotierung; Listed- und
+     Gruppe-Formen wiegen am meisten, Claimer am wenigsten (`P-ABSTIEG`, `G-CLAIMER-AUFSTIEG`).
+   - **Gegner:** wie sie danach liefen (aufgewertet/abgewertet; bei jungen Pferden besonders wichtig) und welche
+     heutigen Gegner es direkt oder indirekt schlug.
+   - **Marke damals gegen heute** (nur im Handicap).
+
+   Kein Referenzlauf ist selbst ein Fragezeichen.
+3. **Läufe seit dem Referenzlauf (Hygienefaktor).** Die letzten ein bis zwei Läufe unter anderen Bedingungen nur
+   prüfen, nicht bewerten: Lief das Pferd dort ordentlich, zählen sie nicht; war es völlig abgeschlagen (ARR und
+   Abstand zusammen), ist fraglich, ob der Referenzlauf heute übertragbar ist. Kommentar, Box, Jockey und Quote
+   erklären einen schwachen Lauf oft.
 4. **Vorlieben (Gesamtbilanz), dann Abstammung.** Boden, Distanz, Bahn, Richtung, Ausrüstung aus den **Vorlieben**
-   des Blatts lesen – die Formzeilen zeigen nur die letzten sieben und wenige ältere Läufe. **Boden vergleichen:** Collant und Lourd bilden
-   zusammen die Gruppe Very slow und sind für uns gleichwertig – ein Lauf auf Collant belegt Lourd und umgekehrt.
-   Innerhalb der Gruppe Slow wird unterschieden: Souple belegt Très souple nicht vollständig. Ein Lauf auf genau
-   diesem Boden bzw. in dieser Gruppe ist ein starkes Argument.
-   **Abstammung nur, wo die eigene Erfahrung fehlt:** Bei viel gelaufenen Pferden zählt die eigene Bilanz auf dem
-   Boden, die Abstammungsstatistik ist dann ohne Belang (ein Pferd, das auf diesem Boden schon gelaufen ist, wird an
-   dieser Bilanz gemessen, nicht am Muttervater). Wichtig ist die Abstammung (alle Skalen: Boden, Distanz, Belag,
-   Reife; Gesamtwert) für junge, wenig gelaufene Pferde und für Pferde, die einen Boden zum ersten bis dritten Mal
-   erleben – dort kann eine klar unpassende Abstammung allein die Wette kippen. Differenziert lesen: Frankels mögen
-   sehr weichen Boden manchmal nicht – Souple ist dafür nicht weich genug. Bei jungen Pferden zählt zusätzlich die
-   **Qualität** der Linie (Blatt: max. Valeur der Nachkommen als Index, Gewinn je Lauf als Index), weil sie etwas
-   über das Potenzial sagt.
-5. **Trainer und Jockey.** Trainerwechsel in den letzten Läufen beachten (Blatt: „Trainer erst seit N Läufen“).
-   Trainer: Form 30 Tage (kalt = Gegenargument, abgestuft), Bilanz auf der Bahn (kann eine kalte Form ausgleichen),
-   Spezialität (Rennart, Alter, Debütanten), Stallgröße und -erfolg (kleiner Stall ohne Sieg in zwei Jahren =
-   Gegenargument; klein, aber „geschickt operierend“ = neutral bis Pro). Jockey: Bilanz auf der Bahn, kennt das Pferd
-   (Siege zusammen = Pro), Jockey-A/E (holt mehr heraus = Pro), **Gespann Trainer + Jockey** – zählt bei genug
-   Starts mehr als die Einzelbilanzen.
+   des Blatts lesen, über die **Platzquote** (ein Sieg ist ein zusätzliches Plus) – die Formzeilen zeigen nur einen Teil
+   der Läufe. Schon wenige Läufe zählen; eine Platzierung auf einem Boden belegt ihn. **Boden vergleichen:** Collant und
+   Lourd bilden zusammen die Gruppe Very slow und sind gleichwertig; Souple belegt Très souple nicht vollständig. Mit
+   schnellem Boden kommen mehr Pferde zurecht, auf sehr weichem zählen Spezialisten.
+   **Wechsel** von Belag, Boden oder Distanz an der Bilanz auf beiden Seiten messen (`P-WECHSEL-BESSER`,
+   `G-WECHSEL-SCHLECHTER`). Ein Distanzwechsel ab etwa 250 m ist auffällig (Blatt). Je weiter die Distanz von der
+   Mitteldistanz weg liegt (Blatt: Distanzklasse), desto mehr zählen Leistung auf der Strecke und Abstammung.
+   **Abstammung, wo die eigene Erfahrung fehlt:** Bei viel gelaufenen Pferden zählt die eigene Bilanz, die
+   Abstammungsstatistik ist dann ohne Belang. Wichtig ist die Abstammung (alle Skalen: Boden, Distanz, Belag, Reife;
+   Gesamtwert) für junge, wenig gelaufene Pferde und für Pferde, die einen Boden, Belag oder eine Distanz zum ersten
+   bis dritten Mal erleben – dort kann eine klar unpassende Abstammung allein die Wette kippen. Steigt ein junges Pferd
+   innerhalb einer Distanzklasse deutlich, zeigt die Platzquote der Nachkommen je Distanzklasse (Blatt), ob die Linie
+   längere Wege trägt. Differenziert lesen: Frankels mögen sehr weichen Boden manchmal nicht – Souple ist dafür nicht
+   weich genug. Bei jungen Pferden zählt zusätzlich die **Qualität** der Linie relativ zum Feld (Blatt: Platzierungs-,
+   Gewinn- und Valeur-Index der Nachkommen), weil sie etwas über das Potenzial sagt.
+5. **Trainer, Jockey, Besitzer.** Zuerst die Lage in der **A/E-Matrix über 365 Tage** relativ zum Feld (Blatt: A/E+
+   und Pos+ mit Rang; rechts oben = gut), dann die 30 Tage: aktuell heiß oder kalt. Trainerwechsel beachten (Blatt:
+   „Trainer erst seit N Läufen“). Trainer: Bilanz auf der Bahn (kann eine kalte Form ausgleichen), Spezialität
+   (Rennart, Alter, Debütanten), Stallgröße und -erfolg (kleiner Stall ohne Sieg in zwei Jahren = Gegenargument; klein,
+   aber „geschickt operierend“ = neutral bis Pro). Jockey: Bilanz auf der Bahn, kennt das Pferd (Siege zusammen = Pro),
+   **Gespann Trainer + Jockey** – zählt mehr als die Einzelbilanzen, sobald es einige gemeinsame Starts gibt.
+   Besitzer: nur 365 Tage. Bei Maiden und Debütanten sind Verbindungen, Besitzer und Abstammung die Hauptkriterien.
 6. **Umstände heute.** Box (nur `signifikant` zählt), Gewicht (ab etwa 62 kg auf Très souple oder schwerer =
-   Gegenargument), Tempo gegen Laufstil (Führender bei schnellem Tempo mit mehreren Führenden = Gegen; Pferd von
-   hinten bei schnellem Tempo = Pro), Startfolge (ab etwa 4 Starts in 6 Wochen = Gegenargument, „irgendwann ist die
-   Luft raus“), Bahnkategorie (von großen Bahnen in die Provinz = Pro, umgekehrt Gegen), Reise (britischer Trainer =
-   Pro; spanisch, deutsch, weit reisend französisch nur begrenzt). Crible und Rennkommentar sind Kontext.
+   leichtes Gegenargument; im Sprint wiegt Gewicht weniger), Tempo gegen Laufstil und Bahn-Bias (Blatt; alles nur
+   Indikatoren: Führender bei schnellem Tempo mit mehreren Führenden = Gegen; von hinten bei schnellem Tempo = Pro;
+   einzelner Führender bei langsamem Tempo = leichtes Pro; Tempo unbekannt zählt nicht), Startfolge (ab etwa 4 Starts
+   in 6 Wochen = Gegenargument, „irgendwann ist die Luft raus“), Bahn (Blatt: Kategorie groß, mittel, Provinz; von
+   großen Bahnen in die Provinz = Pro, umgekehrt Gegen; Formen großer Bahnen übertragen sich besser; die letzte Form
+   auf genau dieser Bahn zählt besonders, auf PSF unterscheiden sich die Geläufe je Bahn), Reise (britischer Trainer =
+   Pro; spanisch, deutsch, weit reisend französisch nur begrenzt). Der **Crible** (Pressetext) bringt oft
+   Zusatzwissen (Trainer- oder Besitzerwechsel, Vorform auf der Bahn); der Totokurs warnt nur (Blatt).
    **Ausrüstungswechsel** (Scheuklappen, australische Scheuklappen) nach den Bilanzen mit und ohne bewerten (Blatt:
    „Ausrüstung“), der Wechsel an sich sagt nichts:
    - fällt weg, **mit ihr kamen die besten Läufe** → `G-AUSRUESTUNG-WEG`;
@@ -126,13 +146,13 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
 - `F-BELAG-NEU` erstmals dieser Belag
 - `F-AUSRUESTUNG-NEU` erstmals Scheuklappen oder andere Ausrüstung („warum heute?“)
 - `F-KLASSE-HOCH` Bewährung nur aus tieferer Klasse (z. B. Claimer) oder erstmals deutlich höhere Klasse
-- `F-PAUSE` Rückkehr nach langer Pause
-- `F-WALLACH` erstmals Wallach
+- `F-PAUSE` Rückkehr nach langer Pause (ab etwa 60 Tagen; wiegt weniger bei jungen Pferden und erfolgreichen
+  Trainern)
 - `F-TRAINERWECHSEL` Trainerwechsel
 - `F-AUFGEWICHT` **Aufgewicht** (nur im Handicap; umso größer, je exposed)
-- `F-BAHN-EIGENHEIT` erster Start auf einer Bahn mit Eigenheiten (Strasbourg, Fontainebleau)
 - `F-KLASSENFRAGE` Klassenfrage (kleiner Stall, Formen nur aus schwachen Rennen)
-- `F-AUSLAND` nicht einzuordnende Auslandsformen
+- `F-AUSLAND` nicht einzuordnende Auslandsformen (Wert: Großbritannien weit vorne, dann Spanien, Italien,
+  Deutschland, zuletzt Belgien und Niederlande; viele Auslandsformen machen das ganze Rennen unsicherer)
 
 Fragezeichen **wiegen, nicht zählen**. Ein Fragezeichen ist **entkräftet** (zählt nicht oder wird zum Pro-Argument),
 wenn Belege dafür sprechen: erstmals eine längere Distanz, aber die Abstammung trägt sie und das Pferd lief bisher umso
@@ -144,8 +164,7 @@ Handicap-Form auf ähnlicher Marke.
 - `G-RANG-HINTEN` hinterer Modell-Rang
 - `G-REFERENZ-SCHWACH` schwacher Referenzlauf ohne Grund zur Steigerung
 - `G-ARR-UNTER` ARR deutlich unter den Besten im Feld
-- `G-SELTEN-SIEG` selten gewinnend: weniger als ein Sieg aus etwa 14 Starts, dazu viele Plätze. Wer öfter gewinnt,
-  ist kein seltener Sieger, auch nach einer Reihe zweiter Plätze.
+- `G-SELTEN-VORNE` selten vorne: Platzquote weit hinten im Feld (Blatt: Karriere)
 - `G-TRAINER-KALT` kalter Trainer (abgestuft)
 - `G-AUSRUESTUNG-WEG` Ausrüstung fällt weg, mit der die besten Läufe kamen (Punkt 6)
 - `G-RICHTUNG` in der heutigen Richtung klar schlechter
@@ -182,6 +201,7 @@ Handicap-Form auf ähnlicher Marke.
 - `P-PROVINZ` Abstieg in die Provinz
 - `P-ABSTIEG` Abstieg aus stärkeren Rennen (nur wenn diese Rennen nicht abgewertet sind)
 - `P-BRITE` britischer Trainer
+- `P-WALLACH` erster bis dritter Start als Wallach
 - `P-UNEXPOSED` unexposed mit Steigerungspotenzial
 - `P-AUSRUESTUNG-ZURUECK` Ausrüstung kommt zurück, mit der die besten Läufe kamen
 - `P-ERSTER-ANSATZ` „erster Ansatz“ nach einer Reihe schwacher Läufe
