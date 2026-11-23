@@ -38,11 +38,24 @@ E Verbindungen, F Ratings, G Formzeilen, H Fehlendes).
 - Im Handicap: hohe Marke / Startnummer 1 leicht im Vorteil gegenüber niedrigen Marken.
 - Dotierung ist das Unterscheidungsmerkmal, nicht die Handicap-Stufe.
 
-**Nachgefragt, offen:** Dotierungsgrenzen (ab wann „hoch“), Wert von Listed/Gruppe in Zahlen, Rolle der Rennart bei
-Maidens und Debütanten. *(Karte vom 21.11.: Handicap 14 400 und 16 300 €, Conditions 34 800 €, Claimer 12 000 €; ein
-Quinté-Merkmal liefert die Karte nicht, nur `type` und `prize`.)*
+**Nachgefragt, beantwortet (23.11.):**
+
+> Eine Dotierung ist für mich **hoch ab 30.000 € aufwärts, aber das ist stetig**. Grupperennen fangen zum Beispiel ab
+> 55.000 € an.
+>
+> Vorteil hoher Marken im Handicap: **notiere erstmal „leichter Vorteil“**. Ich weiß noch nicht genau, wie wir damit
+> umgehen.
+>
+> Bei **Maiden- und Debütrennen** handelt es sich in erster Linie um junge Pferde; hier achten wir insbesondere auf die
+> **Jockey-Trainer-Verbindung**, aber auch auf **Besitzer** zum Beispiel und natürlich auf die **Abstammung** – wie gut
+> ist die Abstammung hinsichtlich unserer Kriterien.
+
+**Notiert:** Dotierung „hoch“ ab etwa 30 000 € (fließend), Gruppe ab etwa 55 000 €; Vorteil hoher Marken = „leicht“, Umgang
+damit offen; Maiden/Debüt: Verbindungen (Trainer × Jockey), Besitzer und Abstammung sind die Hauptkriterien.
+
+**Offen:** Wert von Listed/Gruppe in Zahlen; Besitzer – welche Besitzer sind ein Signal (siehe E4).
 
 ## Stand
 
-- Erledigt: A1 (Nachfragen offen).
+- Erledigt: A1.
 - Offen: A2 bis H.
