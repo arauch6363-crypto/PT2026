@@ -240,7 +240,53 @@ in Richtung des besseren Untergrunds**; PSF → Gras sehe ich kritisch.
 **Offen:** PSF-Spezialisten (woran erkennt man sie? – durch die Bilanzregel größtenteils beantwortet); Winter-PSF;
 Gras bei sehr weichem Boden gegen PSF.
 
+## A6 Bahn, Richtung, Layout
+
+**Antwort (23.11.):**
+
+> **Große Bahnen** sind zum Beispiel ParisLongchamp, Chantilly, Deauville, Fontainebleau, Compiègne, Clairefontaine,
+> Cagnes-sur-Mer – die großen Pariser Bahnen. Im Süden gibt es ein paar Bahnen **mittlerer Größe**, keine reinen
+> Provinzbahnen: Marseille, Beauvais, Bordeaux, Toulouse; im Westen vielleicht noch Pornichet; Vichy und Lyon
+> (Lyon-Parilly, Lyon-La Soie); La Teste würde ich auch noch zu den mittleren zählen. Dann die **klassischen
+> Provinzbahnen**, zum Beispiel Amiens, Le Mans, Straßburg. Das ist keine vollständige Liste, aber du kannst dir ein Bild
+> machen.
+>
+> Große Bahnen zeichnen sich wahrscheinlich dadurch aus, dass die **Übertragbarkeit ihrer Form etwas besser** ist. Sie
+> haben **sehr breite Bahnen**, man hat dort möglicherweise **weniger Probleme durch den Rennverlauf** als auf kleineren,
+> engeren Bahnen.
+>
+> Die **Richtungsbilanz ist schon wichtig**, allerdings muss man auf die **Sample Size** schauen: je höher, desto mehr
+> kann man sich darauf verlassen.
+>
+> **Layout spielt für mich erstmal keine große Rolle.**
+>
+> In der Formanalyse schaue ich vor allem auch auf die **letzte Form auf dieser speziellen Bahn** – ein wichtiger Faktor,
+> gerade bei **PSF-Rennen**: Die Sandgeläufe unterscheiden sich zwischen den Bahnen. Lyon, Pornichet, Deauville,
+> Chantilly oder Vivaux (im Diktat „Vivo“, vermutlich Marseille-Pont-de-Vivaux) sind unterschiedliche Geläufe. **Eine
+> PSF-Form in Deauville ist nicht immer gleichzusetzen mit einer PSF-Form in Chantilly.**
+>
+> Gerade bei manchen Bahnen ist es vorteilhaft, wenn das Pferd **schon auf dieser Bahn gelaufen ist und dort platziert
+> oder bereits gewonnen hat**. Bei den **CGD-Kennzeichen** (im Diktat „CDG-Flex“) ist **C der wichtigste Indikator,
+> danach G, danach D.**
+
+**Notiert (Claude, zur Kontrolle):**
+
+- Drei Bahnkategorien (Liste unvollständig):
+  - **groß:** ParisLongchamp, Chantilly, Deauville, Fontainebleau, Compiègne, Clairefontaine, Cagnes-sur-Mer
+  - **mittel:** Marseille, Beauvais, Bordeaux, Toulouse, Pornichet, Vichy, Lyon (Parilly, La Soie), La Teste
+  - **Provinz:** z. B. Amiens, Le Mans, Strasbourg
+- Große Bahnen: Formen **besser übertragbar**, breite Bahnen, weniger Störung durch den Rennverlauf.
+- **Richtungsbilanz wichtig**, Gewicht abhängig von der Zahl der Läufe.
+- **Layout (eng/normal/weit): keine große Rolle** → muss nicht ins Blatt.
+- **Bahnform:** letzte Form auf genau dieser Bahn ist ein wichtiger Faktor; bei **PSF unterscheiden sich die Geläufe je
+  Bahn** (eine PSF-Form zählt auf einer anderen PSF-Bahn nicht automatisch gleich).
+- **CGD-Gewichtung: C (Bahn) > G (Boden) > D (Distanz)** (beantwortet zugleich C9).
+
+**Offen:** Welche Bahnen haben für dich Eigenheiten, und was folgt daraus (bisher im Skill nur Strasbourg,
+Fontainebleau)? Fehlende Bahnen einordnen, z. B. Saint-Cloud, Craon, Nantes, Angers, Dieppe, Lion d'Angers, Pau.
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
-- Offen: A6 bis H.
+- Erledigt zusätzlich: A6 (Bahneigenheiten und fehlende Bahnen offen), C9 teilweise (CGD-Gewichtung).
+- Offen: A7 bis H.
