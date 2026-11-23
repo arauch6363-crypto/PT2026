@@ -699,6 +699,35 @@ nicht“). Für deinen Split müsste das Blatt die Verteilung zeigen.
 **Hinweis auf Daten (nur Beobachtung):** Das Blatt zeigt heute **maxVal+ und €/L+**, aber **nicht Pos+**, und keinen
 Vergleich zum Feld (Rang).
 
+## E1 Trainer, Jockey, Besitzer: A/E-Matrix
+
+**Antwort (23.11.):**
+
+> Bei **Jockey und Trainer** schaue ich vor allem auf die **A/E-Matrix**: Wo ist der Punkt für den Trainer oder Jockey
+> hinsichtlich **A/E+ und Pos+** (im Diktat „AE Plus und Post Plus“)? **Je weiter rechts oben** in dieser Matrix, **desto
+> besser** finde ich den Trainer oder Jockey. Dabei schaue ich **zuerst auf die 365-Tage-Statistik**. **Als Letztes** schaue
+> ich auf die **30-Tage-Bilanz**, um zu sehen, ob man **aktuell besonders kalt oder heiß** ist. Das sind die wichtigsten
+> Statistiken.
+>
+> Für **Besitzer** kann man zusätzlich den Matrixwert anschauen (Pos+, A/E+), aber **da reichen die 365-Tage-Werte.**
+
+**Notiert (Claude, zur Kontrolle):**
+
+- **A/E-Matrix der Karte:** alle Trainer (bzw. Jockeys, Besitzer) im heutigen Feld als Punkte; x = **A/E+** (100 × A/E
+  Platz), y = **Pos+** (Ø Platzierung als Index), Kreisfläche = €/L+. **Rechts oben = gut**, relativ zu den anderen im
+  Feld.
+- Reihenfolge: (1) **365 Tage** – Grundqualität (Matrixlage); (2) **30 Tage** – aktuell **heiß oder kalt**.
+- **Besitzer:** gleiche Matrix, **nur 365 Tage**.
+- Wieder **relativ zum Feld** (wie C3, D3).
+
+**Hinweis auf Daten und Regeln (nur Beobachtung):** Das Blatt zeigt heute nur **Trainer 30 Tage** und **Jockey-A/E 365
+Tage**, kein Pos+ und keine Lage im Feld; **Besitzer gar nicht**. Die Karte hat alle drei Rollen mit 30/90/365 Tagen,
+A/E, Pos+ und €/L+. `G-TRAINER-KALT`, `P-TRAINER` usw. stützen sich heute auf die 30-Tage-Form; deine Reihenfolge
+stellt 365 Tage vor 30 Tage.
+
+**Offen:** Gilt die Platzbilanz-Vorliebe aus D1 (A/E sprunghaft) hier nicht? – Hier nutzt du A/E+ ausdrücklich, aber
+über 365 Tage und viele Läufe. Trainer namentlich: nicht angesprochen.
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -712,6 +741,7 @@ Vergleich zum Feld (Rang).
 - Erledigt zusätzlich: B1.
 - Erledigt zusätzlich: B2, B3 (Block B vollständig).
 - Erledigt zusätzlich: C1 bis C10 (Block C), D1 bis D3 (Block D).
-- Offen: E bis H.
+- Erledigt zusätzlich: E1 (Trainer, Jockey, Besitzer über die A/E-Matrix).
+- Offen: E2 bis H.
 - Später auswerten: Verteilung der Starts je Alter (Exposure, C2).
 - Datenlücke: Gewichtserlaubnis des Jockeys fehlt in der Karte (C4).
