@@ -801,6 +801,65 @@ Duell-Score; **TR-Wert, ΔL600 und ΔB200 fehlen**. Der Skill nutzt bisher nur A
 
 **Nicht beantwortet:** ob eine **große ARR-Streuung** (unbeständiges Pferd) gegen das Pferd zählt.
 
+## G Formzeilen: so wird ein Lauf gelesen (G1 bis G7)
+
+**Antwort (23.11.):**
+
+> Beim letzten Lauf schaue ich zunächst auf die **Passung zum heutigen Lauf** (schon besprochen). Als Nächstes: **Wie weit
+> war man geschlagen, war man kompetitiv dabei?** Also die **relative Position im Vergleich zur Starterzahl** und **wie
+> weit geschlagen in Längen** – je kürzer, desto besser.
+>
+> Dann das **ARR**: Haben wir ein ARR, das **relativ zum Feld zu den Besten** zählt – **innerhalb der letzten 30, 90 und
+> 365 Tage**? Die Kennzahlen stehen in der Karte. Genauso beim **TR**, das ziehe ich ergänzend heran; zuerst aber ARR.
+>
+> Dann der **Kommentar auf Französisch**: Hatte das Pferd einen **klaren Lauf**, hat es in der Geraden einen **guten,
+> positiven Effort** gezeigt, hat es sich **kämpferisch** gezeigt, wurde es **behindert**, hatte es die **Nase im Wind**
+> oder musste es **außen herumgehen**? Solche Faktoren spielen eine Rolle.
+>
+> Dann die **Tracking-Daten**: Wo war das Pferd während des Laufs platziert? **Wo kamen Sieger und Platzierte her?** War es
+> für dieses Rennen und dieses **Pace-Szenario gut platziert**, oder lag es weit hinten und musste viel Boden gutmachen?
+> Ein **positives Signal** kann sein: man lag **weit hinten**, hat in der Geraden **noch Boden gutgemacht**, aber
+> **gewonnen wurde vorne** und man konnte nur noch ein bisschen gutmachen.
+>
+> Den **Finish-Index** sehe ich als **wenig relevant**: Er ist bei **langsamen Rennen immer sehr hoch**, bei schnellen eher
+> niedriger, da kann man wenig herauslesen.
+>
+> Das **Pace-Szenario** kann man sich anschauen: War ein Pferd **hinten platziert und die Pace eher langsam**, hatte es
+> vielleicht **Schwierigkeiten, nach vorne zu laufen**. War die Pace **sehr schnell** und man war **vorne** und ist am Ende
+> etwas zurückgefallen („die Puste ausgegangen“), dann hat die schnelle Pace eher **geschadet**.
+>
+> Dann immer die **Gegner aus diesem Rennen**: Wie sind sie **danach** gelaufen, ist das Rennen **aufgewertet oder
+> abgewertet**? Gerade bei **jungen Pferden**, wo die ARRs noch schwanken bzw. nicht so verlässlich sind, spielt das eine
+> **stärkere Rolle**.
+>
+> Und: Haben wir **heutige Gegner** in diesem Rennen, **direkt oder indirekt**? Das ist gerade bei **Referenzläufen**
+> wichtig, da kann man noch etwas herauslesen. Bei **Nicht-Referenzläufen** können wir die heutigen Gegner in der Regel
+> **ignorieren**, ebenso die Gegneraufwertung. **Tiefer gehe ich vor allem bei Referenzläufen.**
+
+**Notiert (Claude, zur Kontrolle) – Reihenfolge beim Lesen eines Laufs:**
+
+1. **Passung** zum heutigen Rennen (Belag, Boden, Distanz; Q1).
+2. **Kompetitiv?** Platz **relativ zur Starterzahl** und **Abstand in Längen** (je kürzer, desto besser; keine feste
+   Schwelle für „nah dran“ genannt).
+3. **ARR des Laufs relativ zum Feld:** Rang unter allen Läufen der heutigen Starter in den letzten **30, 90 und 365
+   Tagen**; **TR ergänzend**.
+4. **Rennkommentar** (französisch): klarer Lauf, guter Effort in der Geraden, kämpferisch, behindert, Nase im Wind, außen
+   herum.
+5. **Tracking/Position:** Position im Rennen gegen die Positionen von Sieger und Platzierten; **Plus:** von weit hinten in
+   der Geraden Boden gutgemacht, während vorne gewonnen wurde.
+6. **Pace:** hinten bei **langsamer** Pace = Nachteil gehabt (Lauf besser als er aussieht); vorne bei **sehr schneller**
+   Pace und zurückgefallen = Pace hat geschadet (ebenfalls entlastend).
+7. **Finish-Index: wenig relevant** (hängt am Tempo).
+8. **Gegner danach** (aufgewertet/abgewertet): wichtig, **stärker bei jungen Pferden** (ARR dort unzuverlässig).
+9. **Heutige Gegner direkt/indirekt:** **nur bei Referenzläufen**; bei anderen Läufen ignorieren.
+
+- **Tiefe der Analyse:** gründlich beim **Referenzlauf**, kurz bei den übrigen Läufen (Hygienefaktor, Q1).
+
+**Hinweis auf Daten (nur Beobachtung):** Im Blatt fehlen bisher: Rang des ARR/TR unter den Läufen der heutigen Starter
+(30/90/365 Tage), TR je Lauf, **Position im Rennen / Positionen der ersten drei**, **Plätze gutgemacht ab 800 m, Weg**,
+**Pace je Lauf**, Gegner mit „danach“, heutige Gegner je Lauf. Der **Kommentar** ist seit 21.11. drin. Der
+**Finish-Index** muss nicht hinein.
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -816,7 +875,7 @@ Duell-Score; **TR-Wert, ΔL600 und ΔB200 fehlen**. Der Skill nutzt bisher nur A
 - Erledigt zusätzlich: C1 bis C10 (Block C), D1 bis D3 (Block D).
 - Erledigt zusätzlich: E1 (Trainer, Jockey, Besitzer über die A/E-Matrix).
 - Erledigt zusätzlich: E2/E3, E4 (Block E vollständig).
-- Erledigt zusätzlich: F (Reihenfolge der Ratings).
-- Offen: G bis H.
+- Erledigt zusätzlich: F (Reihenfolge der Ratings), G1 bis G7 (Lesen eines Laufs).
+- Offen: G8 bis G13 (kurz), H.
 - Später auswerten: Verteilung der Starts je Alter (Exposure, C2).
 - Datenlücke: Gewichtserlaubnis des Jockeys fehlt in der Karte (C4); Besitzerwechsel nicht erkennbar (E4).
