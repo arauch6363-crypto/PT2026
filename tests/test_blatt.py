@@ -90,3 +90,28 @@ def test_analyse_nur_unter_referenzlauf_und_letztem_lauf(capsys):
     blatt.blatt({"x": x, "fk": 5.0, "p": 0.2, "rang": 1, "n": 8, "value": 0.1}, {**RENNEN, "race_id": "20261121R1C1"}, 60)
     out = capsys.readouterr().out
     assert "+1 Plätze" in out and "+2 Plätze" in out and "+3 Plätze" not in out
+
+
+def test_distanzklasse_und_wechsel():
+    assert [blatt.distanzklasse(m) for m in (1100, 1400, 1401, 2399, 2400, 2800)] == \
+        ["Sprint", "Sprint", "Mitteldistanz", "Mitteldistanz", "Steher", "Extremsteher"]
+    assert blatt.distanzwechsel({"distance": 2000}, [_lauf(dist=1600)]) == "Distanz heute 2000 m, letzter Lauf 1600 m (+400 m)"
+    assert blatt.distanzwechsel({"distance": 1700}, [_lauf(dist=1600)]) is None          # unter 250 m
+
+
+def test_nachkommen_nach_distanzklasse():
+    tabelle = [["1201-1400 m", 100, 10, 20, 1.0, 1], ["1801-2000 m", 300, 30, 90, 1.0, 1],
+               ["2401-2600 m", 50, 5, 20, 1.0, 1], [">3600 m", 2, 1, 2, 1.0, 1]]
+    assert blatt.split_distanz(tabelle) == "Sprint 100 L 20 % · Mitteldistanz 300 L 30 % · Steher 50 L 40 % · Extremsteher 2 L 100 %"
+
+
+def test_vorlieben_mit_platzquote_statt_ae():
+    assert blatt.bilanz({"runs": 8, "wins": 0, "places": 2, "ae": 0.93}, quote=True) == "8 L/0 S/2 P (25 %)"
+    assert blatt.bilanz({"runs": 8, "wins": 0, "places": 2, "ae": 0.93}) == "8 L/0 S/2 P, A/E 0,93"
+
+
+def test_qualitaet_der_linie_mit_rang_im_feld():
+    def ped(pos, epr, val):
+        return {"ae": {"pedigree": {"sire": {"pos_idx": pos, "epr_idx": epr, "max_val3_idx": val, "horses": 50}}}}
+    r = {"runners": [{"no": 1, **ped(120, 90, 100)}, {"no": 2, **ped(100, 130, 110)}, {"no": 3, **ped(80, 70, 90)}]}
+    assert blatt.linie(r["runners"][0], r) == ("Vater Pos+ 120 (1/3), €/L+ 90 (2/3), maxVal+ 100 (2/3), 50 Nachkommen")

@@ -95,18 +95,21 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
    Abstand zusammen), ist fraglich, ob der Referenzlauf heute übertragbar ist. Kommentar, Box, Jockey und Quote
    erklären einen schwachen Lauf oft.
 4. **Vorlieben (Gesamtbilanz), dann Abstammung.** Boden, Distanz, Bahn, Richtung, Ausrüstung aus den **Vorlieben**
-   des Blatts lesen – die Formzeilen zeigen nur die letzten sieben und wenige ältere Läufe. **Boden vergleichen:** Collant und Lourd bilden
-   zusammen die Gruppe Very slow und sind für uns gleichwertig – ein Lauf auf Collant belegt Lourd und umgekehrt.
-   Innerhalb der Gruppe Slow wird unterschieden: Souple belegt Très souple nicht vollständig. Ein Lauf auf genau
-   diesem Boden bzw. in dieser Gruppe ist ein starkes Argument.
-   **Abstammung nur, wo die eigene Erfahrung fehlt:** Bei viel gelaufenen Pferden zählt die eigene Bilanz auf dem
-   Boden, die Abstammungsstatistik ist dann ohne Belang (ein Pferd, das auf diesem Boden schon gelaufen ist, wird an
-   dieser Bilanz gemessen, nicht am Muttervater). Wichtig ist die Abstammung (alle Skalen: Boden, Distanz, Belag,
-   Reife; Gesamtwert) für junge, wenig gelaufene Pferde und für Pferde, die einen Boden zum ersten bis dritten Mal
-   erleben – dort kann eine klar unpassende Abstammung allein die Wette kippen. Differenziert lesen: Frankels mögen
-   sehr weichen Boden manchmal nicht – Souple ist dafür nicht weich genug. Bei jungen Pferden zählt zusätzlich die
-   **Qualität** der Linie (Blatt: max. Valeur der Nachkommen als Index, Gewinn je Lauf als Index), weil sie etwas
-   über das Potenzial sagt.
+   des Blatts lesen, über die **Platzquote** (ein Sieg ist ein zusätzliches Plus) – die Formzeilen zeigen nur einen Teil
+   der Läufe. Schon wenige Läufe zählen; eine Platzierung auf einem Boden belegt ihn. **Boden vergleichen:** Collant und
+   Lourd bilden zusammen die Gruppe Very slow und sind gleichwertig; Souple belegt Très souple nicht vollständig. Mit
+   schnellem Boden kommen mehr Pferde zurecht, auf sehr weichem zählen Spezialisten.
+   **Wechsel** von Belag, Boden oder Distanz an der Bilanz auf beiden Seiten messen (`P-WECHSEL-BESSER`,
+   `G-WECHSEL-SCHLECHTER`). Ein Distanzwechsel ab etwa 250 m ist auffällig (Blatt). Je weiter die Distanz von der
+   Mitteldistanz weg liegt (Blatt: Distanzklasse), desto mehr zählen Leistung auf der Strecke und Abstammung.
+   **Abstammung, wo die eigene Erfahrung fehlt:** Bei viel gelaufenen Pferden zählt die eigene Bilanz, die
+   Abstammungsstatistik ist dann ohne Belang. Wichtig ist die Abstammung (alle Skalen: Boden, Distanz, Belag, Reife;
+   Gesamtwert) für junge, wenig gelaufene Pferde und für Pferde, die einen Boden, Belag oder eine Distanz zum ersten
+   bis dritten Mal erleben – dort kann eine klar unpassende Abstammung allein die Wette kippen. Steigt ein junges Pferd
+   innerhalb einer Distanzklasse deutlich, zeigt die Platzquote der Nachkommen je Distanzklasse (Blatt), ob die Linie
+   längere Wege trägt. Differenziert lesen: Frankels mögen sehr weichen Boden manchmal nicht – Souple ist dafür nicht
+   weich genug. Bei jungen Pferden zählt zusätzlich die **Qualität** der Linie relativ zum Feld (Blatt: Platzierungs-,
+   Gewinn- und Valeur-Index der Nachkommen), weil sie etwas über das Potenzial sagt.
 5. **Trainer und Jockey.** Trainerwechsel in den letzten Läufen beachten (Blatt: „Trainer erst seit N Läufen“).
    Trainer: Form 30 Tage (kalt = Gegenargument, abgestuft), Bilanz auf der Bahn (kann eine kalte Form ausgleichen),
    Spezialität (Rennart, Alter, Debütanten), Stallgröße und -erfolg (kleiner Stall ohne Sieg in zwei Jahren =

@@ -67,13 +67,53 @@ def zahl(x, nk=1):
     return "–" if x is None else f"{x:.{nk}f}".replace(".", ",")
 
 
-def bilanz(e: dict | None) -> str:
+def bilanz(e: dict | None, quote: bool = False) -> str:
+    """Läufe/Siege/Plätze; quote=True (Vorlieben des Pferdes) mit Platzquote statt A/E – A/E ist bei wenigen Läufen
+    zu sprunghaft."""
     if not e:
         return "–"
     s = f"{e.get('runs', 0)} L/{e.get('wins', 0)} S/{e.get('places', 0)} P"
+    if quote:
+        return s + (f" ({100 * (e.get('places') or 0) / e['runs']:.0f} %)" if e.get("runs") else "")
     if e.get("ae") is not None:
         s += f", A/E {zahl(e['ae'], 2)}"
     return s
+
+
+DISTANZKLASSEN = ((1400, "Sprint"), (2399, "Mitteldistanz"), (2799, "Steher"), (99999, "Extremsteher"))
+DIST_WECHSEL = 250           # Meter: Distanzwechsel zum letzten Lauf ab hier eigens zeigen
+PREF_ALLE: dict = {}         # Tabellen der Karte (pref_alle), von main gesetzt
+
+
+def distanzklasse(m) -> str | None:
+    """Grobe Distanzklasse des Nutzers (Sprint bis 1400 m, Steher ab 2400 m, Extremsteher ab 2800 m)."""
+    return next((name for bis, name in DISTANZKLASSEN if m <= bis), None) if m else None
+
+
+def distanzwechsel(r: dict, fl: list[dict]) -> str | None:
+    """Hinweis bei Distanzwechsel zum letzten Lauf ab DIST_WECHSEL Metern."""
+    d0, d1 = r.get("distance"), (fl[0].get("dist") if fl else None)
+    if not d0 or not d1 or abs(d0 - d1) < DIST_WECHSEL:
+        return None
+    return f"Distanz heute {d0} m, letzter Lauf {d1} m ({d0 - d1:+d} m)"
+
+
+def split_distanz(tabelle) -> str | None:
+    """Nachkommen-Tabelle je 200-m-Gruppe ([Label, Läufe, Siege, Plätze, …]) → Läufe und Platzquote je Distanzklasse."""
+    summe: dict[str, list[int]] = {}
+    for zeile in tabelle or []:
+        lab = str(zeile[0]).replace(" m", "").replace(">", "")
+        try:
+            unten = int(lab.split("-")[0]) + (0 if "-" in lab else 1)
+        except ValueError:
+            continue
+        k = distanzklasse(max(unten, 1))
+        summe.setdefault(k, [0, 0])
+        summe[k][0] += zeile[1] or 0
+        summe[k][1] += zeile[3] or 0
+    teile = [f"{k} {summe[k][0]} L {100 * summe[k][1] / summe[k][0]:.0f} %" for _, k in DISTANZKLASSEN
+             if summe.get(k) and summe[k][0]]
+    return " · ".join(teile) or None
 
 
 def heute(liste, key="today"):
@@ -131,7 +171,7 @@ def kopf(r: dict, kz: list[dict]) -> None:
     top_kg = max((x.get("weight") or 0) for x in st) if st else None
     fav = min((z for z in kz if z["fk"]), key=lambda z: z["fk"], default=None)
     print(f"\n## {r['race_id'][-4:]} {r.get('course')} {r.get('time')} – {r.get('name')}")
-    print(f"{r.get('type')} · {r.get('age')} · {r.get('distance')} m · Bodenangabe {r.get('going')} (Gruppe {r.get('going_label')}, Quelle {r.get('going_source')}) · "
+    print(f"{r.get('type')} · {r.get('age')} · {r.get('distance')} m ({distanzklasse(r.get('distance'))}) · Bodenangabe {r.get('going')} (Gruppe {r.get('going_label')}, Quelle {r.get('going_source')}) · "
           f"{r.get('corde')} · {len(st)} Starter · Klassenindex {cls.get('val_idx')} · Preis {r.get('prize')} €")
     print(f"Tempo {pace.get('label')} · Laufstile {pace.get('groups')} · unbekannt {pace.get('unknown') or '–'}")
     if fav:
@@ -141,6 +181,27 @@ def kopf(r: dict, kz: list[dict]) -> None:
               + f" · Höchstgewicht {top_kg} kg")
     print("Handicap: Marke gegen letzte Sieg-/Platzmarke zählt." if ist_handicap(r)
           else "Kein Handicap: Marken-Vergleich ohne Belang, es zählt die gewichtsbereinigte Valeur im Feld.")
+
+
+def linie(x: dict, r: dict) -> str | None:
+    """Qualität der Linie: Platzierungs-, Gewinn- und Valeur-Index der Nachkommen von Vater und Muttervater, je mit
+    Rang unter den Startern des Rennens (relativ zum Feld)."""
+    out = []
+    for k, name in (("sire", "Vater"), ("dam_sire", "Muttervater")):
+        e = ((x.get("ae") or {}).get("pedigree") or {}).get(k)
+        if not isinstance(e, dict):
+            continue
+        teile = []
+        for f, lab in (("pos_idx", "Pos+"), ("epr_idx", "€/L+"), ("max_val3_idx", "maxVal+")):
+            v = e.get(f)
+            if v is None:
+                continue
+            feld = [w for y in r.get("runners") or [] if not y.get("nr")
+                    if (w := (((y.get("ae") or {}).get("pedigree") or {}).get(k) or {}).get(f)) is not None]
+            teile.append(f"{lab} {v} ({1 + sum(w > v for w in feld)}/{len(feld)})")
+        if teile:
+            out.append(f"{name} " + ", ".join(teile) + f", {e.get('horses')} Nachkommen")
+    return " · ".join(out) or None
 
 
 def ist_heute(f: dict, r: dict) -> bool:
@@ -321,22 +382,29 @@ def blatt(z: dict, r: dict, top_kg: float, titel: str = "") -> None:
         print(f"- Marke: letzte {'Sieg' if hm.get('kind') == 'sieg' else 'Platz'}-Marke {zahl(hm.get('val'))} ({hm.get('date')}, {hm.get('course')}), heute {hm.get('diff'):+.1f} kg")
     print(f"- Kennzeichen CGD {x.get('cgd') or '–'} · Badges {x.get('badges') or '–'} · Änderungen {[c.get('text') for c in x.get('changes') or []] or '–'} · Ausrüstung {x.get('blinkers')}")
     gs = ph.get("going") or []
-    print(f"- Vorlieben Boden (Very slow = Collant und Lourd): " + "; ".join(f"{e['label']}{' (heute)' if e.get('today') else ''} {bilanz(e)}" for e in gs) if gs else "- Vorlieben Boden: –")
-    print(f"- Vorlieben Distanz heute: {bilanz(heute(ph.get('distance')))} · Bahn heute: {bilanz(heute(ph.get('course')))} · "
-          f"Richtung heute: {bilanz(heute(ph.get('richtung')))} (andere: {bilanz(next((e for e in ph.get('richtung') or [] if not e.get('today')), None))})")
+    print(f"- Vorlieben Boden (Very slow = Collant und Lourd): " + "; ".join(f"{e['label']}{' (heute)' if e.get('today') else ''} {bilanz(e, True)}" for e in gs) if gs else "- Vorlieben Boden: –")
+    print(f"- Vorlieben Distanz heute: {bilanz(heute(ph.get('distance')), True)} · Bahn heute: {bilanz(heute(ph.get('course')), True)} · "
+          f"Richtung heute: {bilanz(heute(ph.get('richtung')), True)} (andere: {bilanz(next((e for e in ph.get('richtung') or [] if not e.get('today')), None), True)})")
+    dw = distanzwechsel(r, [f for f in fl if not f.get("extra")])
+    if dw:
+        print(f"- {dw}")
     bl = ph.get("blinkers") or []
     if len(bl) > 1:
-        print("- Ausrüstung: " + "; ".join(f"{e['label']}{' (heute)' if e.get('today') else ''} {bilanz(e)}" for e in bl))
+        print("- Ausrüstung: " + "; ".join(f"{e['label']}{' (heute)' if e.get('today') else ''} {bilanz(e, True)}" for e in bl))
     ab = x.get("abst") or {}
     ap = x.get("abst_pass") or {}
     if ap:
         print(f"- Abstammung gesamt (Vater:Muttervater 2:1, ±15 Tendenz, ±40 deutlich): {ap.get('gesamt')} · "
               + " · ".join(f"{k} {ap[k]}" for k in ("boden", "dist", "belag", "reife") if ap.get(k) is not None))
-    ped = (x.get("ae") or {}).get("pedigree") or {}
-    q = [f"{name} max. Valeur-Index {ped[k].get('max_val3_idx')}, Gewinn/Lauf-Index {ped[k].get('epr_idx')} ({ped[k].get('horses')} Nachkommen)"
-         for k, name in (("sire", "Vater"), ("dam_sire", "Muttervater")) if isinstance(ped.get(k), dict)]
+    q = linie(x, r)
     if q:
-        print("- Qualität der Linie (v. a. bei jungen Pferden): " + " · ".join(q))
+        print("- Qualität der Linie (Nachkommen, Index 100 = Ø; Rang im Feld): " + q)
+    if dw or not (heute(ph.get("distance")) or {}).get("runs"):
+        for k, name in (("sire", "Vater"), ("dam_sire", "Muttervater")):
+            ref = ((x.get("pref_ref") or {}).get(k) or {}).get("distance")
+            sp = split_distanz((PREF_ALLE.get(ref[0]) or {}).get(ref[1])) if ref and len(ref) > 1 else None
+            if sp:
+                print(f"- Nachkommen {name} ({x.get(k)}) nach Distanzklasse, Platzquote: {sp}")
     for k, name in (("sire", "Vater"), ("dam_sire", "Muttervater")):
         teile = []
         for skala, label in (("boden", "Boden"), ("dist", "Distanz"), ("belag", "Belag"), ("reife", "Reife")):
@@ -386,6 +454,7 @@ def main(argv: list[str]) -> None:
     if len(argv) < 2:
         raise SystemExit(__doc__)
     d = laden(argv[1])
+    PREF_ALLE.update(d.get("pref_alle") or {})
     filter_ = [a.upper() for a in argv[2:]]
     if not filter_:
         uebersicht(d)

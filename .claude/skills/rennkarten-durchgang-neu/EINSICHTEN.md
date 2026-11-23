@@ -107,9 +107,12 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
 - **[gewichtig]** `G-BODEN-WEICH-SCHWACH` Auf sehr weichem Boden deutlich schlechterer Schnitt bzw. erstmals Very slow bei weiteren
   Fragezeichen. *Crew Dragon, Tulpar, Piano Bar.*
 - **[gewichtig]** `G-RICHTUNG` In der heutigen Kursrichtung klar schlechter. *Fireman 11.11.*
-- **[leicht]** `F-BELAG-NEU` Erstmals PSF wiegt bei einem Pferd mit Form kaum negativ, vorausgesetzt die Abstammung passt
-  zum Belag; schwer wird es erst bei unpassender Abstammung. Dabei zählt der Vater mehr als der Muttervater, Rohwerte
-  prüfen, wenn das Blatt „neutral“ sagt. *Touessrok, Baila Nak 17.11.; Boomslang 18.11.*
+- **[leicht]** `F-BELAG-NEU` Erstmals ein Belag wiegt bei einem Pferd mit Form kaum negativ, wenn die Abstammung zum
+  Belag passt; dabei zählt der Vater mehr als der Muttervater, Rohwerte prüfen, wenn das Blatt „neutral“ sagt. Von PSF
+  auf Gras überträgt sich Form schlechter als umgekehrt. *Touessrok, Baila Nak 17.11.; Boomslang 18.11.*
+- **[gewichtig]** `P-WECHSEL-BESSER` / `G-WECHSEL-SCHLECHTER` Gute Form auf dem Belag, Boden oder der Distanz mit der
+  schwächeren Bilanz, heute die mit der besseren → weitere Steigerung zu erwarten; umgekehrt eher Abfall. Ohne Bilanz
+  entscheidet die Abstammung.
 
 ## 5. Trainer und Jockey
 

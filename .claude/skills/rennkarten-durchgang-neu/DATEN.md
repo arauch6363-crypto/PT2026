@@ -27,9 +27,10 @@ wo die Daten Lücken haben.
 | Value-Faktor | `power.wert`, `gold`, `warn` | nicht dasselbe wie Value |
 | Marke | `rating`; `hcp_mark` | `hcp_mark.kind` sieg/platz, `diff` = heute − damalige Marke (positiv = Aufgewicht); **nur im Handicap aussagekräftig** |
 | Valeur bereinigt | `rating_adj`, `rating_rank`/`rating_n` | Valeur − Gewicht + 55; zählt außerhalb des Handicaps (wer hat heute die meiste Klasse fürs Gewicht) |
-| Qualität der Linie | `ae.pedigree.sire/dam_sire`: `max_val3_idx`, `epr_idx`, `horses` | Ø höchste Valeur der Nachkommen als Dreijährige bzw. Gewinn je Lauf, als Index; v. a. bei jungen Pferden |
+| Qualität der Linie | `ae.pedigree.sire/dam_sire`: `pos_idx`, `epr_idx`, `max_val3_idx`, `horses` | Ø Platzierung, Gewinn je Lauf, Ø höchste Valeur der Dreijährigen der Nachkommen, als Index; das Blatt zeigt den Rang im Feld |
+| Nachkommen je Distanzklasse | `pref_ref.sire/dam_sire.distance` → `pref_alle` | Läufe und Platzquote je Distanzklasse; das Blatt zeigt sie bei Distanzwechsel ab 250 m oder ohne Lauf in der heutigen Distanzgruppe |
 | CGD | `cgd` | Je Buchstabe Bahn mit Belag (C), Bodengruppe (G), Distanzgruppe (D): Großbuchstabe = dort gewonnen, klein = platziert, · = gelaufen ohne Platz, ◦ = erstmals, – = unbekannt |
-| Vorlieben | `pref.horse.going/distance/course/richtung/blinkers/trainer` | **Gesamtbilanz** der Datenbank; `today` markiert die heutige Gruppe |
+| Vorlieben | `pref.horse.going/distance/course/richtung/blinkers/trainer` | **Gesamtbilanz** der Datenbank; `today` markiert die heutige Gruppe; das Blatt zeigt die Platzquote statt A/E |
 | Trainer | `ae.trainer.d30` (Form), `pref.trainer.course/racetype/age` | `trend` hot/cold; Trainerwechsel aus `pref.horse.trainer` (Läufe beim heutigen Trainer gegen alle) – Blatt: „Trainer erst seit N Läufen“ (bis 5) |
 | Jockey | `ae.jockey.d365`, `pref.jockey.course/horse/trainer` | `pref.jockey.trainer` = Gespann |
 | Ratings | `arr.adj` (gewichtsbereinigt), `arr.rank`, `tr.rank`, `rtr.rank` | Top-ARR des Feldes im Blattkopf |
