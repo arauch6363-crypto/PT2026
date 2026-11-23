@@ -589,6 +589,21 @@ die **letzte** Sieg- bzw. Platzmarke mit Datum (`hcp_mark`). Dein Zeitfenster (�
 „stetiger Abstieg oder erklärbar“ fehlen dort. `G-FORMLOS` [gewichtig] (lange formlose Phase) liegt nah an „stetiger
 Abstieg“.
 
+## C6 Box
+
+**Antwort (23.11.):**
+
+> **G-BOX gewichtig** zählt natürlich bei einer **negativen Abweichung**: Hat man eine schlechte Box, ist es ein Nachteil.
+
+**Notiert:** `G-BOX` [gewichtig] bei signifikant schlechter Box bestätigt; `P-BOX` [leicht] nicht widersprochen.
+Box nach Distanz und Bahn: nicht angesprochen.
+
+## C7 Laufstil
+
+**Antwort (23.11.):** „Zum Laufstil haben wir, glaube ich, alles gesagt.“
+
+**Notiert:** wie A7/A10 – Laufstil nur Indikator, **leicht**, zusammen mit Tempo und Bahn-Bias; „früh Ø %“ nicht nötig.
+
 ## Stand
 
 - Erledigt: A1, A2, A3, A4, Q1 (Querschnitt Referenzläufe), A5 (Nachfragen zu Winter-PSF offen).
@@ -601,7 +616,7 @@ Abstieg“.
 - Erledigt zusätzlich: A12 (Block A vollständig).
 - Erledigt zusätzlich: B1.
 - Erledigt zusätzlich: B2, B3 (Block B vollständig).
-- Erledigt zusätzlich: C1, C2, C3, C4, C5.
-- Offen: C6 bis H.
+- Erledigt zusätzlich: C1 bis C7.
+- Offen: C8 bis H.
 - Später auswerten: Verteilung der Starts je Alter (Exposure, C2).
 - Datenlücke: Gewichtserlaubnis des Jockeys fehlt in der Karte (C4).
