@@ -106,6 +106,18 @@ PY
   contentMimeType `application/json`, disableConversionToGoogleType true, textContent = Inhalt der Datei (mit Read
   lesen und unverändert übergeben).
 
+## 5a. Wett-Agent starten
+
+Direkt nach Schritt 5 (vor dem Veröffentlichen), nur wenn in diesem Durchgang eine neue Durchgang-Datei entstanden ist:
+
+- `python3 -I /home/claude/pt2026/agent_wettstar/ausloesen.py KARTE /home/claude/rd/durchgang_JJJJMMTT_HHMM.json`
+  (nur die Datei **dieses** Durchgangs, nie ältere – sonst würden Tipps doppelt gespielt).
+- Das Skript nimmt die NAP/BET dieses Durchgangs und startet den Wett-Agenten (Managed Agent, NAP 10 €, BET 5 €
+  Sieg FK). Ohne Tipps startet es nichts. Den API-Key liest es selbst aus `WETT_AGENT_API_KEY`: den Key nie
+  ausgeben, nie in Dateien oder Ergebnisse schreiben, keine anderen Aufrufe damit machen.
+- Nur einmal aufrufen, auch bei einem Fehler nicht wiederholen (sonst könnten zwei Agenten dieselben Tipps spielen).
+  Die Ausgabe (gestartet, session_id oder Fehler, weggelassene Tipps) ins Ergebnis übernehmen.
+
 ## 6. Markierte Karte veröffentlichen
 
 - `python3 -I /home/claude/pt2026/durchgang.py markieren KARTE /home/claude/rd/racecard_heute.html --template /home/claude/pt2026/racecard_template.html /home/claude/rd/durchgang_JJJJMMTT_*.json`.
@@ -128,3 +140,4 @@ PY
 - Danach je Rennen eine Zeile: neu bearbeitet (mit Rennvergleich), schon erledigt, kein Festkurs (startet erneut,
   sobald Festkurse geholt sind; sonst von Hand), gelaufen, Araber, Fehler.
 - Link zum Artefakt „Racecard heute“ und der Name der neuen Drive-Datei (falls angelegt).
+- Wett-Agent: gestartet mit session_id und Zahl der Tipps, keine Tipps, oder der Fehler aus Schritt 5a.
