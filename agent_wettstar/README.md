@@ -1,7 +1,7 @@
 # Wett-Agent Wettstar (Sieg FK)
 
-Spielt die Claude-Tipps eines Durchgangs (Aufgabe „Racecard-Durchgang“) als Festkurs-Siegwetten bei
-wettstar-pferdewetten.de: **NAP 10 €, BET 5 €**, sofort nach der Auslösung, nur bei Festkurs ≥ Mindestquote (mq).
+Spielt die Claude-Tipps eines Durchgangs (Aufgabe „Racecard-Durchgang“) und je Rennen den Modell-Ersten mit Value > 0 als Festkurs-Siegwetten bei
+wettstar-pferdewetten.de: **NAP 10 €, BET 5 €, MODELL 5 €**, sofort nach der Auslösung, nur bei Festkurs ≥ Mindestquote (mq).
 
 - `SYSTEMPROMPT.md`: Konfiguration des Agenten (Eingabeformat, Sicherheitsregeln, Ablauf).
 - `wettstar-bettor/`: Skill mit `scripts/bet_multi.py` (Playwright, ein Login für alle Wetten).
