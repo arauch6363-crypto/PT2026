@@ -5,6 +5,9 @@ Aufruf am Ende der Aufgabe „Racecard-Durchgang“ (Schritt 8 in claude_projekt
 
 - Tipps = Kandidaten mit Urteil „wette“ (NAP, 10 €) oder „klein“ (BET, 5 €) aus DURCHGANG.json – nur die Datei
   dieses Durchgangs übergeben, damit kein Tipp zweimal gespielt wird. Bahn, Zeit und RxCy kommen aus der Karte.
+- Dazu MODELL-Tipps (5 €): in jedem Rennen dieses Durchgangs das Pferd mit Modell-Rang 1 (nach power.p, wie
+  blatt.py), wenn sein Value (Festkurs × power.sieg − 1) über 0 liegt und es nicht schon NAP/BET ist.
+  Mindestkurs = Break-even 1/power.sieg (aufgerundet), damit auch beim Wetten noch Value > 0 gilt.
 - Rennen, die in weniger als VORLAUF_MIN Minuten starten (Paris), werden weggelassen.
 - Keine Tipps: keine Session, Ausgabe {"gestartet": false, ...}.
 - Doppelschutz: Jede echte Wett-Session trägt in metadata Datum und Tipps (race_id-nr). Vor dem Start werden die
@@ -17,6 +20,7 @@ Nur Standardbibliothek.
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 import urllib.error
@@ -37,18 +41,37 @@ BUDGET_CENT = "500"                               # Kostengrenze je Session: 5 $
 VORLAUF_MIN = 3                                   # Start mindestens so viele Minuten entfernt
 
 
+def modell_erster(r: dict) -> list[dict]:
+    """Starter mit Modell-Rang 1 (nach power.p, Gleichstand zählt) und Value > 0: no, horse, fk, p, min_fk."""
+    st = [x for x in r.get("runners") or [] if not x.get("nr")]
+    ps = [((x.get("power") or {}).get("p") or 0) for x in st]
+    out = []
+    for x in st:
+        pw, fk = x.get("power") or {}, (x.get("fk") or {}).get("sieg")
+        p = pw.get("sieg")
+        if pw.get("p") is None or sum(1 for q in ps if q > pw["p"]) or not (fk and p) or fk * p - 1 <= 0:
+            continue
+        out.append({"no": int(x["no"]), "horse": x.get("horse"), "fk": fk, "p": p,
+                    "min_fk": round(math.ceil(round(100 / p, 9)) / 100 + (0.01 if round(100 / p, 9).is_integer() else 0), 2)})
+    return out
+
+
 def tipps(karte: dict, dg: dict, jetzt: str) -> tuple[list[dict], list[str]]:
-    """NAP/BET des Durchgangs mit Bahn und Zeit aus der Karte. Rückgabe: (tipps, weggelassen mit Grund)."""
+    """NAP/BET des Durchgangs plus MODELL-Tipps, mit Bahn und Zeit aus der Karte. Rückgabe: (tipps, weggelassen)."""
     info = {p["race_id"]: p for p in durchgang.plan(karte, set(), "00:00")}
+    rennen = {str(r.get("race_id")): r for r in durchgang.rennen_liste(karte)}
     grenze = (datetime.strptime(jetzt, "%H:%M") + timedelta(minutes=VORLAUF_MIN)).strftime("%H:%M")
     out, weg = [], []
     for r in dg.get("rennen") or []:
         if r.get("status") != "bearbeitet":
             continue
-        for k in r.get("kandidaten") or []:
-            kz = durchgang.KENNZEICHEN.get(k.get("urteil"))
-            if not kz:
-                continue
+        kand = [{**k, "kz": durchgang.KENNZEICHEN.get(k.get("urteil"))} for k in r.get("kandidaten") or []]
+        claude = {int(k["no"]) for k in kand if k["kz"]}
+        kand = [k for k in kand if k["kz"]] + [
+            {"no": m["no"], "horse": m["horse"], "fk": m["fk"], "mq": m["min_fk"], "kz": "MODELL"}
+            for m in modell_erster(rennen.get(str(r["race_id"])) or {}) if m["no"] not in claude]
+        for k in kand:
+            kz = k["kz"]
             rid, p = str(r["race_id"]), info.get(str(r["race_id"]))
             name = f"{rid} Nr. {k.get('no')} {k.get('horse')}"
             if not p or not p.get("bahn") or not p.get("zeit"):
