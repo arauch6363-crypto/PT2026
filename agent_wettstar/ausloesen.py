@@ -7,6 +7,8 @@ Aufruf am Ende der Aufgabe „Racecard-Durchgang“ (Schritt 8 in claude_projekt
   dieses Durchgangs übergeben, damit kein Tipp zweimal gespielt wird. Bahn, Zeit und RxCy kommen aus der Karte.
 - Rennen, die in weniger als VORLAUF_MIN Minuten starten (Paris), werden weggelassen.
 - Keine Tipps: keine Session, Ausgabe {"gestartet": false, ...}.
+- Doppelschutz: Jede echte Wett-Session trägt in metadata Datum und Tipps (race_id-nr). Vor dem Start werden die
+  heutigen Sessions des Agenten gelesen; schon geschickte Tipps fallen weg. Ist die Liste nicht lesbar: kein Start.
 - --zeige: nur den Payload ausgeben, nichts senden. --dry-run: Payload mit "dry_run": true (Agent setzt nichts).
 - API-Key aus der Umgebungsvariable WETT_AGENT_API_KEY (nie ausgeben).
 
@@ -18,6 +20,7 @@ import json
 import os
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -59,11 +62,58 @@ def tipps(karte: dict, dg: dict, jetzt: str) -> tuple[list[dict], list[str]]:
     return out, weg
 
 
+def schluessel(t: dict) -> str:
+    return f"{t['race_id']}-{int(t['nr'])}"
+
+
+def schon_geschickt(sessions: list[dict], datum: str) -> set[str]:
+    """Tipps (race_id-nr), die heutige echte Wett-Sessions schon bekommen haben (Dry-Runs zählen nicht)."""
+    out: set[str] = set()
+    for s in sessions:
+        m = s.get("metadata") or {}
+        if m.get("wett_datum") == datum and m.get("dry_run") != "1":
+            out |= {x for x in str(m.get("wett_tipps") or "").split(",") if x}
+    return out
+
+
+def ohne_doppelte(ts: list[dict], geschickt: set[str]) -> tuple[list[dict], list[str]]:
+    neu, weg = [], []
+    for t in ts:
+        if schluessel(t) in geschickt:
+            weg.append(f"{t['race_id']} Nr. {t['nr']} {t['name']}: heute schon an den Wett-Agenten geschickt")
+        else:
+            neu.append(t)
+    return neu, weg
+
+
 def payload(dg: dict, dateiname: str, ts: list[dict], dry_run: bool = False) -> dict:
     p = {"datum": dg.get("datum"), "durchgang": dateiname, "tipps": ts}
     if dry_run:
         p["dry_run"] = True
     return p
+
+
+def _http(methode: str, url: str, key: str, body: dict | None = None) -> dict:
+    req = urllib.request.Request(url, data=json.dumps(body).encode() if body is not None else None, method=methode,
+                                 headers={"Content-Type": "application/json", "x-api-key": key,
+                                          "anthropic-version": "2026-10-21",
+                                          "anthropic-beta": "managed-agents-2026-04-01"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return json.loads(r.read().decode())
+
+
+def heutige_sessions(key: str) -> list[dict]:
+    """Sessions des Wett-Agenten seit heute 00:00 Paris (auch archivierte)."""
+    ab = datetime.now(durchgang.PARIS).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    q = {"agent_id": AGENT_ID, "created_at[gte]": ab, "include_archived": "true", "limit": "100"}
+    out, seite = [], None
+    for _ in range(20):
+        d = _http("GET", API + "?" + urllib.parse.urlencode({**q, **({"page": seite} if seite else {})}), key)
+        out += d.get("data") or []
+        seite = d.get("next_page")
+        if not seite:
+            break
+    return out
 
 
 def starten(p: dict, key: str) -> dict:
@@ -72,13 +122,11 @@ def starten(p: dict, key: str) -> dict:
     body = {"agent": AGENT_ID, "environment_id": ENVIRONMENT_ID, "vault_ids": [VAULT_ID],
             "title": f"Wetten {p['durchgang']}" + (" (Dry-Run)" if p.get("dry_run") else ""),
             "budget": {"type": "limit", "max_list_cost": {"amount": BUDGET_CENT, "currency": "USD"}},
+            "metadata": {"wett_datum": str(p.get("datum")), "dry_run": "1" if p.get("dry_run") else "0",
+                         "wett_tipps": ",".join(schluessel(t) for t in p["tipps"])[:512]},
             "initial_events": [{"type": "user.message", "content": [{"type": "text", "text": text}]}]}
-    req = urllib.request.Request(API, data=json.dumps(body).encode(), method="POST", headers={
-        "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2026-10-21",
-        "anthropic-beta": "managed-agents-2026-04-01"})
     try:
-        with urllib.request.urlopen(req, timeout=60) as r:
-            d = json.loads(r.read().decode())
+        d = _http("POST", API, key, body)
     except urllib.error.HTTPError as e:
         raise SystemExit(json.dumps({"gestartet": False, "fehler": f"HTTP {e.code}",
                                      "antwort": e.read().decode(errors="replace")[:500]}, ensure_ascii=False))
@@ -104,6 +152,19 @@ def main(argv: list[str]) -> None:
     if not key:
         raise SystemExit(json.dumps({"gestartet": False, "fehler": f"{KEY_VAR} fehlt", "payload": p},
                                     ensure_ascii=False))
+    if not dry:
+        try:
+            geschickt = schon_geschickt(heutige_sessions(key), str(dg.get("datum")))
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            raise SystemExit(json.dumps({"gestartet": False, "fehler": f"Doppelprüfung nicht möglich: {e}",
+                                         "payload": p}, ensure_ascii=False))
+        ts, doppelt = ohne_doppelte(ts, geschickt)
+        weg += doppelt
+        p = payload(dg, dgp.name, ts, dry)
+        if not ts:
+            print(json.dumps({"gestartet": False, "grund": "alle Tipps heute schon geschickt", "weggelassen": weg},
+                             ensure_ascii=False))
+            return
     print(json.dumps({**starten(p, key), "tipps": len(ts), "weggelassen": weg}, ensure_ascii=False))
 
 

@@ -45,3 +45,18 @@ def test_payload_dry_run():
     ts, _ = au.tipps(_karte(), _dg(), "13:00")
     assert "dry_run" not in au.payload(_dg(), "durchgang_20261124_1310.json", ts)
     assert au.payload(_dg(), "x.json", ts, dry_run=True)["dry_run"] is True
+
+
+def test_doppelte_tipps_fallen_weg():
+    ts, _ = au.tipps(_karte(), _dg(), "13:00")
+    sessions = [
+        {"metadata": {"wett_datum": "2026-11-24", "dry_run": "0", "wett_tipps": "20261124R1C1-16"}},
+        {"metadata": {"wett_datum": "2026-11-24", "dry_run": "1", "wett_tipps": "20261124R1C4-2"}},   # Dry-Run zählt nicht
+        {"metadata": {"wett_datum": "2026-11-23", "dry_run": "0", "wett_tipps": "20261124R1C1-13"}},  # anderer Tag
+        {"metadata": {}},
+    ]
+    geschickt = au.schon_geschickt(sessions, "2026-11-24")
+    assert geschickt == {"20261124R1C1-16"}
+    neu, weg = au.ohne_doppelte(ts, geschickt)
+    assert [t["name"] for t in neu] == ["ROULETTE", "SALMY"]
+    assert len(weg) == 1 and "STARAC" in weg[0]

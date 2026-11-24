@@ -108,7 +108,10 @@ PY
 
 ## 5a. Wett-Agent starten
 
-Direkt nach Schritt 5 (vor dem Veröffentlichen), nur wenn in diesem Durchgang eine neue Durchgang-Datei entstanden ist:
+Direkt nach Schritt 5 (vor dem Veröffentlichen), nur wenn in diesem Durchgang eine neue Durchgang-Datei entstanden
+**und** create_file in Drive erfolgreich war (sonst sähe der nächste Durchgang die Rennen als offen und würde dieselben
+Tipps noch einmal auslösen). Ist die Ablage gescheitert: nicht auslösen, im Ergebnis „Wett-Agent nicht gestartet,
+Ablage in Drive fehlgeschlagen“ nennen.
 
 - `python3 -I /home/claude/pt2026/agent_wettstar/ausloesen.py KARTE /home/claude/rd/durchgang_JJJJMMTT_HHMM.json`
   (nur die Datei **dieses** Durchgangs, nie ältere – sonst würden Tipps doppelt gespielt).
