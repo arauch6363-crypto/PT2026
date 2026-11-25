@@ -20,6 +20,7 @@ Nur Standardbibliothek.
 from __future__ import annotations
 
 import json
+import re
 import math
 import os
 import sys
@@ -68,10 +69,13 @@ def tipps(karte: dict, dg: dict, jetzt: str) -> tuple[list[dict], list[str]]:
         kand = [{**k, "kz": durchgang.KENNZEICHEN.get(k.get("urteil"))} for k in r.get("kandidaten") or []]
         claude = {int(k["no"]) for k in kand if k["kz"]}
         kand = [k for k in kand if k["kz"]] + [
-            {"no": m["no"], "horse": m["horse"], "fk": m["fk"], "mq": m["min_fk"], "kz": "MODELL"}
+            {"no": m["no"], "horse": m["horse"], "fk": m["fk"], "mq": m["min_fk"], "kz": "MODELL", "p_modell": m["p"]}
             for m in modell_erster(rennen.get(str(r["race_id"])) or {}) if m["no"] not in claude]
+        laeufer = {int(x["no"]): x for x in (rennen.get(str(r["race_id"])) or {}).get("runners") or []
+                   if x.get("no") is not None}
         for k in kand:
             kz = k["kz"]
+            pm = k.get("p_modell") or ((laeufer.get(int(k["no"])) or {}).get("power") or {}).get("sieg")
             rid, p = str(r["race_id"]), info.get(str(r["race_id"]))
             name = f"{rid} Nr. {k.get('no')} {k.get('horse')}"
             if not p or not p.get("bahn") or not p.get("zeit"):
@@ -80,7 +84,8 @@ def tipps(karte: dict, dg: dict, jetzt: str) -> tuple[list[dict], list[str]]:
                 weg.append(f"{name}: Start {p['zeit']} zu nah oder vorbei"); continue
             out.append({"race_id": rid, "rennen": p["rennen"], "bahn": p["bahn"], "zeit": p["zeit"],
                         "nr": int(k["no"]), "name": k.get("horse"), "kennzeichen": kz,
-                        "fk": k.get("fk"), "mq": k.get("mq") or k.get("fk")})
+                        "fk": k.get("fk"), "mq": k.get("mq") or k.get("fk"),
+                        "p": round(float(pm), 4) if pm else None})
     out.sort(key=lambda t: (t["zeit"], t["race_id"], t["nr"]))
     return out, weg
 
@@ -107,6 +112,32 @@ def ohne_doppelte(ts: list[dict], geschickt: set[str]) -> tuple[list[dict], list
         else:
             neu.append(t)
     return neu, weg
+
+
+GUTHABEN = re.compile(r"Guthaben (\d+(?:\.\d+)?), benötigt")
+
+
+def _texte(c) -> list[str]:
+    if isinstance(c, str):
+        return [c]
+    out = []
+    for x in c or []:
+        if isinstance(x, dict):
+            if isinstance(x.get("text"), str):
+                out.append(x["text"])
+            elif "content" in x:
+                out += _texte(x["content"])
+    return out
+
+
+def startbank_aus_events(events: list[dict]) -> float | None:
+    """Erstes „Guthaben X, benötigt …“ aus der Skriptausgabe einer Wett-Session."""
+    for e in events:
+        for t in _texte(e.get("content")):
+            m = GUTHABEN.search(t)
+            if m:
+                return float(m.group(1))
+    return None
 
 
 def payload(dg: dict, dateiname: str, ts: list[dict], dry_run: bool = False) -> dict:
@@ -137,6 +168,24 @@ def heutige_sessions(key: str) -> list[dict]:
         if not seite:
             break
     return out
+
+
+def startbank_heute(sessions: list[dict], datum: str, key: str) -> float | None:
+    """Guthaben beim ersten echten Wett-Lauf des Tages (älteste Session mit wett_datum = datum, kein Dry-Run)."""
+    echte = sorted((s for s in sessions if (s.get("metadata") or {}).get("wett_datum") == datum
+                    and (s.get("metadata") or {}).get("dry_run") != "1"), key=lambda s: s.get("created_at") or "")
+    for s in echte:
+        events, seite = [], None
+        for _ in range(20):
+            d = _http("GET", f"{API}/{s['id']}/events" + (f"?page={seite}" if seite else ""), key)
+            events += d.get("data") or []
+            seite = d.get("next_page")
+            if not seite:
+                break
+        sb = startbank_aus_events(events)
+        if sb:
+            return sb
+    return None
 
 
 def starten(p: dict, key: str) -> dict:
@@ -175,15 +224,20 @@ def main(argv: list[str]) -> None:
     if not key:
         raise SystemExit(json.dumps({"gestartet": False, "fehler": f"{KEY_VAR} fehlt", "payload": p},
                                     ensure_ascii=False))
+    startbank = None
     if not dry:
         try:
-            geschickt = schon_geschickt(heutige_sessions(key), str(dg.get("datum")))
+            sessions = heutige_sessions(key)
+            geschickt = schon_geschickt(sessions, str(dg.get("datum")))
+            startbank = startbank_heute(sessions, str(dg.get("datum")), key)
         except (urllib.error.URLError, OSError, ValueError) as e:
             raise SystemExit(json.dumps({"gestartet": False, "fehler": f"Doppelprüfung nicht möglich: {e}",
                                          "payload": p}, ensure_ascii=False))
         ts, doppelt = ohne_doppelte(ts, geschickt)
         weg += doppelt
         p = payload(dg, dgp.name, ts, dry)
+        if startbank:
+            p["startbank"] = startbank
         if not ts:
             print(json.dumps({"gestartet": False, "grund": "alle Tipps heute schon geschickt", "weggelassen": weg},
                              ensure_ascii=False))

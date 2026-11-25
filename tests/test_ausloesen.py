@@ -80,3 +80,18 @@ def test_modell_erster():
     assert au.modell_erster({"runners": LAEUFER[4]}) == []                             # Value 3,0 × 0,30 − 1 < 0
     gleich = [_l(1, "A", 100, 0.25, 5.0), _l(2, "B", 100, 0.25, 4.5)]
     assert [(m["no"], m["min_fk"]) for m in au.modell_erster({"runners": gleich})] == [(1, 4.01), (2, 4.01)]  # Gleichstand: beide Rang 1, Break-even 4,0 → 4,01
+
+
+def test_p_im_tipp_und_startbank():
+    karte, dg = _karte(), _dg()
+    dg["rennen"][0]["kandidaten"][1]["p_modell"] = 0.154               # ROULETTE: p aus dem Durchgang
+    ts, _ = au.tipps(karte, dg, "13:00")
+    p = {t["name"]: t["p"] for t in ts}
+    assert p["ROULETTE"] == 0.154                                      # p_modell aus dem Durchgang
+    assert p["STARAC"] == 0.162                                        # sonst power.sieg aus der Karte
+    assert p["SALMY"] == 0.204                                         # power.sieg aus der Karte
+    assert p["SUPERCLASS"] == 0.217                                    # MODELL: power.sieg
+    ev = [{"type": "agent.message", "content": [{"type": "text", "text": "Ich starte."}]},
+          {"type": "agent.tool_result", "content": [{"type": "text", "text": "Guthaben 174.21, benötigt gesamt 68.25\nX"}]}]
+    assert au.startbank_aus_events(ev) == 174.21
+    assert au.startbank_aus_events([]) is None

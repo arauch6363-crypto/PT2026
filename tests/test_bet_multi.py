@@ -24,3 +24,13 @@ def test_name_karte_gegen_wettstar():
     assert bm.name_passt(14, "SUPERCLASS", "14.Superclass")
     assert not bm.name_passt(1, "DRACO", "11.Draco(4)")       # andere Startnummer
     assert not bm.name_passt(1, "DRACO", "1.Superclass(4)")   # anderes Pferd
+
+
+def test_einsatz_achtel_kelly():
+    # Kelly = (p·fk − 1)/(fk − 1); 1/8 davon × Bank, auf volle Euro, nie unter dem Mindesteinsatz
+    assert bm.einsatz(5, 0.162, 8.5, 174.21) == 5        # Kelly 0,050 → 1,10 € < 5
+    assert bm.einsatz(10, 0.30, 6.0, 1000) == 20         # Kelly 0,16 → 20,0 €
+    assert bm.einsatz(5, 0.204, 12.0, 400) == 7          # Kelly 0,1316 → 6,58 → 7 €
+    assert bm.einsatz(5, 0.25, 5.0, 900) == 7            # Kelly 0,0625 → 7,03 → 7 €
+    assert bm.einsatz(5, 0.20, 5.5, 1000) == 5           # Kelly (1,1 − 1)/4,5 = 0,022 → 2,78 € < 5
+    assert bm.einsatz(5, None, 9.0, 1000) == 5           # ohne p nur Mindesteinsatz

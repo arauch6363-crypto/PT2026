@@ -7,6 +7,8 @@ from difflib import SequenceMatcher
 
 BASE = "https://www.wettstar-pferdewetten.de"
 OUT = "/tmp/ws"
+KELLY_TEIL = 1 / 8 # Einsatz = max(stake, gerundet(1/8 × Kelly × Startbank)) auf volle Euro
+MAX_ANTEIL = 0.50  # höchstens so viel der Startbank je Aufruf (Summe der Einsätze ohne Steuer)
 NAME_MIN = 0.80   # Mindestähnlichkeit des Namens bei gleicher Startnummer (Schreibweisen PMU-Karte vs. Wettstar)
 
 
@@ -37,6 +39,15 @@ def name_passt(nr, name, zeile):
     if not m: return False
     a, b = key(m.group(1)), key(name)
     return bool(a and b) and (a == b or a.startswith(b) or SequenceMatcher(None, a, b).ratio() >= NAME_MIN)
+
+
+def einsatz(basis: float, p, fk: float, bank: float) -> int:
+    """max(Mindesteinsatz, 1/8 Kelly der Startbank), auf volle Euro gerundet (halbe aufwärts)."""
+    basis = int(round(basis))
+    if not p or fk <= 1:
+        return basis
+    kelly = (float(p) * fk - 1) / (fk - 1)
+    return max(basis, int(bank * kelly * KELLY_TEIL + 0.5))
 
 
 class Skip(Exception): pass
@@ -100,6 +111,11 @@ def main():
         print(f"Guthaben {bal:.2f}, benötigt gesamt {need:.2f}")
         if bal < need:
             print(f"ABBRUCH: zu wenig Guthaben, fehlen {need-bal:.2f}. KEINE Einzahlung."); sys.exit(2)
+        sb = next((x.get("startbank") for x in bets if x.get("startbank")), None)
+        bank = float(sb) if sb else bal                  # Startbank des Tages, sonst Guthaben jetzt
+        print(f"Startbank {bank:.2f} ({'vom ersten Lauf des Tages' if sb else 'Guthaben jetzt'}), "
+              f"Höchstsumme {bank * MAX_ANTEIL:.2f}")
+        rest, summe = bal, 0.0
 
         # 3) Wetten. Nach einer echten Wette bleibt „Vielen Dank für Ihre Wette“ im Wettschein stehen (auch nach
         # goto), dann fehlt „Wettabgabe“ – deshalb vor der nächsten Wette frischer Kontext mit neuem Login.
@@ -110,7 +126,7 @@ def main():
                 pg.context.close(); pg = neue_seite(); einloggen(pg); frisch = False
             bestaetigt = False
             tag = re.sub(r"\W+", "_", f"{bt['name']}_{bt['zeit']}")
-            nr, stake, min_fk = int(bt["nr"]), float(bt["stake"]), float(bt["min_fk"])
+            nr, basis, min_fk = int(bt["nr"]), float(bt["stake"]), float(bt["min_fk"])
             try:
                 pg.goto(bt["url"], wait_until="networkidle")
                 if pg.get_by_text("Start " + bt["zeit"], exact=False).count() == 0 and bt["zeit"] not in norm(pg.locator("body").inner_text()):
@@ -129,9 +145,24 @@ def main():
                 fk = num(norm(row.locator(".c-runner-odd--type-fix .c-runner-odd__value").first.inner_text()))
                 print(f"{bt['name']}: FK {fk}")
                 if fk < min_fk: raise Skip(f"FK {fk} < {min_fk}")
-                if int(stake) not in (1, 3, 5, 10, 20) or stake != int(stake): raise Skip("Einsatz kein einzelner Chip")
+                stake = einsatz(basis, bt.get("p"), fk, bank)
+                print(f"{bt['name']}: Einsatz {stake} € (Mindest {basis:g}, p {bt.get('p')}, Bank {bank:.2f})")
+                if stake < 1: raise Skip("Einsatz unter 1 €")
+                if summe + stake > bank * MAX_ANTEIL + 1e-9:
+                    raise Skip(f"Höchstsumme je Lauf erreicht ({summe:g} + {stake} > {bank * MAX_ANTEIL:.2f})")
+                if stake * 1.05 > rest + 1e-9:
+                    raise Skip(f"zu wenig Guthaben für {stake} € (+ Steuer), KEINE Einzahlung")
                 row.locator(".c-runner-odd--type-fix").first.click(); pg.wait_for_timeout(400)
-                pg.get_by_role("button", name=re.compile(rf"^{int(stake)}\s*€$")).first.click(); pg.wait_for_timeout(400)
+                chip = pg.get_by_role("button", name=re.compile(rf"^{stake}\s*€$"))
+                if chip.count():
+                    chip.first.click()
+                else:                                    # kein passender Chip: Feld „Eigener Betrag“
+                    feld = pg.get_by_label(re.compile("Eigener Betrag", re.I))
+                    if not feld.count():
+                        feld = pg.locator("xpath=//*[contains(normalize-space(.), 'Eigener Betrag')]/following::input[1]")
+                    if not feld.count(): raise Skip("Feld „Eigener Betrag“ nicht gefunden")
+                    feld.first.fill(f"{stake},00"); feld.first.press("Tab")
+                pg.wait_for_timeout(500)
                 pg.get_by_role("button", name="Wettabgabe", exact=True).click()
                 dlg = pg.locator("[role=dialog], .modal").filter(has_text="Meine Wette").first
                 dlg.wait_for(state="visible", timeout=15000); pg.wait_for_timeout(400)
@@ -156,7 +187,8 @@ def main():
                     print("WARNUNG: keine Bestätigung gesehen, NICHT erneut ausführen, Tickets prüfen"); sys.exit(3)
                 bt_txt = norm(pg.locator("body").inner_text())
                 mt = re.search(r"Ticket (\d+)", bt_txt)
-                print(f"PLATZIERT {bt['name']}: Ticket {mt.group(1) if mt else '?'}")
+                print(f"PLATZIERT {bt['name']}: Ticket {mt.group(1) if mt else '?'} – Einsatz {stake} € zu FK {fk}")
+                summe += stake; rest -= stake * 1.05
                 frisch = True
                 pg.screenshot(path=f"{OUT}/{tag}_bestaetigung.png")
             except Skip as e:
