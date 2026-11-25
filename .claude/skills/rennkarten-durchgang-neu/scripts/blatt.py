@@ -266,6 +266,12 @@ def ratings(x: dict) -> str:
     return s
 
 
+# Höchstlängen der Pressetexte im Blatt: so gewählt, dass praktisch nichts gekürzt wird (Karten 22.–25.11.2026:
+# Crible bis 326, Laufkommentare bis 266 Zeichen) – das Fazit steht beim Crible meist im letzten Satz
+CRIBLE_MAX = 400
+KOMMENTAR_MAX = 300
+
+
 def crible(x: dict) -> str:
     """Pressetext (Crible): deutsch, sonst das französische Original."""
     p = x.get("prono") or {}
@@ -441,7 +447,7 @@ def formzeile(f: dict, r: dict) -> str:
         s += " [" + "; ".join(ref + warn) + "]"
     kommentar = f.get("comment_de") or f.get("comment")    # Original (französisch), wenn die Übersetzung fehlt
     if kommentar:
-        s += f"\n       „{kommentar[:220]}“"
+        s += f"\n       „{kommentar[:KOMMENTAR_MAX]}“"
     return s
 
 
@@ -556,7 +562,7 @@ def blatt(z: dict, r: dict, top_kg: float, titel: str = "") -> None:
     print(f"- {ratings(x)}")
     crib = crible(x)
     if crib:
-        print(f"- Crible (Pressetext): „{crib[:240]}“")
+        print(f"- Crible (Pressetext): „{crib[:CRIBLE_MAX]}“")
     letzte = [f for f in fl if not f.get("extra")][:7]
     aeltere = [f for f in fl if f.get("extra")]          # von der Karte angehängt: letzter Lauf auf Bahn/Distanz/Boden
     referenz = next((f for f in letzte + aeltere if ist_heute(f, r)), None)
