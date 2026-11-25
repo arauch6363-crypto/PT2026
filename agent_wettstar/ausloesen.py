@@ -8,6 +8,7 @@ Aufruf am Ende der Aufgabe „Racecard-Durchgang“ (Schritt 8 in claude_projekt
 - Dazu MODELL-Tipps (5 €): in jedem Rennen dieses Durchgangs das Pferd mit Modell-Rang 1 (nach power.p, wie
   blatt.py), wenn sein Value (Festkurs × power.sieg − 1) über 0 liegt und es nicht schon NAP/BET ist.
   Mindestkurs = Break-even 1/power.sieg (aufgerundet), damit auch beim Wetten noch Value > 0 gilt.
+- Keine Rennen für Araber/Anglo-Araber/AQPS (vollblut.karte_nicht_vollblut, derselbe Filter wie im Value-Dashboard).
 - Rennen, die in weniger als VORLAUF_MIN Minuten starten (Paris), werden weggelassen.
 - Keine Tipps: keine Session, Ausgabe {"gestartet": false, ...}.
 - Doppelschutz: Jede echte Wett-Session trägt in metadata Datum und Tipps (race_id-nr). Vor dem Start werden die
@@ -32,6 +33,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import durchgang  # noqa: E402
+import vollblut  # noqa: E402
 
 AGENT_ID = "agent_01E62Qu6PGWmTDfkUXsGVxxz"
 ENVIRONMENT_ID = "env_01P35yMGS2L2ZQsEDLcetUwS"   # wettstar-playwright-env-v2
@@ -65,6 +67,12 @@ def tipps(karte: dict, dg: dict, jetzt: str) -> tuple[list[dict], list[str]]:
     out, weg = [], []
     for r in dg.get("rennen") or []:
         if r.get("status") != "bearbeitet":
+            continue
+        kr = rennen.get(str(r.get("race_id")))
+        if kr is None or vollblut.karte_nicht_vollblut(kr) or durchgang.ist_araber(kr):
+            grund = "nicht in der Karte" if kr is None else "kein Vollblutrennen (Araber/AQPS)"
+            weg += [f"{r['race_id']} Nr. {k.get('no')} {k.get('horse')}: {grund}"
+                    for k in r.get("kandidaten") or [] if durchgang.KENNZEICHEN.get(k.get("urteil"))]
             continue
         kand = [{**k, "kz": durchgang.KENNZEICHEN.get(k.get("urteil"))} for k in r.get("kandidaten") or []]
         claude = {int(k["no"]) for k in kand if k["kz"]}

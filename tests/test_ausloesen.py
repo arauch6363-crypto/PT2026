@@ -95,3 +95,21 @@ def test_p_im_tipp_und_startbank():
           {"type": "agent.tool_result", "content": [{"type": "text", "text": "Guthaben 174.21, benötigt gesamt 68.25\nX"}]}]
     assert au.startbank_aus_events(ev) == 174.21
     assert au.startbank_aus_events([]) is None
+
+
+def test_keine_wetten_auf_nicht_vollblut_rennen():
+    karte, dg = _karte(), _dg()
+    karte["races"]["20261124R1C4"]["nicht_vollblut"] = True                       # Kennzeichen der Karte
+    karte["races"]["20261124R1C6"]["name"] = "PRIX DES PUR-SANG ARABES"           # Name (Regex des Dashboards)
+    ts, weg = au.tipps(karte, dg, "13:00")
+    assert {t["rennen"] for t in ts} == {"R1C1"}                                    # NAP/BET/MODELL aus R1C4/R1C6 fallen weg
+    assert sum("kein Vollblutrennen" in w for w in weg) == 1                        # SALMY (BET); SUPERCLASS war „nein“
+
+
+def test_vollblut_regex_wie_dashboard():
+    import vollblut
+    assert vollblut.ist_nicht_vollblut("Course réservée aux chevaux AQPS")
+    assert vollblut.ist_nicht_vollblut(None, float("nan"), "Prix WAHO")
+    assert not vollblut.ist_nicht_vollblut("Prix de Deauville", "HANDICAP")
+    assert vollblut.karte_nicht_vollblut({"nicht_vollblut": True})
+    assert not vollblut.karte_nicht_vollblut({"name": "PRIX X", "type": "Plat"})

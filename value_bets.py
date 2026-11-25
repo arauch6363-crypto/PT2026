@@ -342,17 +342,7 @@ def _nichtstarter(starter_path: str | Path | None) -> set[tuple[str, int]]:
     return {(str(r), int(n)) for r, n, x in zip(s["race_id"], no, nr) if x and pd.notna(n)}
 
 
-# Rennen nicht für Vollblüter: Araber (Stud-Book arabe, WAHO, ACCAF), Anglo-Araber, AQPS („n'étant pas de race
-# pur-sang“) – das Modell kennt nur Vollblüter, solche Rennen zählen im Dashboard nicht
-NICHT_VOLLBLUT = re.compile(
-    r"stud[- ]?book\s+(?:anglo[- ])?arabe|anglo[- ]arabe|sang\s+arabe|pur[- ]sang\s+arabe|\bWAHO\b|\bACCAF\b|"
-    r"\bAQPS\b|autres?\s+que\s+de\s+pur[- ]sang|(?:n'[ée]tant\s+pas|non)\s+(?:de\s+race\s+)?pur[- ]sang|"
-    r"\bARABIAN\b|\bpur[- ]sang\s+arabes?\b", re.I)
-
-
-def ist_nicht_vollblut(*texte: Any) -> bool:
-    """True, wenn Bedingungen, Kategorie oder Rennname auf ein Rennen für Araber/Anglo-Araber/AQPS deuten."""
-    return any(NICHT_VOLLBLUT.search(str(t)) for t in texte if t is not None and not (isinstance(t, float) and math.isnan(t)))
+from vollblut import NICHT_VOLLBLUT, ist_nicht_vollblut  # noqa: E402,F401  (eine Quelle, s. vollblut.py)
 
 
 def _nicht_vollblut(parquet_path: str | Path | None) -> set[str]:
