@@ -93,7 +93,7 @@ schreiben. Fehlen sie: nicht wetten, berichten.
   inkl. Steuer und fehlendem Betrag, stoppen, keine Einzahlung.
   Exit-Code 3 / "keine Bestätigung gesehen": NICHT erneut ausführen, "Offene Wetten" prüfen (nur lesen) und
   berichten.
-- Einsatz per Chip, wenn es einen mit genau dem Betrag gibt, sonst über das Feld „Eigener Betrag“; der Dialog
+- Einsatz per Chip, wenn es einen mit genau dem Betrag gibt, sonst über das Einsatz-Menü im Wettschein (Feld „Eigener Betrag“); der Dialog
   muss genau diesen Grundeinsatz zeigen, sonst bestätigt das Skript nicht.
 
 ## SITE-WISSEN wettstar (https://www.wettstar-pferdewetten.de, NICHT wettstar.de)

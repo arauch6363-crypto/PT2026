@@ -156,12 +156,23 @@ def main():
                 chip = pg.get_by_role("button", name=re.compile(rf"^{stake}\s*€$"))
                 if chip.count():
                     chip.first.click()
-                else:                                    # kein passender Chip: Feld „Eigener Betrag“
-                    feld = pg.get_by_label(re.compile("Eigener Betrag", re.I))
-                    if not feld.count():
-                        feld = pg.locator("xpath=//*[contains(normalize-space(.), 'Eigener Betrag')]/following::input[1]")
+                else:                                    # kein passender Chip: Einsatz-Menü → „Eigener Betrag“
+                    menue = pg.locator(".st-stake-line-input").first
+                    if not menue.count():                # Streifen erscheint erst nach einem Chip
+                        pg.get_by_role("button", name=re.compile(r"^5\s*€$")).first.click(); pg.wait_for_timeout(800)
+                        menue = pg.locator(".st-stake-line-input").first
+                    if not menue.count(): raise Skip("Einsatz-Menü nicht gefunden")
+                    menue.click(); pg.wait_for_timeout(600)
+                    feld = pg.locator('input[placeholder="Eigener Betrag"]').first
                     if not feld.count(): raise Skip("Feld „Eigener Betrag“ nicht gefunden")
-                    feld.first.fill(f"{stake},00"); feld.first.press("Tab")
+                    soll = f"{stake},00"
+                    for taste in ("Tab", "Enter"):       # Enter nur, falls Tab den Betrag nicht übernimmt
+                        if not feld.is_visible():
+                            menue.click(); pg.wait_for_timeout(600)
+                        feld.fill(str(stake)); pg.wait_for_timeout(300); feld.press(taste); pg.wait_for_timeout(800)
+                        if soll in norm(menue.inner_text()): break
+                    else:
+                        raise Skip(f"Eigener Betrag nicht übernommen (Streifen: {norm(menue.inner_text())})")
                 pg.wait_for_timeout(500)
                 pg.get_by_role("button", name="Wettabgabe", exact=True).click()
                 dlg = pg.locator("[role=dialog], .modal").filter(has_text="Meine Wette").first
@@ -202,7 +213,8 @@ def main():
                 print(f"{bt['name']}: ABBRUCH: Fehler {type(e).__name__}: {str(e).splitlines()[0][:150]}")
                 frisch = True                            # Wettschein-Zustand unklar: nächste Wette frisch
         pg.reload(wait_until="networkidle")
-        print(f"Guthaben danach: {balance():.2f}")
+        try: print(f"Guthaben danach: {balance():.2f}")
+        except Exception: print("Guthaben danach: nicht lesbar")
         b.close()
 
 
