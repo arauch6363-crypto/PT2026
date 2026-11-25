@@ -50,10 +50,25 @@ def main():
 
     with sync_playwright() as p:
         b = p.chromium.launch()
-        pg = b.new_context(viewport={"width": 1400, "height": 1000}).new_page()
-        pg.goto(BASE, wait_until="networkidle")
-        try: pg.get_by_text("Ablehnen", exact=True).first.click(timeout=10000)
-        except Exception: pass
+
+        def neue_seite():
+            """Frischer Browser-Kontext (leerer Wettschein), Cookie-Banner weg."""
+            s = b.new_context(viewport={"width": 1400, "height": 1000}).new_page()
+            s.goto(BASE, wait_until="networkidle")
+            try: s.get_by_text("Ablehnen", exact=True).first.click(timeout=10000)
+            except Exception: pass
+            return s
+
+        def einloggen(s):
+            s.locator("header").get_by_role("button", name="Login").first.click(timeout=8000)
+            s.wait_for_selector("#login-username", state="visible", timeout=15000)
+            assert s.url.split("/")[2].endswith("wettstar-pferdewetten.de")
+            s.fill("#login-username", os.environ["WS_USER"]); s.fill("#login-password", os.environ["WS_PASS"])
+            s.get_by_role("button", name="Einloggen").click()
+            s.wait_for_selector("#login-username", state="detached", timeout=20000)
+            s.wait_for_load_state("networkidle")
+
+        pg = neue_seite()
 
         # 1) Rennlinks auflösen (ohne Login)
         def resolve(bt):
@@ -72,14 +87,8 @@ def main():
             try: bt["url"] = resolve(bt)
             except Skip as e: bt["url"] = None; bt["status"] = f"ABBRUCH: {e}"
 
-        # 2) Login einmalig
-        pg.locator("header").get_by_role("button", name="Login").first.click(timeout=8000)
-        pg.wait_for_selector("#login-username", state="visible", timeout=15000)
-        assert pg.url.split("/")[2].endswith("wettstar-pferdewetten.de")
-        pg.fill("#login-username", os.environ["WS_USER"]); pg.fill("#login-password", os.environ["WS_PASS"])
-        pg.get_by_role("button", name="Einloggen").click()
-        pg.wait_for_selector("#login-username", state="detached", timeout=20000)
-        pg.wait_for_load_state("networkidle")
+        # 2) Login (nach jeder echten Wette erneut in einem frischen Kontext, s. u.)
+        einloggen(pg)
 
         def balance():
             m = re.search(r"(\d{1,3}(?:\.\d{3})*,\d{2}) ?€", norm(pg.locator("header").first.inner_text()))
@@ -92,9 +101,14 @@ def main():
         if bal < need:
             print(f"ABBRUCH: zu wenig Guthaben, fehlen {need-bal:.2f}. KEINE Einzahlung."); sys.exit(2)
 
-        # 3) Wetten
+        # 3) Wetten. Nach einer echten Wette bleibt „Vielen Dank für Ihre Wette“ im Wettschein stehen (auch nach
+        # goto), dann fehlt „Wettabgabe“ – deshalb vor der nächsten Wette frischer Kontext mit neuem Login.
+        frisch = False
         for bt in bets:
             if not bt["url"]: print(bt["name"], bt["status"]); continue
+            if frisch:
+                pg.context.close(); pg = neue_seite(); einloggen(pg); frisch = False
+            bestaetigt = False
             tag = re.sub(r"\W+", "_", f"{bt['name']}_{bt['zeit']}")
             nr, stake, min_fk = int(bt["nr"]), float(bt["stake"]), float(bt["min_fk"])
             try:
@@ -135,6 +149,7 @@ def main():
                     pg.screenshot(path=f"{OUT}/{tag}_abbruch.png"); raise Skip("Dialog: " + "; ".join(errs))
                 pg.screenshot(path=f"{OUT}/{tag}_dialog.png")
                 if not LIVE: print("DRY-RUN: nicht bestätigt"); continue
+                bestaetigt = True
                 dlg.get_by_role("button", name=re.compile("Wettabgabe bestätigen")).click()
                 try: pg.get_by_text("Vielen Dank für Ihre Wette").first.wait_for(timeout=20000)
                 except Exception:
@@ -142,9 +157,18 @@ def main():
                 bt_txt = norm(pg.locator("body").inner_text())
                 mt = re.search(r"Ticket (\d+)", bt_txt)
                 print(f"PLATZIERT {bt['name']}: Ticket {mt.group(1) if mt else '?'}")
+                frisch = True
                 pg.screenshot(path=f"{OUT}/{tag}_bestaetigung.png")
             except Skip as e:
                 print(f"{bt['name']}: ABBRUCH: {e}")
+            except Exception as e:                       # unerwarteter Fehler (z. B. Zeitüberschreitung)
+                try: pg.screenshot(path=f"{OUT}/{tag}_fehler.png")
+                except Exception: pass
+                if bestaetigt:                           # nach dem Bestätigen: Stand unklar, nichts mehr setzen
+                    print(f"WARNUNG: {bt['name']}: Fehler nach dem Bestätigen ({type(e).__name__}), "
+                          "NICHT erneut ausführen, Tickets prüfen"); sys.exit(3)
+                print(f"{bt['name']}: ABBRUCH: Fehler {type(e).__name__}: {str(e).splitlines()[0][:150]}")
+                frisch = True                            # Wettschein-Zustand unklar: nächste Wette frisch
         pg.reload(wait_until="networkidle")
         print(f"Guthaben danach: {balance():.2f}")
         b.close()
