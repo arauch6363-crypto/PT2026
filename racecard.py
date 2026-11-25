@@ -1328,7 +1328,7 @@ def programm(tag: date, session: requests.Session | None = None, *, nur_flach: b
 
 def _nicht_vollblut_rennen(r) -> bool:
     """Rennen für Araber/Anglo-Araber/AQPS laut Ausschreibung, Kategorie oder Name (wie im Dashboard)."""
-    from value_bets import ist_nicht_vollblut
+    from vollblut import ist_nicht_vollblut
     g = r.get if hasattr(r, "get") else (lambda k: None)
     return bool(ist_nicht_vollblut(g("conditions"), g("c_conditions"), g("categorie"), g("race_name")))
 
