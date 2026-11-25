@@ -8,6 +8,9 @@ Aufruf am Ende der Aufgabe „Racecard-Durchgang“ (Schritt 8 in claude_projekt
 - Dazu MODELL-Tipps (5 €): in jedem Rennen dieses Durchgangs das Pferd mit Modell-Rang 1 (nach power.p, wie
   blatt.py), wenn sein Value (Festkurs × power.sieg − 1) über 0 liegt und es nicht schon NAP/BET ist.
   Mindestkurs = Break-even 1/power.sieg (aufgerundet), damit auch beim Wetten noch Value > 0 gilt.
+- Dazu KELLY-Tipps (5 €): je Rennen dieses Durchgangs unter den Startern mit Value > KELLY_VALUE_MIN und voller
+  Kelly-Quote (Value / (Festkurs − 1)) > KELLY_MIN nur der mit dem höchsten Kelly – und nur, wenn er nicht schon
+  NAP/BET/MODELL ist (dann kein Ersatz). Mindestkurs = kleinster Kurs, bei dem beide Bedingungen noch gelten.
 - Rennen, die in weniger als VORLAUF_MIN Minuten starten (Paris), werden weggelassen.
 - Keine Tipps: keine Session, Ausgabe {"gestartet": false, ...}.
 - Doppelschutz: Jede echte Wett-Session trägt in metadata Datum und Tipps (race_id-nr). Vor dem Start werden die
@@ -56,8 +59,37 @@ def modell_erster(r: dict) -> list[dict]:
     return out
 
 
+KELLY_VALUE_MIN = 0.20                            # Value über 20 %
+KELLY_MIN = 0.05                                  # volle Kelly-Quote über 5 %
+
+
+def _aufrunden(x: float) -> float:
+    """Kleinster Kurs mit zwei Nachkommastellen, der echt über x liegt."""
+    c = math.ceil(round(x * 100, 9)) / 100
+    return round(c + 0.01 if round(x * 100, 9).is_integer() else c, 2)
+
+
+def kelly_top(r: dict) -> dict | None:
+    """Starter mit dem höchsten Kelly unter denen mit Value > KELLY_VALUE_MIN und Kelly > KELLY_MIN (oder None)."""
+    beste = None
+    for x in r.get("runners") or []:
+        if x.get("nr"):
+            continue
+        fk, p = (x.get("fk") or {}).get("sieg"), (x.get("power") or {}).get("sieg")
+        if not (fk and p and fk > 1):
+            continue
+        value = fk * p - 1
+        kelly = value / (fk - 1)
+        if value > KELLY_VALUE_MIN and kelly > KELLY_MIN and (beste is None or kelly > beste["kelly"]):
+            # beide Bedingungen steigen mit dem Kurs: fk > (1+V)/p  und  fk > (1−K)/(p−K)
+            grenze = max((1 + KELLY_VALUE_MIN) / p, (1 - KELLY_MIN) / (p - KELLY_MIN) if p > KELLY_MIN else fk)
+            beste = {"no": int(x["no"]), "horse": x.get("horse"), "fk": fk, "p": p, "value": value,
+                     "kelly": kelly, "min_fk": _aufrunden(grenze)}
+    return beste
+
+
 def tipps(karte: dict, dg: dict, jetzt: str) -> tuple[list[dict], list[str]]:
-    """NAP/BET des Durchgangs plus MODELL-Tipps, mit Bahn und Zeit aus der Karte. Rückgabe: (tipps, weggelassen)."""
+    """NAP/BET des Durchgangs plus MODELL- und KELLY-Tipps, mit Bahn und Zeit aus der Karte. Rückgabe: (tipps, weggelassen)."""
     info = {p["race_id"]: p for p in durchgang.plan(karte, set(), "00:00")}
     rennen = {str(r.get("race_id")): r for r in durchgang.rennen_liste(karte)}
     grenze = (datetime.strptime(jetzt, "%H:%M") + timedelta(minutes=VORLAUF_MIN)).strftime("%H:%M")
@@ -70,6 +102,9 @@ def tipps(karte: dict, dg: dict, jetzt: str) -> tuple[list[dict], list[str]]:
         kand = [k for k in kand if k["kz"]] + [
             {"no": m["no"], "horse": m["horse"], "fk": m["fk"], "mq": m["min_fk"], "kz": "MODELL"}
             for m in modell_erster(rennen.get(str(r["race_id"])) or {}) if m["no"] not in claude]
+        kt = kelly_top(rennen.get(str(r["race_id"])) or {})
+        if kt and kt["no"] not in {int(k["no"]) for k in kand}:
+            kand.append({"no": kt["no"], "horse": kt["horse"], "fk": kt["fk"], "mq": kt["min_fk"], "kz": "KELLY"})
         for k in kand:
             kz = k["kz"]
             rid, p = str(r["race_id"]), info.get(str(r["race_id"]))

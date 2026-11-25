@@ -80,3 +80,25 @@ def test_modell_erster():
     assert au.modell_erster({"runners": LAEUFER[4]}) == []                             # Value 3,0 × 0,30 − 1 < 0
     gleich = [_l(1, "A", 100, 0.25, 5.0), _l(2, "B", 100, 0.25, 4.5)]
     assert [(m["no"], m["min_fk"]) for m in au.modell_erster({"runners": gleich})] == [(1, 4.01), (2, 4.01)]  # Gleichstand: beide Rang 1, Break-even 4,0 → 4,01
+
+
+def test_kelly_top():
+    k = au.kelly_top({"runners": LAEUFER[6]})                 # SUPERCLASS: Value 0,41, Kelly 0,075
+    assert (k["no"], round(k["kelly"], 3), k["min_fk"]) == (14, 0.075, 5.69)  # max(1,2/0,217; 0,95/0,167) = 5,689
+    assert au.kelly_top({"runners": [_l(1, "A", 100, 0.25, 4.6)]}) is None          # Value 0,15 < 20 %
+    assert au.kelly_top({"runners": [_l(1, "A", 100, 0.06, 40.0)]}) is None         # Value 1,4, Kelly 0,036 < 5 %
+    feld = [_l(1, "A", 100, 0.30, 5.0), _l(2, "B", 90, 0.12, 15.0), _l(3, "C", 80, 0.2, 12.0, nr=True)]
+    assert au.kelly_top({"runners": feld})["no"] == 1          # A: Kelly 0,125 vor B: 0,057; NR zählt nicht
+
+
+def test_kelly_tipp_nur_top_und_nicht_doppelt():
+    karte, dg = _karte(), _dg()
+    # R1C7: Modell-Erster A (Value 0,1 → MODELL, Kelly 0,033 zu klein), Top-Kelly B, C mit kleinerem Kelly
+    karte["races"]["20261124R1C7"] = {"race_id": "20261124R1C7", "reunion": 1, "race_no": 7, "time": "17:25",
+                                      "course": "DEAUVILLE", "runners": [
+                                          _l(1, "A", 120, 0.275, 4.0), _l(2, "B", 100, 0.15, 10.0), _l(3, "C", 90, 0.10, 14.0)]}
+    dg["rennen"].append({"race_id": "20261124R1C7", "status": "bearbeitet",
+                         "kandidaten": [{"no": 3, "horse": "C", "urteil": "nein", "fk": 14.0, "mq": 15.0}]})
+    ts, _ = au.tipps(karte, dg, "13:00")
+    r7 = [(t["name"], t["kennzeichen"], t["mq"]) for t in ts if t["rennen"] == "R1C7"]
+    assert r7 == [("A", "MODELL", 3.64), ("B", "KELLY", 9.51)]  # B: max(1,2/0,15 = 8,0; 0,95/0,10 = 9,5) → 9,51
