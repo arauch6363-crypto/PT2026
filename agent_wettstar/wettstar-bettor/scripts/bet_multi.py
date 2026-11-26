@@ -9,6 +9,8 @@ BASE = "https://www.wettstar-pferdewetten.de"
 OUT = "/tmp/ws"
 KELLY_TEIL = 1 / 8 # Einsatz = max(stake, gerundet(1/8 × Kelly × Startbank)) auf volle Euro
 MAX_ANTEIL = 0.50  # höchstens so viel der Startbank je Aufruf (Summe der Einsätze ohne Steuer)
+KLICK_TIMEOUT_MS = 15000  # hängender Klick (z. B. Overlay) bricht nach 15 s ab, dann zweiter Versuch
+VERSUCHE = 2       # je Pferd; ein neuer Versuch nur bei Fehlern VOR dem Bestätigen (dann gibt es noch keine Wette)
 NAME_MIN = 0.80   # Mindestähnlichkeit des Namens bei gleicher Startnummer (Schreibweisen PMU-Karte vs. Wettstar)
 
 
@@ -65,6 +67,7 @@ def main():
         def neue_seite():
             """Frischer Browser-Kontext (leerer Wettschein), Cookie-Banner weg."""
             s = b.new_context(viewport={"width": 1400, "height": 1000}).new_page()
+            s.set_default_timeout(KLICK_TIMEOUT_MS); s.set_default_navigation_timeout(45000)
             s.goto(BASE, wait_until="networkidle")
             try: s.get_by_text("Ablehnen", exact=True).first.click(timeout=10000)
             except Exception: pass
@@ -127,94 +130,116 @@ def main():
             bestaetigt = False
             tag = re.sub(r"\W+", "_", f"{bt['name']}_{bt['zeit']}")
             nr, basis, min_fk = int(bt["nr"]), float(bt["stake"]), float(bt["min_fk"])
-            try:
-                pg.goto(bt["url"], wait_until="networkidle")
-                if pg.get_by_text("Start " + bt["zeit"], exact=False).count() == 0 and bt["zeit"] not in norm(pg.locator("body").inner_text()):
-                    raise Skip("Startzeit nicht auf Seite")
-                pg.get_by_role("button", name="Festkurs", exact=True).click()
-                try: pg.get_by_role("button", name="Sieg FK", exact=True).click(timeout=5000)
-                except Exception: pass
-                pg.wait_for_timeout(800)
-                rows = pg.locator(".race__grid__row__columns").filter(
-                    has=pg.locator(".race__grid__row__name strong", has_text=re.compile(rf"^{nr}\.$")))
-                if rows.count() != 1: raise Skip("Zeile nicht eindeutig")
-                row = rows.first
-                zeile = row.locator(".race__grid__row__name").inner_text()
-                if not name_passt(nr, bt["name"], zeile):
-                    raise Skip(f"Name passt nicht (Seite: {norm(zeile.split(chr(10))[0])})")
-                fk = num(norm(row.locator(".c-runner-odd--type-fix .c-runner-odd__value").first.inner_text()))
-                print(f"{bt['name']}: FK {fk}")
-                if fk < min_fk: raise Skip(f"FK {fk} < {min_fk}")
-                stake = einsatz(basis, bt.get("p"), fk, bank)
-                print(f"{bt['name']}: Einsatz {stake} € (Mindest {basis:g}, p {bt.get('p')}, Bank {bank:.2f})")
-                if stake < 1: raise Skip("Einsatz unter 1 €")
-                if summe + stake > bank * MAX_ANTEIL + 1e-9:
-                    raise Skip(f"Höchstsumme je Lauf erreicht ({summe:g} + {stake} > {bank * MAX_ANTEIL:.2f})")
-                if stake * 1.05 > rest + 1e-9:
-                    raise Skip(f"zu wenig Guthaben für {stake} € (+ Steuer), KEINE Einzahlung")
-                row.locator(".c-runner-odd--type-fix").first.click(); pg.wait_for_timeout(400)
-                chip = pg.get_by_role("button", name=re.compile(rf"^{stake}\s*€$"))
-                if chip.count():
-                    chip.first.click()
-                else:                                    # kein passender Chip: Einsatz-Menü → „Eigener Betrag“
-                    menue = pg.locator(".st-stake-line-input").first
-                    if not menue.count():                # Streifen erscheint erst nach einem Chip
-                        pg.get_by_role("button", name=re.compile(r"^5\s*€$")).first.click(); pg.wait_for_timeout(800)
+            for versuch in range(1, VERSUCHE + 1):
+                bestaetigt, schritt = False, "Rennseite laden"
+                try:
+                    pg.goto(bt["url"], wait_until="networkidle")
+                    if pg.get_by_text("Start " + bt["zeit"], exact=False).count() == 0 and bt["zeit"] not in norm(pg.locator("body").inner_text()):
+                        raise Skip("Startzeit nicht auf Seite")
+                    schritt = "Tab Festkurs"
+                    pg.get_by_role("button", name="Festkurs", exact=True).click()
+                    try: pg.get_by_role("button", name="Sieg FK", exact=True).click(timeout=5000)
+                    except Exception: pass
+                    pg.wait_for_timeout(800)
+                    rows = pg.locator(".race__grid__row__columns").filter(
+                        has=pg.locator(".race__grid__row__name strong", has_text=re.compile(rf"^{nr}\.$")))
+                    if rows.count() != 1: raise Skip("Zeile nicht eindeutig")
+                    row = rows.first
+                    zeile = row.locator(".race__grid__row__name").inner_text()
+                    if not name_passt(nr, bt["name"], zeile):
+                        raise Skip(f"Name passt nicht (Seite: {norm(zeile.split(chr(10))[0])})")
+                    fk = num(norm(row.locator(".c-runner-odd--type-fix .c-runner-odd__value").first.inner_text()))
+                    print(f"{bt['name']}: FK {fk}")
+                    if fk < min_fk: raise Skip(f"FK {fk} < {min_fk}")
+                    stake = einsatz(basis, bt.get("p"), fk, bank)
+                    print(f"{bt['name']}: Einsatz {stake} € (Mindest {basis:g}, p {bt.get('p')}, Bank {bank:.2f})")
+                    if stake < 1: raise Skip("Einsatz unter 1 €")
+                    if summe + stake > bank * MAX_ANTEIL + 1e-9:
+                        raise Skip(f"Höchstsumme je Lauf erreicht ({summe:g} + {stake} > {bank * MAX_ANTEIL:.2f})")
+                    if stake * 1.05 > rest + 1e-9:
+                        raise Skip(f"zu wenig Guthaben für {stake} € (+ Steuer), KEINE Einzahlung")
+                    schritt = "Festkurs anklicken"
+                    row.locator(".c-runner-odd--type-fix").first.click(); pg.wait_for_timeout(400)
+                    schritt = "Einsatz setzen"
+                    chip = pg.get_by_role("button", name=re.compile(rf"^{stake}\s*€$"))
+                    if chip.count():
+                        chip.first.click()
+                    else:                                    # kein passender Chip: Einsatz-Menü → „Eigener Betrag“
                         menue = pg.locator(".st-stake-line-input").first
-                    if not menue.count(): raise Skip("Einsatz-Menü nicht gefunden")
-                    menue.click(); pg.wait_for_timeout(600)
-                    feld = pg.locator('input[placeholder="Eigener Betrag"]').first
-                    if not feld.count(): raise Skip("Feld „Eigener Betrag“ nicht gefunden")
-                    soll = f"{stake},00"
-                    for taste in ("Tab", "Enter"):       # Enter nur, falls Tab den Betrag nicht übernimmt
-                        if not feld.is_visible():
-                            menue.click(); pg.wait_for_timeout(600)
-                        feld.fill(str(stake)); pg.wait_for_timeout(300); feld.press(taste); pg.wait_for_timeout(800)
-                        if soll in norm(menue.inner_text()): break
-                    else:
-                        raise Skip(f"Eigener Betrag nicht übernommen (Streifen: {norm(menue.inner_text())})")
-                pg.wait_for_timeout(500)
-                pg.get_by_role("button", name="Wettabgabe", exact=True).click()
-                dlg = pg.locator("[role=dialog], .modal").filter(has_text="Meine Wette").first
-                dlg.wait_for(state="visible", timeout=15000); pg.wait_for_timeout(400)
-                t = norm(dlg.inner_text()); print("DIALOG:", t)
-                errs = []
-                if not re.search(rf"Rang 1:? ?{nr}\b", t): errs.append("Rang 1 != Nr")
-                if "Sieg FK" not in t: errs.append("Wettart != Sieg FK")
-                m = re.search(r"Festkurs:? ?(\d+,\d+)", t)
-                if not m or num(m.group(1)) < min_fk: errs.append("Festkurs im Dialog zu niedrig")
-                m = re.search(r"Grundeinsatz:? ?(\d+,\d{2})", t)
-                if not m or abs(num(m.group(1)) - stake) > 0.001: errs.append("Grundeinsatz falsch")
-                m = re.search(r"Wettanzahl:? ?(\d+)", t)
-                if not m or m.group(1) != "1": errs.append("Wettanzahl != 1")
-                if errs:
-                    pg.screenshot(path=f"{OUT}/{tag}_abbruch.png"); raise Skip("Dialog: " + "; ".join(errs))
-                pg.screenshot(path=f"{OUT}/{tag}_dialog.png")
-                if not LIVE: print("DRY-RUN: nicht bestätigt"); continue
-                bestaetigt = True
-                dlg.get_by_role("button", name=re.compile("Wettabgabe bestätigen")).click()
-                try: pg.get_by_text("Vielen Dank für Ihre Wette").first.wait_for(timeout=20000)
-                except Exception:
-                    print("WARNUNG: keine Bestätigung gesehen, NICHT erneut ausführen, Tickets prüfen"); sys.exit(3)
-                bt_txt = norm(pg.locator("body").inner_text())
-                mt = re.search(r"Ticket (\d+)", bt_txt)
-                print(f"PLATZIERT {bt['name']}: Ticket {mt.group(1) if mt else '?'} – Einsatz {stake} € zu FK {fk}")
-                summe += stake; rest -= stake * 1.05
-                frisch = True
-                pg.screenshot(path=f"{OUT}/{tag}_bestaetigung.png")
-            except Skip as e:
-                print(f"{bt['name']}: ABBRUCH: {e}")
-            except Exception as e:                       # unerwarteter Fehler (z. B. Zeitüberschreitung)
-                try: pg.screenshot(path=f"{OUT}/{tag}_fehler.png")
-                except Exception: pass
-                if bestaetigt:                           # nach dem Bestätigen: Stand unklar, nichts mehr setzen
-                    print(f"WARNUNG: {bt['name']}: Fehler nach dem Bestätigen ({type(e).__name__}), "
-                          "NICHT erneut ausführen, Tickets prüfen"); sys.exit(3)
-                print(f"{bt['name']}: ABBRUCH: Fehler {type(e).__name__}: {str(e).splitlines()[0][:150]}")
-                frisch = True                            # Wettschein-Zustand unklar: nächste Wette frisch
-        pg.reload(wait_until="networkidle")
-        try: print(f"Guthaben danach: {balance():.2f}")
-        except Exception: print("Guthaben danach: nicht lesbar")
+                        if not menue.count():                # Streifen erscheint erst nach einem Chip
+                            pg.get_by_role("button", name=re.compile(r"^5\s*€$")).first.click(); pg.wait_for_timeout(800)
+                            menue = pg.locator(".st-stake-line-input").first
+                        if not menue.count(): raise Skip("Einsatz-Menü nicht gefunden")
+                        menue.click(); pg.wait_for_timeout(600)
+                        feld = pg.locator('input[placeholder="Eigener Betrag"]').first
+                        if not feld.count(): raise Skip("Feld „Eigener Betrag“ nicht gefunden")
+                        soll = f"{stake},00"
+                        for taste in ("Tab", "Enter"):       # Enter nur, falls Tab den Betrag nicht übernimmt
+                            if not feld.is_visible():
+                                menue.click(); pg.wait_for_timeout(600)
+                            feld.fill(str(stake)); pg.wait_for_timeout(300); feld.press(taste); pg.wait_for_timeout(800)
+                            if soll in norm(menue.inner_text()): break
+                        else:
+                            raise Skip(f"Eigener Betrag nicht übernommen (Streifen: {norm(menue.inner_text())})")
+                    pg.wait_for_timeout(500)
+                    schritt = "Wettabgabe"
+                    pg.get_by_role("button", name="Wettabgabe", exact=True).click()
+                    schritt = "Dialog prüfen"
+                    dlg = pg.locator("[role=dialog], .modal").filter(has_text="Meine Wette").first
+                    dlg.wait_for(state="visible", timeout=15000); pg.wait_for_timeout(400)
+                    t = norm(dlg.inner_text()); print("DIALOG:", t)
+                    errs = []
+                    if not re.search(rf"Rang 1:? ?{nr}\b", t): errs.append("Rang 1 != Nr")
+                    if "Sieg FK" not in t: errs.append("Wettart != Sieg FK")
+                    m = re.search(r"Festkurs:? ?(\d+,\d+)", t)
+                    if not m or num(m.group(1)) < min_fk: errs.append("Festkurs im Dialog zu niedrig")
+                    m = re.search(r"Grundeinsatz:? ?(\d+,\d{2})", t)
+                    if not m or abs(num(m.group(1)) - stake) > 0.001: errs.append("Grundeinsatz falsch")
+                    m = re.search(r"Wettanzahl:? ?(\d+)", t)
+                    if not m or m.group(1) != "1": errs.append("Wettanzahl != 1")
+                    if errs:
+                        pg.screenshot(path=f"{OUT}/{tag}_abbruch.png"); raise Skip("Dialog: " + "; ".join(errs))
+                    pg.screenshot(path=f"{OUT}/{tag}_dialog.png")
+                    if not LIVE: print("DRY-RUN: nicht bestätigt"); break
+                    bestaetigt = True
+                    dlg.get_by_role("button", name=re.compile("Wettabgabe bestätigen")).click()
+                    try: pg.get_by_text("Vielen Dank für Ihre Wette").first.wait_for(timeout=20000)
+                    except Exception:
+                        print("WARNUNG: keine Bestätigung gesehen, NICHT erneut ausführen, Tickets prüfen"); sys.exit(3)
+                    bt_txt = norm(pg.locator("body").inner_text())
+                    mt = re.search(r"Ticket (\d+)", bt_txt)
+                    print(f"PLATZIERT {bt['name']}: Ticket {mt.group(1) if mt else '?'} – Einsatz {stake} € zu FK {fk}")
+                    summe += stake; rest -= stake * 1.05
+                    frisch = True
+                    try: pg.screenshot(path=f"{OUT}/{tag}_bestaetigung.png")
+                    except Exception: pass
+                    break
+                except Skip as e:
+                    print(f"{bt['name']}: ABBRUCH: {e}")
+                    break
+                except Exception as e:                       # unerwarteter Fehler (z. B. Zeitüberschreitung)
+                    try: pg.screenshot(path=f"{OUT}/{tag}_fehler.png")
+                    except Exception: pass
+                    if bestaetigt:                           # nach dem Bestätigen: Stand unklar, nichts mehr setzen
+                        print(f"WARNUNG: {bt['name']}: Fehler nach dem Bestätigen ({type(e).__name__}), "
+                              "NICHT erneut ausführen, Tickets prüfen"); sys.exit(3)
+                    details = [z.strip() for z in str(e).splitlines()[1:] if re.search(r"intercept|waiting for|not visible|disabled|detached", z, re.I)][:3]
+                    print(f"{bt['name']}: Fehler bei Schritt „{schritt}“ (Versuch {versuch}/{VERSUCHE}): {type(e).__name__}: "
+                          f"{str(e).splitlines()[0][:150]}" + (" | " + " | ".join(d[:160] for d in details) if details else ""))
+                    # vor dem Bestätigen gibt es noch keine Wette: frischer Browser, neuer Login, dasselbe Pferd noch einmal
+                    try:
+                        pg.context.close(); pg = neue_seite(); einloggen(pg); frisch = False
+                    except Exception as e2:
+                        print(f"{bt['name']}: ABBRUCH: neuer Browser/Login fehlgeschlagen ({type(e2).__name__})"); frisch = True; break
+                    if versuch == VERSUCHE:
+                        print(f"{bt['name']}: ABBRUCH: auch Versuch {versuch} gescheitert")
+        try:
+            pg.reload(wait_until="networkidle"); print(f"Guthaben danach: {balance():.2f}")
+        except Exception:
+            try:                                         # z. B. Overlay im Kopf: frischer Browser zum Nachlesen
+                pg.context.close(); pg = neue_seite(); einloggen(pg); print(f"Guthaben danach: {balance():.2f}")
+            except Exception:
+                print("Guthaben danach: nicht lesbar")
         b.close()
 
 
