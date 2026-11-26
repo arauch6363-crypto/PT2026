@@ -5,10 +5,9 @@ description: "Rennkarte/Racecard (französischer Galopp, PT2026) auf Siegwetten 
 
 # Rennkarten-Durchgang
 
-Vor dem ersten Rennen lesen: `GLOSSARY.md` (Begriffe; im Repo-Hauptordner, im hochgeladenen claude.ai-Skill im
-Skill-Ordner), `DATEN.md` (woher jede Angabe stammt) und **`EINSICHTEN.md`** (wie schwer jedes Argument wiegt, typische
-Fehler). Im automatischen Durchgang wie von Hand: dasselbe Vorgehen, dasselbe Ergebnisformat. Bei Durchsicht mit dem
-Nutzer zusätzlich `LERNSCHLEIFE.md`.
+Vor dem ersten Rennen lesen: `GLOSSARY.md` (Begriffe; Repo-Hauptordner, sonst Skill-Ordner), `DATEN.md` (woher jede
+Angabe stammt) und **`EINSICHTEN.md`** (wie schwer jedes Argument wiegt, typische Fehler). Im automatischen Durchgang
+wie von Hand: dasselbe Vorgehen. Bei Durchsicht mit dem Nutzer zusätzlich `LERNSCHLEIFE.md`.
 
 ## Ziel und Leitfrage
 
@@ -21,8 +20,7 @@ noch keine Siegwette. Gemessen wird an der besten zu heute passenden Leistung (A
 Pferde des heutigen Feldes und gegen die Maßstäbe.
 
 Der Modell-Value ist **nur der Filter**, welche Pferde angesehen werden. Ob der Festkurs reicht, entscheidet die
-**eigene Kursspanne** (siehe Gesamturteil): Ein Pferd mit +29 % Modell-Value kann zu kurz sein, eines mit +6 % lang
-genug.
+**eigene Kursspanne** (siehe Gesamturteil).
 
 **Kennungen.** Jedes Argument der Listen unten und in `EINSICHTEN.md` trägt eine Kennung wie `G-AUSRUESTUNG-WEG`
 (F = Fragezeichen, G = Gegen, P = Pro, U = Urteil). Jeder Satz in Pro, Gegen und Fragezeichen, der sich auf eine
@@ -36,9 +34,8 @@ ausging.
 
 1. **Fakten ziehen.** `python3 -I <Skill-Ordner>/scripts/blatt.py KARTE` zeigt die Übersicht (Rennen mit
    Kandidaten, Festkurs-Stand). KARTE ist `racecard_JJJJMMTT_daten.json.gz` (Normalfall) oder die HTML-Karte
-   `racecard_JJJJMMTT.html` bzw. `…_daten.json` – das Skript liest alle drei. Skill-Ordner: in Claude Code
-   `.claude/skills/rennkarten-durchgang-neu`, in claude.ai der Ordner, aus dem diese SKILL.md geladen wurde. Die Karte
-   ist über 10 MB groß: nur die Ausgabe des Skripts lesen, nie die Karte selbst. Mit Bahn oder Rennen (`STRASBOURG`,
+   `racecard_JJJJMMTT.html` bzw. `…_daten.json` – das Skript liest alle drei. Skill-Ordner = Ordner dieser SKILL.md.
+   Die Karte ist über 10 MB groß: nur die Ausgabe des Skripts lesen, nie die Karte selbst. Mit Bahn oder Rennen (`STRASBOURG`,
    `R2C5`) als weiteres Argument druckt es je Rennen den Kopf und je Kandidat das Blatt. Uhrzeit gegen den Start
    prüfen (französische Zeit); ist ein Rennen schon gelaufen oder in wenigen Minuten, das sagen.
 2. **Rennen lesen** (Kopf des Blatts): Rennart, Klasse (Klassenindex), Feldgröße, Bodenangabe und Bodengruppe,
@@ -51,7 +48,7 @@ ausging.
 5. **Gesamturteil** je Kandidat. Fertig, wenn die Leitfrage mit Zahlen beantwortet ist (Referenz-ARR des Kandidaten
    gegen Top-ARR im Feld und gegen beide Maßstäbe) und Spanne, Mindestquote und Ausschlag mit Kennung stehen.
 6. **Rennvergleich**: Kandidaten nach Beweislage ordnen, gegen die Maßstäbe stellen, Grenze ziehen.
-7. **Ausgabe** wie unten.
+7. **Ausgabe**: im automatischen Durchgang das JSON-Format des Auftrags, sonst nach `AUSGABE.md`.
 
 ## Maßstab
 
@@ -81,7 +78,7 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
    Kennzeichen **CGD** (auf Bahn, Distanz, Boden gewonnen) „lässt aufhorchen“; C wiegt am meisten, dann G, dann D.
 2. **Referenzlauf.** Der jüngste Lauf unter heutigen Bedingungen (Blatt: `≈heute`, in den Formzeilen oder unter
    „Ältere Läufe“), höchstens etwa ein Jahr alt, je jünger desto besser. Er misst die Leitfrage, auch wenn Formen unter
-   anderen Bedingungen besser sind (`P-REFERENZ-GUT`). *Drumard 21.11.* Ihn gründlich lesen, in dieser Reihenfolge
+   anderen Bedingungen besser sind (`P-REFERENZ-GUT`). Ihn gründlich lesen, in dieser Reihenfolge
    (Blatt: Zeile „Lauf:“ darunter):
    - **kompetitiv?** Platz relativ zur Starterzahl und Abstand in Längen; knapp geschlagen im großen Feld ist oft ein
      sehr gutes Rennen.
@@ -120,12 +117,11 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
 5. **Trainer, Jockey, Besitzer.** Zuerst die Lage in der **A/E-Matrix über 365 Tage** relativ zum Feld (Blatt: A/E+
    und Pos+ mit Rang; rechts oben = gut), dann die 30 Tage: aktuell heiß oder kalt. Trainerwechsel beachten (Blatt:
    „Trainer erst seit N Läufen“). Trainer: Bilanz auf der Bahn (kann eine kalte Form ausgleichen), Spezialität
-   (Rennart, Alter, Debütanten), Stallgröße und -erfolg (kleiner Stall ohne Sieg in zwei Jahren = Gegenargument; klein,
-   aber „geschickt operierend“ = neutral bis Pro). Jockey: Bilanz auf der Bahn, kennt das Pferd (Siege zusammen = Pro),
+   (Rennart, Alter, Debütanten), Stallgröße und -erfolg (`G-STALL-KLEIN`). Jockey: Bilanz auf der Bahn, kennt das Pferd (Siege zusammen = Pro),
    **Gespann Trainer + Jockey** – zählt mehr als die Einzelbilanzen, sobald es einige gemeinsame Starts gibt.
    Besitzer: nur 365 Tage. Bei Maiden und Debütanten sind Verbindungen, Besitzer und Abstammung die Hauptkriterien.
-6. **Umstände heute.** Box (nur `signifikant` zählt), Gewicht (ab etwa 62 kg auf Très souple oder schwerer =
-   leichtes Gegenargument; im Sprint wiegt Gewicht weniger), Tempo gegen Laufstil und Bahn-Bias (Blatt; alles nur
+6. **Umstände heute.** Box (nur `signifikant` zählt), Gewicht (`G-GEWICHT-BODEN`; im Sprint wiegt Gewicht
+   weniger), Tempo gegen Laufstil und Bahn-Bias (Blatt; alles nur
    Indikatoren: Führender bei schnellem Tempo mit mehreren Führenden = Gegen; von hinten bei schnellem Tempo = Pro;
    einzelner Führender bei langsamem Tempo = leichtes Pro; Tempo unbekannt zählt nicht), Startfolge (ab etwa 4 Starts
    in 6 Wochen = Gegenargument, „irgendwann ist die Luft raus“), Bahn (Blatt: Kategorie groß, mittel, Provinz; von
@@ -139,14 +135,13 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
    - fällt weg, **mit ihr liefen die Formen auch schwach** → neutral, man probiert etwas Neues;
    - fällt weg, **ohne sie lief das Pferd fast immer** → neutral bis Pro, Rückkehr zum Normalen;
    - **kommt zurück, mit ihr kamen die besten Läufe** → `P-AUSRUESTUNG-ZURUECK`;
-   - **erstmals** → `F-AUSRUESTUNG-NEU`.
+   - **erstmals** → `F-AUSRUESTUNG-NEU` („warum heute?“).
 
 ### Fragezeichen (unbewiesen, offene Liste)
 
 - `F-DISTANZ-NEU` erstmals diese Distanzgruppe (auch Distanzwechsel nach unten, gemildert, wenn das Pferd vorne mitläuft)
 - `F-BODEN-NEU` erstmals dieser Boden ab Très souple
 - `F-BELAG-NEU` erstmals dieser Belag
-- `F-AUSRUESTUNG-NEU` erstmals Scheuklappen oder andere Ausrüstung („warum heute?“)
 - `F-KLASSE-HOCH` Bewährung nur aus tieferer Klasse (z. B. Claimer) oder erstmals deutlich höhere Klasse
 - `F-PAUSE` Rückkehr nach langer Pause (ab etwa 60 Tagen; wiegt weniger bei jungen Pferden und erfolgreichen
   Trainern)
@@ -168,7 +163,6 @@ Handicap-Form auf ähnlicher Marke.
 - `G-ARR-UNTER` ARR deutlich unter den Besten im Feld
 - `G-SELTEN-VORNE` selten vorne: Platzquote weit hinten im Feld (Blatt: Karriere)
 - `G-TRAINER-KALT` kalter Trainer (abgestuft)
-- `G-AUSRUESTUNG-WEG` Ausrüstung fällt weg, mit der die besten Läufe kamen (Punkt 6)
 - `G-RICHTUNG` in der heutigen Richtung klar schlechter
 - `G-BOX` signifikant schlechte Box
 - `G-GEWICHT-BODEN` Gewicht ab etwa 62 kg auf Très souple oder schwerer. Ein Höchstgewicht darunter ist neutral;
@@ -180,10 +174,9 @@ Handicap-Form auf ähnlicher Marke.
 - `G-SIEG-MIT-VERLAUF` Sieg, bei dem das Rennen den Vorderen half und das Pferd vorne lief (etwas weniger wert)
 - `G-DIREKT-HINTER` im direkten Vergleich hinter einem heutigen Gegner
 - `G-CLAIMER-AUFSTIEG` **Aufstieg aus Claimern (Verkaufsrennen) ins Handicap** – ausgeglichen nur durch deutlich höheren
-  Klassenindex der Claimer (nicht bloß ein paar Punkte) oder schon vorhandene Handicap-Form auf ähnlicher Marke; bei
-  kurzer Quote wiegt es schwerer.
+  Klassenindex der Claimer oder schon vorhandene Handicap-Form auf ähnlicher Marke.
 - `G-DEBUET-STALL` Debütant: Wette nur, wenn der Stall Debütanten bzw. Zweijährige siegfertig bringt **und** die
-  Abstammung passt; ein Stall ohne Sieg in den letzten 20 Starts „spricht Bände“.
+  Abstammung passt.
 
 ### Typische Pro-Argumente
 
@@ -205,7 +198,6 @@ Handicap-Form auf ähnlicher Marke.
 - `P-BRITE` britischer Trainer
 - `P-WALLACH` erster bis dritter Start als Wallach
 - `P-UNEXPOSED` unexposed mit Steigerungspotenzial
-- `P-AUSRUESTUNG-ZURUECK` Ausrüstung kommt zurück, mit der die besten Läufe kamen
 - `P-ERSTER-ANSATZ` „erster Ansatz“ nach einer Reihe schwacher Läufe
 
 ## Gesamturteil
@@ -237,39 +229,3 @@ nur, wer klar überzeugt – in der Regel höchstens zwei. Auch der beste Kandid
 Wette im Rennen). Die Maßstäbe stehen als Bezugslinie dabei (ohne Platz in der Reihenfolge), z. B. „Boomslang > Sir
 Dasch – Maßstäbe El Lagar (2,8): sieglos, ARR 32,4, erstmals 2000 m und PSF; Tiger Bay (4,5): ARR 34, PSF bewährt –
 Boomslang auf dem Papier besser als beide; Grenze vor Platz 1 (Kurs zu kurz)“.
-
-## Ausgabe
-
-Je Rennen:
-
-```
-## R2C7 Strasbourg 14:24 – Handicap 4j+, 2350 m, Très souple, 13 Starter (Klasse sehr schwach, Tempo schnell)
-**5 Algeciras** – FK 13 · Modell 8,2 % (Rang 5/13) · Value +7 %
-- Pro: …
-- Gegen: …
-- Fragezeichen: …
-- Leitfrage: Referenz-ARR … gegen Top-ARR … im Feld, Maßstäbe … und … – kann reichen / reicht nicht
-- Urteil: **Wette (1 Einheit)** – fair eher 9–11, Mindestquote 11. Ausschlag: … (P-CGD)
-…
-Maßstab 1: 3 Afterglow (FK 6,5): … (kurz, kein Urteil)
-Maßstab 2: 8 … (FK 7): …
-Rennvergleich: Algeciras > Cole Chop > Lady Madeira > Afterglow > Go For It – Grenze nach Platz 2.
-```
-
-Am Ende eine Wett-Tabelle (Rennen | Zeit | Nr Pferd | Festkurs | Kursspanne | Mindestquote | Einheiten | Ausschlag).
-
-**Ergebnis je Rennen** (dasselbe Format im automatischen Durchgang, geprüft mit `durchgang.rennen_pruefen`, abgelegt
-als `durchgang_JJJJMMTT_HHMM.json`, ausgewertet im Value-Dashboard), mit **allen** Kandidaten:
-
-```json
-{"race_id": "20261111R2C7", "status": "bearbeitet", "vergleich": "Algeciras > Cole Chop > … – Grenze nach Platz 2",
- "hinweis": "", "massstab": [{"no": 3, "horse": "…", "fk": 6.5, "befund": "…"},
-                           {"no": 8, "horse": "…", "fk": 7.0, "befund": "…"}],
- "kandidaten": [{"no": 5, "horse": "ALGECIRAS", "urteil": "wette", "fk": 13.0, "mq": 11, "spanne": [9, 11],
-                 "p_modell": 0.082, "value": 0.07, "pro": ["Auf Collant gewonnen (P-BODEN-BEWAEHRT)"], "gegen": ["…"],
-                 "fragen": ["…"], "ausschlag": "CGD und Boden tragen den dünnen Value (P-CGD)"}]}
-```
-
-`urteil` ist `wette`, `klein` oder `nein` (1, ½, 0 Einheiten). `massstab` ist eine Liste mit höchstens zwei Pferden in
-Festkurs-Reihenfolge, steht nicht unter den Kandidaten und zählt nie als Claude-Tipp (`[]`, wenn das Blatt keinen
-nennt). `status`: `bearbeitet`, bei Araber/AQPS `araber` (Kandidaten leer).
