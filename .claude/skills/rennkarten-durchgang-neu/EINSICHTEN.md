@@ -106,7 +106,7 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
 
 ## 5. Trainer, Jockey, Besitzer
 
-- **[gewichtig]** `P-TRAINER` / `G-TRAINER-KALT` Trainer in der A/E-Matrix über 365 Tage rechts oben im Feld ist ein Plus; weit hinten oder in den letzten 30 Tagen auffällig schlecht (etwa 2/40, A/E um 0,5) ein klares Gegenargument, leicht kalt nur leicht. Eine starke Bahnbilanz gleicht eine kalte Form aus. *Algeciras; Crew Dragon gegen Grand Scoop.*
+- **[gewichtig]** `P-TRAINER` / `G-TRAINER-KALT` Trainer in der A/E-Matrix über 365 Tage rechts oben im Feld ist ein Plus; weit hinten oder in den letzten 30 Tagen auffällig schlecht (etwa 2/40, A/E um 0,5) ein klares Gegenargument, leicht kalt nur leicht. Die Bahnbilanz wiegt in beide Richtungen: Eine starke gleicht eine kalte Form aus, eine schwache (A/E um 0,5 nach etwa 30 Starts) ist ein klares Gegenargument und keine stimmige Grundlage für eine kleine Wette. *Crew Dragon gegen Grand Scoop; Indian Belle 21.11.*
 - **[ausschlaggebend]** `G-DEBUET-STALL` Debütant: Stall ohne Sieg in den letzten 20 Starts bzw. schwach mit Zweijährigen „spricht
   Bände“. *Matinera 11.11.*
 - **[gewichtig]** `G-TRAINER-SPEZIALITAET` Spezialität des Trainers zählt: schwach in Handicaps, mit Dreijährigen oder in Conditions (0/58)
