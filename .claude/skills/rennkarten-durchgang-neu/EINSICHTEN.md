@@ -36,20 +36,14 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
    Senorito 16.11. (+10 %, kleine Wette).*
 ## 1. Ausgangslage und Klasse
 
-- **[gewichtig]** `P-RANG-VORNE` Vorderer Modell-Rang mit solidem Value ist ein guter Start, aber kein Urteil: Rang 1 wird oft
-  abgelehnt, wenn die Leitfrage scheitert. *Verdansk, Afterglow, Silgreypit, Tulpar.*
-- **[gewichtig]** `G-RANG-HINTEN` Hinterer Modell-Rang ist ein Gegenargument; dort braucht es klare Belege (CGD, passender Boden),
-  eher kleine Wette. *Cole Chop (Rang 10/13, klein), Mister Chang (7/16, Wette mit CGD und Bahnbewährung).*
+- **[gewichtig]** `P-RANG-VORNE` / `G-RANG-HINTEN` Vorderer Modell-Rang mit solidem Value ist ein guter Start, aber kein Urteil: Rang 1 wird oft abgelehnt, wenn die Leitfrage scheitert. Ein hinterer Rang ist ein Gegenargument; dort braucht es klare Belege (CGD, passender Boden), eher kleine Wette. *Verdansk; Cole Chop (Rang 10/13, klein).*
 - **[gewichtig]** `G-EXPOSED-ALT` Sehr exposed und älter (7–8 Jahre, viele Starts) senkt die Siegchance – relativ zum Feld – auch bei Bahnspezialisten
   und tiefer Marke. *Afterglow, Blanc Bleu (99 Starts).*
 - **[gewichtig]** `P-UNEXPOSED` Unexposed in einem exposed Feld ist ein echtes Plus, besonders mit Abstammung, die Steigerung
   erwarten lässt. *Come Alone 16.11.*
 - **[gewichtig]** `P-CGD` CGD „lässt aufhorchen“ und kann bei dünnem Value den Ausschlag geben, wenn Boden und Marke passen.
   *Algeciras, Mister Chang, Cervaro.*
-- **[gewichtig]** `G-UEBER-SIEGMARKE` Im Handicap: über der letzten Siegmarke ist bei exposed Pferden ein Gegenargument, bei jungen nur
-  ein Fragezeichen. *The Cat's, Silgreypit (+3,5 kg).*
-- **[gewichtig]** `P-MARKE-UNTER` Im Handicap: leicht unter einer Sieg- oder Platzmarke, die höchstens etwa ein Jahr
-  zurückliegt, ist ein Plus für exposed Pferde – außer die Marke fiel in stetigem Abstieg; eine ältere Marke zählt kaum.
+- **[gewichtig]** `P-MARKE-UNTER` / `G-UEBER-SIEGMARKE` Im Handicap zählt die Marke gegen Sieg- und Platzmarken der letzten zwölf Monate: leicht darunter ist für exposed Pferde ein Plus (außer bei stetigem Abstieg), über der letzten Siegmarke ein Gegenargument, bei jungen Pferden nur ein Fragezeichen. *The Cat's, Silgreypit (+3,5 kg).*
 - **[leicht]** `P-MARKE-HOCH` / `P-MARKE-BEWIESEN` Im Handicap sind hohe Marken leicht im Vorteil, im Sprint mehr. Wer
   seine Marke im Handicap verteidigt hat, bringt außerhalb des Handicaps eine verlässliche Valeur mit.
 - **[leicht]** `G-DREIJAEHRIG-FRUEH` / `P-DREIJAEHRIG-HERBST` Dreijährige gegen Ältere im Handicap: bis zum Sommer
@@ -59,8 +53,7 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
 
 ## 2. Referenzlauf und Leitfrage
 
-- **[gewichtig]** `G-ARR-UNTER` ARR auch im Referenzlauf nicht unter den vorderen im Feld, dazu selten vorne oder
-  exposed → keine Siegwette, auch bei Value über +30 %; nur viele andere klare Pluspunkte tragen einen ARR-Rückstand. *The Cat's, Roi du Ciel, Silgreypit, Bosquet, Go For It.*
+- **[gewichtig]** `G-ARR-UNTER` Liegt der Referenzlauf etwa 3 Punkte ARR oder mehr unter dem Besten im Feld, reicht es höchstens für eine kleine Wette, auch bei einem wenig exposed Pferd; ist das Pferd dazu selten vorne oder exposed, keine Siegwette – nur viele andere klare Pluspunkte tragen einen ARR-Rückstand. *The Cat's; Aura 17.11.*
 - **[ausschlaggebend]** `G-REFERENZ-SCHWACH` Referenzlauf schwach (z. B. hier im vergleichbaren Rennen weit hinten) und kein Grund für eine
   Steigerung. *Marakana 11.11., Naturaliste 16.11.*
 - **[gewichtig]** `P-ABSTIEG` Formen aus stärkeren Rennen zählen mehr als ihre Platzierung: Klassenindex ab etwa
@@ -92,12 +85,8 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
 
 ## 4. Vorlieben und Abstammung
 
-- **[ausschlaggebend]** `G-DISTANZ-PROBLEME` Auf der heutigen Distanz bisher immer Probleme → keine Wette, auch bei hohem Value.
-  *Lady Madeira 11.11. (+76 %).*
-- **[ausschlaggebend]** `G-ABSTAMMUNG` Junges Pferd, Belag oder Boden zum ersten Mal, Abstammung klar unpassend (Gesamtwert etwa −15
-  und schlechter, schlechte Reife) → keine Wette. *Littoral Nord 11.11. (−17).*
-- **[leicht]** `F-ABSTAMMUNG-LEICHT` Leicht unpassende Abstammung (etwa −9) bei erstmals neuem Belag: nur Fragezeichen. *Magenta Melody
-  16.11.*
+- **[ausschlaggebend]** `G-DISTANZ-PROBLEME` Auf der heutigen Distanz bisher immer Probleme → keine Wette, auch bei hohem Value. Nach erst zwei Läufen ohne Platz, wenn der Vater die Distanz nicht trägt, ist es nur leicht dagegen. *Lady Madeira 11.11. (+76 %), Don Nicolas 18.11. (+167 %).*
+- **[ausschlaggebend]** `G-ABSTAMMUNG` Junges Pferd, Belag oder Boden zum ersten Mal, Abstammung klar unpassend (Gesamtwert etwa −15 und schlechter, schlechte Reife) → keine Wette; leicht unpassend (etwa −9) ist nur ein Fragezeichen. *Littoral Nord 11.11. (−17), Magenta Melody 16.11. (−9).*
 - **[gewichtig]** `P-BODEN-BEWAEHRT` Bewährung auf genau dem heutigen Boden trägt auch dünnen Value.
   *Algeciras.*
 - **[leicht]** `F-BODEN-SOUPLE` Nur auf Souple bewährt, heute Très souple: leicht dagegen, trägt hoher Value. *Kenergy 10.11.*
@@ -113,21 +102,15 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
 
 ## 5. Trainer, Jockey, Besitzer
 
-- **[gewichtig]** `G-TRAINER-KALT` Trainer in der A/E-Matrix über 365 Tage weit hinten im Feld oder in den letzten
-  30 Tagen auffällig schlecht (etwa 2/40, A/E um 0,5) → klares Gegenargument; leicht kalt nur [leicht]. *Crew Dragon gegen Grand Scoop.*
-- **[gewichtig]** `P-TRAINER` Trainer in der A/E-Matrix über 365 Tage rechts oben im Feld; eine starke Bahnbilanz
-  gleicht eine kalte Form aus. *Little Lady, Afterglow, Algeciras.*
+- **[gewichtig]** `P-TRAINER` / `G-TRAINER-KALT` Trainer in der A/E-Matrix über 365 Tage rechts oben im Feld ist ein Plus; weit hinten oder in den letzten 30 Tagen auffällig schlecht (etwa 2/40, A/E um 0,5) ein klares Gegenargument, leicht kalt nur leicht. Eine starke Bahnbilanz gleicht eine kalte Form aus. *Algeciras; Crew Dragon gegen Grand Scoop.*
 - **[ausschlaggebend]** `G-DEBUET-STALL` Debütant: Stall ohne Sieg in den letzten 20 Starts bzw. schwach mit Zweijährigen „spricht
   Bände“. *Matinera 11.11.*
 - **[gewichtig]** `G-TRAINER-SPEZIALITAET` Spezialität des Trainers zählt: schwach in Handicaps, mit Dreijährigen oder in Conditions (0/58)
   ist ein Gegenargument. *Littoral Nord, Silgreypit, Naturaliste.*
-- **[gewichtig]** `P-GESPANN` Starkes Gespann Trainer + Jockey (viele gemeinsame Starts, gutes A/E). *Teardrop Explodes, Blue
-  Blossom Cen, Come Alone.*
+- **[gewichtig]** `P-GESPANN` / `G-GESPANN-OHNE-SIEG` Starkes Gespann Trainer + Jockey (viele gemeinsame Starts, gutes A/E) ist ein Plus. Ein Gespann ohne Sieg nach etwa 20 gemeinsamen Starts ist keine stimmige Grundlage für eine kleine Wette (`U-KEIN-AUSWEG`). *Come Alone; Deesse d'Argent, Dew Point 18.11.*
 - **[gewichtig]** `G-STALL-KLEIN` Kleiner Stall ohne Sieg in zwei Jahren → Gegenargument („fehlt die Klasse“); klein, aber geschickt
   operierend → neutral bis Pro. *Go For It gegen L'Annonciade, Verdansk.*
-- **[leicht]** `P-JOCKEY-KENNT` Jockey kennt das Pferd (Siege zusammen). *Mister Chang, Verdansk.*
-- **[leicht]** `P-JOCKEY-STARK` Jockey in der A/E-Matrix über 365 Tage rechts oben im Feld; vom schwachen zum stärkeren
-  Jockey lässt eine Steigerung erwarten – ein Spitzenjockey allein ist noch kein Signal.
+- **[leicht]** `P-JOCKEY-KENNT` Jockey kennt das Pferd (Siege zusammen) oder steigt vom schwächeren zum stärkeren Jockey um (A/E-Matrix über 365 Tage): beides lässt eine Steigerung erwarten; ein Spitzenjockey allein ist noch kein Signal. *Mister Chang, Verdansk.*
 - **[leicht]** `P-BESITZER` Besitzer in der A/E-Matrix über 365 Tage vorne im Feld; große Besitzer, die zugleich
   Züchter sind (Wertheimer, Aga Khan), sind immer gefährlich; ein Besitzerwechsel ist ein leichtes Plus.
 - **[gewichtig · vorläufig]** `P-NEUER-TRAINER` Pferd steigert sich gerade beim neuen Trainer (Siege kurz nach dem Wechsel) → ältere Formen und
@@ -136,9 +119,7 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
 
 ## 6. Umstände heute
 
-- **[ausschlaggebend]** `G-AUSRUESTUNG-WEG` Ausrüstung fällt weg, mit der die besten Läufe kamen – „warum nimmt man sie herunter?“;
-  bei kurzer Quote erst recht. *Lovely Warrior 16.11. (A/E 1,74 mit, 0,51 ohne), Fireman.*
-- **[gewichtig]** `P-AUSRUESTUNG-ZURUECK` Ausrüstung kommt zurück, mit der die besten Läufe kamen. *Cervaro, Tulpar.*
+- **[ausschlaggebend]** `G-AUSRUESTUNG-WEG` / `P-AUSRUESTUNG-ZURUECK` Fällt die Ausrüstung weg, mit der die besten Läufe kamen, kippt das die Wette („warum nimmt man sie herunter?“), bei kurzer Quote erst recht; kommt sie zurück, ist das ein gewichtiges Plus. *Lovely Warrior 16.11. (A/E 1,74 mit, 0,51 ohne); Cervaro.*
 - **[ausschlaggebend]** `G-GEWICHT-KLASSE-BODEN` Aufgewicht + Höchstgewicht (ab etwa 62 kg) auf Collant/Lourd + Klassenfrage zusammen → keine
   Wette, auch bei Rang 1 und +67 %. *Verdansk 11.11., Tulpar 16.11.*
 - **[gewichtig]** `G-CLAIMER-AUFSTIEG` Aufstieg aus Claimern ins Handicap, bei kurzer Quote schwerer; ein nur marginal höherer
@@ -150,12 +131,6 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
 - **[leicht]** `G-STUTE` / `P-WALLACH` Stuten sind gegen Hengste und Wallache etwas schwächer und ihre Formen weniger
   verlässlich, Hengste leicht vor Wallachen; der erste bis dritte Start als Wallach ist ein leichtes Plus. *Blue Blossom
   Cen, Magenta Melody.*
-- **[leicht]** `G-GEWICHT-BODEN` Ab etwa 62 kg auf Très souple oder schwerer leicht dagegen; im Sprint wiegt Gewicht
-  weniger, dort lässt sich auch Aufgewicht eher tragen.
-- **[leicht]** `P-BIAS` / `G-BIAS` Laufstil passt zum Bahn-Bias bzw. gegen ihn (Vorreiter auf einer Bahn, die vorne
-  begünstigt); auf schnellem Boden (Bon bis Bon souple) sind Vorreiter zusätzlich leicht im Vorteil.
-- **[leicht]** `G-PRESSE` / `G-TOTO` Ein stichhaltiges Gegenargument im Crible oder ein am Toto kaum gespielter
-  Kandidat (Blatt) machen einen hohen Value etwas verdächtig.
 
 ## Gesamturteil, Maßstab, Rennvergleich
 
@@ -163,7 +138,6 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
   Überzeugendes, sonst ist der Kurs „nicht mehr wert“. *Trevilly 10.11. (+7 %).*
 - **[gewichtig]** `U-VIELE-FRAGEN` Viele Fragezeichen bei mittlerem Value (+15 bis +35 %) → keine Wette, auch mit starkem Trainer und
   bestem ARR. *Ozark James, Giovanni Giorgio (sieglos, Pause, erstmals Wallach, erstmals 2000 m).*
-- **[gewichtig]** `U-VALUE-OHNE-PRO` Viel Value ohne Pro-Argumente ist kein Argument. *Interactiv (+135 %).*
 - **[gewichtig]** `U-MASSSTAB` Ohne Maßstab fehlt „die Elle, gegen was man besser sein muss“ – erst die zwei Maßstäbe lesen, dann
   urteilen. *Boomslang 18.11.*
 - **[gewichtig]** `U-GRENZE` Rennvergleich: „wenn dann X“ heißt nicht, dass X gewettet wird; die Grenze kann vor Platz 1 liegen.
@@ -176,8 +150,6 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
   (etwa 2 Punkte ARR mehr, in einem stärkeren Rennen), reicht es bei kurzer Quote nicht für eine Wette. *X Rays 15.11.*
 - **[leicht]** `U-FAVORIT-KLAR` Steht ein klarer Favorit (Festkurs unter 2) im Rennen, ist sich der Markt sehr sicher;
   ein Value-Kandidat dagegen braucht eine klare Beweislage.
-- **[leicht]** `U-ARR-ABSTAND` Liegt der Referenzlauf etwa 3 Punkte ARR oder mehr unter dem besten Pferd im Feld, reicht
-  es höchstens für eine kleine Wette, auch bei einem wenig exposed Pferd. *Aura 17.11.*
 
 ## Ermessen (beide Urteile vertretbar)
 
@@ -192,4 +164,7 @@ kein Fehler ist: Fälle „Claudes Sicht behalten“ (bisher keiner) und Lagen, 
 Zusammengefasste Einsichten: Die Kennung links wird nicht mehr zitiert; das Regelprotokoll zählt sie unter der
 Kennung rechts mit. Format: `ALT` → `NEU`.
 
-- bisher keine
+- `F-ABSTAMMUNG-LEICHT` → `G-ABSTAMMUNG`
+- `P-JOCKEY-STARK` → `P-JOCKEY-KENNT`
+- `U-ARR-ABSTAND` → `G-ARR-UNTER`
+- `U-VALUE-OHNE-PRO` → `U-FAUSTREGEL`

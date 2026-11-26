@@ -282,4 +282,6 @@ def test_stillgelegte_kennungen(tmp_path):
         encoding="utf-8")
     assert dg.stillgelegt(tmp_path) == {"G-B": "G-A"}
     assert dg.kennungen(tmp_path) == {"G-A", "P-C"}
-    assert dg.stillgelegt() == {}          # im echten Skill bisher keine
+    echt = dg.stillgelegt()                # im echten Skill: jede stillgelegte zählt unter einer gültigen weiter
+    assert set(echt.values()) <= dg.kennungen()
+    assert not set(echt) & dg.kennungen()
