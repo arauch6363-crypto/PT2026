@@ -3,6 +3,11 @@
 Spielt die Claude-Tipps eines Durchgangs (Aufgabe „Racecard-Durchgang“) als Festkurs-Siegwetten bei
 wettstar-pferdewetten.de: **NAP 10 €, BET 5 €**, sofort nach der Auslösung, nur bei Festkurs ≥ Mindestquote (mq).
 
+Reicht das Guthaben nicht für alle Tipps, wettet der Agent von oben (Payload-Reihenfolge = Startzeit), solange
+Einsatz + 5 % Steuer gedeckt sind, und hört beim ersten ungedeckten Tipp auf. Er zahlt nie ein und holt nichts nach;
+erst die nächste Auslösung mit ausreichendem Guthaben wettet wieder. Beispiel: 10 × 5 € bei 40 € → 7 Wetten
+(7 × 5,25 € = 36,75 €).
+
 - `SYSTEMPROMPT.md`: Konfiguration des Agenten (Eingabeformat, Sicherheitsregeln, Ablauf).
 - `wettstar-bettor/`: Skill mit `scripts/bet_multi.py` (Playwright, ein Login für alle Wetten).
   Absichtlich nicht unter `.claude/skills/`, damit Claude-Code-Sessions in diesem Repo den Skill nicht laden.
@@ -21,4 +26,4 @@ Quellen in der Durchgang-Aufgabe: `nr`, `name` (= horse), `fk`, `mq`, Urteil (�
 Rennen dieses Durchgangs; `bahn`, `zeit`, `rennen` aus `durchgang.py plan`. Nur neu bewertete Rennen schicken, damit
 kein Tipp zweimal gespielt wird.
 
-Test der Namens-/Bahnzuordnung (ohne Browser): `python3 -m pytest -q tests/test_bet_multi.py`.
+Test der Namens-/Bahnzuordnung und der Guthaben-Logik (ohne Browser): `python3 -m pytest -q tests/test_bet_multi.py`.

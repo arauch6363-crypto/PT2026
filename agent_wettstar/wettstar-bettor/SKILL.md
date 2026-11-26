@@ -21,12 +21,19 @@ Gilt nur im Auftrag laut Agent-Systemprompt (dessen Sicherheitsregeln haben Vorr
    Ohne `LIVE` läuft nur ein Dry-Run bis zum Dialog (nicht bestätigen).
 4. Ausgabe lesen: `PLATZIERT <Name>: Ticket <Nr>` = Erfolg, `ABBRUCH: ...` = nicht gewettet.
 
+## Guthaben
+Das Skript wettet in der Reihenfolge von bets.json, solange das Guthaben Einsatz + 5 % Steuer deckt. Ab dem ersten
+nicht gedeckten Tipp wettet es nichts mehr (auch keine späteren kleineren Einsätze) und endet mit Exit-Code 2.
+Gerechnet wird mit dem kleineren Wert aus eigener Abbuchung und Anzeige im Seitenkopf; ist das Guthaben nicht lesbar,
+gilt es als leer. bets.json deshalb in Payload-Reihenfolge schreiben, nicht vorab kürzen.
+
 ## Regeln
 - Mehrere Wetten immer in EINEM Aufruf (ein Login).
 - Das Skript nicht neu schreiben und nicht ändern, solange es nicht nachweislich scheitert.
 - Kein separater Dry-Run, wenn das Skript unverändert ist (es validiert den Dialog selbst).
 - Exit-Code 3 oder Meldung „keine Bestätigung gesehen“: NICHT erneut ausführen, erst „Offene Wetten“ prüfen.
-- Zu wenig Guthaben (Exit-Code 2): melden und stoppen, keine Einzahlung.
+- Zu wenig Guthaben (Exit-Code 2): melden und stoppen. Keine Einzahlung, nicht auf Guthaben warten, Skript nicht
+  erneut aufrufen, übrige Tipps nicht nachholen.
 - Keine Screenshots lesen, solange die Textausgabe zur Fehlersuche reicht.
 - Zugangsdaten nie in Dateien, Befehle oder Berichte schreiben.
 
