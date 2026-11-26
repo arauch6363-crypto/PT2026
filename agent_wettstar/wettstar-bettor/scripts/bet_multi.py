@@ -1,7 +1,11 @@
 """Usage: WS_USER=.. WS_PASS=.. python3 bet_multi.py bets.json [LIVE]
 bets.json: [{"bahn":"Deauville","zeit":"16:50","nr":14,"name":"Superclass","min_fk":6.5,"stake":10}]
 bahn und name dürfen wie auf der PMU-Karte geschrieben sein („MANS“, „THE CAT'S“): verglichen wird ohne
-Groß-/Kleinschreibung, Akzente, Satzzeichen, Leerzeichen und Herkunft „(FR)“."""
+Groß-/Kleinschreibung, Akzente, Satzzeichen, Leerzeichen und Herkunft „(FR)“.
+
+Guthaben: Gewettet wird in der Reihenfolge von bets.json, solange das Guthaben Einsatz + 5 % Steuer deckt. Ab dem
+ersten Tipp, der nicht mehr gedeckt ist, wird nichts mehr gewettet (auch keine späteren kleineren Einsätze).
+Exit-Code 2 = Guthaben reichte nicht für alle Tipps (die gedeckten davor sind platziert). Nie eine Einzahlung."""
 import json, os, re, sys, unicodedata
 from difflib import SequenceMatcher
 
@@ -11,6 +15,7 @@ KELLY_TEIL = 1 / 8 # Einsatz = max(stake, gerundet(1/8 × Kelly × Startbank)) a
 MAX_ANTEIL = 0.50  # höchstens so viel der Startbank je Aufruf (Summe der Einsätze ohne Steuer)
 KLICK_TIMEOUT_MS = 15000  # hängender Klick (z. B. Overlay) bricht nach 15 s ab, dann zweiter Versuch
 VERSUCHE = 2       # je Pferd; ein neuer Versuch nur bei Fehlern VOR dem Bestätigen (dann gibt es noch keine Wette)
+STEUER = 0.05     # Wettsteuer kommt zum Einsatz hinzu
 NAME_MIN = 0.80   # Mindestähnlichkeit des Namens bei gleicher Startnummer (Schreibweisen PMU-Karte vs. Wettstar)
 
 
@@ -50,6 +55,28 @@ def einsatz(basis: float, p, fk: float, bank: float) -> int:
         return basis
     kelly = (float(p) * fk - 1) / (fk - 1)
     return max(basis, int(bank * kelly * KELLY_TEIL + 0.5))
+
+
+def kosten(stake): return round(float(stake) * (1 + STEUER), 2)
+
+
+class Kasse:
+    """Guthaben während eines Laufs. Deckt Wetten der Reihe nach; sobald eine nicht mehr gedeckt ist, ist die Kasse
+    zu und es wird bis zum Ende des Laufs nichts mehr gewettet. Gelesenes Guthaben (Seitenkopf) zählt nur nach unten:
+    der Rest ist immer das Minimum aus eigener Rechnung und Anzeige."""
+
+    def __init__(self, guthaben):
+        self.rest, self.zu = round(float(guthaben), 2), False
+
+    def deckt(self, stake, gelesen=None):
+        if gelesen is not None:
+            self.rest = min(self.rest, round(float(gelesen), 2))
+        if self.zu or self.rest + 1e-9 < kosten(stake):
+            self.zu = True
+        return not self.zu
+
+    def abbuchen(self, stake):
+        self.rest = round(self.rest - kosten(stake), 2)
 
 
 class Skip(Exception): pass
@@ -110,20 +137,24 @@ def main():
             return num(m.group(1))
 
         bal = balance()
-        need = sum(round(x["stake"] * 1.05, 2) for x in bets if x["url"])
+        kasse = Kasse(bal)
+        need = sum(kosten(x["stake"]) for x in bets if x["url"])
         print(f"Guthaben {bal:.2f}, benötigt gesamt {need:.2f}")
         if bal < need:
-            print(f"ABBRUCH: zu wenig Guthaben, fehlen {need-bal:.2f}. KEINE Einzahlung."); sys.exit(2)
+            print(f"HINWEIS: Guthaben reicht nicht für alle Tipps (fehlen {need - bal:.2f}). Gewettet wird von "
+                  "oben, bis ein Tipp nicht mehr gedeckt ist, danach nichts mehr. KEINE Einzahlung.")
         sb = next((x.get("startbank") for x in bets if x.get("startbank")), None)
         bank = float(sb) if sb else bal                  # Startbank des Tages, sonst Guthaben jetzt
         print(f"Startbank {bank:.2f} ({'vom ersten Lauf des Tages' if sb else 'Guthaben jetzt'}), "
               f"Höchstsumme {bank * MAX_ANTEIL:.2f}")
-        rest, summe = bal, 0.0
+        summe = 0.0
 
         # 3) Wetten. Nach einer echten Wette bleibt „Vielen Dank für Ihre Wette“ im Wettschein stehen (auch nach
         # goto), dann fehlt „Wettabgabe“ – deshalb vor der nächsten Wette frischer Kontext mit neuem Login.
         frisch = False
         for bt in bets:
+            if kasse.zu:
+                print(f"{bt['name']}: ABBRUCH: nicht gewettet, Guthaben aufgebraucht (KEINE Einzahlung)"); continue
             if not bt["url"]: print(bt["name"], bt["status"]); continue
             if frisch:
                 pg.context.close(); pg = neue_seite(); einloggen(pg); frisch = False
@@ -156,8 +187,11 @@ def main():
                     if stake < 1: raise Skip("Einsatz unter 1 €")
                     if summe + stake > bank * MAX_ANTEIL + 1e-9:
                         raise Skip(f"Höchstsumme je Lauf erreicht ({summe:g} + {stake} > {bank * MAX_ANTEIL:.2f})")
-                    if stake * 1.05 > rest + 1e-9:
-                        raise Skip(f"zu wenig Guthaben für {stake} € (+ Steuer), KEINE Einzahlung")
+                    try: gelesen = balance()
+                    except Skip: gelesen = 0.0           # nicht lesbar: als leer behandeln, ab hier nichts mehr wetten
+                    if not kasse.deckt(stake, gelesen):
+                        print(f"{bt['name']}: ABBRUCH: zu wenig Guthaben ({kasse.rest:.2f} < {kosten(stake):.2f}), "
+                              "ab hier keine Wetten mehr. KEINE Einzahlung."); break
                     schritt = "Festkurs anklicken"
                     row.locator(".c-runner-odd--type-fix").first.click(); pg.wait_for_timeout(400)
                     schritt = "Einsatz setzen"
@@ -200,7 +234,8 @@ def main():
                     if errs:
                         pg.screenshot(path=f"{OUT}/{tag}_abbruch.png"); raise Skip("Dialog: " + "; ".join(errs))
                     pg.screenshot(path=f"{OUT}/{tag}_dialog.png")
-                    if not LIVE: print("DRY-RUN: nicht bestätigt"); break
+                    if not LIVE:
+                        kasse.abbuchen(stake); print(f"DRY-RUN: nicht bestätigt (Rest gerechnet {kasse.rest:.2f})"); break
                     bestaetigt = True
                     dlg.get_by_role("button", name=re.compile("Wettabgabe bestätigen")).click()
                     try: pg.get_by_text("Vielen Dank für Ihre Wette").first.wait_for(timeout=20000)
@@ -209,7 +244,7 @@ def main():
                     bt_txt = norm(pg.locator("body").inner_text())
                     mt = re.search(r"Ticket (\d+)", bt_txt)
                     print(f"PLATZIERT {bt['name']}: Ticket {mt.group(1) if mt else '?'} – Einsatz {stake} € zu FK {fk}")
-                    summe += stake; rest -= stake * 1.05
+                    summe += stake; kasse.abbuchen(stake)
                     frisch = True
                     try: pg.screenshot(path=f"{OUT}/{tag}_bestaetigung.png")
                     except Exception: pass
@@ -239,8 +274,10 @@ def main():
             try:                                         # z. B. Overlay im Kopf: frischer Browser zum Nachlesen
                 pg.context.close(); pg = neue_seite(); einloggen(pg); print(f"Guthaben danach: {balance():.2f}")
             except Exception:
-                print("Guthaben danach: nicht lesbar")
+                print(f"Guthaben danach: nicht lesbar (gerechnet {kasse.rest:.2f})")
         b.close()
+        if kasse.zu:
+            print("ENDE: Guthaben reichte nicht für alle Tipps. Übrige NICHT nachholen, KEINE Einzahlung."); sys.exit(2)
 
 
 if __name__ == "__main__":
