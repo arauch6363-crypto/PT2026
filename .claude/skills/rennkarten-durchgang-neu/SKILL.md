@@ -79,8 +79,10 @@ Reihenfolge wie der Nutzer sie geht. Jeder Punkt kann Pro-Argument, Gegenargumen
    niemand die Valeurs aus: Dort zählt, wer die **höchste gewichtsbereinigte Valeur** im Feld hat (Valeur − Gewicht +
    55, Rang im Blatt). Eine Marke unter der letzten Platzmarke ist dort ein Zeichen, dass das Pferd nachlässt.
    Kennzeichen **CGD** (auf Bahn, Distanz, Boden gewonnen) „lässt aufhorchen“; C wiegt am meisten, dann G, dann D.
-2. **Referenzlauf.** Der jüngste Lauf unter heutigen Bedingungen (Blatt: `≈heute`), höchstens etwa ein Jahr alt, je
-   jünger desto besser. Ihn gründlich lesen, in dieser Reihenfolge (Blatt: Zeile „Lauf:“ darunter):
+2. **Referenzlauf.** Der jüngste Lauf unter heutigen Bedingungen (Blatt: `≈heute`, in den Formzeilen oder unter
+   „Ältere Läufe“), höchstens etwa ein Jahr alt, je jünger desto besser. Er misst die Leitfrage, auch wenn Formen unter
+   anderen Bedingungen besser sind (`P-REFERENZ-GUT`). *Drumard 21.11.* Ihn gründlich lesen, in dieser Reihenfolge
+   (Blatt: Zeile „Lauf:“ darunter):
    - **kompetitiv?** Platz relativ zur Starterzahl und Abstand in Längen; knapp geschlagen im großen Feld ist oft ein
      sehr gutes Rennen.
    - **ARR** des Laufs relativ zum Feld (Rang unter den Läufen der heutigen Starter) und gegen Top-ARR und Maßstäbe
