@@ -85,8 +85,7 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
 
 ## 4. Vorlieben und Abstammung
 
-- **[ausschlaggebend]** `G-DISTANZ-PROBLEME` Auf der heutigen Distanz bisher immer Probleme → keine Wette, auch bei hohem Value.
-  *Lady Madeira 11.11. (+76 %).*
+- **[ausschlaggebend]** `G-DISTANZ-PROBLEME` Auf der heutigen Distanz bisher immer Probleme → keine Wette, auch bei hohem Value. Nach erst zwei Läufen ohne Platz, wenn der Vater die Distanz nicht trägt, ist es nur leicht dagegen. *Lady Madeira 11.11. (+76 %), Don Nicolas 18.11. (+167 %).*
 - **[ausschlaggebend]** `G-ABSTAMMUNG` Junges Pferd, Belag oder Boden zum ersten Mal, Abstammung klar unpassend (Gesamtwert etwa −15 und schlechter, schlechte Reife) → keine Wette; leicht unpassend (etwa −9) ist nur ein Fragezeichen. *Littoral Nord 11.11. (−17), Magenta Melody 16.11. (−9).*
 - **[gewichtig]** `P-BODEN-BEWAEHRT` Bewährung auf genau dem heutigen Boden trägt auch dünnen Value.
   *Algeciras.*
