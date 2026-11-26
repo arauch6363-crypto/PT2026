@@ -22,9 +22,8 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
 
 ## Claudes typische Fehler – vor dem ersten Rennen lesen
 
-1. **Fragezeichen wiegen, nicht zählen.** Bei jedem Fragezeichen prüfen, ob Belege es entkräften (Abstammung und
-   Formtrend tragen die neue Distanz, Wechsel zu starkem Stall, Claimer-Sieg mit Handicap-Form dahinter). Drei
-   entkräftete Fragezeichen sind keine drei Fragezeichen. *Knuckle 11.11.: Nutzer volle Wette, Claude nur klein.*
+1. **Fragezeichen wiegen, nicht zählen.** Bei jedem Fragezeichen prüfen, ob Belege es entkräften (`SKILL.md`,
+   Fragezeichen). Drei entkräftete Fragezeichen sind keine drei Fragezeichen. *Knuckle 11.11.: Nutzer volle Wette, Claude nur klein.*
 2. **Ein erkanntes Gegenargument voll gewichten.** Steht ein Argument unten als [ausschlaggebend], kippt es das Urteil,
    auch wenn viel anderes dafür spricht. *Lovely Warrior 16.11. (Ausrüstung), Verdansk 11.11. (Gewicht auf schwerem
    Boden).*
