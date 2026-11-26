@@ -43,7 +43,7 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
   erwarten lässt. *Come Alone 16.11.*
 - **[gewichtig]** `P-CGD` CGD „lässt aufhorchen“ und kann bei dünnem Value den Ausschlag geben, wenn Boden und Marke passen.
   *Algeciras, Mister Chang, Cervaro.*
-- **[gewichtig]** `P-MARKE-UNTER` / `G-UEBER-SIEGMARKE` Im Handicap zählt die Marke gegen Sieg- und Platzmarken der letzten zwölf Monate: leicht darunter ist für exposed Pferde ein Plus (außer bei stetigem Abstieg), über der letzten Siegmarke ein Gegenargument, bei jungen Pferden nur ein Fragezeichen. *The Cat's, Silgreypit (+3,5 kg).*
+- **[gewichtig]** `P-MARKE-UNTER` / `G-UEBER-SIEGMARKE` Im Handicap zählt die Marke gegen Sieg- und Platzmarken der letzten zwölf Monate: leicht darunter ist für exposed Pferde ein Plus (außer bei stetigem Abstieg). Ein exposed Pferd ab etwa 1 kg über seiner letzten Siegmarke trägt höchstens eine kleine Wette, auch nach Plätzen auf höherer Marke; bei jungen Pferden ist es nur ein Fragezeichen. *Silgreypit (+3,5 kg); Nolito 20.11.*
 - **[leicht]** `P-MARKE-HOCH` / `P-MARKE-BEWIESEN` Im Handicap sind hohe Marken leicht im Vorteil, im Sprint mehr. Wer
   seine Marke im Handicap verteidigt hat, bringt außerhalb des Handicaps eine verlässliche Valeur mit.
 - **[leicht]** `G-DREIJAEHRIG-FRUEH` / `P-DREIJAEHRIG-HERBST` Dreijährige gegen Ältere im Handicap: bis zum Sommer
