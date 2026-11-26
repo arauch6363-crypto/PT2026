@@ -56,15 +56,18 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
 - **[gewichtig]** `G-ARR-UNTER` Liegt der Referenzlauf etwa 3 Punkte ARR oder mehr unter dem Besten im Feld, reicht es höchstens für eine kleine Wette, auch bei einem wenig exposed Pferd; ist das Pferd dazu selten vorne oder exposed, keine Siegwette – nur viele andere klare Pluspunkte tragen einen ARR-Rückstand. *The Cat's; Aura 17.11.*
 - **[ausschlaggebend]** `G-REFERENZ-SCHWACH` Referenzlauf schwach (z. B. hier im vergleichbaren Rennen weit hinten) und kein Grund für eine
   Steigerung. *Marakana 11.11., Naturaliste 16.11.*
-- **[gewichtig]** `P-ABSTIEG` Formen aus stärkeren Rennen zählen mehr als ihre Platzierung: Klassenindex ab etwa
-  5 Punkten höher leicht, ab 10 deutlich; Listed und Gruppe am meisten; bei jungen Pferden zählt die Dotierung (hoch ab
-  etwa 30 000 €). Abgewertete Rennen zählen nicht.
+- **[gewichtig]** `P-ABSTIEG` / `G-REFERENZ-TIEFER` Formen aus stärkeren Rennen zählen mehr als ihre Platzierung:
+  Klassenindex ab etwa 5 Punkten höher leicht, ab 10 deutlich; Listed und Gruppe am meisten; bei jungen Pferden zählt
+  die Dotierung (hoch ab etwa 30 000 €). Abgewertete Rennen zählen nicht: Ein Referenzlauf in einem abgewerteten Rennen
+  etwa 10 Punkte unter heute beantwortet die Leitfrage nicht, dann zählen die Formen in Rennen der heutigen Klasse.
+  *Califano 19.11.*
 - **[gewichtig]** `P-GEGNER-GESCHLAGEN` Referenzlauf mit ähnlicher Marke, heutige Gegner direkt geschlagen, trägt auch ein Pferd mit leicht
   kaltem Trainer. *Grand Scoop 10.11.*
 - **[gewichtig]** `P-GEGEN-VERLAUF` Gegen den Verlauf gut gelaufen oder ohne Deckung („Nase im Wind“) – die Form ist besser, als die
   Platzierung zeigt. *Teardrop Explodes, Cervaro, Lady Madeira.*
 - **[gewichtig]** `G-KEIN-REFERENZ` Kein Referenzlauf (erster Start auf dem Belag, nur Formen anderswo) bei mittlerem Value → keine
-  Wette, wenn sonst wenig dafür spricht. *Laith, Morus.*
+  Wette, wenn sonst wenig dafür spricht. Eine passende Leistung, die älter als etwa ein Jahr ist, beantwortet die
+  Leitfrage nicht; dann zählen die Formen der letzten zwölf Monate. *Laith; Neuf de Paques 19.11.*
 
 ## 3. Läufe seit dem Referenzlauf
 
@@ -76,8 +79,9 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
   Stall mehr – heute ist eine Steigerung möglich, erst recht mit stärkerem Jockey als damals; war es kaum gewettet,
   leicht dagegen.
 - **[gewichtig]** `G-LETZTER-HEUTE-BODEN` Ein klar verlorener letzter Lauf (5 Längen und mehr) auf dem heutigen Boden
-  ist ein Gegenargument. Übergangen wird er nur, wenn das Pferd behindert wurde oder gegen den Rennverlauf gelaufen
-  ist. *Fille d'Argentine 15.11.*
+  ist ein Gegenargument. Wurde das Pferd behindert, lief es gegen den Rennverlauf oder war das Rennen deutlich stärker
+  (Klassenindex etwa 10 höher), zählt der Lauf nach seinem ARR statt nach dem Platz. *Fille d'Argentine 15.11.; Le Roi
+  Leon 19.11.*
 - **[leicht]** `P-ERSTER-ANSATZ` „Erster Ansatz“ nach einer Reihe schwacher Läufe ist ein Plus, trägt aber höchstens eine kleine Wette.
   *Cole Chop.*
 - **[gewichtig]** `G-FORMLOS` Lange formlose Phase („Formkurve seit Monaten schwach“) wiegt schwerer als einzelne gute Werte
