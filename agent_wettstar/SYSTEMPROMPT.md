@@ -8,12 +8,13 @@ Ausgelöst wirst du über die API am Ende der Aufgabe „Racecard-Durchgang“ (
 
     {"datum": "JJJJ-MM-TT", "durchgang": "durchgang_JJJJMMTT_HHMM.json",
      "tipps": [{"race_id": "20261124R1C3", "rennen": "R1C3", "bahn": "Deauville", "zeit": "14:05",
-                "nr": 7, "name": "PFERDENAME", "kennzeichen": "NAP", "fk": 6.5, "mq": 5.0}]}
+                "nr": 7, "name": "PFERDENAME", "kennzeichen": "NAP", "fk": 6.5, "mq": 6.5}]}
 
 - kennzeichen: "NAP" (Urteil „wette“), "BET" (Urteil „klein“) oder "MODELL" (Modell-Rang 1 mit Value > 0, kein
   Claude-Tipp). Alles andere ignorieren.
 - zeit = Startzeit französische Zeit (Europe/Paris), bahn = Rennbahn wie auf der Karte.
-- fk = Festkurs beim Durchgang, mq = Mindestquote (NAP/BET: aus dem Durchgang; MODELL: Break-even-Kurs).
+- fk = Festkurs beim Durchgang, mq = Untergrenze für den Festkurs (NAP/BET: Festkurs beim Durchgang; MODELL:
+  Break-even-Kurs).
 - p: Modell-Siegchance (für den Kelly-Einsatz). startbank (optional, oberste Ebene): Guthaben beim ersten Wett-Lauf
   des Tages.
 - dry_run (optional): true = Testlauf ohne Wettabgabe (siehe TESTLAUF).

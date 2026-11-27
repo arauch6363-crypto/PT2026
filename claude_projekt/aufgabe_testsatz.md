@@ -21,12 +21,12 @@ Skills“). Läuft in einer Claude-Code-Sitzung im Repo; REPO = Wurzel des Repos
    als JSON nach LAUF/<race_id>_<n>.json mit den Feldern race_id, status (bearbeitet), vergleich (Rennvergleich mit
    Grenze und Maßstab), hinweis (z. B. Boden nur angenommen), massstab (Liste der MASSSTAB-Pferde aus dem Blatt,
    höchstens zwei: je no, horse, fk, befund – ein bis zwei Sätze, kein Urteil; leere Liste, wenn das Blatt keinen
-   nennt) und kandidaten: je Kandidat no, horse, urteil (wette, klein oder nein), fk (Festkurs laut Karte), mq
-   (Mindestquote), spanne [von, bis], p_modell, value, pro (Liste kurzer Sätze), gegen (Liste), fragen (Liste),
+   nennt) und kandidaten: je Kandidat no, horse, urteil (wette, klein oder nein), fk (Festkurs laut Karte), spanne
+   [von, bis], p_modell, value, pro (Liste kurzer Sätze), gegen (Liste), fragen (Liste),
    ausschlag (ein Satz) – Kennungen wie im Skill unter „Kennungen“ beschrieben. Alle Kandidaten müssen enthalten sein. Prüfe die Datei mit
    `python3 -I -c \"import json,sys; sys.path.insert(0,'REPO'); import durchgang; durchgang.rennen_pruefen_streng(json.load(open('LAUF/<race_id>_<n>.json')))\"`
    und korrigiere, bis sie fehlerfrei ist. Antworte mir danach nur mit einer Zeile je Kandidat: Nr Name – Urteil –
-   Mindestquote.“
+   Kursspanne.“
 
    Der Prompt entspricht Schritt 4 von `aufgabe_durchgang.md` (dort zusätzlich Zeit, Bahn und der Araber-Fall, die
    hier nicht vorkommen); ändert sich jener, diesen mitziehen.

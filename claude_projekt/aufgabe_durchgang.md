@@ -89,12 +89,12 @@ PY
   (Rennvergleich mit Grenze und Maßstab), hinweis (z. B. Boden nur angenommen oder Start in wenigen Minuten), massstab
   (Liste der MASSSTAB-Pferde aus dem Blatt, höchstens zwei: je no, horse, fk, befund – ein bis zwei Sätze, kein Urteil;
   leere Liste, wenn das Blatt keinen nennt) und kandidaten: je
-  Kandidat no, horse, urteil (wette, klein oder nein), fk (Festkurs laut Karte), mq (Mindestquote), spanne [von, bis],
+  Kandidat no, horse, urteil (wette, klein oder nein), fk (Festkurs laut Karte), spanne [von, bis],
   p_modell, value, pro (Liste kurzer Sätze), gegen (Liste), fragen (Liste), ausschlag (ein Satz) – Kennungen wie im Skill unter „Kennungen“ beschrieben. Alle Kandidaten
   müssen enthalten sein. Ist es kein Vollblutrennen: race_id, status araber, kandidaten leer. Prüfe die Datei mit
   `python3 -I -c "import json,sys; sys.path.insert(0,'/home/claude/pt2026'); import durchgang; durchgang.rennen_pruefen_streng(json.load(open('/home/claude/rd/rennen_<race_id>.json')))"`
   und korrigiere, bis sie fehlerfrei ist. Antworte mir danach nur mit einer Zeile je Kandidat: Nr Name – Urteil –
-  Mindestquote.“
+  Kursspanne.“
 - Fehlt danach die Datei oder ist sie fehlerhaft: den Subagenten für dieses Rennen einmal neu starten. Scheitert er
   wieder, selbst `/home/claude/rd/rennen_<race_id>.json` mit `{"race_id": …, "status": "fehler", "hinweis": "<Grund>", "kandidaten": []}`
   schreiben. Die Urteile der Subagenten unverändert übernehmen, nichts nachbewerten.

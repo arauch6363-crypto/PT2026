@@ -205,7 +205,7 @@ def rennen_pruefen(r: dict) -> dict:
         u = str(k.get("urteil", "")).lower()
         if u not in URTEILE:
             raise ValueError(f"{r['race_id']} Nr. {k.get('no')}: Urteil {u!r} (erlaubt: wette, klein, nein)")
-        fk, mq = _zahl(k.get("fk")), _zahl(k.get("mq"))
+        fk, mq = _zahl(k.get("fk")), _zahl(k.get("mq"))      # mq (Mindestquote) nur noch in alten Dateien
         if u != "nein" and not (fk and fk > 1):
             raise ValueError(f"{r['race_id']} Nr. {k.get('no')}: Festkurs fehlt")
         sp = k.get("spanne") or []
@@ -380,10 +380,10 @@ def tabelle(pfade) -> str:
             if k["urteil"] in KENNZEICHEN:
                 sp = k.get("spanne") or [None, None]
                 zeilen.append(f"| {rid[-4:]} | {k['no']} {k.get('horse') or ''} | **{KENNZEICHEN[k['urteil']]}** | "
-                              f"{_q(k.get('fk'))} | {_q(sp[0])}–{_q(sp[1])} | {_q(k.get('mq'))} | {k.get('ausschlag') or ''} |")
+                              f"{_q(k.get('fk'))} | {_q(sp[0])}–{_q(sp[1])} | {k.get('ausschlag') or ''} |")
     if not zeilen:
         return "Keine Claude-Tipps."
-    return "\n".join(["| Rennen | Pferd | | FK | Spanne | MQ | Ausschlag |", "|---|---|---|---|---|---|---|", *zeilen])
+    return "\n".join(["| Rennen | Pferd | | FK | Spanne | Ausschlag |", "|---|---|---|---|---|---|", *zeilen])
 
 
 # ---------------------------------------------------------------- CLI

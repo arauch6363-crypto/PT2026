@@ -122,6 +122,14 @@ def test_neuester_durchgang_gilt_und_anwenden(tmp_path):
     assert c6["runners"][0]["claude"]["kennzeichen"] == "BET" and c6["claude"]["vergleich"] == "A > B"
     assert d["races"]["20261112R1C2"]["runners"][0]["claude"]["kennzeichen"] is None
     assert "TABLE" not in dg.tabelle([a, b]) and "R1C6" in dg.tabelle([a, b]) and "R1C2" not in dg.tabelle([a, b])
+    assert "MQ" not in dg.tabelle([a, b])                                   # Mindestquote entfällt (mq nur in alten Dateien)
+
+
+def test_ohne_mindestquote_lesbar():
+    r = _rennen("X", (1, "wette", 3.0, 2.5))
+    del r["kandidaten"][0]["mq"]
+    k = dg.zusammenfuehren("2026-11-27", [r])["rennen"][0]["kandidaten"][0]
+    assert k["mq"] is None and k["fk"] == 3.0
 
 
 def test_markieren_html(tmp_path):

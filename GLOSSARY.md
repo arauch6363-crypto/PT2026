@@ -134,10 +134,6 @@ _Avoid_: Kelly-Einsatz, Stake
 Die grobe eigene Einschätzung, welcher Festkurs für ein Pferd fair wäre („fair eher 8–10“), ohne Rechnung. Gewettet wird, wenn der Festkurs klar darüber liegt.
 _Avoid_: faire Quote (das ist 1 ÷ Modell-Siegchance), eigene Siegchance
 
-**Mindestquote**:
-Der untere Rand der Kursspanne: der niedrigste Festkurs, zu dem eine Wette noch abgegeben wird. Liegt der Festkurs beim Wetten darunter, wird nicht gewettet.
-_Avoid_: faire Quote (das ist 1 ÷ Modell-Siegchance), Mindestkurs
-
 **Tipp**:
 Der mechanische Vorschlag der Karte nach ihrer Kelly-Regel, ohne Analyse.
 _Avoid_: Wette, Claude-Tipp
@@ -229,10 +225,9 @@ _Avoid_: Regel-Backtest, Statistik
 - **Value** entsteht aus **Festkurs** und **Modell-Siegchance**; der **Value-Faktor** geht nicht ein.
 - Über jeden **Kandidaten** fällt ein **Gesamturteil**; lautet es ja, ist er eine **Wette**.
 - Das **Gesamturteil** wägt **Pro-Argumente**, **Gegenargumente** und **Fragezeichen** ab und vergleicht die **Kursspanne** mit dem **Festkurs**; **Value** entscheidet nur, wer **Kandidat** ist.
-- Die **Mindestquote** ist der untere Rand der **Kursspanne**.
 - Eine **Wette** kann zugleich ein **Tipp** der Karte sein, muss es aber nicht.
 - Ein **Durchgang** macht aus jedem **Kandidaten** einen **Claude-Tipp** (**NAP** oder **BET**) oder einen **abgelehnten Kandidaten**.
-- Ein **Claude-Tipp** wird zum **Festkurs** beim **Durchgang** abgerechnet; sein Kennzeichen erlischt nicht, wenn der Festkurs später unter die **Mindestquote** fällt.
+- Ein **Claude-Tipp** wird zum **Festkurs** beim **Durchgang** gespielt und abgerechnet oder gar nicht.
 - Ein **Testfall** fasst die Fälle eines Rennens aus der Fallsammlung zusammen; Kandidaten ohne Urteil des Nutzers laufen mit, zählen aber nicht.
 - Eine Abweichung vom Urteil des Nutzers ist eine **Fehlwette** oder ein **verpasster Kandidat**; Wette gegen Kleine Wette zählt halb.
 - Die **Ergebnisanalyse** ordnet jeden Sieger einer **Siegergruppe** zu und untersucht **verpasste Sieger** und **verlorene Claude-Tipps**; ihre **Vorschläge** gehen erst nach Zustimmung des Nutzers und bestandenem **Testsatz** in den Skill.

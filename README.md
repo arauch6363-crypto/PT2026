@@ -698,8 +698,9 @@ das Ergebnis als `racecards/durchgang_JJJJMMTT_HHMM.json` ab (warum nicht in der
 Ein zweiter Start am selben Tag bearbeitet nur Rennen, die noch in keinem Durchgang stehen.
 
 - **Karte:** `racecard.run` und `festkurse_aktualisieren` setzen die Urteile aller Durchgänge des Tages in die HTML ein
-  (je Rennen der jüngste): Kennzeichen **NAP ≥ MQ** (Wette, 1 Einheit) bzw. **BET ≥ MQ** (Kleine Wette, ½ Einheit) neben
-  dem Namen, grau mit „FK < MQ“, wenn der Festkurs inzwischen unter der Mindestquote liegt; aufgeklappt Pro, Gegen,
+  (je Rennen der jüngste): Kennzeichen **NAP** (Wette, 1 Einheit) bzw. **BET** (Kleine Wette, ½ Einheit) neben
+  dem Namen, grau mit „FK < …“, wenn der Festkurs inzwischen unter dem beim Durchgang liegt (gespielt wird zu diesem
+  oder gar nicht; ältere Durchgänge: unter der Mindestquote); aufgeklappt Pro, Gegen,
   Fragezeichen, Ausschlag und Rennvergleich, auch für abgelehnte Kandidaten. Kartendaten und Claude-JSONs bleiben
   ohne Urteile.
 - **Sofort ansehen:** die Aufgabe rendert die markierte Karte selbst (`durchgang.py markieren`) und veröffentlicht sie
@@ -719,7 +720,7 @@ Ein zweiter Start am selben Tag bearbeitet nur Rennen, die noch in keinem Durchg
   Flachrennen, ohne Araber).
 - **Format** einer Durchgang-Datei: `{"datum", "stand", "skill", "rennen": [{"race_id", "status" (bearbeitet,
   kein_festkurs, gelaufen, araber, keine_kandidaten, fehler), "vergleich", "hinweis", "kandidaten": [{"no", "horse",
-  "urteil" (wette, klein, nein), "einheiten", "fk", "mq", "spanne", "p_modell", "value", "pro", "gegen", "fragen",
+  "urteil" (wette, klein, nein), "einheiten", "fk", "mq" (nur ältere Dateien), "spanne", "p_modell", "value", "pro", "gegen", "fragen",
   "ausschlag"}]}]}`.
 
 ```
@@ -899,7 +900,7 @@ Beispiel ¼ Kelly → 2404,00 € bei 18 Wetten.
 
 `.claude/skills/rennkarten-durchgang-neu/` ist der qualitative Durchgang durch eine Rennkarte: Aus den Kandidaten
 (Value mindestens +5 %, wegen 5 % Steuer) wählt er die Siegwetten zum Festkurs aus – je Kandidat Pro-Argumente, Gegenargumente und Fragezeichen,
-Gesamturteil (Wette, kleine Wette, keine Wette) mit eigener Kursspanne und Mindestquote. Dazu gehören `DATEN.md`,
+Gesamturteil (Wette, kleine Wette, keine Wette) mit eigener Kursspanne. Dazu gehören `DATEN.md`,
 `EINSICHTEN.md` (aus den Fällen verdichtete Gewichtung und typische Fehler), das Skript `scripts/blatt.py` (zieht die Fakten aus der HTML-Karte) und die Begriffe in
 `GLOSSARY.md`. Die Fälle selbst liegen als Archiv in `docs/faelle_rennkarten_durchgang.md` und werden beim Durchgang
 nicht gelesen. Automatisch läuft er über die Aufgabe „Racecard-Durchgang API“ (`claude_projekt/aufgabe_durchgang.md`).

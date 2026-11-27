@@ -1,6 +1,6 @@
 ---
 name: rennkarten-durchgang-neu
-description: "Rennkarte/Racecard (französischer Galopp, PT2026) auf Siegwetten durchgehen – ganze Karte oder einzelne Rennen: Value-Kandidaten prüfen, Urteil mit Kursspanne und Mindestquote."
+description: "Rennkarte/Racecard (französischer Galopp, PT2026) auf Siegwetten durchgehen – ganze Karte oder einzelne Rennen: Value-Kandidaten prüfen, Urteil mit Kursspanne."
 ---
 
 # Rennkarten-Durchgang
@@ -46,7 +46,7 @@ ausging.
 4. **Je Kandidat die Prüfliste.** Fertig, wenn jeder der sechs Prüfpunkte je Kandidat einen Befund (Pro, Gegen,
    Fragezeichen) oder ausdrücklich „nichts“ geliefert hat.
 5. **Gesamturteil** je Kandidat. Fertig, wenn die Leitfrage mit Zahlen beantwortet ist (Referenz-ARR des Kandidaten
-   gegen Top-ARR im Feld und gegen beide Maßstäbe) und Spanne, Mindestquote und Ausschlag mit Kennung stehen.
+   gegen Top-ARR im Feld und gegen beide Maßstäbe) und Spanne und Ausschlag mit Kennung stehen.
 6. **Rennvergleich**: Kandidaten nach Beweislage ordnen, gegen die Maßstäbe stellen, Grenze ziehen.
 7. **Ausgabe**: im automatischen Durchgang das JSON-Format des Auftrags, sonst nach `AUSGABE.md`.
 
@@ -204,7 +204,7 @@ Handicap-Form auf ähnlicher Marke.
 
 Je Kandidat: Pro-Argumente, Gegenargumente, Fragezeichen, dann die **eigene Kursspanne** – grob, ehrlich, aus dem
 Gesamteindruck („fair eher 8–10“). Gewettet wird, wenn der Festkurs klar über der Spanne liegt (`U-KURSSPANNE`) und die
-Leitfrage mit „ja, kann reichen“ beantwortet ist (`U-LEITFRAGE`). Mindestquote = unterer Rand der Spanne.
+Leitfrage mit „ja, kann reichen“ beantwortet ist (`U-LEITFRAGE`).
 
 - **Wette** = 1 Einheit. **Kleine Wette** = ½ Einheit: interessant, aber „da fehlt einiges“ (z. B. erster Ansatz
   nach vielen schwachen Läufen, Value dünn).
