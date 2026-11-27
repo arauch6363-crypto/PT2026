@@ -7,8 +7,9 @@ description: "Ergebnisanalyse eines Renntags: Durchgänge des Skills rennkarten-
 
 Die Ergebnisanalyse **liefert Vorschläge, der Nutzer entscheidet** (ADR 0003). Ein Fall genügt für einen Vorschlag; ob
 er sich verallgemeinern lässt, beurteilt der Nutzer. Begriffe (Siegergruppe, verpasster Sieger, verlorener
-Claude-Tipp, Vorschlag, Gegenprobe, Regelkennung, Regelprotokoll) stehen in `GLOSSARY.md`. Ablauf mit
-Drive, Seite und PR: `claude_projekt/aufgabe_ergebnisanalyse.md`; dieser Skill ist der Urteilsteil.
+Claude-Tipp, Vorschlag, Gegenprobe, Rückschau, Regelkennung, Regelprotokoll, Kandidatenprotokoll, Drift, Kalibrierung)
+stehen in `GLOSSARY.md`. Ablauf mit Drive, Seite und PR: `claude_projekt/aufgabe_ergebnisanalyse.md`; dieser Skill ist
+der Urteilsteil.
 
 ## 1. Lesen
 
@@ -102,6 +103,10 @@ Fertig, wenn jeder `text` alle sechs Punkte erfüllt.
 `python3 -I ergebnis_analyse.py verdichtung` und `… bericht`. Meldet eines einen Anlass (`abschnitt_voll`,
 `datei_lang`, `vorlaeufig_*`, eine Regel `unter_druck`): [`VERDICHTEN.md`](VERDICHTEN.md) lesen und je Anlass
 Vorschläge nach Abschnitt 3 machen. Fertig, wenn jeder gemeldete Anlass einen Vorschlag hat.
+
+`… bericht --ausschlag` zählt nur die Kennung, die das Urteil entschied (mit „Ermessen“), `… bericht --pruefschritt`
+bündelt die Kennungen je Prüfschritt; beide füllen sich schneller als die einzelne Kennung. Sie sind Belege für
+`gegenprobe`; ein Anlass bleibt allein `unter_druck` aus `bericht`.
 
 **Drift:** `python3 -I ergebnis_analyse.py drift` zählt je Tag wette / klein / nein und stellt den Tipp-Anteil der
 letzten 7 Tage dem davor gegenüber, dazu die angenommenen Vorschläge nach `wirkung`. Die Zeile des Tages und das

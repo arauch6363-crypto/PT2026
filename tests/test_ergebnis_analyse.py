@@ -342,6 +342,81 @@ def test_kalibrierung():
     assert ea.kalibrierung([])["urteile"]["alle"]["markt"] == {"n": 0, "siege": 0, "erwartet": 0}
 
 
+def test_bericht_nur_ausschlag():
+    kand = [{**_kz("wette", 1, "5.0", p_markt="0.2"), "ausschlag_kennung": "P-CGD"},
+            {**_kz("nein", 0, "6.0", p_markt="0.15"), "ausschlag_kennung": "P-CGD G-ARR-UNTER"},
+            {**_kz("nein", 1, "4.0", p_markt="0.25"), "ausschlag_kennung": "Ermessen"},
+            {**_kz("nein", 0, "", p_markt=""), "ausschlag_kennung": "G-ARR-UNTER"}]       # ohne Marktchance
+    z = ea.ausschlag_zeilen(kand)
+    assert [(x["kennung"], x["richtung"]) for x in z] == [("P-CGD", "pro"), ("P-CGD", "gegen"),
+                                                          ("G-ARR-UNTER", "gegen"), ("Ermessen", "gegen")]
+    b = {(x["kennung"], x["richtung"]): x for x in ea.bericht(z)}
+    assert b[("Ermessen", "gegen")]["siege"] == 1 and b[("G-ARR-UNTER", "gegen")]["n"] == 1
+
+
+SKILL_MD = """# Durchgang
+
+## Prüfliste je Kandidat
+
+1. **Ausgangslage und Klasse.** Rang (`P-RANG-VORNE`).
+2. **Referenzlauf (≈heute).** Gut (`P-REFERENZ-GUT`), Gewicht (`G-GEWICHT-BODEN`).
+
+### Typische Gegenargumente
+
+- `G-GEWICHT-BODEN` Gewicht ab 62 kg
+- `G-SELTEN-VORNE` selten vorne
+
+## Gesamturteil
+
+`U-FAUSTREGEL` **Faustregel** und `U-LEITFRAGE`.
+"""
+
+EINSICHTEN_MD = """# Einsichten
+
+## Claudes typische Fehler
+
+1. **Kleine Wette** nur stimmig (`U-KEIN-AUSWEG`).
+
+## 1. Ausgangslage und Klasse
+
+- **[gewichtig]** `P-RANG-VORNE` / `G-RANG-HINTEN` Rang. Auf Sand nicht:
+  **[leicht · vorläufig]** `G-SAND` Sand, siehe auch `P-CGD`.
+
+## Gesamturteil, Maßstab, Rennvergleich
+
+- **[leicht]** `U-FAVORIT-KLAR` Favorit.
+
+## Stillgelegte Kennungen
+
+- `G-ALT` → `G-SAND`
+"""
+
+
+def test_pruefschritte(tmp_path):
+    (tmp_path / "SKILL.md").write_text(SKILL_MD, encoding="utf-8")
+    (tmp_path / "EINSICHTEN.md").write_text(EINSICHTEN_MD, encoding="utf-8")
+    s = ea.pruefschritte(tmp_path)
+    assert s["P-RANG-VORNE"] == s["G-RANG-HINTEN"] == s["G-SAND"] == "1. Ausgangslage und Klasse"
+    assert s["P-REFERENZ-GUT"] == "2. Referenzlauf"                   # Prüfpunkt ohne Abschnitt in EINSICHTEN.md
+    assert s["G-GEWICHT-BODEN"] == "2. Referenzlauf"                  # Prüfpunkt vor Liste
+    assert s["G-SELTEN-VORNE"] == "Typische Gegenargumente"
+    assert s["U-FAUSTREGEL"] == s["U-LEITFRAGE"] == s["U-FAVORIT-KLAR"] == "Gesamturteil, Maßstab, Rennvergleich"
+    assert s["U-KEIN-AUSWEG"] == "Claudes typische Fehler"         # nur dort genannt: erste Nennung
+    assert "G-ALT" not in s and s["P-CGD"] == "1. Ausgangslage und Klasse"
+
+
+def test_bericht_je_pruefschritt():
+    zeilen = [_pz("20261120", "A", 1, "P-RANG-VORNE", "pro", "wette", 1),
+              _pz("20261120", "A", 1, "P-CGD", "pro", "wette", 1),          # selber Schritt: zählt einmal
+              _pz("20261120", "A", 2, "G-ALT", "gegen", "nein", 0),
+              _pz("20261120", "A", 3, "G-NEU-UNBEKANNT", "gegen", "nein", 0)]
+    schritte = {"P-RANG-VORNE": "1. Ausgangslage", "P-CGD": "1. Ausgangslage", "G-SAND": "1. Ausgangslage"}
+    b = {(x["pruefschritt"], x["richtung"]): x for x in ea.bericht_je_pruefschritt(zeilen, schritte, {"G-ALT": "G-SAND"})}
+    assert b[("1. Ausgangslage", "pro")]["n"] == 1 and b[("1. Ausgangslage", "pro")]["siege"] == 1
+    assert b[("1. Ausgangslage", "gegen")]["n"] == 1
+    assert b[("ohne Prüfschritt", "gegen")]["n"] == 1
+
+
 def test_vorschlaege_wirkung(tmp_path):
     v = {"id": "20261127-1", "datum": "20261127", "entscheidung": "offen", "wirkung": "strenger"}
     ea.vorschlaege_ablegen(tmp_path, [v])

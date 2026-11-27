@@ -17,8 +17,10 @@ Aufruf:
     python3 -I ergebnis_analyse.py protokoll analyse_JJJJMMTT.json [--ordner auswertung]
         Regelprotokoll (Kennungen) und Kandidatenprotokoll (je Kandidat eine Zeile) des Tages fortschreiben
         (ersetzt Zeilen desselben Tages).
-    python3 -I ergebnis_analyse.py bericht [--ordner auswertung]
-        Regelprotokoll je Kennung und Richtung als JSON (n, Siege, erwartet, A/E, z, unter_druck).
+    python3 -I ergebnis_analyse.py bericht [--ausschlag | --pruefschritt] [--ordner auswertung]
+        Regelprotokoll je Kennung und Richtung als JSON (n, Siege, erwartet, A/E, z, unter_druck). --ausschlag: nur
+        die Kennung, die das Urteil entschied (aus dem Kandidatenprotokoll, mit „Ermessen“); --pruefschritt: gebündelt
+        je Prüfschritt (Abschnitt von EINSICHTEN.md bzw. Liste in SKILL.md).
     python3 -I ergebnis_analyse.py rueckschau [KENNUNG …] [--ordner auswertung]
         Je Kennung bisherige Tipps und abgelehnte Kandidaten, die sie zitierten, mit Siegen und Siegern (JSON);
         ohne Kennung alle bisherigen Treffer mit ihren Kennungen.
@@ -413,6 +415,85 @@ def bericht(zeilen: list[dict], stillgelegt: dict[str, str] | None = None) -> li
     return out
 
 
+def ausschlag_zeilen(kandidaten: list[dict]) -> list[dict]:
+    """Kandidatenprotokoll → Zeilen wie im Regelprotokoll, aber nur die Kennung des Ausschlags (oder „Ermessen“), in
+    Richtung des Urteils. Für ``bericht``: Wie gehen die Pferde aus, bei denen diese Regel entschied?"""
+    out = []
+    for z in kandidaten:
+        if _f(z.get("p_markt")) is None:
+            continue
+        for ken in str(z.get("ausschlag_kennung") or "").split():
+            out.append({**z, "kennung": ken, "richtung": "pro" if z["urteil"] in TIPP else "gegen"})
+    return out
+
+
+KENNUNG_TICK = re.compile(r"`([FGPU]-[A-Z0-9-]+)`")
+EINSICHT_KOPF = re.compile(r"\*\*\[[^\]]+\]\*\* ((?:`[FGPU]-[A-Z0-9-]+`(?: / )?)+)")   # Kennungen hinter dem Gewicht
+PRUEFPUNKT = re.compile(r"^(\d+)\. \*\*")
+
+
+def _titel(t: str) -> str:
+    return re.sub(r"\s*\([^)]*\)$", "", t.strip().rstrip(".")).rstrip(".")
+
+
+def pruefschritte(skill_ordner: str | Path) -> dict[str, str]:
+    """Kennung → Prüfschritt: der Abschnitt von EINSICHTEN.md, in dem ihre Einsicht steht; sonst die Stelle in SKILL.md,
+    an der sie als Listeneintrag steht (Prüfpunkt N heißt wie Abschnitt N von EINSICHTEN.md, sonst die Überschrift der
+    Liste), sonst ihre erste Nennung in SKILL.md, zuletzt in EINSICHTEN.md."""
+    def text(name):
+        t = (Path(skill_ordner) / name).read_text(encoding="utf-8")
+        i = t.find(dg.STILLGELEGT_KOPF)
+        return t if i < 0 else t[:i]
+    einsichten, nebenbei, nummer, abschnitte = {}, {}, {}, {}
+    titel = None
+    for z in text("EINSICHTEN.md").splitlines():
+        if z.startswith("## "):
+            titel = z[3:].strip()
+            mt = re.match(r"(\d+)\. ", titel)
+            if mt:
+                nummer[mt.group(1)] = titel
+            for teil in titel.split(", "):
+                abschnitte.setdefault(teil, titel)     # „Gesamturteil, Maßstab, Rennvergleich“
+            continue
+        for kopf in EINSICHT_KOPF.findall(z) if titel else []:
+            for ken in KENNUNG_TICK.findall(kopf):
+                einsichten.setdefault(ken, titel)
+        for ken in KENNUNG_TICK.findall(z) if titel else []:
+            nebenbei.setdefault(ken, titel)
+    punkt, liste, erste = {}, {}, {}
+    titel, in_pruefliste, in_punkt = None, False, False
+    for z in text("SKILL.md").splitlines():
+        if z.startswith("#"):
+            titel = _titel(z.lstrip("#"))
+            titel = abschnitte.get(titel, titel)
+            in_pruefliste = titel.startswith("Prüfliste") if z.startswith("## ") else in_pruefliste
+            in_punkt = False
+            continue
+        mt = PRUEFPUNKT.match(z)
+        if mt and in_pruefliste:
+            titel = nummer.get(mt.group(1)) or f"{mt.group(1)}. {_titel(z[mt.end():].split('**')[0])}"
+            in_punkt = True
+        if not titel:
+            continue
+        kopf = re.match(r"^\s*(?:- )?((?:`[FGPU]-[A-Z0-9-]+`(?: / )?)+)", z)
+        for ken in KENNUNG_TICK.findall(kopf.group(1)) if kopf else []:
+            liste.setdefault(ken, titel)
+        for ken in KENNUNG_TICK.findall(z):
+            (punkt if in_punkt else erste).setdefault(ken, titel)
+    return {**nebenbei, **erste, **liste, **punkt, **einsichten}
+
+
+def bericht_je_pruefschritt(zeilen: list[dict], schritte: dict[str, str],
+                            stillgelegt: dict[str, str] | None = None) -> list[dict]:
+    """Regelprotokoll gebündelt je Prüfschritt und Richtung (ein Pferd zählt je Prüfschritt und Richtung einmal)."""
+    stillgelegt = stillgelegt or {}
+    je: dict[tuple, dict] = {}
+    for z in zeilen:
+        schritt = schritte.get(_aktuell(z["kennung"], stillgelegt), "ohne Prüfschritt")
+        je.setdefault((z["datum"], z["race_id"], str(z["no"]), schritt, z["richtung"]), {**z, "kennung": schritt})
+    return [{"pruefschritt": b.pop("kennung"), **b} for b in bericht(list(je.values()))]
+
+
 def _aktuell(ken: str, stillgelegt: dict[str, str]) -> str:
     while ken in stillgelegt:
         ken = stillgelegt[ken]
@@ -627,7 +708,13 @@ def main(argv: list[str]) -> None:
         print(f"{protokoll_fortschreiben(ordner, m)} Zeilen Regelprotokoll, "
               f"{kandidaten_fortschreiben(ordner, m)} Zeilen Kandidatenprotokoll für {m['datum']}")
     elif cmd == "bericht":
-        print(json.dumps(bericht(protokoll_lesen(ordner), dg.stillgelegt()), ensure_ascii=False, indent=1))
+        if "--ausschlag" in rest:
+            b = bericht(ausschlag_zeilen(kandidaten_lesen(ordner)), dg.stillgelegt())
+        elif "--pruefschritt" in rest:
+            b = bericht_je_pruefschritt(protokoll_lesen(ordner), pruefschritte(dg.SKILL_ORDNER), dg.stillgelegt())
+        else:
+            b = bericht(protokoll_lesen(ordner), dg.stillgelegt())
+        print(json.dumps(b, ensure_ascii=False, indent=1))
     elif cmd == "rueckschau":
         print(json.dumps(rueckschau(protokoll_lesen(ordner), args, dg.stillgelegt()), ensure_ascii=False, indent=1))
     elif cmd == "drift":
