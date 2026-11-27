@@ -222,6 +222,10 @@ _Avoid_: Backtest (das ist `regel_backtest.py` über die ganze Historie)
 Je Regelkennung: wie oft sie in Durchgängen zitiert wurde, wie oft die Pferde gewonnen haben und wie viele Siege der Festkurs erwarten ließ (A/E, z). Nur vorwärts, ab Einführung der Kennungen. Eine Regel steht **unter Druck**, wenn n ≥ 20 und z ≤ −2 gegen ihre Richtung.
 _Avoid_: Regel-Backtest, Statistik
 
+**Rückschau**:
+Zu einem Vorschlag, der Urteile strenger macht: welche bisherigen Treffer (Claude-Tipps, die gewannen) die Kennung zitierten und die Regel gestrichen hätte, dazu dieselbe Zählung für abgelehnte Kandidaten. Quelle ist das Regelprotokoll.
+_Avoid_: Backtest (das ist `regel_backtest.py`), Gegenprobe (die sieht nur die Verlierer des Tages)
+
 ## Relationships
 
 - Ein **Kandidat** ist ein Starter, dessen **Value** mindestens +5 % beträgt.

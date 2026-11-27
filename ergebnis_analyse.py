@@ -18,6 +18,9 @@ Aufruf:
         Regelprotokoll mit den Kennungen des Tages fortschreiben (ersetzt Zeilen desselben Tages).
     python3 -I ergebnis_analyse.py bericht [--ordner auswertung]
         Regelprotokoll je Kennung und Richtung als JSON (n, Siege, erwartet, A/E, z, unter_druck).
+    python3 -I ergebnis_analyse.py rueckschau [KENNUNG …] [--ordner auswertung]
+        Je Kennung bisherige Tipps und abgelehnte Kandidaten, die sie zitierten, mit Siegen und Siegern (JSON);
+        ohne Kennung alle bisherigen Treffer mit ihren Kennungen.
     python3 -I ergebnis_analyse.py verdichtung [--ordner auswertung]
         Anlässe zum Verdichten von EINSICHTEN.md als JSON (Abschnitt voll, Datei lang, vorläufige Einsicht mit 20 Fällen).
     python3 -I ergebnis_analyse.py naechster-tag JJJJMMTT … [--ordner auswertung]
@@ -53,8 +56,10 @@ DRUCK_N, DRUCK_Z = 20, 2.0          # Regel unter Druck: mindestens so viele Fä
 PROTOKOLL_FELDER = ["datum", "race_id", "no", "horse", "kennung", "richtung", "urteil", "fk", "p_markt", "gewonnen"]
 TAGE_FELDER = ["datum", "analysiert", "commit", "vorschlaege"]
 VORSCHLAG_FELDER = ["id", "datum", "titel", "fall", "rennen", "race_id", "no", "horse", "durchgang", "datenpunkt",
-                    "gegenprobe", "art", "zieldatei", "kennung", "alt", "text", "gewicht", "entscheidung", "notiz", "entschieden"]
+                    "gegenprobe", "art", "zieldatei", "kennung", "alt", "text", "gewicht", "wirkung", "entscheidung",
+                    "notiz", "entschieden"]
 ENTSCHEIDUNGEN = {"offen", "ja", "nein", "geaendert"}
+WIRKUNGEN = {"strenger", "lockerer", "neutral"}     # leer bei Vorschlägen vor dem 27.11.2026
 
 
 # ---------------------------------------------------------------- Einlauf
@@ -294,9 +299,7 @@ def bericht(zeilen: list[dict], stillgelegt: dict[str, str] | None = None) -> li
     stillgelegt = stillgelegt or {}
     gruppen: dict[tuple[str, str], list[dict]] = {}
     for z in zeilen:
-        ken = z["kennung"]
-        while ken in stillgelegt:                     # zusammengefasste Einsicht zählt unter der verbleibenden
-            ken = stillgelegt[ken]
+        ken = _aktuell(z["kennung"], stillgelegt)     # zusammengefasste Einsicht zählt unter der verbleibenden
         gruppen.setdefault((ken, z["richtung"]), []).append(z)
     out = []
     for (ken, rt), zs in sorted(gruppen.items()):
@@ -310,6 +313,52 @@ def bericht(zeilen: list[dict], stillgelegt: dict[str, str] | None = None) -> li
         out.append({"kennung": ken, "richtung": rt, "n": n, "siege": siege, "erwartet": round(erw, 2),
                     "ae": round(siege / erw, 2) if erw else None, "z": round(zwert, 2), "unter_druck": druck})
     return out
+
+
+def _aktuell(ken: str, stillgelegt: dict[str, str]) -> str:
+    while ken in stillgelegt:
+        ken = stillgelegt[ken]
+    return ken
+
+
+def _zeitraum(zeilen: list[dict]) -> str | None:
+    tage = sorted({str(z["datum"]) for z in zeilen})
+    return f"{tage[0]}–{tage[-1]}" if tage else None
+
+
+def _pferd(z: dict) -> dict:
+    return {f: z.get(f) for f in ("datum", "race_id", "no", "horse", "urteil", "fk")}
+
+
+def rueckschau(zeilen: list[dict], kennungen: list[str], stillgelegt: dict[str, str] | None = None) -> dict:
+    """Je Kennung: wie viele bisherige Claude-Tipps und abgelehnte Kandidaten sie zitierten (je Pferd einmal, gleich in
+    welcher Richtung), wie viele gewannen, wie viele der Markt erwartete, und die Sieger mit Namen. Zeigt bei einem
+    verschärfenden Vorschlag, welche früheren Treffer die Regel gestrichen hätte. Ohne Kennung: alle bisherigen
+    Treffer mit ihren Kennungen (für eine neue Kennung, die noch nicht im Regelprotokoll steht)."""
+    stillgelegt = stillgelegt or {}
+    pferde: dict[tuple, dict] = {}
+    for z in zeilen:
+        p = pferde.setdefault((str(z["datum"]), str(z["race_id"]), str(z["no"])),
+                              {**_pferd(z), "gewonnen": int(z["gewonnen"]), "p_markt": float(z["p_markt"] or 0),
+                               "kennungen": {}})
+        p["kennungen"].setdefault(_aktuell(z["kennung"], stillgelegt), set()).add(z["richtung"])
+    aus: dict = {"zeitraum": _zeitraum(zeilen)}
+    if not kennungen:
+        aus["treffer"] = [{**_pferd(p), "kennungen": sorted(p["kennungen"])}
+                          for k, p in sorted(pferde.items()) if p["gewonnen"] and p["urteil"] in TIPP]
+        return aus
+    aus["kennungen"] = []
+    for ken in dict.fromkeys(_aktuell(k, stillgelegt) for k in kennungen):
+        eintrag = {"kennung": ken}
+        for gruppe, urteile in (("tipps", TIPP), ("abgelehnt", {"nein"})):
+            ps = [p for _, p in sorted(pferde.items()) if ken in p["kennungen"] and p["urteil"] in urteile]
+            eintrag[gruppe] = {
+                "n": len(ps), "siege": sum(p["gewonnen"] for p in ps),
+                "erwartet": round(sum(p["p_markt"] for p in ps), 2),
+                "sieger": [f"{p['horse']} {p['datum']} {str(p['race_id'])[8:]} ({p['urteil']}, FK {p['fk']}, "
+                           f"{'/'.join(sorted(p['kennungen'][ken]))})" for p in ps if p["gewonnen"]]}
+        aus["kennungen"].append(eintrag)
+    return aus
 
 
 # ---------------------------------------------------------------- Verdichtung
@@ -376,6 +425,8 @@ def vorschlaege_ablegen(ordner: str | Path, neue: list[dict]) -> None:
             raise ValueError(f"{v.get('id')}: entscheidung {e!r} (erlaubt: {', '.join(sorted(ENTSCHEIDUNGEN))})")
         if not v.get("id"):
             raise ValueError("Vorschlag ohne id")
+        if v.get("wirkung") and v["wirkung"] not in WIRKUNGEN:
+            raise ValueError(f"{v['id']}: wirkung {v['wirkung']!r} (erlaubt: {', '.join(sorted(WIRKUNGEN))})")
         z = {**je.get(v["id"], {}), **{k: v[k] for k in VORSCHLAG_FELDER if k in v}, "entscheidung": e}
         if e != "offen" and not z.get("entschieden"):
             z["entschieden"] = datetime.now(PARIS).strftime("%Y-%m-%dT%H:%M")
@@ -430,6 +481,8 @@ def main(argv: list[str]) -> None:
         print(f"{protokoll_fortschreiben(ordner, m)} Zeilen für {m['datum']}")
     elif cmd == "bericht":
         print(json.dumps(bericht(protokoll_lesen(ordner), dg.stillgelegt()), ensure_ascii=False, indent=1))
+    elif cmd == "rueckschau":
+        print(json.dumps(rueckschau(protokoll_lesen(ordner), args, dg.stillgelegt()), ensure_ascii=False, indent=1))
     elif cmd == "verdichtung":
         print(json.dumps(verdichtung(dg.SKILL_ORDNER, protokoll_lesen(ordner)), ensure_ascii=False, indent=1))
     elif cmd == "naechster-tag":

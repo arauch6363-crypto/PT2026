@@ -226,3 +226,47 @@ def test_gegenprobe_zaehlt_nur_verlierer():
     assert g["verlierer"] == 2 and g["mit_muster"] == 2      # Sieger H1 und Nichtstarter H4 zählen nicht
     assert [t["horse"] for t in g["treffer"]] == ["H2", "H3"]
     assert ea.gegenprobe(m, ea.bloecke(BLATT), "cgD$")["mit_muster"] == 1
+
+
+def _pz(datum, rid, no, ken, richtung, urteil, gewonnen, p=0.2):
+    return {"datum": datum, "race_id": rid, "no": str(no), "horse": f"H{no}", "kennung": ken, "richtung": richtung,
+            "urteil": urteil, "fk": "5.0", "p_markt": str(p), "gewonnen": str(gewonnen)}
+
+
+def test_rueckschau_tipps_und_abgelehnte():
+    a, b = "20261120R1C1", "20261120R1C2"
+    zeilen = [_pz("20261120", a, 1, "G-X", "gegen", "klein", 1), _pz("20261120", a, 1, "G-X", "pro", "klein", 1),
+              _pz("20261120", b, 2, "G-X", "gegen", "wette", 0, 0.3),
+              _pz("20261121", a, 3, "G-X", "gegen", "nein", 1), _pz("20261121", a, 4, "G-ALT", "gegen", "nein", 0),
+              _pz("20261121", b, 5, "P-Y", "pro", "wette", 1)]
+    r = ea.rueckschau(zeilen, ["G-X", "G-ALT"], {"G-ALT": "G-X"})
+    assert r["zeitraum"] == "20261120–20261121"
+    assert len(r["kennungen"]) == 1                          # G-ALT zählt unter G-X
+    x = r["kennungen"][0]
+    assert x["tipps"]["n"] == 2 and x["tipps"]["siege"] == 1 and x["tipps"]["erwartet"] == pytest.approx(0.5)
+    assert x["tipps"]["sieger"] == ["H1 20261120 R1C1 (klein, FK 5.0, gegen/pro)"]
+    assert x["abgelehnt"]["n"] == 2 and x["abgelehnt"]["siege"] == 1
+
+
+def test_rueckschau_ohne_kennung_listet_treffer():
+    zeilen = [_pz("20261120", "R1", 1, "G-X", "gegen", "klein", 1), _pz("20261120", "R1", 1, "P-Y", "pro", "klein", 1),
+              _pz("20261120", "R2", 2, "P-Y", "pro", "wette", 0), _pz("20261120", "R3", 3, "P-Y", "pro", "nein", 1)]
+    r = ea.rueckschau(zeilen, [])
+    assert [(t["horse"], t["kennungen"]) for t in r["treffer"]] == [("H1", ["G-X", "P-Y"])]
+
+
+def test_vorschlaege_wirkung(tmp_path):
+    v = {"id": "20261127-1", "datum": "20261127", "entscheidung": "offen", "wirkung": "strenger"}
+    ea.vorschlaege_ablegen(tmp_path, [v])
+    assert ea.vorschlaege_lesen(tmp_path)[0]["wirkung"] == "strenger"
+    with pytest.raises(ValueError, match="wirkung"):
+        ea.vorschlaege_ablegen(tmp_path, [{**v, "wirkung": "härter"}])
+
+
+def test_vorschlaege_alt_ohne_wirkung(tmp_path):
+    (tmp_path / "vorschlaege.csv").write_text("id,datum,titel,entscheidung,notiz,entschieden\n"
+                                              "20261115-1,20261115,T,ja,,2026-11-19T13:51\n", encoding="utf-8")
+    ea.vorschlaege_ablegen(tmp_path, [{"id": "20261127-1", "datum": "20261127", "wirkung": "lockerer"}])
+    alle = {v["id"]: v for v in ea.vorschlaege_lesen(tmp_path)}
+    assert alle["20261115-1"]["wirkung"] == "" and alle["20261115-1"]["entscheidung"] == "ja"
+    assert alle["20261127-1"]["wirkung"] == "lockerer"

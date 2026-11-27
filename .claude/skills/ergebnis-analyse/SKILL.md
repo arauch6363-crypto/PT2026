@@ -37,6 +37,10 @@ Sieger aus Maßstab oder sonstige Sieger werden nur gezählt: Sie betreffen den 
    den Datenpunkt (z. B. `'CGD \S*D'`, `'Trainerwechsel'`) meldet, bei wie vielen Verlierern des Tages er ebenfalls
    stand, mit Namen und Zeile. Hängt er an einer Zahl oder einem Vergleich, die gemeldeten Zeilen von Hand prüfen.
    Schwächt die Gegenprobe den Datenpunkt, gehört sie trotzdem in den Vorschlag.
+   **Rückschau**, wenn der Vorschlag Urteile strenger macht: `python3 -I ergebnis_analyse.py rueckschau KENNUNG` zeigt
+   die bisherigen Tipps und abgelehnten Kandidaten mit dieser Kennung und ihre Sieger; bei einer neuen Kennung
+   `… rueckschau` ohne Kennung alle bisherigen Treffer. Welche dieser Treffer hätte die Regel gestrichen? Das gehört
+   in `gegenprobe`, auch wenn es „keiner“ ist.
 4. **Abgleich.** Trifft eine bestehende Einsicht (selber Abschnitt von `EINSICHTEN.md`) oder Regel (`SKILL.md`) die
    Lage, ist der Vorschlag `aendern` oder `zusammenfassen`; `neu` nur für eine Lage, die keine bestehende trifft.
 5. **Schluss.** Hätte eine andere Gewichtung oder Regel das Urteil gedreht, ohne bei den Verlierern der Gegenprobe
@@ -55,13 +59,14 @@ Jeder Vorschlag ist eine **konkrete Textänderung**, über die der Nutzer mit Ja
 | `rennen`, `race_id`, `no`, `horse` | der Fall |
 | `durchgang` | ein Satz: Urteil, Festkurs, woran es hing |
 | `datenpunkt` | Zitat aus dem Blatt |
-| `gegenprobe` | höchstens drei Sätze: wie viele Verlierer mit Namen, was den Vorschlag schwächt |
+| `gegenprobe` | höchstens drei Sätze: wie viele Verlierer mit Namen, was den Vorschlag schwächt; bei `strenger` dazu ein Satz Rückschau |
 | `art` | `neu`, `aendern`, `zusammenfassen`, `gewicht` oder `streichen` |
 | `zieldatei` | `SKILL.md` (Regel, Liste) oder `EINSICHTEN.md` (Gewichtung, typischer Fehler) |
 | `kennung` | bestehende Kennung oder eine neue nach dem Muster in `SKILL.md` („Kennungen“) |
 | `alt` | bei `aendern` und `zusammenfassen`: der bisherige Text, wörtlich (bei mehreren Einsichten alle) |
 | `text` | **wörtlich** der neue Text, so wie er in der Datei stehen soll, mit Fallbeispiel in *kursiv* |
 | `gewicht` | `ausschlaggebend`, `gewichtig` oder `leicht` – Claudes Vorschlag |
+| `wirkung` | `strenger` (mehr „nein“ oder kleinere Wetten), `lockerer` (umgekehrt) oder `neutral` (Form, Verdichtung) |
 
 Mehrere Fälle, die auf dieselbe Regel zeigen, ergeben **einen** Vorschlag mit allen Fällen. Reihenfolge nach Stärke:
 klare Gegenprobe und klarer Regelbezug zuerst. Ein abgelehnter Vorschlag (`auswertung/vorschlaege.csv`, `entscheidung`
