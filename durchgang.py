@@ -258,6 +258,16 @@ def stillgelegt(ordner: str | Path = SKILL_ORDNER) -> dict[str, str]:
     return dict(re.findall(r"`([FGPU]-[A-Z0-9-]+)`\s*→\s*`([FGPU]-[A-Z0-9-]+)`", still))
 
 
+VERMERK = re.compile(r"`([FGPU]-[A-Z0-9-]+)` \*\*(Veto|Deckel)\*\*")
+
+
+def vermerke(ordner: str | Path = SKILL_ORDNER) -> dict[str, str]:
+    """Veto und Deckel je Kennung aus EINSICHTEN.md (Vermerk direkt hinter der Kennung, z. B. `G-ARR-UNTER` **Deckel**):
+    Kennung → "Veto" oder "Deckel". Veto = Urteil nein, Deckel = höchstens klein (außer benannter Ausnahme)."""
+    text, _ = _skilltexte(ordner)
+    return dict(VERMERK.findall(text))
+
+
 def zitierte(k: dict) -> dict[str, list[str]]:
     """Kennungen, die ein Kandidat in Pro, Gegen, Fragezeichen und Ausschlag zitiert (Reihenfolge wie im Text)."""
     out = {}

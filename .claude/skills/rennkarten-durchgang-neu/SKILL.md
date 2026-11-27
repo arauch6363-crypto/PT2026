@@ -204,6 +204,9 @@ Handicap-Form auf ähnlicher Marke.
 
 ## Gesamturteil
 
+Reihenfolge: zuerst **Veto** (Urteil „nein“), dann **Deckel** (höchstens kleine Wette), dann abwägen – beide stehen
+als Vermerk hinter der Kennung in `EINSICHTEN.md`.
+
 Je Kandidat: Pro-Argumente, Gegenargumente, Fragezeichen, dann die **eigene Kursspanne** – grob, ehrlich, aus dem
 Gesamteindruck („fair eher 8–10“). Gewettet wird, wenn der Festkurs klar über der Spanne liegt (`U-KURSSPANNE`) und die
 Leitfrage mit „ja, kann reichen“ beantwortet ist (`U-LEITFRAGE`).

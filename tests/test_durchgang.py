@@ -293,3 +293,18 @@ def test_stillgelegte_kennungen(tmp_path):
     echt = dg.stillgelegt()                # im echten Skill: jede stillgelegte zählt unter einer gültigen weiter
     assert set(echt.values()) <= dg.kennungen()
     assert not set(echt) & dg.kennungen()
+
+
+def test_veto_und_deckel_maschinenlesbar():
+    v = dg.vermerke()
+    assert {k for k, x in v.items() if x == "Veto"} == {
+        "G-REFERENZ-SCHWACH", "G-DISTANZ-PROBLEME", "G-ABSTAMMUNG", "G-DEBUET-STALL", "G-AUSRUESTUNG-WEG",
+        "G-GEWICHT-KLASSE-BODEN", "U-VALUE-DUENN"}
+    assert {k for k, x in v.items() if x == "Deckel"} == {
+        "G-ARR-UNTER", "G-UEBER-SIEGMARKE", "P-ERSTER-ANSATZ", "G-GESPANN-OHNE-SIEG", "G-MASSSTAB-BESSER"}
+    assert set(v) <= dg.kennungen()
+    # jede [ausschlaggebend]-Einsicht trägt genau ein Veto, Vetos nur dort
+    text = (dg.SKILL_ORDNER / "EINSICHTEN.md").read_text(encoding="utf-8")
+    for z in text.splitlines():
+        if z.startswith("- **["):
+            assert (z.count("**Veto**") == 1) == z.startswith("- **[ausschlaggebend"), z[:60]
