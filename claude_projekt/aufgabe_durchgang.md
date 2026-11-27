@@ -91,10 +91,12 @@ PY
   leere Liste, wenn das Blatt keinen nennt) und kandidaten: je
   Kandidat no, horse, urteil (wette, klein oder nein), fk (Festkurs laut Karte), spanne [von, bis],
   p_modell, value, pro (Liste kurzer Sätze), gegen (Liste), fragen (Liste), anker (ein Satz: fairer Modellkurs, Festkurs und
-  was die Spanne davon verschiebt), ausschlag (ein Satz) – Kennungen wie im Skill unter „Kennungen“ beschrieben. Alle Kandidaten
-  müssen enthalten sein. Ist es kein Vollblutrennen: race_id, status araber, kandidaten leer. Prüfe die Datei mit
-  `python3 -I -c "import json,sys; sys.path.insert(0,'/home/claude/pt2026'); import durchgang; durchgang.rennen_pruefen_streng(json.load(open('/home/claude/rd/rennen_<race_id>.json')))"`
-  und korrigiere, bis sie fehlerfrei ist. Antworte mir danach nur mit einer Zeile je Kandidat: Nr Name – Urteil –
+  was die Spanne davon verschiebt), leitfrage ({referenzlauf: Datum JJJJ-MM-TT oder „keiner“, ref_arr, top_arr,
+  massstab_arr: Liste je Maßstab} aus der Zeile „Leitfrage“ des Blatts), ausschlag (ein Satz) – Kennungen wie im Skill
+  unter „Kennungen“ beschrieben. Alle Kandidaten müssen enthalten sein. Ist es kein Vollblutrennen: race_id, status
+  araber, kandidaten leer. Prüfe die Datei mit
+  `python3 -I /home/claude/pt2026/durchgang.py pruefen /home/claude/rd/rennen_<race_id>.json --karte KARTE`
+  und korrigiere, bis sie „ok“ meldet; jede Meldung sagt, was fehlt oder der Regel widerspricht. Antworte mir danach nur mit einer Zeile je Kandidat: Nr Name – Urteil –
   Kursspanne.“
 - Fehlt danach die Datei oder ist sie fehlerhaft: den Subagenten für dieses Rennen einmal neu starten. Scheitert er
   wieder, selbst `/home/claude/rd/rennen_<race_id>.json` mit `{"race_id": …, "status": "fehler", "hinweis": "<Grund>", "kandidaten": []}`

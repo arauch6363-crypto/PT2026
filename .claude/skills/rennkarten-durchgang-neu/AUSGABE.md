@@ -21,7 +21,7 @@ Rennvergleich: Algeciras > Cole Chop > Lady Madeira > Afterglow > Go For It – 
 
 Am Ende eine Wett-Tabelle (Rennen | Zeit | Nr Pferd | Festkurs | Kursspanne | Einheiten | Ausschlag).
 
-**Ergebnis je Rennen** (dasselbe Format im automatischen Durchgang, geprüft mit `durchgang.rennen_pruefen`, abgelegt
+**Ergebnis je Rennen** (dasselbe Format im automatischen Durchgang, geprüft mit `durchgang.py pruefen`, abgelegt
 als `durchgang_JJJJMMTT_HHMM.json`, ausgewertet im Value-Dashboard), mit **allen** Kandidaten:
 
 ```json
@@ -31,6 +31,7 @@ als `durchgang_JJJJMMTT_HHMM.json`, ausgewertet im Value-Dashboard), mit **allen
  "kandidaten": [{"no": 5, "horse": "ALGECIRAS", "urteil": "wette", "fk": 13.0, "spanne": [9, 11],
                  "p_modell": 0.082, "value": 0.07, "pro": ["Auf Collant gewonnen (P-BODEN-BEWAEHRT)"], "gegen": ["…"],
                  "fragen": ["…"], "anker": "Modell fair 12,2, Festkurs 13; CGD und Collant-Sieg schieben auf 9–11",
+                 "leitfrage": {"referenzlauf": "2026-10-20", "ref_arr": 31.2, "top_arr": 32.0, "massstab_arr": [32.4, 30.1]},
                  "ausschlag": "CGD und Boden tragen den dünnen Value (P-CGD)"}]}
 ```
 

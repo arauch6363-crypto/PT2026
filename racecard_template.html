@@ -1006,7 +1006,8 @@ function claudeVals(x, race) {
     cBg: unter ? '#8C877C' : c.urteil === 'wette' ? 'var(--tip-bg)' : '#E9B949', cFg: unter ? '#F6F4EF' : c.urteil === 'wette' ? 'var(--tip-gold)' : '#161512',
     cTip: urteil + (c.mq != null ? ' · Mindestquote ' + q(c.mq) : '') + ' · Festkurs beim Durchgang ' + q(c.fk) + (fkJetzt != null ? ' · jetzt ' + q(fkJetzt) : '') + (c.stand ? ' · ' + String(c.stand).slice(11, 16) : ''),
     cKurse: 'FK ' + q(c.fk) + ' · fair ' + sp + (c.mq != null ? ' · MQ ' + q(c.mq) : '') + (c.stand ? ' · ' + String(c.stand).slice(11, 16) : ''),
-    cZeilen: zeilen, cAusschlag: [c.anker ? 'Kursspanne: ' + c.anker : '', c.ausschlag ? 'Ausschlag: ' + c.ausschlag : ''].filter(Boolean).join(' · '), cVergleich: race?.claude?.vergleich ? 'Rennvergleich: ' + race.claude.vergleich : '',
+    cZeilen: zeilen, cAusschlag: [c.anker ? 'Kursspanne: ' + c.anker : '', c.ausschlag ? 'Ausschlag: ' + c.ausschlag : '',
+      c.pruefung ? 'Prüfung' + (c.urteil_vor_pruefung && c.urteil_vor_pruefung !== c.urteil ? ' (' + c.urteil_vor_pruefung + ' → ' + c.urteil + ')' : '') + ': ' + c.pruefung : ''].filter(Boolean).join(' · '), cVergleich: race?.claude?.vergleich ? 'Rennvergleich: ' + race.claude.vergleich : '',
   };
 }
 const eur = v => v == null ? '–' : '€' + Math.round(v).toLocaleString('de-DE');

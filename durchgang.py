@@ -19,6 +19,9 @@ Aufruf:
         Karte mit den Urteilen (NAP/BET, Begründung) neu rendern.
     python3 -I durchgang.py tabelle DURCHGANG.json …
         Claude-Tipps als Markdown-Tabelle (für den Chat).
+    python3 -I durchgang.py pruefen RENNEN.json [--karte KARTE]
+        Ergebnis eines Subagenten streng prüfen (Kennungen, Veto/Deckel, Kursspanne, Leitfrage; mit Karte auch deren
+        Abgleich). Gibt „ok …“ aus oder endet mit „FEHLER …“.
 """
 from __future__ import annotations
 
@@ -216,6 +219,9 @@ def rennen_pruefen(r: dict) -> dict:
             "pro": [str(x) for x in k.get("pro") or []], "gegen": [str(x) for x in k.get("gegen") or []],
             "fragen": [str(x) for x in k.get("fragen") or []], "ausschlag": str(k.get("ausschlag") or ""),
             "anker": str(k.get("anker") or ""),
+            "leitfrage": k.get("leitfrage") if isinstance(k.get("leitfrage"), dict) else None,
+            "pruefung": str(k.get("pruefung") or ""),
+            "urteil_vor_pruefung": str(k.get("urteil_vor_pruefung") or "").lower() or None,
         })
     if st == "bearbeitet" and not kand:
         raise ValueError(f"{r['race_id']}: bearbeitet, aber ohne Kandidaten")
@@ -279,18 +285,93 @@ def zitierte(k: dict) -> dict[str, list[str]]:
     return out
 
 
-def rennen_pruefen_streng(r: dict, bekannt: set[str] | None = None) -> dict:
-    """Wie rennen_pruefen, dazu: nur bekannte Kennungen, und jeder Ausschlag nennt eine Kennung oder „Ermessen“."""
+def _felder_der_seite(kennung: str) -> tuple[str, ...]:
+    """Wo eine Kennung als Veto oder Deckel greift: P-Kennungen unter Pro, alle anderen unter Gegen; immer im Ausschlag."""
+    return ("pro", "ausschlag") if kennung.startswith("P-") else ("gegen", "ausschlag")
+
+
+def _leitfrage_pruefen(wo: str, lf, kandidat: dict | None, rennen: dict | None) -> None:
+    """Feld leitfrage = {referenzlauf: Datum JJJJ-MM-TT oder "keiner", ref_arr, top_arr, massstab_arr}; mit Karte
+    zusätzlich Top-ARR des Feldes und ob der Referenzlauf ein Lauf des Pferdes ist."""
+    muster = ('leitfrage {"referenzlauf": "JJJJ-MM-TT" oder "keiner", "ref_arr": Zahl oder null, "top_arr": Zahl, '
+              '"massstab_arr": [Zahl oder null je Maßstab]} – Werte aus der Zeile „Leitfrage“ im Rennkopf des Blatts')
+    if not isinstance(lf, dict) or not {"referenzlauf", "ref_arr", "top_arr", "massstab_arr"} <= set(lf):
+        raise ValueError(f"{wo}: {muster}")
+    ref = str(lf["referenzlauf"] or "keiner").strip()
+    if ref != "keiner" and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", ref):
+        raise ValueError(f"{wo}: leitfrage.referenzlauf {ref!r} ist weder ein Datum JJJJ-MM-TT noch „keiner“")
+    if ref != "keiner" and _zahl(lf["ref_arr"]) is None:
+        raise ValueError(f"{wo}: leitfrage.ref_arr fehlt (ARR ber. des Referenzlaufs {ref})")
+    top = _zahl(lf["top_arr"])
+    if top is None:
+        raise ValueError(f"{wo}: leitfrage.top_arr fehlt (Top-ARR im Rennkopf des Blatts)")
+    ms = lf["massstab_arr"]
+    if not (ms is None or _zahl(ms) is not None or (isinstance(ms, list) and all(x is None or _zahl(x) is not None for x in ms))):
+        raise ValueError(f"{wo}: leitfrage.massstab_arr muss eine Liste mit Zahl oder null je Maßstab sein")
+    if rennen is None:
+        return
+    werte = [a for x in rennen.get("runners") or [] if not x.get("nr")
+             if (a := (x.get("arr") or {}).get("adj")) is not None]
+    if werte and abs(round(max(werte), 1) - top) > 0.15:
+        raise ValueError(f"{wo}: leitfrage.top_arr {top:g} passt nicht zur Karte (Top-ARR {max(werte):.1f})")
+    if ref != "keiner" and kandidat is not None:
+        laeufe = {str(f.get("date"))[:10] for f in kandidat.get("form_lines") or []}
+        if laeufe and ref not in laeufe:
+            raise ValueError(f"{wo}: leitfrage.referenzlauf {ref} ist kein Lauf dieses Pferdes im Blatt")
+
+
+def rennen_pruefen_streng(r: dict, bekannt: set[str] | None = None, karte: dict | None = None,
+                          vermerk: dict[str, str] | None = None) -> dict:
+    """Wie rennen_pruefen, dazu: nur bekannte Kennungen; jeder Ausschlag nennt eine Kennung oder „Ermessen“; je Kandidat
+    anker und leitfrage; Wette und Kleine Wette mit Kursspanne und Festkurs über ihrem oberen Rand; Veto verlangt
+    „nein“, Deckel schließt „wette“ aus (außer der Ausschlag nennt eine „Ausnahme“); ein geprüftes Urteil liegt nie
+    über dem Urteil vor der Prüfung. Mit ``karte`` (Kartendaten) zusätzlich der Abgleich der Leitfrage mit der Karte."""
     out = rennen_pruefen(r)
     bekannt = kennungen() if bekannt is None else bekannt
+    vermerk = vermerke() if vermerk is None else vermerk
+    rennen = next((x for x in rennen_liste(karte) if str(x.get("race_id")) == out["race_id"]), None) if karte else None
+    if karte is not None and rennen is None:
+        raise ValueError(f"{out['race_id']}: Rennen nicht in der Karte")
+    roh = {int(k["no"]): k for k in r.get("kandidaten") or []}
     for k in out["kandidaten"]:
+        wo = f"{out['race_id']} Nr. {k['no']}"
         z = zitierte(k)
         fremd = sorted({x for f in ZITAT_FELDER for x in z[f]} - bekannt)
         if fremd:
-            raise ValueError(f"{out['race_id']} Nr. {k['no']}: unbekannte Kennung {', '.join(fremd)} "
-                             "(nur Kennungen aus SKILL.md/EINSICHTEN.md)")
+            raise ValueError(f"{wo}: unbekannte Kennung {', '.join(fremd)} (nur Kennungen aus SKILL.md/EINSICHTEN.md)")
         if not z["ausschlag"] and "ermessen" not in k["ausschlag"].lower():
-            raise ValueError(f"{out['race_id']} Nr. {k['no']}: Ausschlag nennt weder Kennung noch „Ermessen“")
+            raise ValueError(f"{wo}: Ausschlag nennt weder Kennung noch „Ermessen“")
+        if not k["anker"].strip():
+            raise ValueError(f"{wo}: anker fehlt (ein Satz: fairer Modellkurs, Festkurs und was die Spanne verschiebt)")
+        pferd = next((x for x in (rennen or {}).get("runners") or [] if int(x.get("no") or -1) == k["no"]), None)
+        _leitfrage_pruefen(wo, roh[k["no"]].get("leitfrage"), pferd, rennen)
+        u, ausnahme = k["urteil"], "ausnahme" in k["ausschlag"].lower()
+        if u != "nein":
+            sp = k.get("spanne") or []
+            if len(sp) != 2 or None in sp or sp[0] > sp[1]:
+                raise ValueError(f"{wo}: {u} ohne Kursspanne [von, bis]")
+            if not k["fk"] > sp[1]:
+                raise ValueError(f"{wo}: {u}, aber Festkurs {k['fk']:g} liegt nicht über der Kursspanne {sp[0]:g}–{sp[1]:g}"
+                                 " – gewettet wird nur, wenn der Festkurs klar darüber liegt; sonst Urteil nein")
+        for kennung, art in sorted(vermerk.items()):
+            if not any(kennung in z[f] for f in _felder_der_seite(kennung)) or ausnahme:
+                continue
+            if art == "Veto" and u != "nein":
+                raise ValueError(f"{wo}: {kennung} trägt ein Veto – Urteil nein, oder der Ausschlag nennt die Ausnahme mit "
+                                 "dem Wort „Ausnahme“ und ihrem Grund; trifft nur die mildere Stufe der Einsicht zu, die "
+                                 "Kennung unter Fragezeichen zitieren")
+            if art == "Deckel" and u == "wette":
+                raise ValueError(f"{wo}: {kennung} trägt einen Deckel – höchstens klein, oder der Ausschlag nennt die "
+                                 "Ausnahme mit dem Wort „Ausnahme“ und ihrem Grund; trifft nur die mildere Stufe der "
+                                 "Einsicht zu, die Kennung unter Fragezeichen zitieren")
+        vor = k.get("urteil_vor_pruefung")
+        if vor is not None:
+            if vor not in URTEILE:
+                raise ValueError(f"{wo}: urteil_vor_pruefung {vor!r} (erlaubt: wette, klein, nein)")
+            if URTEILE[u] > URTEILE[vor]:
+                raise ValueError(f"{wo}: die Prüfung darf ein Urteil nur senken ({vor} → {u})")
+            if u != vor and not k["pruefung"].strip():
+                raise ValueError(f"{wo}: Urteil gesenkt ({vor} → {u}) ohne Befund im Feld pruefung")
     return out
 
 
@@ -327,7 +408,7 @@ def dateiname(datum: str, stand: datetime | None = None) -> str:
 
 def anwenden(daten: dict, rennen: dict[str, dict]) -> int:
     """Urteile in die Kartendaten schreiben: je Starter ``claude`` = {urteil, kennzeichen, einheiten, fk, mq, spanne,
-    p_modell, value, pro, gegen, fragen, anker, ausschlag, stand}, je Rennen ``claude`` = {stand, vergleich}. Alte Urteile
+    p_modell, value, pro, gegen, fragen, anker, ausschlag, leitfrage, pruefung, urteil_vor_pruefung, stand}, je Rennen ``claude`` = {stand, vergleich}. Alte Urteile
     werden vorher entfernt. Rückgabe: Zahl der Starter mit Urteil."""
     n = 0
     for r in rennen_liste(daten):
@@ -344,7 +425,8 @@ def anwenden(daten: dict, rennen: dict[str, dict]) -> int:
             if x is None:
                 continue
             x["claude"] = {**{f: k.get(f) for f in ("urteil", "einheiten", "fk", "mq", "spanne", "p_modell", "value",
-                                                    "pro", "gegen", "fragen", "anker", "ausschlag")},
+                                                    "pro", "gegen", "fragen", "anker", "ausschlag", "leitfrage",
+                                                    "pruefung", "urteil_vor_pruefung")},
                            "kennzeichen": KENNZEICHEN.get(k.get("urteil")), "stand": d.get("stand")}
             n += 1
     return n
@@ -437,6 +519,14 @@ def main(argv: list[str]) -> None:
         print(json.dumps({"datei": args[1], "urteile": n}))
     elif cmd == "tabelle":
         print(tabelle(args))
+    elif cmd == "pruefen":
+        karte = _opt(args, "--karte")
+        r = json.loads(Path(args[0]).read_text(encoding="utf-8"))
+        try:
+            out = rennen_pruefen_streng(r, karte=laden(karte) if karte else None)
+        except ValueError as e:
+            raise SystemExit(f"FEHLER {e}") from None
+        print(f"ok {out['race_id']}: {len(out['kandidaten'])} Kandidaten")
     else:
         raise SystemExit(__doc__)
 

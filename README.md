@@ -721,7 +721,8 @@ Ein zweiter Start am selben Tag bearbeitet nur Rennen, die noch in keinem Durchg
 - **Format** einer Durchgang-Datei: `{"datum", "stand", "skill", "rennen": [{"race_id", "status" (bearbeitet,
   kein_festkurs, gelaufen, araber, keine_kandidaten, fehler), "vergleich", "hinweis", "kandidaten": [{"no", "horse",
   "urteil" (wette, klein, nein), "einheiten", "fk", "mq" (nur ältere Dateien), "spanne", "p_modell", "value", "pro", "gegen", "fragen",
-  "ausschlag"}]}]}`.
+  "anker", "ausschlag", "leitfrage", "pruefung", "urteil_vor_pruefung"}]}]}` (die letzten fünf ab 27.11.2026; Prüfung
+  mit `durchgang.py pruefen RENNEN.json --karte KARTE`).
 
 ```
 python3 -I durchgang.py plan racecard_20261112.html durchgang_20261112_*.json    # welche Rennen offen sind
