@@ -40,8 +40,6 @@ import pmu
 KARTE_VORLAUF_MIN = 90      # Rennkarte so viele Minuten vor dem ersten Rennen des Tages bauen
 FK_VORLAUF_MIN = 50         # Festkurse je Veranstaltung ab so vielen Minuten vor ihrem ersten Rennen abfragen
 FK_TAKT_MIN = 5             # … alle so viele Minuten
-DURCHGANG_SAMMELN_MIN = 30  # Festkurse kommen in Etappen: solange die Veranstaltung noch Festkurse erwartet, den
-                            # Durchgang erst starten, wenn ihr frühestes neues Rennen so nah ist (spart Läufe)
 FK_LEER_VERSUCHE = 2        # Veranstaltung ganz ohne Festkurse nach so vielen erfolgreichen Abfragen aufgeben (reine
                             # Toto-Veranstaltung); hat sie schon einige, wird weiter gefragt (Festkurse in Etappen)
 PAUSE_AB_MIN = 60           # mit pause=…: Leerlauf ab so vielen Minuten -> Maschine aus, statt zu warten
@@ -180,9 +178,7 @@ def durchgang_nach_festkursen(base, tag: date, daten: dict, jetzt: str | None = 
     """Nach dem Holen der Festkurse (racecard.festkurse_aktualisieren): Rennen mit Festkurs, die noch nicht gestartet
     und noch keinem Durchgang übergeben sind, an die Aufgabe „Racecard-Durchgang“ geben (durchgang_ausloesen, ein Start
     für alle). Merker je Tag: racecards/.durchgang_ausgeloest_JJJJMMTT.json (race_ids) – kommen Festkurse einer Reunion
-    in Etappen, startet der Durchgang für die neuen Rennen erneut. Araber zählen nicht. Solange alle neuen Rennen zu
-    Veranstaltungen gehören, die noch Festkurse erwarten, wird bis DURCHGANG_SAMMELN_MIN vor dem frühesten gesammelt
-    (ein Lauf statt mehrerer). Rückgabe: übergebene race_ids."""
+    in Etappen, startet der Durchgang für die neuen Rennen erneut. Araber zählen nicht. Rückgabe: übergebene race_ids."""
     import durchgang
     import wettstar
     if jetzt is None:                                    # Durchgang bearbeitet nur die Karte von heute
@@ -199,12 +195,6 @@ def durchgang_nach_festkursen(base, tag: date, daten: dict, jetzt: str | None = 
                  if rid in mit_fk and rid not in schon and not durchgang.ist_araber(r)
                  and _hm(r.get("time")) is not None and _hm(r["time"]) > _hm(jetzt))
     if not neu:
-        return []
-    offen = {rid for v in offene_veranstaltungen(daten, jetzt).values() for rid in v["rennen"]}
-    if all(rid in offen for rid in neu) and \
-            min(_hm(daten["races"][rid]["time"]) for rid in neu) - _hm(jetzt) > DURCHGANG_SAMMELN_MIN:
-        log(f"Durchgang gesammelt: {len(neu)} Rennen mit Festkurs, die Veranstaltung erwartet noch weitere – "
-            f"Start spätestens {DURCHGANG_SAMMELN_MIN} min vor dem frühesten.")
         return []
     races = daten["races"]
     text = "Festkurse da für " + ", ".join(f"{races[k].get('course')} R{races[k].get('reunion')}C{races[k].get('race_no')} "

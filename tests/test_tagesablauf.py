@@ -251,17 +251,14 @@ def test_durchgang_nach_festkursen(tmp_path, monkeypatch):
                                        _r("20261115R1C3", 1, "14:00", fk=4.0, name="PRIX DES PUR-SANG ARABES"),
                                        _r("20261115R2C1", 2, "11:00", fk=3.0, course="LYON")]}
     daten = {"races": races}
-    # R1 erwartet noch Festkurse (R1C2) und R1C1 ist 60 min entfernt: sammeln, noch kein Start
-    assert ta.durchgang_nach_festkursen(tmp_path, TAG, daten, "12:00", log=lambda *a: None, _post=post) == []
-    assert aufrufe == []
-    neu = ta.durchgang_nach_festkursen(tmp_path, TAG, daten, "12:31", log=lambda *a: None, _post=post)
+    neu = ta.durchgang_nach_festkursen(tmp_path, TAG, daten, "12:00", log=lambda *a: None, _post=post)
     assert neu == ["20261115R1C1"]                     # ohne Festkurs, Araber, schon gestartet: nicht
     url, h, text = aufrufe[0]
     assert url == "https://api.anthropic.com/v1/claude_code/routines/trig_018LVkAy3xCAZHjqQUB9AcDu/fire"
     assert h["Authorization"] == "Bearer sk-ant-oat01-test" and "R1C1" in text
-    assert ta.durchgang_nach_festkursen(tmp_path, TAG, daten, "12:35", log=lambda *a: None, _post=post) == []
-    races["20261115R1C2"]["runners"][0]["fk"] = {"sieg": 6.0}   # zweite Etappe: alle Festkurse da -> sofort Start
-    assert ta.durchgang_nach_festkursen(tmp_path, TAG, daten, "12:40", log=lambda *a: None, _post=post) == ["20261115R1C2"]
+    assert ta.durchgang_nach_festkursen(tmp_path, TAG, daten, "12:05", log=lambda *a: None, _post=post) == []
+    races["20261115R1C2"]["runners"][0]["fk"] = {"sieg": 6.0}   # zweite Etappe: neue Festkurse -> neuer Start
+    assert ta.durchgang_nach_festkursen(tmp_path, TAG, daten, "12:30", log=lambda *a: None, _post=post) == ["20261115R1C2"]
     assert len(aufrufe) == 2
     # Fehler beim Start: kein Merker, der nächste Aufruf versucht es erneut
     races["20261115R2C1"]["time"] = "18:00"
