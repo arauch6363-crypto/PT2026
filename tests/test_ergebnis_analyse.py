@@ -1,5 +1,6 @@
 """Tests für ergebnis_analyse.py: Tagesmaterial der Ergebnisanalyse, Regelprotokoll, Tage und Vorschläge."""
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -226,3 +227,208 @@ def test_gegenprobe_zaehlt_nur_verlierer():
     assert g["verlierer"] == 2 and g["mit_muster"] == 2      # Sieger H1 und Nichtstarter H4 zählen nicht
     assert [t["horse"] for t in g["treffer"]] == ["H2", "H3"]
     assert ea.gegenprobe(m, ea.bloecke(BLATT), "cgD$")["mit_muster"] == 1
+
+
+def _pz(datum, rid, no, ken, richtung, urteil, gewonnen, p=0.2):
+    return {"datum": datum, "race_id": rid, "no": str(no), "horse": f"H{no}", "kennung": ken, "richtung": richtung,
+            "urteil": urteil, "fk": "5.0", "p_markt": str(p), "gewonnen": str(gewonnen)}
+
+
+def test_rueckschau_tipps_und_abgelehnte():
+    a, b = "20261120R1C1", "20261120R1C2"
+    zeilen = [_pz("20261120", a, 1, "G-X", "gegen", "klein", 1), _pz("20261120", a, 1, "G-X", "pro", "klein", 1),
+              _pz("20261120", b, 2, "G-X", "gegen", "wette", 0, 0.3),
+              _pz("20261121", a, 3, "G-X", "gegen", "nein", 1), _pz("20261121", a, 4, "G-ALT", "gegen", "nein", 0),
+              _pz("20261121", b, 5, "P-Y", "pro", "wette", 1)]
+    r = ea.rueckschau(zeilen, ["G-X", "G-ALT"], {"G-ALT": "G-X"})
+    assert r["zeitraum"] == "20261120–20261121"
+    assert len(r["kennungen"]) == 1                          # G-ALT zählt unter G-X
+    x = r["kennungen"][0]
+    assert x["tipps"]["n"] == 2 and x["tipps"]["siege"] == 1 and x["tipps"]["erwartet"] == pytest.approx(0.5)
+    assert x["tipps"]["sieger"] == ["H1 20261120 R1C1 (klein, FK 5.0, gegen/pro)"]
+    assert x["abgelehnt"]["n"] == 2 and x["abgelehnt"]["siege"] == 1
+
+
+def test_rueckschau_ohne_kennung_listet_treffer():
+    zeilen = [_pz("20261120", "R1", 1, "G-X", "gegen", "klein", 1), _pz("20261120", "R1", 1, "P-Y", "pro", "klein", 1),
+              _pz("20261120", "R2", 2, "P-Y", "pro", "wette", 0), _pz("20261120", "R3", 3, "P-Y", "pro", "nein", 1)]
+    r = ea.rueckschau(zeilen, [])
+    assert [(t["horse"], t["kennungen"]) for t in r["treffer"]] == [("H1", ["G-X", "P-Y"])]
+
+
+def _tag(datum, wette, klein, nein):
+    urteile = ["wette"] * wette + ["klein"] * klein + ["nein"] * nein
+    return [{"datum": datum, "race_id": f"{datum}R1C1", "no": i, "urteil": u} for i, u in enumerate(urteile)]
+
+
+def test_drift_je_tag_und_fenster():
+    pferde = _tag("20261101", 2, 2, 6) + _tag("20261120", 0, 1, 9) + _tag("20261121", 0, 0, 5)
+    pferde += pferde[:3]                                      # doppelte Pferde (mehrere Kennungen) zählen einmal
+    vorschlaege = [{"entscheidung": "ja", "wirkung": "strenger"}, {"entscheidung": "geaendert", "wirkung": ""},
+                   {"entscheidung": "nein", "wirkung": "lockerer"}, {"entscheidung": "offen", "wirkung": "strenger"}]
+    d = ea.drift(pferde, vorschlaege)
+    assert [(t["datum"], t["n"], t["tipp_anteil"]) for t in d["tage"]] == [
+        ("20261101", 10, 0.4), ("20261120", 10, 0.1), ("20261121", 5, 0.0)]
+    assert d["fenster"]["von"] == "20261120" and d["fenster"]["n"] == 15 and d["fenster"]["klein"] == 1
+    assert d["davor"]["tipp_anteil"] == 0.4
+    assert d["anlass"] is True                                # 1/15 < 0,5 × 0,4
+    assert d["vorschlaege_angenommen"] == {"strenger": 1, "lockerer": 0, "neutral": 0, "unbekannt": 1}
+
+
+def test_drift_ohne_davor_kein_anlass():
+    d = ea.drift(_tag("20261120", 0, 0, 4), [])
+    assert d["davor"]["n"] == 0 and d["anlass"] is False
+    assert ea.drift([], [])["tage"] == []
+
+
+def test_kandidaten_zeilen():
+    d = _durchgaenge()
+    d["20261118R1C2"]["kandidaten"][0].update(urteil_vor_pruefung="wette", pruefung="ARR falsch gelesen, gesenkt.")
+    e = _einlauf()
+    e["20261118R1C1"]["starter"][2]["odds_final"] = float("nan")
+    z = {(x["race_id"][-4:], x["no"]): x for x in ea.kandidaten_zeilen(ea.material("20261118", _karte(), d, e))}
+    assert set(z) == {("R1C1", 3), ("R1C1", 2), ("R1C2", 2)}
+    t = z[("R1C1", 3)]
+    assert (t["urteil"], t["fk"], t["spanne_von"], t["spanne_bis"], t["p_modell"], t["endquote"]) == \
+        ("wette", 8.0, 6.0, 7.0, 0.3, 3.0)
+    assert t["ausschlag_kennung"] == "P-CGD" and t["gewonnen"] == 0 and "mq" not in t
+    assert t["urteil_vor_pruefung"] == "" and t["pruefung"] == ""
+    assert z[("R1C1", 2)]["endquote"] == "" and z[("R1C1", 2)]["gewonnen"] == 1     # NaN → leer
+    assert z[("R1C2", 2)]["ausschlag_kennung"] == "Ermessen"
+    assert z[("R1C2", 2)]["urteil_vor_pruefung"] == "wette" and z[("R1C2", 2)]["pruefung"].startswith("ARR")
+    assert list(t) == ea.KANDIDATEN_FELDER
+
+
+def test_kandidaten_fortschreiben_ersetzt_tag(tmp_path):
+    m = ea.material("20261118", _karte(), _durchgaenge(), _einlauf())
+    ea.kandidaten_fortschreiben(tmp_path, m)
+    assert ea.kandidaten_fortschreiben(tmp_path, m) == 3
+    assert len(ea.kandidaten_lesen(tmp_path)) == 3
+    k = ea.kalibrierung(ea.kandidaten_lesen(tmp_path))         # liest die geschriebene CSV
+    assert k["urteile"]["alle"]["siege"] == 2 and k["urteile"]["alle"]["kurs"]["n"] == 3
+    assert k["urteile"]["wette"]["kurs"]["ln_fk_endquote"] == pytest.approx(round(math.log(8 / 3), 3))
+
+
+def test_drift_pferde_kandidaten_vor_regelprotokoll():
+    kand = [{"datum": "20261127", "race_id": "A", "no": "1", "urteil": "nein"}]
+    prot = [{"datum": "20261127", "race_id": "A", "no": "2", "urteil": "wette"},
+            {"datum": "20261126", "race_id": "B", "no": "1", "urteil": "klein"}]
+    d = ea.drift(ea.drift_pferde(kand, prot), [])
+    assert [(t["datum"], t["n"], t["quelle"]) for t in d["tage"]] == [("20261126", 1, "regelprotokoll"),
+                                                                       ("20261127", 1, "kandidaten")]
+
+
+def _kz(urteil, gewonnen, fk="", von="", bis="", p_markt="", endquote="", vor=""):
+    return {"datum": "20261127", "race_id": "20261127R1C1", "no": "1", "urteil": urteil, "fk": fk,
+            "spanne_von": von, "spanne_bis": bis, "p_markt": p_markt, "endquote": endquote,
+            "gewonnen": str(gewonnen), "urteil_vor_pruefung": vor}
+
+
+def test_kalibrierung():
+    zeilen = [_kz("wette", 1, "8.0", "5.0", "7.0", "0.11", "4.0", vor="wette"),
+              _kz("wette", 0, "10.0", "", "", "0.09", "10.0"),
+              _kz("klein", 0, "6.0", "4.0", "6.0", "0.15", "", vor="wette"),
+              _kz("nein", 1, "", "", "", "", "3.0", vor="klein")]
+    k = ea.kalibrierung(zeilen)
+    w = k["urteile"]["wette"]
+    assert (w["n"], w["siege"]) == (2, 1)
+    assert w["markt"] == {"n": 2, "siege": 1, "erwartet": 0.2}
+    assert w["spanne"] == {"n": 1, "siege": 1, "erwartet": round(1 / 6, 2)}      # Mitte 6 → 1/6
+    assert w["kurs"]["n"] == 2 and w["kurs"]["ln_fk_endquote"] == round(math.log(2) / 2, 3)
+    assert k["urteile"]["klein"]["kurs"] == {"n": 0, "ln_fk_endquote": None}     # ohne Endquote
+    assert k["urteile"]["nein"]["markt"]["n"] == 0
+    assert k["urteile"]["alle"]["n"] == 4 and k["urteile"]["alle"]["siege"] == 2
+    assert k["pruefung"] == {"geprueft": 3, "gesenkt": 2, "gesenkt_siege": 1}
+    assert ea.kalibrierung([])["urteile"]["alle"]["markt"] == {"n": 0, "siege": 0, "erwartet": 0}
+
+
+def test_bericht_nur_ausschlag():
+    kand = [{**_kz("wette", 1, "5.0", p_markt="0.2"), "ausschlag_kennung": "P-CGD"},
+            {**_kz("nein", 0, "6.0", p_markt="0.15"), "ausschlag_kennung": "P-CGD G-ARR-UNTER"},
+            {**_kz("nein", 1, "4.0", p_markt="0.25"), "ausschlag_kennung": "Ermessen"},
+            {**_kz("nein", 0, "", p_markt=""), "ausschlag_kennung": "G-ARR-UNTER"}]       # ohne Marktchance
+    z = ea.ausschlag_zeilen(kand)
+    assert [(x["kennung"], x["richtung"]) for x in z] == [("P-CGD", "pro"), ("P-CGD", "gegen"),
+                                                          ("G-ARR-UNTER", "gegen"), ("Ermessen", "gegen")]
+    b = {(x["kennung"], x["richtung"]): x for x in ea.bericht(z)}
+    assert b[("Ermessen", "gegen")]["siege"] == 1 and b[("G-ARR-UNTER", "gegen")]["n"] == 1
+
+
+SKILL_MD = """# Durchgang
+
+## Prüfliste je Kandidat
+
+1. **Ausgangslage und Klasse.** Rang (`P-RANG-VORNE`).
+2. **Referenzlauf (≈heute).** Gut (`P-REFERENZ-GUT`), Gewicht (`G-GEWICHT-BODEN`).
+
+### Typische Gegenargumente
+
+- `G-GEWICHT-BODEN` Gewicht ab 62 kg
+- `G-SELTEN-VORNE` selten vorne
+
+## Gesamturteil
+
+`U-FAUSTREGEL` **Faustregel** und `U-LEITFRAGE`.
+"""
+
+EINSICHTEN_MD = """# Einsichten
+
+## Claudes typische Fehler
+
+1. **Kleine Wette** nur stimmig (`U-KEIN-AUSWEG`).
+
+## 1. Ausgangslage und Klasse
+
+- **[gewichtig]** `P-RANG-VORNE` / `G-RANG-HINTEN` Rang. Auf Sand nicht:
+  **[leicht · vorläufig]** `G-SAND` Sand, siehe auch `P-CGD`.
+
+## Gesamturteil, Maßstab, Rennvergleich
+
+- **[leicht]** `U-FAVORIT-KLAR` Favorit.
+
+## Stillgelegte Kennungen
+
+- `G-ALT` → `G-SAND`
+"""
+
+
+def test_pruefschritte(tmp_path):
+    (tmp_path / "SKILL.md").write_text(SKILL_MD, encoding="utf-8")
+    (tmp_path / "EINSICHTEN.md").write_text(EINSICHTEN_MD, encoding="utf-8")
+    s = ea.pruefschritte(tmp_path)
+    assert s["P-RANG-VORNE"] == s["G-RANG-HINTEN"] == s["G-SAND"] == "1. Ausgangslage und Klasse"
+    assert s["P-REFERENZ-GUT"] == "2. Referenzlauf"                   # Prüfpunkt ohne Abschnitt in EINSICHTEN.md
+    assert s["G-GEWICHT-BODEN"] == "2. Referenzlauf"                  # Prüfpunkt vor Liste
+    assert s["G-SELTEN-VORNE"] == "Typische Gegenargumente"
+    assert s["U-FAUSTREGEL"] == s["U-LEITFRAGE"] == s["U-FAVORIT-KLAR"] == "Gesamturteil, Maßstab, Rennvergleich"
+    assert s["U-KEIN-AUSWEG"] == "Claudes typische Fehler"         # nur dort genannt: erste Nennung
+    assert "G-ALT" not in s and s["P-CGD"] == "1. Ausgangslage und Klasse"
+
+
+def test_bericht_je_pruefschritt():
+    zeilen = [_pz("20261120", "A", 1, "P-RANG-VORNE", "pro", "wette", 1),
+              _pz("20261120", "A", 1, "P-CGD", "pro", "wette", 1),          # selber Schritt: zählt einmal
+              _pz("20261120", "A", 2, "G-ALT", "gegen", "nein", 0),
+              _pz("20261120", "A", 3, "G-NEU-UNBEKANNT", "gegen", "nein", 0)]
+    schritte = {"P-RANG-VORNE": "1. Ausgangslage", "P-CGD": "1. Ausgangslage", "G-SAND": "1. Ausgangslage"}
+    b = {(x["pruefschritt"], x["richtung"]): x for x in ea.bericht_je_pruefschritt(zeilen, schritte, {"G-ALT": "G-SAND"})}
+    assert b[("1. Ausgangslage", "pro")]["n"] == 1 and b[("1. Ausgangslage", "pro")]["siege"] == 1
+    assert b[("1. Ausgangslage", "gegen")]["n"] == 1
+    assert b[("ohne Prüfschritt", "gegen")]["n"] == 1
+
+
+def test_vorschlaege_wirkung(tmp_path):
+    v = {"id": "20261127-1", "datum": "20261127", "entscheidung": "offen", "wirkung": "strenger"}
+    ea.vorschlaege_ablegen(tmp_path, [v])
+    assert ea.vorschlaege_lesen(tmp_path)[0]["wirkung"] == "strenger"
+    with pytest.raises(ValueError, match="wirkung"):
+        ea.vorschlaege_ablegen(tmp_path, [{**v, "wirkung": "härter"}])
+
+
+def test_vorschlaege_alt_ohne_wirkung(tmp_path):
+    (tmp_path / "vorschlaege.csv").write_text("id,datum,titel,entscheidung,notiz,entschieden\n"
+                                              "20261115-1,20261115,T,ja,,2026-11-19T13:51\n", encoding="utf-8")
+    ea.vorschlaege_ablegen(tmp_path, [{"id": "20261127-1", "datum": "20261127", "wirkung": "lockerer"}])
+    alle = {v["id"]: v for v in ea.vorschlaege_lesen(tmp_path)}
+    assert alle["20261115-1"]["wirkung"] == "" and alle["20261115-1"]["entscheidung"] == "ja"
+    assert alle["20261127-1"]["wirkung"] == "lockerer"

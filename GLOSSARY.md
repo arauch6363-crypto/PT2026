@@ -218,6 +218,22 @@ _Avoid_: Backtest (das ist `regel_backtest.py` über die ganze Historie)
 Je Regelkennung: wie oft sie in Durchgängen zitiert wurde, wie oft die Pferde gewonnen haben und wie viele Siege der Festkurs erwarten ließ (A/E, z). Nur vorwärts, ab Einführung der Kennungen. Eine Regel steht **unter Druck**, wenn n ≥ 20 und z ≤ −2 gegen ihre Richtung.
 _Avoid_: Regel-Backtest, Statistik
 
+**Rückschau**:
+Zu einem Vorschlag, der Urteile strenger macht: welche bisherigen Treffer (Claude-Tipps, die gewannen) die Kennung zitierten und die Regel gestrichen hätte, dazu dieselbe Zählung für abgelehnte Kandidaten. Quelle ist das Regelprotokoll.
+_Avoid_: Backtest (das ist `regel_backtest.py`), Gegenprobe (die sieht nur die Verlierer des Tages)
+
+**Drift**:
+Ob der Durchgang mit der Zeit strenger oder großzügiger wird: Anteil wette / klein / nein unter den Kandidaten je Tag und in den letzten 7 Tagen gegen davor, dazu das Verhältnis angenommener Vorschläge `strenger` : `lockerer`. Halbiert sich der Tipp-Anteil, fragt die Ergebnisanalyse den Nutzer; sie greift nicht selbst ein.
+_Avoid_: Strenge-Index, Trend
+
+**Kandidatenprotokoll**:
+Je Kandidat eines analysierten Tages eine Zeile (`auswertung/kandidaten.csv`): Urteil, Festkurs, Kursspanne, Modell- und Marktchance, Endquote, Kennung des Ausschlags, Sieg; dazu das Urteil vor der Prüfung und deren Befund, wo der Durchgang sie hat. Nur vorwärts ab 27.11.2026; Grundlage für Drift und Kalibrierung.
+_Avoid_: Tippliste, Wettprotokoll
+
+**Kalibrierung**:
+Aus dem Kandidatenprotokoll je Urteil: Siege gegen die erwarteten Siege nach Markt und nach der Mitte der Kursspanne (1 / Mitte), dazu Ø ln(Festkurs / Endquote) – positiv, wenn der Festkurs beim Durchgang über der Endquote lag. Zeigt, ob die Kursspanne zu großzügig ist; bei kleinen Fallzahlen Rauschen, kein Maßstab für den Skill.
+_Avoid_: Trefferquote (das ist die Übereinstimmung mit dem Nutzer im Testsatz), ROI
+
 ## Relationships
 
 - Ein **Kandidat** ist ein Starter, dessen **Value** mindestens +5 % beträgt.

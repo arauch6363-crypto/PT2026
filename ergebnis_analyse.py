@@ -15,9 +15,21 @@ Aufruf:
     python3 -I ergebnis_analyse.py gegenprobe KARTE analyse_JJJJMMTT.json MUSTER
         Verlierer des Tages (Kandidaten, Maßstäbe), deren Blatt MUSTER (Regex) enthält: Anzahl, Namen, Zeile.
     python3 -I ergebnis_analyse.py protokoll analyse_JJJJMMTT.json [--ordner auswertung]
-        Regelprotokoll mit den Kennungen des Tages fortschreiben (ersetzt Zeilen desselben Tages).
-    python3 -I ergebnis_analyse.py bericht [--ordner auswertung]
-        Regelprotokoll je Kennung und Richtung als JSON (n, Siege, erwartet, A/E, z, unter_druck).
+        Regelprotokoll (Kennungen) und Kandidatenprotokoll (je Kandidat eine Zeile) des Tages fortschreiben
+        (ersetzt Zeilen desselben Tages).
+    python3 -I ergebnis_analyse.py bericht [--ausschlag | --pruefschritt] [--ordner auswertung]
+        Regelprotokoll je Kennung und Richtung als JSON (n, Siege, erwartet, A/E, z, unter_druck). --ausschlag: nur
+        die Kennung, die das Urteil entschied (aus dem Kandidatenprotokoll, mit „Ermessen“); --pruefschritt: gebündelt
+        je Prüfschritt (Abschnitt von EINSICHTEN.md bzw. Liste in SKILL.md).
+    python3 -I ergebnis_analyse.py rueckschau [KENNUNG …] [--ordner auswertung]
+        Je Kennung bisherige Tipps und abgelehnte Kandidaten, die sie zitierten, mit Siegen und Siegern (JSON);
+        ohne Kennung alle bisherigen Treffer mit ihren Kennungen.
+    python3 -I ergebnis_analyse.py drift [--ordner auswertung]
+        Je Tag und für die letzten 7 Tage gegen davor: Kandidaten, wette/klein/nein, Tipp-Anteil, anlass; dazu
+        angenommene Vorschläge nach wirkung (JSON).
+    python3 -I ergebnis_analyse.py kalibrierung [--ordner auswertung]
+        Kandidatenprotokoll je Urteil: Siege gegen erwartet nach Markt und nach Mitte der Kursspanne,
+        Ø ln(Festkurs / Endquote), Eingriffe der Prüfung (JSON).
     python3 -I ergebnis_analyse.py verdichtung [--ordner auswertung]
         Anlässe zum Verdichten von EINSICHTEN.md als JSON (Abschnitt voll, Datei lang, vorläufige Einsicht mit 20 Fällen).
     python3 -I ergebnis_analyse.py naechster-tag JJJJMMTT … [--ordner auswertung]
@@ -50,11 +62,16 @@ VORSCHLAEGE = "vorschlaege.csv"
 TIPP = {"wette", "klein"}
 DRUCK_N, DRUCK_Z = 20, 2.0          # Regel unter Druck: mindestens so viele Fälle und |z| gegen ihre Richtung
 
+KANDIDATEN = "kandidaten.csv"
 PROTOKOLL_FELDER = ["datum", "race_id", "no", "horse", "kennung", "richtung", "urteil", "fk", "p_markt", "gewonnen"]
+KANDIDATEN_FELDER = ["datum", "race_id", "no", "horse", "urteil", "fk", "spanne_von", "spanne_bis", "p_modell",
+                     "p_markt", "endquote", "ausschlag_kennung", "gewonnen", "urteil_vor_pruefung", "pruefung"]
 TAGE_FELDER = ["datum", "analysiert", "commit", "vorschlaege"]
 VORSCHLAG_FELDER = ["id", "datum", "titel", "fall", "rennen", "race_id", "no", "horse", "durchgang", "datenpunkt",
-                    "gegenprobe", "art", "zieldatei", "kennung", "alt", "text", "gewicht", "entscheidung", "notiz", "entschieden"]
+                    "gegenprobe", "art", "zieldatei", "kennung", "alt", "text", "gewicht", "wirkung", "entscheidung",
+                    "notiz", "entschieden"]
 ENTSCHEIDUNGEN = {"offen", "ja", "nein", "geaendert"}
+WIRKUNGEN = {"strenger", "lockerer", "neutral"}     # leer bei Vorschlägen vor dem 27.11.2026
 
 
 # ---------------------------------------------------------------- Einlauf
@@ -97,6 +114,15 @@ def _overround(rennen: dict, ein: dict) -> float:
     return s
 
 
+def _quote(x) -> float | None:
+    """Endquote aus dem Parquet: None bei fehlend, NaN oder ≤ 1."""
+    try:
+        q = float(x)
+    except (TypeError, ValueError):
+        return None
+    return q if q > 1 and not math.isnan(q) else None
+
+
 def _gruppe(no: int, kand: dict[int, dict], massstab: set[int]) -> str:
     if no in kand:
         return "treffer" if kand[no]["urteil"] in TIPP else "verpasster_sieger"
@@ -128,8 +154,9 @@ def material(datum: str, karte: dict, durchgaenge: dict[str, dict], ein: dict[st
             fk = k.get("fk")
             kand[int(k["no"])] = {
                 **{f: k.get(f) for f in ("no", "horse", "urteil", "fk", "mq", "spanne", "p_modell", "value", "pro",
-                                         "gegen", "fragen", "ausschlag")},
+                                         "gegen", "fragen", "ausschlag", "urteil_vor_pruefung", "pruefung")},
                 "pos": st.get("pos"), "nichtstarter": bool(st.get("nichtstarter")),
+                "endquote": _quote(st.get("odds_final")),
                 "gewonnen": int(k["no"]) in e["sieger"],
                 "p_markt": (1 / fk) / over if fk and fk > 1 else None,
                 "kennungen": dg.zitierte(k)}
@@ -280,12 +307,90 @@ def protokoll_lesen(ordner: str | Path = ORDNER) -> list[dict]:
     return _csv_lesen(Path(ordner) / PROTOKOLL)
 
 
-def protokoll_fortschreiben(ordner: str | Path, m: dict) -> int:
-    alt = [z for z in protokoll_lesen(ordner) if z["datum"] != m["datum"]]
-    neu = protokoll_zeilen(m)
-    _csv_schreiben(Path(ordner) / PROTOKOLL, PROTOKOLL_FELDER,
-                   sorted(alt + neu, key=lambda z: (str(z["datum"]), str(z["race_id"]), int(z["no"]))))
+def _tag_ersetzen(pfad: Path, felder: list[str], datum: str, neu: list[dict]) -> int:
+    alt = [z for z in _csv_lesen(pfad) if z["datum"] != datum]
+    _csv_schreiben(pfad, felder, sorted(alt + neu, key=lambda z: (str(z["datum"]), str(z["race_id"]), int(z["no"]))))
     return len(neu)
+
+
+def protokoll_fortschreiben(ordner: str | Path, m: dict) -> int:
+    return _tag_ersetzen(Path(ordner) / PROTOKOLL, PROTOKOLL_FELDER, m["datum"], protokoll_zeilen(m))
+
+
+# ---------------------------------------------------------------- Kandidatenprotokoll
+
+def _leer(x):
+    return "" if x is None else x
+
+
+def kandidaten_zeilen(m: dict) -> list[dict]:
+    """Je Kandidat (gelaufen) eine Zeile: Urteil, Festkurs, eigene Kursspanne, Modell- und Marktchance, Endquote,
+    Kennung des Ausschlags („Ermessen“ ohne Kennung), Sieg; dazu das Urteil vor dem Prüf-Subagenten und sein Befund,
+    falls der Durchgang sie hat. Ein altes ``mq`` geht nicht ein."""
+    out = []
+    for r in m["rennen"]:
+        for k in r["kandidaten"]:
+            if k.get("nichtstarter"):
+                continue
+            sp = k.get("spanne") or [None, None]
+            sp = (list(sp) + [None, None])[:2]
+            ken = (k.get("kennungen") or {}).get("ausschlag") or []
+            ausschlag = " ".join(dict.fromkeys(ken)) or ("Ermessen" if "ermessen" in str(k.get("ausschlag") or "").lower()
+                                                         else "")
+            pr = k.get("pruefung")
+            out.append({"datum": m["datum"], "race_id": r["race_id"], "no": k["no"], "horse": k["horse"],
+                        "urteil": k["urteil"], "fk": _leer(k.get("fk")), "spanne_von": _leer(sp[0]),
+                        "spanne_bis": _leer(sp[1]), "p_modell": _leer(k.get("p_modell")),
+                        "p_markt": "" if k.get("p_markt") is None else round(k["p_markt"], 5),
+                        "endquote": _leer(k.get("endquote")), "ausschlag_kennung": ausschlag,
+                        "gewonnen": int(bool(k.get("gewonnen"))),
+                        "urteil_vor_pruefung": _leer(k.get("urteil_vor_pruefung")),
+                        "pruefung": json.dumps(pr, ensure_ascii=False) if isinstance(pr, (dict, list)) else _leer(pr)})
+    return out
+
+
+def kandidaten_lesen(ordner: str | Path = ORDNER) -> list[dict]:
+    return _csv_lesen(Path(ordner) / KANDIDATEN)
+
+
+def kandidaten_fortschreiben(ordner: str | Path, m: dict) -> int:
+    return _tag_ersetzen(Path(ordner) / KANDIDATEN, KANDIDATEN_FELDER, m["datum"], kandidaten_zeilen(m))
+
+
+def _f(x) -> float | None:
+    try:
+        return float(x) if x not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _siege_gegen(zs: list[dict], p: list[float]) -> dict:
+    return {"n": len(zs), "siege": sum(int(z["gewonnen"]) for z in zs), "erwartet": round(sum(p), 2)}
+
+
+def kalibrierung(zeilen: list[dict]) -> dict:
+    """Je Urteil (und alle zusammen): Siege gegen erwartete Siege nach Markt (Σ Marktchance) und nach Mitte der eigenen
+    Kursspanne (Σ 1 / Mitte, nur Kandidaten mit Spanne), dazu Ø ln(Festkurs / Endquote) – positiv heißt, der Festkurs
+    beim Durchgang lag über der Endquote. Dazu, wie oft die Prüfung ein Urteil gesenkt hat und wie die gesenkten
+    Pferde liefen."""
+    gruppen = {u: [z for z in zeilen if z["urteil"] == u] for u in ("wette", "klein", "nein")}
+    gruppen["alle"] = list(zeilen)
+    aus: dict = {"zeitraum": _zeitraum(zeilen), "urteile": {}}
+    for u, zs in gruppen.items():
+        markt = [z for z in zs if _f(z["p_markt"]) is not None]
+        spanne = [z for z in zs if (_f(z["spanne_von"]) or 0) > 1 and (_f(z["spanne_bis"]) or 0) > 1]
+        kurs = [math.log(_f(z["fk"]) / _f(z["endquote"])) for z in zs
+                if (_f(z["fk"]) or 0) > 1 and (_f(z["endquote"]) or 0) > 1]
+        aus["urteile"][u] = {
+            "n": len(zs), "siege": sum(int(z["gewonnen"]) for z in zs),
+            "markt": _siege_gegen(markt, [_f(z["p_markt"]) for z in markt]),
+            "spanne": _siege_gegen(spanne, [2 / (_f(z["spanne_von"]) + _f(z["spanne_bis"])) for z in spanne]),
+            "kurs": {"n": len(kurs), "ln_fk_endquote": round(sum(kurs) / len(kurs), 3) if kurs else None}}
+    geprueft = [z for z in zeilen if z.get("urteil_vor_pruefung")]
+    gesenkt = [z for z in geprueft if z["urteil_vor_pruefung"] != z["urteil"]]
+    aus["pruefung"] = {"geprueft": len(geprueft), "gesenkt": len(gesenkt),
+                       "gesenkt_siege": sum(int(z["gewonnen"]) for z in gesenkt)}
+    return aus
 
 
 def bericht(zeilen: list[dict], stillgelegt: dict[str, str] | None = None) -> list[dict]:
@@ -294,9 +399,7 @@ def bericht(zeilen: list[dict], stillgelegt: dict[str, str] | None = None) -> li
     stillgelegt = stillgelegt or {}
     gruppen: dict[tuple[str, str], list[dict]] = {}
     for z in zeilen:
-        ken = z["kennung"]
-        while ken in stillgelegt:                     # zusammengefasste Einsicht zählt unter der verbleibenden
-            ken = stillgelegt[ken]
+        ken = _aktuell(z["kennung"], stillgelegt)     # zusammengefasste Einsicht zählt unter der verbleibenden
         gruppen.setdefault((ken, z["richtung"]), []).append(z)
     out = []
     for (ken, rt), zs in sorted(gruppen.items()):
@@ -310,6 +413,179 @@ def bericht(zeilen: list[dict], stillgelegt: dict[str, str] | None = None) -> li
         out.append({"kennung": ken, "richtung": rt, "n": n, "siege": siege, "erwartet": round(erw, 2),
                     "ae": round(siege / erw, 2) if erw else None, "z": round(zwert, 2), "unter_druck": druck})
     return out
+
+
+def ausschlag_zeilen(kandidaten: list[dict]) -> list[dict]:
+    """Kandidatenprotokoll → Zeilen wie im Regelprotokoll, aber nur die Kennung des Ausschlags (oder „Ermessen“), in
+    Richtung des Urteils. Für ``bericht``: Wie gehen die Pferde aus, bei denen diese Regel entschied?"""
+    out = []
+    for z in kandidaten:
+        if _f(z.get("p_markt")) is None:
+            continue
+        for ken in str(z.get("ausschlag_kennung") or "").split():
+            out.append({**z, "kennung": ken, "richtung": "pro" if z["urteil"] in TIPP else "gegen"})
+    return out
+
+
+KENNUNG_TICK = re.compile(r"`([FGPU]-[A-Z0-9-]+)`")
+EINSICHT_KOPF = re.compile(r"\*\*\[[^\]]+\]\*\* ((?:`[FGPU]-[A-Z0-9-]+`(?: / )?)+)")   # Kennungen hinter dem Gewicht
+PRUEFPUNKT = re.compile(r"^(\d+)\. \*\*")
+
+
+def _titel(t: str) -> str:
+    return re.sub(r"\s*\([^)]*\)$", "", t.strip().rstrip(".")).rstrip(".")
+
+
+def pruefschritte(skill_ordner: str | Path) -> dict[str, str]:
+    """Kennung → Prüfschritt: der Abschnitt von EINSICHTEN.md, in dem ihre Einsicht steht; sonst die Stelle in SKILL.md,
+    an der sie als Listeneintrag steht (Prüfpunkt N heißt wie Abschnitt N von EINSICHTEN.md, sonst die Überschrift der
+    Liste), sonst ihre erste Nennung in SKILL.md, zuletzt in EINSICHTEN.md."""
+    def text(name):
+        t = (Path(skill_ordner) / name).read_text(encoding="utf-8")
+        i = t.find(dg.STILLGELEGT_KOPF)
+        return t if i < 0 else t[:i]
+    einsichten, nebenbei, nummer, abschnitte = {}, {}, {}, {}
+    titel = None
+    for z in text("EINSICHTEN.md").splitlines():
+        if z.startswith("## "):
+            titel = z[3:].strip()
+            mt = re.match(r"(\d+)\. ", titel)
+            if mt:
+                nummer[mt.group(1)] = titel
+            for teil in titel.split(", "):
+                abschnitte.setdefault(teil, titel)     # „Gesamturteil, Maßstab, Rennvergleich“
+            continue
+        for kopf in EINSICHT_KOPF.findall(z) if titel else []:
+            for ken in KENNUNG_TICK.findall(kopf):
+                einsichten.setdefault(ken, titel)
+        for ken in KENNUNG_TICK.findall(z) if titel else []:
+            nebenbei.setdefault(ken, titel)
+    punkt, liste, erste = {}, {}, {}
+    titel, in_pruefliste, in_punkt = None, False, False
+    for z in text("SKILL.md").splitlines():
+        if z.startswith("#"):
+            titel = _titel(z.lstrip("#"))
+            titel = abschnitte.get(titel, titel)
+            in_pruefliste = titel.startswith("Prüfliste") if z.startswith("## ") else in_pruefliste
+            in_punkt = False
+            continue
+        mt = PRUEFPUNKT.match(z)
+        if mt and in_pruefliste:
+            titel = nummer.get(mt.group(1)) or f"{mt.group(1)}. {_titel(z[mt.end():].split('**')[0])}"
+            in_punkt = True
+        if not titel:
+            continue
+        kopf = re.match(r"^\s*(?:- )?((?:`[FGPU]-[A-Z0-9-]+`(?: / )?)+)", z)
+        for ken in KENNUNG_TICK.findall(kopf.group(1)) if kopf else []:
+            liste.setdefault(ken, titel)
+        for ken in KENNUNG_TICK.findall(z):
+            (punkt if in_punkt else erste).setdefault(ken, titel)
+    return {**nebenbei, **erste, **liste, **punkt, **einsichten}
+
+
+def bericht_je_pruefschritt(zeilen: list[dict], schritte: dict[str, str],
+                            stillgelegt: dict[str, str] | None = None) -> list[dict]:
+    """Regelprotokoll gebündelt je Prüfschritt und Richtung (ein Pferd zählt je Prüfschritt und Richtung einmal)."""
+    stillgelegt = stillgelegt or {}
+    je: dict[tuple, dict] = {}
+    for z in zeilen:
+        schritt = schritte.get(_aktuell(z["kennung"], stillgelegt), "ohne Prüfschritt")
+        je.setdefault((z["datum"], z["race_id"], str(z["no"]), schritt, z["richtung"]), {**z, "kennung": schritt})
+    return [{"pruefschritt": b.pop("kennung"), **b} for b in bericht(list(je.values()))]
+
+
+def _aktuell(ken: str, stillgelegt: dict[str, str]) -> str:
+    while ken in stillgelegt:
+        ken = stillgelegt[ken]
+    return ken
+
+
+def _zeitraum(zeilen: list[dict]) -> str | None:
+    tage = sorted({str(z["datum"]) for z in zeilen})
+    return f"{tage[0]}–{tage[-1]}" if tage else None
+
+
+def _pferd(z: dict) -> dict:
+    return {f: z.get(f) for f in ("datum", "race_id", "no", "horse", "urteil", "fk")}
+
+
+def rueckschau(zeilen: list[dict], kennungen: list[str], stillgelegt: dict[str, str] | None = None) -> dict:
+    """Je Kennung: wie viele bisherige Claude-Tipps und abgelehnte Kandidaten sie zitierten (je Pferd einmal, gleich in
+    welcher Richtung), wie viele gewannen, wie viele der Markt erwartete, und die Sieger mit Namen. Zeigt bei einem
+    verschärfenden Vorschlag, welche früheren Treffer die Regel gestrichen hätte. Ohne Kennung: alle bisherigen
+    Treffer mit ihren Kennungen (für eine neue Kennung, die noch nicht im Regelprotokoll steht)."""
+    stillgelegt = stillgelegt or {}
+    pferde: dict[tuple, dict] = {}
+    for z in zeilen:
+        p = pferde.setdefault((str(z["datum"]), str(z["race_id"]), str(z["no"])),
+                              {**_pferd(z), "gewonnen": int(z["gewonnen"]), "p_markt": float(z["p_markt"] or 0),
+                               "kennungen": {}})
+        p["kennungen"].setdefault(_aktuell(z["kennung"], stillgelegt), set()).add(z["richtung"])
+    aus: dict = {"zeitraum": _zeitraum(zeilen)}
+    if not kennungen:
+        aus["treffer"] = [{**_pferd(p), "kennungen": sorted(p["kennungen"])}
+                          for k, p in sorted(pferde.items()) if p["gewonnen"] and p["urteil"] in TIPP]
+        return aus
+    aus["kennungen"] = []
+    for ken in dict.fromkeys(_aktuell(k, stillgelegt) for k in kennungen):
+        eintrag = {"kennung": ken}
+        for gruppe, urteile in (("tipps", TIPP), ("abgelehnt", {"nein"})):
+            ps = [p for _, p in sorted(pferde.items()) if ken in p["kennungen"] and p["urteil"] in urteile]
+            eintrag[gruppe] = {
+                "n": len(ps), "siege": sum(p["gewonnen"] for p in ps),
+                "erwartet": round(sum(p["p_markt"] for p in ps), 2),
+                "sieger": [f"{p['horse']} {p['datum']} {str(p['race_id'])[8:]} ({p['urteil']}, FK {p['fk']}, "
+                           f"{'/'.join(sorted(p['kennungen'][ken]))})" for p in ps if p["gewonnen"]]}
+        aus["kennungen"].append(eintrag)
+    return aus
+
+
+# ---------------------------------------------------------------- Drift
+
+DRIFT_FENSTER = 7          # Tage bis einschließlich des letzten Tages
+DRIFT_GRENZE = 0.5         # Tipp-Anteil im Fenster unter diesem Bruchteil des Anteils davor → Anlass
+
+
+def _anteile(urteile: list[str]) -> dict:
+    n = len(urteile)
+    aus = {"n": n, **{u: urteile.count(u) for u in ("wette", "klein", "nein")}}
+    aus["tipp_anteil"] = round((aus["wette"] + aus["klein"]) / n, 3) if n else None
+    return aus
+
+
+def drift_pferde(kandidaten: list[dict], protokoll: list[dict]) -> list[dict]:
+    """Kandidatenprotokoll; für Tage, die dort fehlen (vor dem 27.11.2026), das Regelprotokoll – dort stehen nur
+    Kandidaten, die eine Kennung zitierten."""
+    tage = {z["datum"] for z in kandidaten}
+    return ([{**z, "quelle": "kandidaten"} for z in kandidaten] +
+            [{**z, "quelle": "regelprotokoll"} for z in protokoll if z["datum"] not in tage])
+
+
+def drift(pferde: list[dict], vorschlaege: list[dict], fenster: int = DRIFT_FENSTER) -> dict:
+    """Wird der Durchgang strenger? Je Tag und für die letzten ``fenster`` Tage gegen die Zeit davor: Zahl der Kandidaten
+    und wie viele wette / klein / nein (je Pferd einmal); dazu die angenommenen Vorschläge nach ``wirkung``. Anlass,
+    wenn der Tipp-Anteil im Fenster unter DRIFT_GRENZE × Anteil davor fällt. ``pferde``: Zeilen mit datum, race_id,
+    no, urteil (Regelprotokoll oder Kandidatenprotokoll; doppelte Pferde zählen einmal)."""
+    je: dict[tuple, str] = {}
+    quelle: dict[str, str] = {}
+    for z in pferde:
+        je[(str(z["datum"]), str(z["race_id"]), str(z["no"]))] = z["urteil"]
+        if z.get("quelle"):
+            quelle[str(z["datum"])] = z["quelle"]
+    tage = sorted({d for d, _, _ in je})
+    aus: dict = {"tage": [{"datum": t, **_anteile([u for (d, _, _), u in je.items() if d == t]),
+                           **({"quelle": quelle[t]} if t in quelle else {})} for t in tage]}
+    if tage:
+        ende = datetime.strptime(tage[-1], "%Y%m%d")
+        im = {t for t in tage if (ende - datetime.strptime(t, "%Y%m%d")).days < fenster}
+        aus["fenster"] = {"von": min(im), "bis": tage[-1], **_anteile([u for (d, _, _), u in je.items() if d in im])}
+        aus["davor"] = _anteile([u for (d, _, _), u in je.items() if d not in im])
+        jetzt, vorher = aus["fenster"]["tipp_anteil"], aus["davor"]["tipp_anteil"]
+        aus["anlass"] = bool(vorher and jetzt is not None and jetzt < DRIFT_GRENZE * vorher)
+    angenommen = [v for v in vorschlaege if v.get("entscheidung") in ("ja", "geaendert")]
+    aus["vorschlaege_angenommen"] = {w: sum((v.get("wirkung") or "unbekannt") == w for v in angenommen)
+                                     for w in ("strenger", "lockerer", "neutral", "unbekannt")}
+    return aus
 
 
 # ---------------------------------------------------------------- Verdichtung
@@ -376,6 +652,8 @@ def vorschlaege_ablegen(ordner: str | Path, neue: list[dict]) -> None:
             raise ValueError(f"{v.get('id')}: entscheidung {e!r} (erlaubt: {', '.join(sorted(ENTSCHEIDUNGEN))})")
         if not v.get("id"):
             raise ValueError("Vorschlag ohne id")
+        if v.get("wirkung") and v["wirkung"] not in WIRKUNGEN:
+            raise ValueError(f"{v['id']}: wirkung {v['wirkung']!r} (erlaubt: {', '.join(sorted(WIRKUNGEN))})")
         z = {**je.get(v["id"], {}), **{k: v[k] for k in VORSCHLAG_FELDER if k in v}, "entscheidung": e}
         if e != "offen" and not z.get("entschieden"):
             z["entschieden"] = datetime.now(PARIS).strftime("%Y-%m-%dT%H:%M")
@@ -427,9 +705,23 @@ def main(argv: list[str]) -> None:
         print(json.dumps(gegenprobe(m, b, args[2]), ensure_ascii=False, indent=1))
     elif cmd == "protokoll":
         m = json.loads(Path(args[0]).read_text(encoding="utf-8"))
-        print(f"{protokoll_fortschreiben(ordner, m)} Zeilen für {m['datum']}")
+        print(f"{protokoll_fortschreiben(ordner, m)} Zeilen Regelprotokoll, "
+              f"{kandidaten_fortschreiben(ordner, m)} Zeilen Kandidatenprotokoll für {m['datum']}")
     elif cmd == "bericht":
-        print(json.dumps(bericht(protokoll_lesen(ordner), dg.stillgelegt()), ensure_ascii=False, indent=1))
+        if "--ausschlag" in rest:
+            b = bericht(ausschlag_zeilen(kandidaten_lesen(ordner)), dg.stillgelegt())
+        elif "--pruefschritt" in rest:
+            b = bericht_je_pruefschritt(protokoll_lesen(ordner), pruefschritte(dg.SKILL_ORDNER), dg.stillgelegt())
+        else:
+            b = bericht(protokoll_lesen(ordner), dg.stillgelegt())
+        print(json.dumps(b, ensure_ascii=False, indent=1))
+    elif cmd == "rueckschau":
+        print(json.dumps(rueckschau(protokoll_lesen(ordner), args, dg.stillgelegt()), ensure_ascii=False, indent=1))
+    elif cmd == "drift":
+        print(json.dumps(drift(drift_pferde(kandidaten_lesen(ordner), protokoll_lesen(ordner)),
+                               vorschlaege_lesen(ordner)), ensure_ascii=False, indent=1))
+    elif cmd == "kalibrierung":
+        print(json.dumps(kalibrierung(kandidaten_lesen(ordner)), ensure_ascii=False, indent=1))
     elif cmd == "verdichtung":
         print(json.dumps(verdichtung(dg.SKILL_ORDNER, protokoll_lesen(ordner)), ensure_ascii=False, indent=1))
     elif cmd == "naechster-tag":

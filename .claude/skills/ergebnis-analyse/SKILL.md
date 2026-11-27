@@ -7,8 +7,9 @@ description: "Ergebnisanalyse eines Renntags: Durchgänge des Skills rennkarten-
 
 Die Ergebnisanalyse **liefert Vorschläge, der Nutzer entscheidet** (ADR 0003). Ein Fall genügt für einen Vorschlag; ob
 er sich verallgemeinern lässt, beurteilt der Nutzer. Begriffe (Siegergruppe, verpasster Sieger, verlorener
-Claude-Tipp, Vorschlag, Gegenprobe, Regelkennung, Regelprotokoll) stehen in `GLOSSARY.md`. Ablauf mit
-Drive, Seite und PR: `claude_projekt/aufgabe_ergebnisanalyse.md`; dieser Skill ist der Urteilsteil.
+Claude-Tipp, Vorschlag, Gegenprobe, Rückschau, Regelkennung, Regelprotokoll, Kandidatenprotokoll, Drift, Kalibrierung)
+stehen in `GLOSSARY.md`. Ablauf mit Drive, Seite und PR: `claude_projekt/aufgabe_ergebnisanalyse.md`; dieser Skill ist
+der Urteilsteil.
 
 ## 1. Lesen
 
@@ -37,6 +38,10 @@ Sieger aus Maßstab oder sonstige Sieger werden nur gezählt: Sie betreffen den 
    den Datenpunkt (z. B. `'CGD \S*D'`, `'Trainerwechsel'`) meldet, bei wie vielen Verlierern des Tages er ebenfalls
    stand, mit Namen und Zeile. Hängt er an einer Zahl oder einem Vergleich, die gemeldeten Zeilen von Hand prüfen.
    Schwächt die Gegenprobe den Datenpunkt, gehört sie trotzdem in den Vorschlag.
+   **Rückschau**, wenn der Vorschlag Urteile strenger macht: `python3 -I ergebnis_analyse.py rueckschau KENNUNG` zeigt
+   die bisherigen Tipps und abgelehnten Kandidaten mit dieser Kennung und ihre Sieger; bei einer neuen Kennung
+   `… rueckschau` ohne Kennung alle bisherigen Treffer. Welche dieser Treffer hätte die Regel gestrichen? Das gehört
+   in `gegenprobe`, auch wenn es „keiner“ ist.
 4. **Abgleich.** Trifft eine bestehende Einsicht (selber Abschnitt von `EINSICHTEN.md`) oder Regel (`SKILL.md`) die
    Lage, ist der Vorschlag `aendern` oder `zusammenfassen`; `neu` nur für eine Lage, die keine bestehende trifft.
 5. **Schluss.** Hätte eine andere Gewichtung oder Regel das Urteil gedreht, ohne bei den Verlierern der Gegenprobe
@@ -55,13 +60,14 @@ Jeder Vorschlag ist eine **konkrete Textänderung**, über die der Nutzer mit Ja
 | `rennen`, `race_id`, `no`, `horse` | der Fall |
 | `durchgang` | ein Satz: Urteil, Festkurs, woran es hing |
 | `datenpunkt` | Zitat aus dem Blatt |
-| `gegenprobe` | höchstens drei Sätze: wie viele Verlierer mit Namen, was den Vorschlag schwächt |
+| `gegenprobe` | höchstens drei Sätze: wie viele Verlierer mit Namen, was den Vorschlag schwächt; bei `strenger` dazu ein Satz Rückschau |
 | `art` | `neu`, `aendern`, `zusammenfassen`, `gewicht` oder `streichen` |
 | `zieldatei` | `SKILL.md` (Regel, Liste) oder `EINSICHTEN.md` (Gewichtung, typischer Fehler) |
 | `kennung` | bestehende Kennung oder eine neue nach dem Muster in `SKILL.md` („Kennungen“) |
 | `alt` | bei `aendern` und `zusammenfassen`: der bisherige Text, wörtlich (bei mehreren Einsichten alle) |
 | `text` | **wörtlich** der neue Text, so wie er in der Datei stehen soll, mit Fallbeispiel in *kursiv* |
 | `gewicht` | `ausschlaggebend`, `gewichtig` oder `leicht` – Claudes Vorschlag |
+| `wirkung` | `strenger` (mehr „nein“ oder kleinere Wetten), `lockerer` (umgekehrt) oder `neutral` (Form, Verdichtung) |
 
 Mehrere Fälle, die auf dieselbe Regel zeigen, ergeben **einen** Vorschlag mit allen Fällen. Reihenfolge nach Stärke:
 klare Gegenprobe und klarer Regelbezug zuerst. Ein abgelehnter Vorschlag (`auswertung/vorschlaege.csv`, `entscheidung`
@@ -97,6 +103,22 @@ Fertig, wenn jeder `text` alle sechs Punkte erfüllt.
 `python3 -I ergebnis_analyse.py verdichtung` und `… bericht`. Meldet eines einen Anlass (`abschnitt_voll`,
 `datei_lang`, `vorlaeufig_*`, eine Regel `unter_druck`): [`VERDICHTEN.md`](VERDICHTEN.md) lesen und je Anlass
 Vorschläge nach Abschnitt 3 machen. Fertig, wenn jeder gemeldete Anlass einen Vorschlag hat.
+
+`… bericht --ausschlag` zählt nur die Kennung, die das Urteil entschied (mit „Ermessen“), `… bericht --pruefschritt`
+bündelt die Kennungen je Prüfschritt; beide füllen sich schneller als die einzelne Kennung. Sie sind Belege für
+`gegenprobe`; ein Anlass bleibt allein `unter_druck` aus `bericht`.
+
+**Drift:** `python3 -I ergebnis_analyse.py drift` zählt je Tag wette / klein / nein und stellt den Tipp-Anteil der
+letzten 7 Tage dem davor gegenüber, dazu die angenommenen Vorschläge nach `wirkung`. Die Zeile des Tages und das
+Verhältnis `strenger` : `lockerer` stehen im Bericht an den Nutzer. Meldet `drift` `anlass` (Tipp-Anteil halbiert),
+nennt der Bericht das ausdrücklich als Frage an den Nutzer, ob der Skill zu streng geworden ist; ein Vorschlag folgt
+daraus nur auf sein Wort.
+
+**Kalibrierung:** `python3 -I ergebnis_analyse.py kalibrierung` stellt je Urteil die Siege den erwarteten Siegen nach
+Markt und nach der Mitte der eigenen Kursspanne (1 / Mitte) gegenüber, dazu Ø ln(Festkurs / Endquote): positiv heißt,
+der Festkurs beim Durchgang lag über der Endquote. Gewinnen die Tipps klar seltener, als ihre Spannen sagen, war die
+Spanne zu großzügig. Unter etwa 50 Tipps ist das Rauschen; die Zahlen messen den Skill nicht (ADR 0002) und tragen
+allein keinen Vorschlag – sie gehören als Beleg in `gegenprobe`, wenn ein Vorschlag die Kursspanne betrifft.
 
 ## Nach der Entscheidung des Nutzers
 
