@@ -44,9 +44,11 @@ ausging.
 3. **Maßstäbe** prüfen (Abschnitt unten; im Blatt `MASSSTAB 1/2` und `2/2`). Fertig, wenn je Maßstab Referenz-ARR
    und größtes Fragezeichen feststehen.
 4. **Je Kandidat die Prüfliste.** Fertig, wenn jeder der sechs Prüfpunkte je Kandidat einen Befund (Pro, Gegen,
-   Fragezeichen) oder ausdrücklich „nichts“ geliefert hat.
+   Fragezeichen) oder ausdrücklich „nichts“ geliefert hat und jeder **Auslöser** des Blatts (Zeile „Auslöser:“) im
+   Urteil bestätigt (Satz mit der Kennung) oder mit Beleg entkräftet ist. Die Auslöser sind nur die Regeln, die sich
+   rechnen lassen; die Prüfliste gilt ganz.
 5. **Gesamturteil** je Kandidat. Fertig, wenn die Leitfrage mit Zahlen beantwortet ist (Referenz-ARR des Kandidaten
-   gegen Top-ARR im Feld und gegen beide Maßstäbe) und Spanne und Ausschlag mit Kennung stehen.
+   gegen Top-ARR im Feld und gegen beide Maßstäbe; Blatt: Zeile „Leitfrage“ im Rennkopf) und Spanne und Ausschlag mit Kennung stehen.
 6. **Rennvergleich**: Kandidaten nach Beweislage ordnen, gegen die Maßstäbe stellen, Grenze ziehen.
 7. **Ausgabe**: im automatischen Durchgang das JSON-Format des Auftrags, sonst nach `AUSGABE.md`.
 

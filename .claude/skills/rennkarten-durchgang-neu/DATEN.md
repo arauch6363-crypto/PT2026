@@ -52,6 +52,31 @@ ein belegtes Plus), `rivals_stat` (wie die Gegner danach liefen: aufgewertet, we
 `comment_de` (Rennkommentar, übersetzt; fehlt die Übersetzung, zeigt das Blatt das französische Original
 `comment`).
 
+## Leitfrage und Auslöser (gerechnet von `blatt.py`)
+
+- **Leitfrage** (Rennkopf): je Kandidat und Maßstab der ARR (ber.) des Referenzlaufs mit Datum und Abstand zum Top-ARR
+  des Feldes (`arr.adj`); „keiner“ ohne Lauf ≈heute im Blatt, „N Tage alt“ ab 366 Tagen.
+- **Auslöser** (je Pferd): Regeln, deren Bedingung reine Rechnung ist, mit Kennung und Zahl. Schwellen wie in
+  `SKILL.md`/`EINSICHTEN.md`:
+
+| Kennung | Bedingung |
+|---|---|
+| `G-ARR-UNTER` | Referenz-ARR (ber.) 3 Punkte und mehr unter dem besten `arr.adj` der anderen Starter |
+| `G-KEIN-REFERENZ` | kein Lauf ≈heute im Blatt oder Referenzlauf älter als 365 Tage; steht er unter „Ältere Läufe“, nur ein Hinweis |
+| `F-AUFGEWICHT`, `G-UEBER-SIEGMARKE` | nur Handicap, `hcp_mark.kind` sieg: über 0 kg bzw. ab 1 kg über der letzten Siegmarke |
+| `G-GEWICHT-BODEN` | ab 62 kg auf Très souple, Collant, Lourd; mit Aufgewicht auf Collant/Lourd zusätzlich `G-GEWICHT-KLASSE-BODEN` (Klassenfrage offen) |
+| `G-STARTFOLGE` | ab 4 Starts in 42 Tagen (Formzeilen) |
+| `G-GESPANN-OHNE-SIEG` | Gespann (`pref.jockey.trainer`) ab 20 Starts ohne Sieg |
+| `G-TRAINER-KALT` | Bahnbilanz des Trainers ab 30 Starts mit A/E bis 0,55 |
+| `F-PAUSE`, `F-TRAINERWECHSEL` | ab 60 Tagen seit dem letzten Start; Trainer erst seit höchstens 5 Läufen |
+| `F-BELAG-NEU`, `F-BODEN-NEU`, `F-DISTANZ-NEU` | kein Lauf auf dem Belag (Vorlieben); CGD-Buchstabe G bzw. D „◦“, Boden nur ab Très souple |
+| `G-ABSTAMMUNG` | Abstammung gesamt −15 und schlechter, heute erster bis dritter Lauf auf Belag oder Bodengruppe |
+| `G-AUSRUESTUNG-WEG`, `P-AUSRUESTUNG-ZURUECK`, `F-AUSRUESTUNG-NEU` | Ausrüstung heute anders als im letzten Lauf und Platzquote mit ihr höher als ohne; ohne Läufe mit ihr: erstmals |
+| `P-CGD`, `G-BOX`, `P-BOX` | Großbuchstabe im CGD; Box signifikant |
+
+Nicht gerechnet, weil es Urteil braucht oder die Daten fehlen: exposed, Klassenfrage, „klar besser“, Trainerform der
+letzten 30 Tage, erstmals Très souple innerhalb der Bodengruppe Slow.
+
 ## Lücken
 
 - **Formzeilen zeigen nur die letzten Läufe** (höchstens sieben) und, falls darunter keiner auf derselben Bahn, Distanz

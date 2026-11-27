@@ -484,6 +484,165 @@ def massstaebe(kz: list[dict]) -> list[tuple[dict, str]]:
     return out
 
 
+def referenzlauf(x: dict, r: dict) -> tuple[dict | None, bool]:
+    """Referenzlauf wie im Blatt: der jüngste Lauf ≈heute unter den letzten Läufen, sonst unter den älteren (extra).
+    Rückgabe (Lauf oder None, steht unter „Ältere Läufe“)."""
+    fl = x.get("form_lines") or []
+    for f in [f for f in fl if not f.get("extra")][:7] + [f for f in fl if f.get("extra")]:
+        if ist_heute(f, r):
+            return f, bool(f.get("extra"))
+    return None, False
+
+
+def _tage(r: dict, datum) -> int | None:
+    """Tage zwischen einem Lauf (JJJJ-MM-TT) und dem Renntag (aus der race_id)."""
+    tag = (r.get("race_id") or "")[:8]
+    try:
+        return (date(int(tag[:4]), int(tag[4:6]), int(tag[6:8])) - date.fromisoformat(str(datum)[:10])).days
+    except (ValueError, TypeError):
+        return None
+
+
+def top_arr(r: dict, ohne=None) -> tuple[float, int] | None:
+    """Bester ARR (gewichtsbereinigt, ``arr.adj``) im Feld als (Wert, Nr.), auf Wunsch ohne eine Startnummer."""
+    werte = [(round(a, 1), x["no"]) for x in starter(r)
+             if x.get("no") != ohne and (a := (x.get("arr") or {}).get("adj")) is not None]
+    return max(werte, default=None)
+
+
+# Schwellen der Auslöser – wörtlich aus SKILL.md und EINSICHTEN.md (Kennung in Klammern)
+ARR_RUECKSTAND = 3.0         # Referenzlauf etwa 3 Punkte ARR und mehr unter dem Besten im Feld (G-ARR-UNTER)
+SIEGMARKE_KG = 1.0           # ab etwa 1 kg über der letzten Siegmarke im Handicap (G-UEBER-SIEGMARKE)
+GEWICHT_SCHWER = 62.0        # ab etwa 62 kg auf Très souple oder schwerer (G-GEWICHT-BODEN)
+STARTFOLGE_N = 4             # ab etwa 4 Starts in FENSTER_STARTS Tagen (G-STARTFOLGE)
+GESPANN_STARTS = 20          # Gespann ohne Sieg nach etwa 20 gemeinsamen Starts (G-GESPANN-OHNE-SIEG)
+TRAINER_BAHN_STARTS = 30     # Bahnbilanz des Trainers A/E um 0,5 nach etwa 30 Starts (G-TRAINER-KALT)
+TRAINER_BAHN_AE = 0.55
+PAUSE_TAGE = 60              # Pause ab etwa 60 Tagen (F-PAUSE)
+ABSTAMMUNG_GESAMT = -15      # Abstammung gesamt etwa −15 und schlechter … (G-ABSTAMMUNG)
+ABSTAMMUNG_LAEUFE = 3        # … beim ersten bis dritten Lauf auf Belag oder Boden
+REFERENZ_TAGE = 365          # Referenzlauf höchstens etwa ein Jahr alt (G-KEIN-REFERENZ)
+AUSRUESTUNG = {"SANS_OEILLERES": "ohne", "OEILLERES_AUSTRALIENNES": "australisch", "OEILLERES_CLASSIQUE": "klassisch"}
+
+
+def _platzquote(e: dict | None) -> str:
+    return f"{e.get('runs', 0)} L {100 * (e.get('places') or 0) / e['runs']:.0f} %" if e and e.get("runs") else "0 L"
+
+
+def _ausruestung(x: dict) -> list[str]:
+    """Ausrüstung fällt weg oder kommt zurück (Bilanz mit ihr besser als ohne) bzw. erstmals."""
+    heute_l = AUSRUESTUNG.get(x.get("blinkers") or "", None)
+    fl = [f for f in x.get("form_lines") or [] if not f.get("extra")]
+    zuletzt = AUSRUESTUNG.get((fl[0].get("blinkers") or "SANS_OEILLERES") if fl else "", None)
+    bil = {e.get("label"): e for e in ((x.get("pref") or {}).get("horse") or {}).get("blinkers") or []}
+    quote = lambda l: (bil.get(l) or {}).get("places", 0) / bil[l]["runs"] if (bil.get(l) or {}).get("runs") else None
+    if not heute_l or not zuletzt or heute_l == zuletzt:
+        return []
+    if heute_l == "ohne":
+        mit, ohne = quote(zuletzt), quote("ohne")
+        if mit is not None and (ohne is None or mit > ohne):
+            return [f"G-AUSRUESTUNG-WEG heute ohne, zuletzt {zuletzt}: mit {_platzquote(bil.get(zuletzt))}, "
+                    f"ohne {_platzquote(bil.get('ohne'))}"]
+        return []
+    if quote(heute_l) is None:
+        return [f"F-AUSRUESTUNG-NEU erstmals {heute_l}"]
+    if zuletzt == "ohne" and quote(heute_l) > (quote("ohne") or 0):
+        return [f"P-AUSRUESTUNG-ZURUECK heute {heute_l}: mit {_platzquote(bil.get(heute_l))}, "
+                f"ohne {_platzquote(bil.get('ohne'))}"]
+    return []
+
+
+def ausloeser(z: dict, r: dict) -> list[str]:
+    """Regeln, deren Bedingung sich aus der Karte rechnen lässt, mit Kennung und Zahl. Nicht vollständig: Was sich
+    nicht sauber rechnen lässt (exposed, Klassenfrage, „klar besser“), steht nicht hier."""
+    x = z["x"]
+    ph = (x.get("pref") or {}).get("horse") or {}
+    pt = (x.get("pref") or {}).get("trainer") or {}
+    pj = (x.get("pref") or {}).get("jockey") or {}
+    fl = x.get("form_lines") or []
+    going = (r.get("going") or "").strip().lower()
+    out = []
+    ref, aelter = referenzlauf(x, r)
+    alter = _tage(r, ref.get("date")) if ref else None
+    if ref is None:
+        out.append("G-KEIN-REFERENZ kein Lauf ≈heute im Blatt")
+    elif alter is not None and alter > REFERENZ_TAGE:
+        out.append(f"G-KEIN-REFERENZ Referenzlauf {ref.get('date')} ist {alter} Tage alt")
+    else:
+        if aelter:
+            out.append(f"Referenzlauf {ref.get('date')} steht unter „Ältere Läufe“")
+        top = top_arr(r, ohne=x.get("no"))
+        if ref.get("arr_adj") is not None and top and top[0] - round(ref["arr_adj"], 1) >= ARR_RUECKSTAND - 1e-9:
+            out.append(f"G-ARR-UNTER Referenz-ARR {zahl(ref['arr_adj'])} liegt {zahl(top[0] - round(ref['arr_adj'], 1))} "
+                       f"unter dem Besten im Feld ({zahl(top[0])} #{top[1]})")
+    hm = x.get("hcp_mark") or {}
+    if ist_handicap(r) and hm.get("kind") == "sieg" and (hm.get("diff") or 0) > 0:
+        k = "F-AUFGEWICHT/G-UEBER-SIEGMARKE" if hm["diff"] >= SIEGMARKE_KG - 1e-9 else "F-AUFGEWICHT"
+        out.append(f"{k} {hm['diff']:+.1f}".replace(".", ",") + " kg über der letzten Siegmarke")
+    kg = x.get("weight") or 0
+    if kg >= GEWICHT_SCHWER - 1e-9 and going in SEHR_WEICH:
+        out.append(f"G-GEWICHT-BODEN {zahl(kg)} kg auf {r.get('going')}")
+        if r.get("going_label") == "Very slow" and ist_handicap(r) and hm.get("kind") == "sieg" and (hm.get("diff") or 0) > 0:
+            out.append("G-GEWICHT-KLASSE-BODEN Aufgewicht und ab 62 kg auf Collant/Lourd – Klassenfrage?")
+    dicht = sum(1 for f in fl if not f.get("extra") and (_tage(r, f.get("date")) or 999) <= FENSTER_STARTS)
+    if dicht >= STARTFOLGE_N:
+        out.append(f"G-STARTFOLGE {dicht} Starts in {FENSTER_STARTS} Tagen")
+    g = pj.get("trainer") or {}
+    if (g.get("runs") or 0) >= GESPANN_STARTS and not g.get("wins"):
+        out.append(f"G-GESPANN-OHNE-SIEG Gespann {g['runs']} Starts ohne Sieg")
+    b = pt.get("course") or {}
+    if (b.get("runs") or 0) >= TRAINER_BAHN_STARTS and b.get("ae") is not None and b["ae"] <= TRAINER_BAHN_AE:
+        out.append(f"G-TRAINER-KALT Bahnbilanz des Trainers {b['runs']} L, A/E {zahl(b['ae'], 2)}")
+    if (x.get("days") or 0) >= PAUSE_TAGE:
+        out.append(f"F-PAUSE {x['days']} Tage")
+    if trainerwechsel(ph.get("trainer")):
+        out.append("F-TRAINERWECHSEL " + trainerwechsel(ph.get("trainer")))
+    gruppen = {e.get("label"): e.get("runs") or 0 for e in ph.get("going") or []}
+    gelaufen = sum(gruppen.values())
+    cgd = x.get("cgd") or ""
+    if gelaufen:
+        psf = r.get("going_label") == "PSF"
+        belag = gruppen.get("PSF", 0) if psf else gelaufen - gruppen.get("PSF", 0)
+        if not belag:
+            out.append("F-BELAG-NEU erstmals " + ("PSF" if psf else "Gras"))
+        if len(cgd) == 3 and cgd[1] == "◦" and going in SEHR_WEICH:
+            out.append(f"F-BODEN-NEU erstmals {r.get('going')} (Bodengruppe {r.get('going_label')})")
+        if len(cgd) == 3 and cgd[2] == "◦":
+            out.append(f"F-DISTANZ-NEU erstmals diese Distanzgruppe ({r.get('distance')} m)")
+        ap = (x.get("abst_pass") or {}).get("gesamt")
+        neu = min(belag, gruppen.get(r.get("going_label"), 0))
+        if ap is not None and ap <= ABSTAMMUNG_GESAMT and neu < ABSTAMMUNG_LAEUFE:
+            out.append(f"G-ABSTAMMUNG gesamt {ap}, heute {neu + 1}. Lauf auf "
+                       + ("Belag" if belag <= gruppen.get(r.get("going_label"), 0) else "Boden"))
+    out += _ausruestung(x)
+    if any(c.isupper() for c in cgd):
+        out.append(f"P-CGD {cgd}")
+    ds = x.get("draw_stat") or {}
+    if ds.get("sig") and ds.get("dev"):
+        out.append(f"{'P-BOX' if ds['dev'] > 0 else 'G-BOX'} Box {x.get('draw')} signifikant {'besser' if ds['dev'] > 0 else 'schlechter'}")
+    return out
+
+
+def leitfrage(r: dict, kand: list[dict], ms: list[tuple[dict, str]]) -> None:
+    """Kopfzeile der Leitfrage: Referenz-ARR (gewichtsbereinigt) je Kandidat und Maßstab gegen den Top-ARR des Feldes."""
+    top = top_arr(r)
+    if not top:
+        return
+
+    def teil(z, rolle):
+        f, _ = referenzlauf(z["x"], r)
+        if f is None or f.get("arr_adj") is None:
+            wert = "keiner" if f is None else f"{f.get('date')} ohne ARR"
+        else:
+            abstand = f"{round(f['arr_adj'], 1) - top[0]:+.1f}".replace(".", ",")
+            alter = _tage(r, f.get("date"))
+            zu_alt = f", {alter} Tage alt" if alter is not None and alter > REFERENZ_TAGE else ""
+            wert = f"{zahl(f['arr_adj'])} ({f.get('date')}, {abstand}{zu_alt})"
+        return f"{rolle} {z['x']['no']} {z['x']['horse']} {wert}"
+    teile = [teil(z, "Kandidat") for z in kand] + [teil(m, f"Maßstab {j}:") for j, (m, _) in enumerate(ms, 1)]
+    print(f"Leitfrage – Referenz-ARR (ber.) gegen Top-ARR {zahl(top[0])} (#{top[1]}): " + " · ".join(teile))
+
+
 def blatt(z: dict, r: dict, top_kg: float, titel: str = "") -> None:
     x, pw = z["x"], z["x"].get("power") or {}
     ph = (x.get("pref") or {}).get("horse") or {}
@@ -501,6 +660,7 @@ def blatt(z: dict, r: dict, top_kg: float, titel: str = "") -> None:
     val = "–" if z["value"] is None else f"{z['value'] * 100:+.0f} %"
     print(f"\n### {titel}{x['no']} {x['horse']} – FK {zahl(z['fk'])} · Modell {pct(z['p'], 1)} · Modell-Rang {z['rang']}/{z['n']} ({drittel(z['rang'], z['n'])}) · "
           f"Value {val}" + (f" · {toto(x)}" if toto(x) else ""))
+    print("- Auslöser: " + (" · ".join(ausloeser(z, r)) or "keine"))
     print(f"- Pferd: {x.get('age')}j {x.get('sex')}, {starts_im_feld(x, r)}, {x.get('wins')} S, {x.get('places')} P · "
           f"{x.get('weight')} kg (Höchstgewicht {top_kg}) · Marke {zahl(x.get('rating'))} · Box {x.get('draw')} · Laufstil {x.get('style_label')} · "
           f"{x.get('days')} Tage seit letztem Start · {dicht} Starts in {FENSTER_STARTS} Tagen")
@@ -565,7 +725,7 @@ def blatt(z: dict, r: dict, top_kg: float, titel: str = "") -> None:
         print(f"- Crible (Pressetext): „{crib[:CRIBLE_MAX]}“")
     letzte = [f for f in fl if not f.get("extra")][:7]
     aeltere = [f for f in fl if f.get("extra")]          # von der Karte angehängt: letzter Lauf auf Bahn/Distanz/Boden
-    referenz = next((f for f in letzte + aeltere if ist_heute(f, r)), None)
+    referenz, _ = referenzlauf(x, r)
     tief = {id(f) for f in (letzte[:1] + [referenz]) if f is not None}   # ausführlich nur Referenz- und letzter Lauf
 
     def zeile(f):
@@ -601,10 +761,11 @@ def main(argv: list[str]) -> None:
         if not kand:
             continue
         kopf(r, kz)
+        ms = massstaebe(kz)
+        leitfrage(r, kand, ms)
         top_kg = max((x.get("weight") or 0) for x in starter(r))
         for z in kand:
             blatt(z, r, top_kg)
-        ms = massstaebe(kz)
         for j, (m, grund) in enumerate(ms, 1):
             blatt(m, r, top_kg, titel=f"MASSSTAB {j}/{len(ms)} · {grund} · kein Kandidat, nie eine Wette – ")
         if not ms:
