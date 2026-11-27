@@ -229,6 +229,17 @@ def rennen_pruefen(r: dict) -> dict:
             "hinweis": str(r.get("hinweis") or ""), "kandidaten": kand, "massstab": _massstab(r)}
 
 
+PRUEF_REGELN = """Was `pruefen` verlangt (den Code nicht lesen, diese Liste genügt):
+- je Kandidat: no, horse, urteil (wette/klein/nein), fk, spanne [von, bis], p_modell, value, pro, gegen, fragen,
+  anker (ein Satz), leitfrage {referenzlauf: JJJJ-MM-TT oder "keiner", ref_arr, top_arr, massstab_arr: [je Maßstab]},
+  ausschlag (nennt eine Kennung oder „Ermessen“);
+- nur Kennungen aus SKILL.md/EINSICHTEN.md; top_arr wie im Rennkopf, referenzlauf ein Lauf des Pferdes im Blatt;
+- wette/klein: Festkurs über dem oberen Rand der Spanne;
+- Kennung mit Veto unter gegen oder im ausschlag: urteil nein; mit Deckel: höchstens klein – außer der ausschlag
+  nennt die Ausnahme mit dem Wort „Ausnahme“;
+- nach einer Prüfung: urteil nie über urteil_vor_pruefung, eine Senkung braucht einen Befund in pruefung."""
+
+
 SKILL_ORDNER = Path(__file__).resolve().parent / ".claude" / "skills" / "rennkarten-durchgang-neu"
 KENNUNG = re.compile(r"\b[FGPU]-[A-Z0-9]+(?:-[A-Z0-9]+)*\b")
 ZITAT_FELDER = ("pro", "gegen", "fragen", "ausschlag")
@@ -517,7 +528,7 @@ def main(argv: list[str]) -> None:
             except (OSError, ValueError) as e:
                 fehler.append(f"{q}: {e}")
         d = zusammenfuehren(datum, rennen, stand)
-        Path(aus).write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+        Path(aus).write_text(json.dumps(d, ensure_ascii=False, indent=0), encoding="utf-8")   # ohne Einrückung: wird in Drive als Text hochgeladen
         print(json.dumps({"datei": aus, "rennen": len(d["rennen"]), "unlesbar": fehler}, ensure_ascii=False))
     elif cmd == "markieren":
         tpl = _opt(args, "--template", str(Path(__file__).with_name("racecard_template.html")))
@@ -531,7 +542,7 @@ def main(argv: list[str]) -> None:
         try:
             out = rennen_pruefen_streng(r, karte=laden(karte) if karte else None)
         except ValueError as e:
-            raise SystemExit(f"FEHLER {e}") from None
+            raise SystemExit(f"FEHLER {e}\n{PRUEF_REGELN}") from None
         print(f"ok {out['race_id']}: {len(out['kandidaten'])} Kandidaten")
     else:
         raise SystemExit(__doc__)
