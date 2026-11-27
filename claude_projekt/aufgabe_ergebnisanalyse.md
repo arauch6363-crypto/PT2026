@@ -49,7 +49,8 @@ Sitzung „entschieden“ schreibt (er nimmt sich die Seite im Lauf des Tages vo
 - `python3 -I REPO/ergebnis_analyse.py protokoll AO/analyse_TAG.json` (schreibt `REPO/auswertung/regelprotokoll.csv`
   und `REPO/auswertung/kandidaten.csv`),
   dann `python3 -I REPO/ergebnis_analyse.py bericht > AO/bericht.json` und
-  `python3 -I REPO/ergebnis_analyse.py drift > AO/drift.json`.
+  `python3 -I REPO/ergebnis_analyse.py drift > AO/drift.json` und
+  `python3 -I REPO/ergebnis_analyse.py kalibrierung > AO/kalibrierung.json`.
 
 ### 4. Analysieren
 
@@ -63,9 +64,9 @@ Sitzung „entschieden“ schreibt (er nimmt sich die Seite im Lauf des Tages vo
 - ArtifactData `batch` auf die Seite (url oben), höchstens 50 Einträge je Batch:
   - `set` in `tage`, doc_id TAG: `datum` TAG, `titel` (z. B. „Mi 18.11. · Pau“), `zaehlung` aus dem Material,
     `hinweis` (ein bis zwei Sätze: Lage des Tages, z. B. Häufung „Ermessen“; bei `anlass` in `AO/drift.json` die
-    Drift), `drift` = Inhalt von `AO/drift.json`, `faelle` (je Fall art, rennen, no, horse,
-    urteil, fk, pos, `regel` = Kennung oder „Ermessen“, `befund` = ein Satz), `regelprotokoll` = Inhalt von
-    `AO/bericht.json`.
+    Drift), `faelle` (je Fall art, rennen, no, horse, urteil, fk, pos, `regel` = Kennung oder „Ermessen“, `befund` =
+    ein Satz), `regelprotokoll` = Inhalt von `AO/bericht.json`, `drift` und `kalibrierung` = Inhalt von
+    `AO/drift.json` bzw. `AO/kalibrierung.json`.
   - `set` in `vorschlaege`, doc_id = id: alle Felder des Vorschlags aus dem Skill plus `datum` TAG, `entscheidung`
     „offen“, `notiz` „“.
   - Gibt es den Tag schon (erneuter Start), zuerst lesen und mit `if_version` schreiben.

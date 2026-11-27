@@ -109,6 +109,12 @@ Verhältnis `strenger` : `lockerer` stehen im Bericht an den Nutzer. Meldet `dri
 nennt der Bericht das ausdrücklich als Frage an den Nutzer, ob der Skill zu streng geworden ist; ein Vorschlag folgt
 daraus nur auf sein Wort.
 
+**Kalibrierung:** `python3 -I ergebnis_analyse.py kalibrierung` stellt je Urteil die Siege den erwarteten Siegen nach
+Markt und nach der Mitte der eigenen Kursspanne (1 / Mitte) gegenüber, dazu Ø ln(Festkurs / Endquote): positiv heißt,
+der Festkurs beim Durchgang lag über der Endquote. Gewinnen die Tipps klar seltener, als ihre Spannen sagen, war die
+Spanne zu großzügig. Unter etwa 50 Tipps ist das Rauschen; die Zahlen messen den Skill nicht (ADR 0002) und tragen
+allein keinen Vorschlag – sie gehören als Beleg in `gegenprobe`, wenn ein Vorschlag die Kursspanne betrifft.
+
 ## Nach der Entscheidung des Nutzers
 
 Eintragen der Entscheidungen und Testsatz: [`INTEGRIEREN.md`](INTEGRIEREN.md).

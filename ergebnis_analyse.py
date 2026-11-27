@@ -25,6 +25,9 @@ Aufruf:
     python3 -I ergebnis_analyse.py drift [--ordner auswertung]
         Je Tag und für die letzten 7 Tage gegen davor: Kandidaten, wette/klein/nein, Tipp-Anteil, anlass; dazu
         angenommene Vorschläge nach wirkung (JSON).
+    python3 -I ergebnis_analyse.py kalibrierung [--ordner auswertung]
+        Kandidatenprotokoll je Urteil: Siege gegen erwartet nach Markt und nach Mitte der Kursspanne,
+        Ø ln(Festkurs / Endquote), Eingriffe der Prüfung (JSON).
     python3 -I ergebnis_analyse.py verdichtung [--ordner auswertung]
         Anlässe zum Verdichten von EINSICHTEN.md als JSON (Abschnitt voll, Datei lang, vorläufige Einsicht mit 20 Fällen).
     python3 -I ergebnis_analyse.py naechster-tag JJJJMMTT … [--ordner auswertung]
@@ -352,6 +355,42 @@ def kandidaten_fortschreiben(ordner: str | Path, m: dict) -> int:
     return _tag_ersetzen(Path(ordner) / KANDIDATEN, KANDIDATEN_FELDER, m["datum"], kandidaten_zeilen(m))
 
 
+def _f(x) -> float | None:
+    try:
+        return float(x) if x not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _siege_gegen(zs: list[dict], p: list[float]) -> dict:
+    return {"n": len(zs), "siege": sum(int(z["gewonnen"]) for z in zs), "erwartet": round(sum(p), 2)}
+
+
+def kalibrierung(zeilen: list[dict]) -> dict:
+    """Je Urteil (und alle zusammen): Siege gegen erwartete Siege nach Markt (Σ Marktchance) und nach Mitte der eigenen
+    Kursspanne (Σ 1 / Mitte, nur Kandidaten mit Spanne), dazu Ø ln(Festkurs / Endquote) – positiv heißt, der Festkurs
+    beim Durchgang lag über der Endquote. Dazu, wie oft die Prüfung ein Urteil gesenkt hat und wie die gesenkten
+    Pferde liefen."""
+    gruppen = {u: [z for z in zeilen if z["urteil"] == u] for u in ("wette", "klein", "nein")}
+    gruppen["alle"] = list(zeilen)
+    aus: dict = {"zeitraum": _zeitraum(zeilen), "urteile": {}}
+    for u, zs in gruppen.items():
+        markt = [z for z in zs if _f(z["p_markt"]) is not None]
+        spanne = [z for z in zs if (_f(z["spanne_von"]) or 0) > 1 and (_f(z["spanne_bis"]) or 0) > 1]
+        kurs = [math.log(_f(z["fk"]) / _f(z["endquote"])) for z in zs
+                if (_f(z["fk"]) or 0) > 1 and (_f(z["endquote"]) or 0) > 1]
+        aus["urteile"][u] = {
+            "n": len(zs), "siege": sum(int(z["gewonnen"]) for z in zs),
+            "markt": _siege_gegen(markt, [_f(z["p_markt"]) for z in markt]),
+            "spanne": _siege_gegen(spanne, [2 / (_f(z["spanne_von"]) + _f(z["spanne_bis"])) for z in spanne]),
+            "kurs": {"n": len(kurs), "ln_fk_endquote": round(sum(kurs) / len(kurs), 3) if kurs else None}}
+    geprueft = [z for z in zeilen if z.get("urteil_vor_pruefung")]
+    gesenkt = [z for z in geprueft if z["urteil_vor_pruefung"] != z["urteil"]]
+    aus["pruefung"] = {"geprueft": len(geprueft), "gesenkt": len(gesenkt),
+                       "gesenkt_siege": sum(int(z["gewonnen"]) for z in gesenkt)}
+    return aus
+
+
 def bericht(zeilen: list[dict], stillgelegt: dict[str, str] | None = None) -> list[dict]:
     """Je Kennung und Richtung: n, Siege, erwartete Siege (Σ Marktchance), A/E, z; unter_druck, wenn n ≥ DRUCK_N und
     z gegen die Richtung (Pro-Regel: z ≤ −2; Gegen-Regel: z ≥ +2)."""
@@ -594,6 +633,8 @@ def main(argv: list[str]) -> None:
     elif cmd == "drift":
         print(json.dumps(drift(drift_pferde(kandidaten_lesen(ordner), protokoll_lesen(ordner)),
                                vorschlaege_lesen(ordner)), ensure_ascii=False, indent=1))
+    elif cmd == "kalibrierung":
+        print(json.dumps(kalibrierung(kandidaten_lesen(ordner)), ensure_ascii=False, indent=1))
     elif cmd == "verdichtung":
         print(json.dumps(verdichtung(dg.SKILL_ORDNER, protokoll_lesen(ordner)), ensure_ascii=False, indent=1))
     elif cmd == "naechster-tag":

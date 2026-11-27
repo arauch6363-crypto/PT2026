@@ -1,5 +1,6 @@
 """Tests für ergebnis_analyse.py: Tagesmaterial der Ergebnisanalyse, Regelprotokoll, Tage und Vorschläge."""
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -303,6 +304,9 @@ def test_kandidaten_fortschreiben_ersetzt_tag(tmp_path):
     ea.kandidaten_fortschreiben(tmp_path, m)
     assert ea.kandidaten_fortschreiben(tmp_path, m) == 3
     assert len(ea.kandidaten_lesen(tmp_path)) == 3
+    k = ea.kalibrierung(ea.kandidaten_lesen(tmp_path))         # liest die geschriebene CSV
+    assert k["urteile"]["alle"]["siege"] == 2 and k["urteile"]["alle"]["kurs"]["n"] == 3
+    assert k["urteile"]["wette"]["kurs"]["ln_fk_endquote"] == pytest.approx(round(math.log(8 / 3), 3))
 
 
 def test_drift_pferde_kandidaten_vor_regelprotokoll():
@@ -312,6 +316,30 @@ def test_drift_pferde_kandidaten_vor_regelprotokoll():
     d = ea.drift(ea.drift_pferde(kand, prot), [])
     assert [(t["datum"], t["n"], t["quelle"]) for t in d["tage"]] == [("20261126", 1, "regelprotokoll"),
                                                                        ("20261127", 1, "kandidaten")]
+
+
+def _kz(urteil, gewonnen, fk="", von="", bis="", p_markt="", endquote="", vor=""):
+    return {"datum": "20261127", "race_id": "20261127R1C1", "no": "1", "urteil": urteil, "fk": fk,
+            "spanne_von": von, "spanne_bis": bis, "p_markt": p_markt, "endquote": endquote,
+            "gewonnen": str(gewonnen), "urteil_vor_pruefung": vor}
+
+
+def test_kalibrierung():
+    zeilen = [_kz("wette", 1, "8.0", "5.0", "7.0", "0.11", "4.0", vor="wette"),
+              _kz("wette", 0, "10.0", "", "", "0.09", "10.0"),
+              _kz("klein", 0, "6.0", "4.0", "6.0", "0.15", "", vor="wette"),
+              _kz("nein", 1, "", "", "", "", "3.0", vor="klein")]
+    k = ea.kalibrierung(zeilen)
+    w = k["urteile"]["wette"]
+    assert (w["n"], w["siege"]) == (2, 1)
+    assert w["markt"] == {"n": 2, "siege": 1, "erwartet": 0.2}
+    assert w["spanne"] == {"n": 1, "siege": 1, "erwartet": round(1 / 6, 2)}      # Mitte 6 → 1/6
+    assert w["kurs"]["n"] == 2 and w["kurs"]["ln_fk_endquote"] == round(math.log(2) / 2, 3)
+    assert k["urteile"]["klein"]["kurs"] == {"n": 0, "ln_fk_endquote": None}     # ohne Endquote
+    assert k["urteile"]["nein"]["markt"]["n"] == 0
+    assert k["urteile"]["alle"]["n"] == 4 and k["urteile"]["alle"]["siege"] == 2
+    assert k["pruefung"] == {"geprueft": 3, "gesenkt": 2, "gesenkt_siege": 1}
+    assert ea.kalibrierung([])["urteile"]["alle"]["markt"] == {"n": 0, "siege": 0, "erwartet": 0}
 
 
 def test_vorschlaege_wirkung(tmp_path):

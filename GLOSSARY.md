@@ -234,6 +234,10 @@ _Avoid_: Strenge-Index, Trend
 Je Kandidat eines analysierten Tages eine Zeile (`auswertung/kandidaten.csv`): Urteil, Festkurs, Kursspanne, Modell- und Marktchance, Endquote, Kennung des Ausschlags, Sieg; dazu das Urteil vor der Prüfung und deren Befund, wo der Durchgang sie hat. Nur vorwärts ab 27.11.2026; Grundlage für Drift und Kalibrierung.
 _Avoid_: Tippliste, Wettprotokoll
 
+**Kalibrierung**:
+Aus dem Kandidatenprotokoll je Urteil: Siege gegen die erwarteten Siege nach Markt und nach der Mitte der Kursspanne (1 / Mitte), dazu Ø ln(Festkurs / Endquote) – positiv, wenn der Festkurs beim Durchgang über der Endquote lag. Zeigt, ob die Kursspanne zu großzügig ist; bei kleinen Fallzahlen Rauschen, kein Maßstab für den Skill.
+_Avoid_: Trefferquote (das ist die Übereinstimmung mit dem Nutzer im Testsatz), ROI
+
 ## Relationships
 
 - Ein **Kandidat** ist ein Starter, dessen **Value** mindestens +5 % beträgt.
