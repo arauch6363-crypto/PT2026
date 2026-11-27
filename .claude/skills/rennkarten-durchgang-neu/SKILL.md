@@ -206,17 +206,19 @@ Handicap-Form auf ähnlicher Marke.
 Reihenfolge: zuerst **Veto** (Urteil „nein“), dann **Deckel** (höchstens kleine Wette), dann abwägen – beide stehen
 als Vermerk hinter der Kennung in `EINSICHTEN.md`.
 
-Je Kandidat: Pro-Argumente, Gegenargumente, Fragezeichen, dann die **eigene Kursspanne** – grob, ehrlich, aus dem
-Gesamteindruck („fair eher 8–10“). Gewettet wird, wenn der Festkurs klar über der Spanne liegt (`U-KURSSPANNE`) und die
-Leitfrage mit „ja, kann reichen“ beantwortet ist (`U-LEITFRAGE`).
+Je Kandidat: Pro-Argumente, Gegenargumente, Fragezeichen, dann die **eigene Kursspanne** – grob, ehrlich („fair eher
+8–10“) und fest, bevor das Urteil fällt. **Anker** sind der faire Modellkurs (1 ÷ Modell-Siegchance) und der Festkurs als
+Sicht des Marktes; von dort verschieben die benannten Argumente die Spanne (Ausgabe `anker`: ein Satz). Gewettet wird,
+wenn der Festkurs **klar über der Spanne** liegt – etwa 10 % und mehr über ihrem oberen Rand, das deckt die 5 % Steuer
+(`U-KURSSPANNE`) – und die Leitfrage mit „ja, kann reichen“ beantwortet ist (`U-LEITFRAGE`).
 
 - **Wette** = 1 Einheit. **Kleine Wette** = ½ Einheit: interessant, aber „da fehlt einiges“ (z. B. erster Ansatz
   nach vielen schwachen Läufen, Value dünn).
 - `U-KEIN-AUSWEG` **Kleine Wette nur auf stimmiger Grundlage:** Sie ist für Pferde, bei denen einiges fehlt, aber die
   Grundlage stimmt (unexposed, starke Verbindungen). Ist das Pferd exposed und sind Trainer oder Jockey schwach bzw.
   ohne aktuelle Form, lautet das Urteil keine Wette, auch wenn Value, Konstanz oder Marke dafür sprechen.
-- **Keine Wette**, wenn die Fragezeichen überwiegen, die Leitfrage verneint wird oder der Festkurs die eigene
-  Einschätzung nicht übersteigt.
+- **Keine Wette**, wenn die Fragezeichen überwiegen, die Leitfrage verneint wird oder der Festkurs nicht klar über der
+  Spanne liegt.
 
 **Bild einer vollen Wette:** Der Referenzlauf reicht an die Besten im Feld heran, oft mit heutigen Gegnern direkt oder
 indirekt geschlagen; die heutigen Bedingungen sind belegt (CGD, Bahn, Boden aus den Vorlieben), oder Abstammung und

@@ -215,6 +215,7 @@ def rennen_pruefen(r: dict) -> dict:
             "p_modell": _zahl(k.get("p_modell")), "value": _zahl(k.get("value")),
             "pro": [str(x) for x in k.get("pro") or []], "gegen": [str(x) for x in k.get("gegen") or []],
             "fragen": [str(x) for x in k.get("fragen") or []], "ausschlag": str(k.get("ausschlag") or ""),
+            "anker": str(k.get("anker") or ""),
         })
     if st == "bearbeitet" and not kand:
         raise ValueError(f"{r['race_id']}: bearbeitet, aber ohne Kandidaten")
@@ -326,7 +327,7 @@ def dateiname(datum: str, stand: datetime | None = None) -> str:
 
 def anwenden(daten: dict, rennen: dict[str, dict]) -> int:
     """Urteile in die Kartendaten schreiben: je Starter ``claude`` = {urteil, kennzeichen, einheiten, fk, mq, spanne,
-    p_modell, value, pro, gegen, fragen, ausschlag, stand}, je Rennen ``claude`` = {stand, vergleich}. Alte Urteile
+    p_modell, value, pro, gegen, fragen, anker, ausschlag, stand}, je Rennen ``claude`` = {stand, vergleich}. Alte Urteile
     werden vorher entfernt. Rückgabe: Zahl der Starter mit Urteil."""
     n = 0
     for r in rennen_liste(daten):
@@ -343,7 +344,7 @@ def anwenden(daten: dict, rennen: dict[str, dict]) -> int:
             if x is None:
                 continue
             x["claude"] = {**{f: k.get(f) for f in ("urteil", "einheiten", "fk", "mq", "spanne", "p_modell", "value",
-                                                    "pro", "gegen", "fragen", "ausschlag")},
+                                                    "pro", "gegen", "fragen", "anker", "ausschlag")},
                            "kennzeichen": KENNZEICHEN.get(k.get("urteil")), "stand": d.get("stand")}
             n += 1
     return n
