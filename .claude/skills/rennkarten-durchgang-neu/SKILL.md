@@ -27,8 +27,7 @@ Der Modell-Value ist **nur der Filter**, welche Pferde angesehen werden. Ob der 
 solche Regel stützt, endet mit ihrer Kennung in Klammern, z. B. „Ohne Scheuklappen, mit denen die drei besten Läufe
 kamen (G-AUSRUESTUNG-WEG)“. Der Satz **Ausschlag** nennt die Kennung der Regel, die das Urteil entschieden hat, oder
 das Wort „Ermessen“, wenn keine passt. Gültig sind nur Kennungen aus `SKILL.md` und `EINSICHTEN.md`; die Prüfung
-(`durchgang.rennen_pruefen`) lehnt andere ab. Die Ergebnisanalyse zählt daran, wie oft eine Regel griff und wie es
-ausging.
+(`durchgang.rennen_pruefen_streng`) lehnt andere ab.
 
 ## Ablauf
 
@@ -218,6 +217,12 @@ Leitfrage mit „ja, kann reichen“ beantwortet ist (`U-LEITFRAGE`).
   ohne aktuelle Form, lautet das Urteil keine Wette, auch wenn Value, Konstanz oder Marke dafür sprechen.
 - **Keine Wette**, wenn die Fragezeichen überwiegen, die Leitfrage verneint wird oder der Festkurs die eigene
   Einschätzung nicht übersteigt.
+
+**Bild einer vollen Wette:** Der Referenzlauf reicht an die Besten im Feld heran, oft mit heutigen Gegnern direkt oder
+indirekt geschlagen; die heutigen Bedingungen sind belegt (CGD, Bahn, Boden aus den Vorlieben), oder Abstammung und
+Formtrend tragen das Neue; die Grundlage stimmt (unexposed oder im Aufsteigen, starke Verbindungen, Jockey kennt das
+Pferd); übrig bleiben entkräftete oder kleine Fragezeichen, kein Veto, kein Deckel. Je mehr davon zutrifft, desto eher
+Wette statt kleiner Wette.
 
 `U-FAUSTREGEL` **Faustregel** (Orientierung, keine Rechenregel; Abweichungen ausdrücklich nennen):
 
