@@ -226,6 +226,10 @@ _Avoid_: Regel-Backtest, Statistik
 Zu einem Vorschlag, der Urteile strenger macht: welche bisherigen Treffer (Claude-Tipps, die gewannen) die Kennung zitierten und die Regel gestrichen hätte, dazu dieselbe Zählung für abgelehnte Kandidaten. Quelle ist das Regelprotokoll.
 _Avoid_: Backtest (das ist `regel_backtest.py`), Gegenprobe (die sieht nur die Verlierer des Tages)
 
+**Drift**:
+Ob der Durchgang mit der Zeit strenger oder großzügiger wird: Anteil wette / klein / nein unter den Kandidaten je Tag und in den letzten 7 Tagen gegen davor, dazu das Verhältnis angenommener Vorschläge `strenger` : `lockerer`. Halbiert sich der Tipp-Anteil, fragt die Ergebnisanalyse den Nutzer; sie greift nicht selbst ein.
+_Avoid_: Strenge-Index, Trend
+
 ## Relationships
 
 - Ein **Kandidat** ist ein Starter, dessen **Value** mindestens +5 % beträgt.

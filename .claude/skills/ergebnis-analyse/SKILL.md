@@ -103,6 +103,12 @@ Fertig, wenn jeder `text` alle sechs Punkte erfüllt.
 `datei_lang`, `vorlaeufig_*`, eine Regel `unter_druck`): [`VERDICHTEN.md`](VERDICHTEN.md) lesen und je Anlass
 Vorschläge nach Abschnitt 3 machen. Fertig, wenn jeder gemeldete Anlass einen Vorschlag hat.
 
+**Drift:** `python3 -I ergebnis_analyse.py drift` zählt je Tag wette / klein / nein und stellt den Tipp-Anteil der
+letzten 7 Tage dem davor gegenüber, dazu die angenommenen Vorschläge nach `wirkung`. Die Zeile des Tages und das
+Verhältnis `strenger` : `lockerer` stehen im Bericht an den Nutzer. Meldet `drift` `anlass` (Tipp-Anteil halbiert),
+nennt der Bericht das ausdrücklich als Frage an den Nutzer, ob der Skill zu streng geworden ist; ein Vorschlag folgt
+daraus nur auf sein Wort.
+
 ## Nach der Entscheidung des Nutzers
 
 Eintragen der Entscheidungen und Testsatz: [`INTEGRIEREN.md`](INTEGRIEREN.md).

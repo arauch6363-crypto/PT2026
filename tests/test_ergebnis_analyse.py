@@ -255,6 +255,31 @@ def test_rueckschau_ohne_kennung_listet_treffer():
     assert [(t["horse"], t["kennungen"]) for t in r["treffer"]] == [("H1", ["G-X", "P-Y"])]
 
 
+def _tag(datum, wette, klein, nein):
+    urteile = ["wette"] * wette + ["klein"] * klein + ["nein"] * nein
+    return [{"datum": datum, "race_id": f"{datum}R1C1", "no": i, "urteil": u} for i, u in enumerate(urteile)]
+
+
+def test_drift_je_tag_und_fenster():
+    pferde = _tag("20261101", 2, 2, 6) + _tag("20261120", 0, 1, 9) + _tag("20261121", 0, 0, 5)
+    pferde += pferde[:3]                                      # doppelte Pferde (mehrere Kennungen) zählen einmal
+    vorschlaege = [{"entscheidung": "ja", "wirkung": "strenger"}, {"entscheidung": "geaendert", "wirkung": ""},
+                   {"entscheidung": "nein", "wirkung": "lockerer"}, {"entscheidung": "offen", "wirkung": "strenger"}]
+    d = ea.drift(pferde, vorschlaege)
+    assert [(t["datum"], t["n"], t["tipp_anteil"]) for t in d["tage"]] == [
+        ("20261101", 10, 0.4), ("20261120", 10, 0.1), ("20261121", 5, 0.0)]
+    assert d["fenster"]["von"] == "20261120" and d["fenster"]["n"] == 15 and d["fenster"]["klein"] == 1
+    assert d["davor"]["tipp_anteil"] == 0.4
+    assert d["anlass"] is True                                # 1/15 < 0,5 × 0,4
+    assert d["vorschlaege_angenommen"] == {"strenger": 1, "lockerer": 0, "neutral": 0, "unbekannt": 1}
+
+
+def test_drift_ohne_davor_kein_anlass():
+    d = ea.drift(_tag("20261120", 0, 0, 4), [])
+    assert d["davor"]["n"] == 0 and d["anlass"] is False
+    assert ea.drift([], [])["tage"] == []
+
+
 def test_vorschlaege_wirkung(tmp_path):
     v = {"id": "20261127-1", "datum": "20261127", "entscheidung": "offen", "wirkung": "strenger"}
     ea.vorschlaege_ablegen(tmp_path, [v])

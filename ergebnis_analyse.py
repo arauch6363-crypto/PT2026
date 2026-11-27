@@ -21,6 +21,9 @@ Aufruf:
     python3 -I ergebnis_analyse.py rueckschau [KENNUNG …] [--ordner auswertung]
         Je Kennung bisherige Tipps und abgelehnte Kandidaten, die sie zitierten, mit Siegen und Siegern (JSON);
         ohne Kennung alle bisherigen Treffer mit ihren Kennungen.
+    python3 -I ergebnis_analyse.py drift [--ordner auswertung]
+        Je Tag und für die letzten 7 Tage gegen davor: Kandidaten, wette/klein/nein, Tipp-Anteil, anlass; dazu
+        angenommene Vorschläge nach wirkung (JSON).
     python3 -I ergebnis_analyse.py verdichtung [--ordner auswertung]
         Anlässe zum Verdichten von EINSICHTEN.md als JSON (Abschnitt voll, Datei lang, vorläufige Einsicht mit 20 Fällen).
     python3 -I ergebnis_analyse.py naechster-tag JJJJMMTT … [--ordner auswertung]
@@ -361,6 +364,42 @@ def rueckschau(zeilen: list[dict], kennungen: list[str], stillgelegt: dict[str, 
     return aus
 
 
+# ---------------------------------------------------------------- Drift
+
+DRIFT_FENSTER = 7          # Tage bis einschließlich des letzten Tages
+DRIFT_GRENZE = 0.5         # Tipp-Anteil im Fenster unter diesem Bruchteil des Anteils davor → Anlass
+
+
+def _anteile(urteile: list[str]) -> dict:
+    n = len(urteile)
+    aus = {"n": n, **{u: urteile.count(u) for u in ("wette", "klein", "nein")}}
+    aus["tipp_anteil"] = round((aus["wette"] + aus["klein"]) / n, 3) if n else None
+    return aus
+
+
+def drift(pferde: list[dict], vorschlaege: list[dict], fenster: int = DRIFT_FENSTER) -> dict:
+    """Wird der Durchgang strenger? Je Tag und für die letzten ``fenster`` Tage gegen die Zeit davor: Zahl der Kandidaten
+    und wie viele wette / klein / nein (je Pferd einmal); dazu die angenommenen Vorschläge nach ``wirkung``. Anlass,
+    wenn der Tipp-Anteil im Fenster unter DRIFT_GRENZE × Anteil davor fällt. ``pferde``: Zeilen mit datum, race_id,
+    no, urteil (Regelprotokoll oder Kandidatenprotokoll; doppelte Pferde zählen einmal)."""
+    je: dict[tuple, str] = {}
+    for z in pferde:
+        je[(str(z["datum"]), str(z["race_id"]), str(z["no"]))] = z["urteil"]
+    tage = sorted({d for d, _, _ in je})
+    aus: dict = {"tage": [{"datum": t, **_anteile([u for (d, _, _), u in je.items() if d == t])} for t in tage]}
+    if tage:
+        ende = datetime.strptime(tage[-1], "%Y%m%d")
+        im = {t for t in tage if (ende - datetime.strptime(t, "%Y%m%d")).days < fenster}
+        aus["fenster"] = {"von": min(im), "bis": tage[-1], **_anteile([u for (d, _, _), u in je.items() if d in im])}
+        aus["davor"] = _anteile([u for (d, _, _), u in je.items() if d not in im])
+        jetzt, vorher = aus["fenster"]["tipp_anteil"], aus["davor"]["tipp_anteil"]
+        aus["anlass"] = bool(vorher and jetzt is not None and jetzt < DRIFT_GRENZE * vorher)
+    angenommen = [v for v in vorschlaege if v.get("entscheidung") in ("ja", "geaendert")]
+    aus["vorschlaege_angenommen"] = {w: sum((v.get("wirkung") or "unbekannt") == w for v in angenommen)
+                                     for w in ("strenger", "lockerer", "neutral", "unbekannt")}
+    return aus
+
+
 # ---------------------------------------------------------------- Verdichtung
 
 ABSCHNITT_MAX = 8          # mehr Einsichten in einem Abschnitt → Verdichtung vorschlagen
@@ -483,6 +522,8 @@ def main(argv: list[str]) -> None:
         print(json.dumps(bericht(protokoll_lesen(ordner), dg.stillgelegt()), ensure_ascii=False, indent=1))
     elif cmd == "rueckschau":
         print(json.dumps(rueckschau(protokoll_lesen(ordner), args, dg.stillgelegt()), ensure_ascii=False, indent=1))
+    elif cmd == "drift":
+        print(json.dumps(drift(protokoll_lesen(ordner), vorschlaege_lesen(ordner)), ensure_ascii=False, indent=1))
     elif cmd == "verdichtung":
         print(json.dumps(verdichtung(dg.SKILL_ORDNER, protokoll_lesen(ordner)), ensure_ascii=False, indent=1))
     elif cmd == "naechster-tag":
