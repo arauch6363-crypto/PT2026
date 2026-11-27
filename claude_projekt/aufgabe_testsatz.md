@@ -34,8 +34,15 @@ Skills“). Läuft in einer Claude-Code-Sitzung im Repo; REPO = Wurzel des Repos
    hier nicht vorkommen); ändert sich jener, diesen mitziehen.
 
    Fehlt danach eine Datei oder ist sie fehlerhaft: diesen Lauf einmal neu starten. Urteile nie selbst nachbessern.
+
+   **Prüf-Subagent:** Für jeden Lauf, dessen Datei ein Urteil „wette“ oder „klein“ hat, danach einen Prüf-Subagenten
+   mit leerem Kontext starten, mit dem Prompt aus Schritt 4a von `aufgabe_durchgang.md` (Pfade wie oben: REPO statt
+   /home/claude/pt2026, Karte des Testfalls, DATEI = LAUF/<race_id>_<n>.json; Zusatz: „Lies sonst nichts aus dem Repo,
+   insbesondere nichts unter docs/ oder tests/ außer der Karte.“). Vorher die Datei nach LAUF/vor_pruefung/ kopieren;
+   scheitert die Prüfung, die Datei zurückkopieren. Bewertet wird das Urteil nach der Prüfung.
 3. **Zweite Stufe – nur wo nötig:** `python3 -I REPO/testsatz.py nachlauf LAUF` nennt die Testfälle, deren erster Lauf
-   vom Urteil des Nutzers abweicht; nur für diese die Läufe n = 2 und 3 mit demselben Prompt. Fertig, wenn `nachlauf`
+   vom Urteil des Nutzers abweicht; nur für diese die Läufe n = 2 und 3 mit demselben Prompt, mit Prüf-Subagent wie
+   oben, wo ein Lauf einen Tipp hat. Fertig, wenn `nachlauf`
    „keine“ meldet. (Ein richtiger erster Lauf gilt als stabil richtig; drei Läufe braucht nur ein abweichender Fall,
    um schwankend von mehrheitlich falsch zu trennen.)
 4. **Bewerten:** `python3 -I REPO/testsatz.py bewerten LAUF`. Der Bericht nennt Trefferquote und Fehlerpunkte, den
