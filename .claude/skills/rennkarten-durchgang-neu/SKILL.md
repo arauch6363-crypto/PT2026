@@ -6,8 +6,8 @@ description: "Rennkarte/Racecard (französischer Galopp, PT2026) auf Siegwetten 
 # Rennkarten-Durchgang
 
 Vor dem ersten Rennen lesen: `GLOSSARY.md` (Begriffe; Repo-Hauptordner, sonst Skill-Ordner), `DATEN.md` (woher jede
-Angabe stammt) und **`EINSICHTEN.md`** (wie schwer jedes Argument wiegt, typische Fehler). Im automatischen Durchgang
-wie von Hand: dasselbe Vorgehen. Bei Durchsicht mit dem Nutzer zusätzlich `LERNSCHLEIFE.md`.
+Angabe stammt) und **`EINSICHTEN.md`** (wie schwer jedes Argument wiegt, typische Fehler). Bei Durchsicht mit dem
+Nutzer zusätzlich `LERNSCHLEIFE.md`.
 
 ## Ziel und Leitfrage
 
@@ -18,9 +18,6 @@ vom Gewinn abgehen; keine Kursgrenze); alle anderen Starter sind Gegner. Über j
 Die **Leitfrage** jedes Urteils: **Reicht es für den Sieg?** Ein Pferd, das solide laufen und im Geld landen wird, ist
 noch keine Siegwette. Gemessen wird an der besten zu heute passenden Leistung (ARR im Referenzlauf) gegen die besten
 Pferde des heutigen Feldes und gegen die Maßstäbe.
-
-Der Modell-Value ist **nur der Filter**, welche Pferde angesehen werden. Ob der Festkurs reicht, entscheidet die
-**eigene Kursspanne** (siehe Gesamturteil).
 
 **Kennungen.** Jedes Argument der Listen unten und in `EINSICHTEN.md` trägt eine Kennung wie `G-AUSRUESTUNG-WEG`
 (F = Fragezeichen, G = Gegen, P = Pro, U = Urteil). Jeder Satz in Pro, Gegen und Fragezeichen, der sich auf eine
@@ -226,10 +223,11 @@ Formtrend tragen das Neue; die Grundlage stimmt (unexposed oder im Aufsteigen, s
 Pferd); übrig bleiben entkräftete oder kleine Fragezeichen, kein Veto, kein Deckel. Je mehr davon zutrifft, desto eher
 Wette statt kleiner Wette.
 
-`U-FAUSTREGEL` **Faustregel** (Orientierung, keine Rechenregel; Abweichungen ausdrücklich nennen):
+`U-FAUSTREGEL` **Faustregel** (Orientierung, keine Rechenregel; Abweichungen ausdrücklich nennen). Die Kursspanne
+entscheidet, ob der Kurs reicht; die Faustregel sagt, wie viel Beweislage bei welchem Value nötig ist:
 
 - Value knapp über der Grenze (+5 bis etwa +10 %): nur bei klarer, überzeugender Beweislage (z. B. CGD, Bewährung auf
-  sehr weichem Boden, Marke unter letzter Platzmarke) – und nur, wenn die eigene Spanne unter dem Festkurs liegt.
+  sehr weichem Boden, Marke unter letzter Platzmarke).
 - +10 % bis +50 %: höchstens ein Fragezeichen und kein gewichtiges Gegenargument.
 - Über +50 %: ein bis zwei Fragezeichen tragbar, **wenn genug für das Pferd spricht**. Viel Value ohne Pro-Argumente
   oder mit Aufgewicht, Klassenfrage und Höchstgewicht auf schwerem Boden zusammen reicht nicht.

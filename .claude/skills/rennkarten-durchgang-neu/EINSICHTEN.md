@@ -15,9 +15,6 @@ Kennung unter Gegen (P-Kennung: unter Pro) oder im Ausschlag steht; eine Ausnahm
 „Ausnahme“ und ihrem Grund. Trifft nur die mildere Stufe zu, die die Einsicht selbst nennt (z. B. „nur ein
 Fragezeichen“), steht die Kennung unter Fragezeichen.
 
-Die **Kennung** hinter dem Gewicht (z. B. `G-AUSRUESTUNG-WEG`) ist dieselbe wie in den Listen von `SKILL.md`;
-im Durchgang wird sie hinter dem Satz zitiert, der sich auf die Einsicht stützt.
-
 **vorläufig** hinter dem Gewicht: aus einem Fall, noch nicht bestätigt. Darf als Hinweis dienen; wer sich darauf stützt,
 nennt es im Urteil („vorläufige Einsicht“). Der Vermerk fällt, wenn ein zweiter Fall in dieselbe Richtung zeigt oder das
 Regelprotokoll die Einsicht nach 20 Fällen nicht unter Druck sieht.
@@ -37,7 +34,8 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
    muss an die Besten im Feld und an den Maßstab heranreichen. *The Cat's 16.11.*
 4. **Die kleine Wette nur mit stimmiger Grundlage.** Sie ist für Pferde mit fehlenden Belegen auf solider Grundlage (`U-KEIN-AUSWEG`).
    *Crew Dragon, The Cat's 16.11.*
-5. **Am Festkurs gegen die eigene Kursspanne entscheiden**, nicht am Modell-Value. *Afterglow 11.11. (+29 %, zu kurz),
+5. **Ob der Kurs reicht, entscheidet die eigene Kursspanne am Festkurs**, nicht der Modell-Value; der sagt mit der
+   Faustregel nur, wie viel Beweislage nötig ist. *Afterglow 11.11. (+29 %, zu kurz),
    Senorito 16.11. (+10 %, kleine Wette).*
 ## 1. Ausgangslage und Klasse
 
