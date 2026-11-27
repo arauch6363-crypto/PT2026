@@ -67,13 +67,13 @@ PY
   noch `kein_festkurs` haben und noch nicht gestartet sind, ist die Karte in Drive vermutlich noch nicht hochgeladen.
   Dann 2 Minuten warten (`sleep 120`), Karte erneut suchen und herunterladen (Schritt 2), Plan neu – höchstens 3-mal.
   Bleibt es dabei, im Ergebnis nennen („Karte in Drive ohne die gemeldeten Festkurse“).
-- Kein Rennen „offen“: Schritte 4 und 5 überspringen (nichts in Drive ablegen). Gibt es Durchgänge des Tages, trotzdem
-  Schritt 6 und Schritt 7. Gibt es keine, nur die Liste (Rennen, Zeit, Status) ausgeben und enden.
+- Kein Rennen „offen“: Schritte 4 bis 6 überspringen (nichts in Drive ablegen, nichts veröffentlichen). Gibt es
+  Durchgänge des Tages, trotzdem Schritt 7; sonst nur die Liste (Rennen, Zeit, Status) ausgeben und enden.
 
 ## 4. Je offenes Rennen ein Subagent
 
-- Für jedes offene Rennen einen eigenen Subagenten mit dem Agent-Tool starten (subagent_type: general-purpose),
-  höchstens 4 gleichzeitig, in Reihenfolge der Startzeit; die frühesten zuerst. Auf alle warten.
+- Für jedes offene Rennen einen eigenen Subagenten mit dem Agent-Tool starten (subagent_type: general-purpose,
+  **model: opus** – die Aufgabe selbst läuft auf einem kleineren Modell, das Urteil nicht), höchstens 4 gleichzeitig, in Reihenfolge der Startzeit; die frühesten zuerst. Auf alle warten.
 - Jeder Subagent startet mit leerem Gesprächs- und Arbeitskontext und erhält ausschließlich die Skill-Grundlagen
   (SKILL.md, GLOSSARY.md, DATEN.md, EINSICHTEN.md) und das mit blatt.py erzeugte Blatt seines Rennens. Ergebnisse,
   Urteile und Argumentationen anderer Rennen nie in seinen Prompt übernehmen.
@@ -84,7 +84,8 @@ PY
   /home/claude/pt2026/.claude/skills/rennkarten-durchgang-neu/SKILL.md und die dort genannten Dateien
   (/home/claude/pt2026/GLOSSARY.md, EINSICHTEN.md und DATEN.md im Skill-Ordner) und arbeite strikt nach dem Skill. Fakten
   nur über `python3 -I /home/claude/pt2026/.claude/skills/rennkarten-durchgang-neu/scripts/blatt.py KARTE <RxCy>`;
-  gib nie die ganze Karte aus. Bewerte jeden Kandidaten (Value mindestens +5 %) dieses Rennens, kein anderes Rennen. Schreibe dein
+  gib nie die ganze Karte aus. Lies keinen Code (durchgang.py, blatt.py): Was die Prüfung verlangt, sagen ihre
+  Meldungen. Bewerte jeden Kandidaten (Value mindestens +5 %) dieses Rennens, kein anderes Rennen. Schreibe dein
   Ergebnis als JSON nach /home/claude/rd/rennen_<race_id>.json mit den Feldern race_id, status (bearbeitet), vergleich
   (Rennvergleich mit Grenze und Maßstab), hinweis (z. B. Boden nur angenommen oder Start in wenigen Minuten), massstab
   (Liste der MASSSTAB-Pferde aus dem Blatt, höchstens zwei: je no, horse, fk, befund – ein bis zwei Sätze, kein Urteil;
@@ -102,10 +103,11 @@ PY
   wieder, selbst `/home/claude/rd/rennen_<race_id>.json` mit `{"race_id": …, "status": "fehler", "hinweis": "<Grund>", "kandidaten": []}`
   schreiben.
 
-## 4a. Prüf-Subagent je Rennen mit Tipp
+## 4a. Prüf-Subagent je Rennen mit Wette
 
-- Für jedes Rennen, dessen Datei mindestens ein Urteil „wette“ oder „klein“ hat, einen zweiten Subagenten mit leerem
-  Kontext starten (Agent-Tool, general-purpose, höchstens 4 gleichzeitig). Er bekommt dieselben Grundlagen, das Blatt
+- Für jedes Rennen, dessen Datei mindestens ein Urteil „wette“ hat, einen zweiten Subagenten mit leerem Kontext
+  starten (Agent-Tool, general-purpose, model: opus, höchstens 4 gleichzeitig). Kleine Wetten bekommen keinen: Veto,
+  Deckel und Kursspanne prüft schon `durchgang.py pruefen`, und der Prüf-Subagent kostet so viel wie das Rennen selbst. Er bekommt dieselben Grundlagen, das Blatt
   seines Rennens und die Ergebnisdatei, nichts aus anderen Rennen. Vorher die Datei nach
   `/home/claude/rd/vor_pruefung/rennen_<race_id>.json` kopieren.
 - Prompt (Platzhalter ersetzen; DATEI = `/home/claude/rd/rennen_<race_id>.json`):
@@ -114,8 +116,8 @@ PY
   Karte KARTE; sein Ergebnis steht in DATEI. Lies zuerst vollständig mit dem Read-Tool
   /home/claude/pt2026/.claude/skills/rennkarten-durchgang-neu/SKILL.md und die dort genannten Dateien
   (/home/claude/pt2026/GLOSSARY.md, EINSICHTEN.md und DATEN.md im Skill-Ordner), dann DATEI. Fakten nur über
-  `python3 -I /home/claude/pt2026/.claude/skills/rennkarten-durchgang-neu/scripts/blatt.py KARTE <RxCy>`.
-  Prüfe jeden Kandidaten mit Urteil „wette“ oder „klein“, und zwar genau drei Dinge: (1) jede Tatsache in pro, gegen,
+  `python3 -I /home/claude/pt2026/.claude/skills/rennkarten-durchgang-neu/scripts/blatt.py KARTE <RxCy>`; lies keinen
+  Code. Prüfe jeden Kandidaten mit Urteil „wette“, und zwar genau drei Dinge: (1) jede Tatsache in pro, gegen,
   fragen, anker, leitfrage und ausschlag gegen das Blatt (Zahlen, Daten, Plätze, Bilanzen, Ausrüstung, Verbindungen);
   (2) ob das Blatt die Bedingung einer Einsicht mit Vermerk Veto oder Deckel (EINSICHTEN.md) erfüllt, die das Urteil
   übergeht; (3) ob jeder Auslöser des Blatts bestätigt oder mit Beleg entkräftet ist.
@@ -129,7 +131,7 @@ PY
   unverändert. Prüfe die Datei mit
   `python3 -I /home/claude/pt2026/durchgang.py pruefen DATEI --karte KARTE` und korrigiere, bis sie „ok“ meldet.
   Antworte mir danach nur mit einer Zeile je geprüftem Kandidaten: Nr Name – Urteil vorher → nachher – Befund kurz.“
-- Fehlt danach `pruefung` bei einem Tipp oder meldet `durchgang.py pruefen` einen Fehler: die Datei aus
+- Fehlt danach `pruefung` bei einer Wette oder meldet `durchgang.py pruefen` einen Fehler: die Datei aus
   `vor_pruefung/` zurückkopieren (ungeprüft übernehmen) und das im Ergebnis nennen. Die Urteile nach der Prüfung
   unverändert übernehmen, nichts nachbewerten.
 
@@ -158,16 +160,18 @@ Ablage in Drive fehlgeschlagen“ nennen.
 ## 6. Markierte Karte veröffentlichen
 
 - `python3 -I /home/claude/pt2026/durchgang.py markieren KARTE /home/claude/rd/racecard_heute.html --template /home/claude/pt2026/racecard_template.html /home/claude/rd/durchgang_JJJJMMTT_*.json`.
+- **Nur wenn dieser Durchgang neue Tipps hat** (ein Urteil „wette“ oder „klein“ in seiner Datei); sonst diesen Schritt
+  überspringen und im Ergebnis „Karte nicht neu veröffentlicht (keine neuen Tipps)“ sagen. Die Karte in Drive zeigt
+  die Urteile ohnehin nach dem nächsten Notebook-Lauf.
 - Veröffentlichen mit dem eingebauten **Artifact**-Tool: zuerst `action: "read"` mit
   `url: https://claude.ai/code/artifact/9f164b63-af54-4a00-909d-49a365241220` (klappt das nicht:
-  `https://claude.ai/artifact/9f164b63-af54-4a00-909d-49a365241220`), dann `action: "publish"` mit derselben `url` und
+  `https://claude.ai/artifact/9f164b63-af54-4a00-909d-49a365241220`) **und `path: "index.html"`** – so landet die
+  veröffentlichte Seite in einer Datei statt im Gespräch (sie ist über 50 000 Zeichen groß); nie ohne `path` lesen. Dann `action: "publish"` mit derselben `url` und
   `file_path: /home/claude/rd/racecard_heute.html` (kein icon, keine capabilities). Bei Konflikt einmal neu lesen und
   wiederholen. Nur wenn das Artifact-Tool fehlt: ToolSearch `select:mcp__claude-artifacts__get_artifact,mcp__claude-artifacts__list_files,mcp__claude-artifacts__publish_files`,
   get_artifact und list_files für den slug, dann publish_files mit slug, base_version, mode "patch", files
   `[{"as": "index.html", "path": "/home/claude/rd/racecard_heute.html"}]`. Gibt es beides nicht: diesen Schritt
   überspringen und das im Ergebnis sagen.
-- Hat dieser Durchgang keine neuen Tipps und unterscheidet sich die Karte inhaltlich nicht von der veröffentlichten,
-  darf das Veröffentlichen entfallen (im Ergebnis sagen).
 
 ## 7. Ergebnis (kurz, im Chat)
 
@@ -178,5 +182,5 @@ Ablage in Drive fehlgeschlagen“ nennen.
   nennen.
 - Danach je Rennen eine Zeile: neu bearbeitet (mit Rennvergleich), schon erledigt, kein Festkurs (startet erneut,
   sobald Festkurse geholt sind; sonst von Hand), gelaufen, Araber, Fehler.
-- Link zum Artefakt „Racecard heute“ und der Name der neuen Drive-Datei (falls angelegt).
+- Link zum Artefakt „Racecard heute“ (oder „nicht neu veröffentlicht“) und der Name der neuen Drive-Datei (falls angelegt).
 - Wett-Agent: gestartet mit session_id und Zahl der Tipps, keine Tipps, oder der Fehler aus Schritt 5a.

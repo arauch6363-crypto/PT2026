@@ -8,7 +8,7 @@ Skills“). Läuft in einer Claude-Code-Sitzung im Repo; REPO = Wurzel des Repos
 
 1. **Lauf-Ordner** anlegen, z. B. im Scratchpad: LAUF = `…/testsatz_<commit>`. Nicht im Repo.
 2. **Erste Stufe – ein Subagent je Testfall**: für jede race_id in `tests/testsatz_durchgang/erwartet.json`
-   (Schlüssel `testfaelle`) den Lauf n = 1 mit dem Agent-Tool (subagent_type: general-purpose), höchstens 7
+   (Schlüssel `testfaelle`) den Lauf n = 1 mit dem Agent-Tool (subagent_type: general-purpose, model: opus), höchstens 7
    gleichzeitig. Prompt (Platzhalter ersetzen, RxCy = letzte vier Zeichen der race_id):
 
    „Antworte auf Deutsch. Du bewertest genau ein Rennen: <race_id> (<RxCy>) auf der Karte
@@ -17,7 +17,8 @@ Skills“). Läuft in einer Claude-Code-Sitzung im Repo; REPO = Wurzel des Repos
    EINSICHTEN.md und DATEN.md im Skill-Ordner) und arbeite strikt nach dem Skill. Lies sonst nichts aus dem Repo,
    insbesondere nichts unter docs/ oder tests/ außer der Karte. Fakten nur über
    `python3 -I REPO/.claude/skills/rennkarten-durchgang-neu/scripts/blatt.py <Karte> <RxCy>`; gib nie die ganze Karte
-   aus. Bewerte jeden Kandidaten (Value mindestens +5 %) dieses Rennens, kein anderes Rennen. Schreibe dein Ergebnis
+   aus. Lies keinen Code (durchgang.py, blatt.py): Was die Prüfung verlangt, sagen ihre Meldungen. Bewerte jeden
+   Kandidaten (Value mindestens +5 %) dieses Rennens, kein anderes Rennen. Schreibe dein Ergebnis
    als JSON nach LAUF/<race_id>_<n>.json mit den Feldern race_id, status (bearbeitet), vergleich (Rennvergleich mit
    Grenze und Maßstab), hinweis (z. B. Boden nur angenommen), massstab (Liste der MASSSTAB-Pferde aus dem Blatt,
    höchstens zwei: je no, horse, fk, befund – ein bis zwei Sätze, kein Urteil; leere Liste, wenn das Blatt keinen
@@ -35,14 +36,14 @@ Skills“). Läuft in einer Claude-Code-Sitzung im Repo; REPO = Wurzel des Repos
 
    Fehlt danach eine Datei oder ist sie fehlerhaft: diesen Lauf einmal neu starten. Urteile nie selbst nachbessern.
 
-   **Prüf-Subagent:** Für jeden Lauf, dessen Datei ein Urteil „wette“ oder „klein“ hat, danach einen Prüf-Subagenten
+   **Prüf-Subagent:** Für jeden Lauf, dessen Datei ein Urteil „wette“ hat, danach einen Prüf-Subagenten
    mit leerem Kontext starten, mit dem Prompt aus Schritt 4a von `aufgabe_durchgang.md` (Pfade wie oben: REPO statt
    /home/claude/pt2026, Karte des Testfalls, DATEI = LAUF/<race_id>_<n>.json; Zusatz: „Lies sonst nichts aus dem Repo,
    insbesondere nichts unter docs/ oder tests/ außer der Karte.“). Vorher die Datei nach LAUF/vor_pruefung/ kopieren;
    scheitert die Prüfung, die Datei zurückkopieren. Bewertet wird das Urteil nach der Prüfung.
 3. **Zweite Stufe – nur wo nötig:** `python3 -I REPO/testsatz.py nachlauf LAUF` nennt die Testfälle, deren erster Lauf
    vom Urteil des Nutzers abweicht; nur für diese die Läufe n = 2 und 3 mit demselben Prompt, mit Prüf-Subagent wie
-   oben, wo ein Lauf einen Tipp hat. Fertig, wenn `nachlauf`
+   oben, wo ein Lauf eine Wette hat. Fertig, wenn `nachlauf`
    „keine“ meldet. (Ein richtiger erster Lauf gilt als stabil richtig; drei Läufe braucht nur ein abweichender Fall,
    um schwankend von mehrheitlich falsch zu trennen.)
 4. **Bewerten:** `python3 -I REPO/testsatz.py bewerten LAUF`. Der Bericht nennt Trefferquote und Fehlerpunkte, den
