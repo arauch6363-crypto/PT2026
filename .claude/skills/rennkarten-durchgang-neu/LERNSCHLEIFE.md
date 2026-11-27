@@ -22,7 +22,8 @@ Gilt nur für die Durchsicht mit dem Nutzer, nicht für den automatischen Durchg
   eine Einsicht zu einer Kennung steht nur in einem Abschnitt, mit einem Gewicht.
 - **Kennungen sind dauerhaft:** Eine neue Regel oder Einsicht bekommt eine neue Kennung; eine bestehende wird nie
   umbenannt oder für eine andere Bedeutung wiederverwendet (das Regelprotokoll der Ergebnisanalyse zählt nach ihr).
-  Eine gestrichene Regel nimmt ihre Kennung mit.
+  Eine gestrichene Regel nimmt ihre Kennung mit und steht in `EINSICHTEN.md` unter „Stillgelegte Kennungen“
+  (`ALT` → gestrichen).
 - **Veto und Deckel** stehen als Vermerk direkt hinter der Kennung (`` `G-…` **Veto** ``): Veto trägt jede
   [ausschlaggebend]-Einsicht an ihrer Gegen- bzw. Urteils-Kennung, Deckel nur, wo der Text selbst „höchstens kleine
   Wette“ sagt. `durchgang.vermerke()` liest sie, die strenge Prüfung setzt sie durch.

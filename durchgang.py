@@ -256,13 +256,19 @@ def kennungen(ordner: str | Path = SKILL_ORDNER) -> set[str]:
     stillgelegte zählen nicht."""
     text, _ = _skilltexte(ordner)
     alle = {m for m in re.findall(r"`([FGPU]-[A-Z0-9-]+)`", text) if KENNUNG.fullmatch(m)}
-    return alle - set(stillgelegt(ordner))
+    return alle - set(stillgelegt(ordner)) - gestrichen(ordner)
 
 
 def stillgelegt(ordner: str | Path = SKILL_ORDNER) -> dict[str, str]:
     """Zusammengefasste Einsichten: stillgelegte Kennung → Kennung, unter der sie weiterzählt."""
     _, still = _skilltexte(ordner)
     return dict(re.findall(r"`([FGPU]-[A-Z0-9-]+)`\s*→\s*`([FGPU]-[A-Z0-9-]+)`", still))
+
+
+def gestrichen(ordner: str | Path = SKILL_ORDNER) -> set[str]:
+    """Gestrichene Regeln ohne Nachfolger (`ALT` → gestrichen): werden nicht mehr zitiert, zählen unter keiner anderen."""
+    _, still = _skilltexte(ordner)
+    return set(re.findall(r"`([FGPU]-[A-Z0-9-]+)`\s*→\s*gestrichen", still))
 
 
 VERMERK = re.compile(r"`([FGPU]-[A-Z0-9-]+)` \*\*(Veto|Deckel)\*\*")

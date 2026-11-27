@@ -168,10 +168,11 @@ kein Fehler ist: Fälle „Claudes Sicht behalten“ (bisher keiner) und Lagen, 
 
 ## Stillgelegte Kennungen
 
-Zusammengefasste Einsichten: Die Kennung links wird nicht mehr zitiert; das Regelprotokoll zählt sie unter der
-Kennung rechts mit. Format: `ALT` → `NEU`.
+Die Kennung links wird nicht mehr zitiert. Zusammengefasste Einsichten: `ALT` → `NEU`, das Regelprotokoll zählt sie
+unter der Kennung rechts mit. Gestrichene Regeln ohne Nachfolger: `ALT` → gestrichen.
 
 - `F-ABSTAMMUNG-LEICHT` → `G-ABSTAMMUNG`
 - `P-JOCKEY-STARK` → `P-JOCKEY-KENNT`
 - `U-ARR-ABSTAND` → `G-ARR-UNTER`
 - `U-VALUE-OHNE-PRO` → `U-FAUSTREGEL`
+- `G-SELTEN-SIEG` → gestrichen

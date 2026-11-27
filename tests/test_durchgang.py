@@ -305,6 +305,17 @@ def test_stillgelegte_kennungen(tmp_path):
     assert not set(echt) & dg.kennungen()
 
 
+def test_gestrichene_kennungen(tmp_path):
+    (tmp_path / "SKILL.md").write_text("- `G-A` eins\n", encoding="utf-8")
+    (tmp_path / "EINSICHTEN.md").write_text(
+        "- **[leicht]** `G-A` x\n\n## Stillgelegte Kennungen\n\n- `G-B` → `G-A`\n- `G-X` → gestrichen\n",
+        encoding="utf-8")
+    assert dg.gestrichen(tmp_path) == {"G-X"}
+    assert dg.stillgelegt(tmp_path) == {"G-B": "G-A"}
+    assert dg.kennungen(tmp_path) == {"G-A"}
+    assert "G-SELTEN-SIEG" in dg.gestrichen() and "G-SELTEN-SIEG" not in dg.kennungen()
+
+
 def test_veto_und_deckel_maschinenlesbar():
     v = dg.vermerke()
     assert {k for k, x in v.items() if x == "Veto"} == {

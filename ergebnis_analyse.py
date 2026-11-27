@@ -484,9 +484,12 @@ def pruefschritte(skill_ordner: str | Path) -> dict[str, str]:
 
 
 def bericht_je_pruefschritt(zeilen: list[dict], schritte: dict[str, str],
-                            stillgelegt: dict[str, str] | None = None) -> list[dict]:
-    """Regelprotokoll gebündelt je Prüfschritt und Richtung (ein Pferd zählt je Prüfschritt und Richtung einmal)."""
+                            stillgelegt: dict[str, str] | None = None,
+                            gestrichen: set[str] | None = None) -> list[dict]:
+    """Regelprotokoll gebündelt je Prüfschritt und Richtung (ein Pferd zählt je Prüfschritt und Richtung einmal);
+    gestrichene Kennungen ohne Nachfolger unter „gestrichen“."""
     stillgelegt = stillgelegt or {}
+    schritte = {**schritte, **{k: "gestrichen" for k in gestrichen or ()}}
     je: dict[tuple, dict] = {}
     for z in zeilen:
         schritt = schritte.get(_aktuell(z["kennung"], stillgelegt), "ohne Prüfschritt")
@@ -711,7 +714,8 @@ def main(argv: list[str]) -> None:
         if "--ausschlag" in rest:
             b = bericht(ausschlag_zeilen(kandidaten_lesen(ordner)), dg.stillgelegt())
         elif "--pruefschritt" in rest:
-            b = bericht_je_pruefschritt(protokoll_lesen(ordner), pruefschritte(dg.SKILL_ORDNER), dg.stillgelegt())
+            b = bericht_je_pruefschritt(protokoll_lesen(ordner), pruefschritte(dg.SKILL_ORDNER), dg.stillgelegt(),
+                                        dg.gestrichen())
         else:
             b = bericht(protokoll_lesen(ordner), dg.stillgelegt())
         print(json.dumps(b, ensure_ascii=False, indent=1))

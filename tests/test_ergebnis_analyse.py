@@ -432,3 +432,10 @@ def test_vorschlaege_alt_ohne_wirkung(tmp_path):
     alle = {v["id"]: v for v in ea.vorschlaege_lesen(tmp_path)}
     assert alle["20261115-1"]["wirkung"] == "" and alle["20261115-1"]["entscheidung"] == "ja"
     assert alle["20261127-1"]["wirkung"] == "lockerer"
+
+
+def test_pruefschritt_gestrichen():
+    z = [{"datum": "20261120", "race_id": "R", "no": 1, "horse": "H", "kennung": "G-X", "richtung": "gegen",
+          "urteil": "nein", "fk": 5.0, "p_markt": 0.2, "gewonnen": 0}]
+    b = ea.bericht_je_pruefschritt(z, {}, {}, {"G-X"})
+    assert b[0]["pruefschritt"] == "gestrichen"
