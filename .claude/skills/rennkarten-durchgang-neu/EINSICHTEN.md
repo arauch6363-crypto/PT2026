@@ -37,7 +37,8 @@ Datum, höchstens zwei je Einsicht) dienen nur dem Wiedererkennen der Lage; das 
    muss an die Besten im Feld und an den Maßstab heranreichen. *The Cat's 16.11.*
 4. **Die kleine Wette nur mit stimmiger Grundlage.** Sie ist für Pferde mit fehlenden Belegen auf solider Grundlage (`U-KEIN-AUSWEG`).
    *Crew Dragon, The Cat's 16.11.*
-5. **Am Festkurs gegen die eigene Kursspanne entscheiden**, nicht am Modell-Value. *Afterglow 11.11. (+29 %, zu kurz),
+5. **Ob der Kurs reicht, entscheidet die eigene Kursspanne am Festkurs**, nicht der Modell-Value; der sagt mit der
+   Faustregel nur, wie viel Beweislage nötig ist. *Afterglow 11.11. (+29 %, zu kurz),
    Senorito 16.11. (+10 %, kleine Wette).*
 ## 1. Ausgangslage und Klasse
 

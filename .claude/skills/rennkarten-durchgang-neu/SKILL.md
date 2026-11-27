@@ -226,10 +226,11 @@ Formtrend tragen das Neue; die Grundlage stimmt (unexposed oder im Aufsteigen, s
 Pferd); übrig bleiben entkräftete oder kleine Fragezeichen, kein Veto, kein Deckel. Je mehr davon zutrifft, desto eher
 Wette statt kleiner Wette.
 
-`U-FAUSTREGEL` **Faustregel** (Orientierung, keine Rechenregel; Abweichungen ausdrücklich nennen):
+`U-FAUSTREGEL` **Faustregel** (Orientierung, keine Rechenregel; Abweichungen ausdrücklich nennen). Die Kursspanne
+entscheidet, ob der Kurs reicht; die Faustregel sagt, wie viel Beweislage bei welchem Value nötig ist:
 
 - Value knapp über der Grenze (+5 bis etwa +10 %): nur bei klarer, überzeugender Beweislage (z. B. CGD, Bewährung auf
-  sehr weichem Boden, Marke unter letzter Platzmarke) – und nur, wenn die eigene Spanne unter dem Festkurs liegt.
+  sehr weichem Boden, Marke unter letzter Platzmarke).
 - +10 % bis +50 %: höchstens ein Fragezeichen und kein gewichtiges Gegenargument.
 - Über +50 %: ein bis zwei Fragezeichen tragbar, **wenn genug für das Pferd spricht**. Viel Value ohne Pro-Argumente
   oder mit Aufgewicht, Klassenfrage und Höchstgewicht auf schwerem Boden zusammen reicht nicht.
