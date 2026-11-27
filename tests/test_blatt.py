@@ -177,3 +177,119 @@ def test_kopfzeile_ohne_value_faktor(capsys):
 def test_starts_relativ_zum_feld():
     r = {"runners": [{"no": 1, "starts": 40}, {"no": 2, "starts": 12}, {"no": 3, "starts": 25}, {"no": 4, "starts": 50, "nr": True}]}
     assert blatt.starts_im_feld(r["runners"][2], r) == "25 Starts (2. meiste von 3 im Feld)"
+
+
+# ---------------------------------------------------------------- Auslöser und Leitfrage
+
+def _rennen_a(**k):
+    return {**RENNEN, "race_id": "20261121R1C1", "type": "Handicap", "going": "Souple", **k}
+
+
+def _z_a(x, rennen):
+    x = {"no": 3, "horse": "X", **x}
+    rennen.setdefault("runners", []).append(x)
+    return {"x": x, "fk": 5.0, "p": 0.2, "rang": 1, "n": 8, "value": 0.1}
+
+
+def kennungen_der_ausloeser(liste):
+    return [s.split()[0] for s in liste]
+
+
+def test_ausloeser_referenzlauf_arr_rueckstand_und_alter():
+    r = _rennen_a(runners=[{"no": 1, "arr": {"adj": 30.0}}])
+    z = _z_a({"arr": {"adj": 26.0}, "form_lines": [_lauf(date="2026-10-01", arr_adj=26.9)]}, r)
+    assert blatt.ausloeser(z, r)[0] == "G-ARR-UNTER Referenz-ARR 26,9 liegt 3,1 unter dem Besten im Feld (30,0 #1)"
+    z["x"]["form_lines"] = [_lauf(date="2026-10-01", arr_adj=27.1)]           # 2,9 Punkte: kein Auslöser
+    assert "G-ARR-UNTER" not in kennungen_der_ausloeser(blatt.ausloeser(z, r))
+    z["x"]["form_lines"] = [_lauf(date="2025-10-01", arr_adj=29.0)]           # älter als ein Jahr
+    assert blatt.ausloeser(z, r)[0] == "G-KEIN-REFERENZ Referenzlauf 2025-10-01 ist 416 Tage alt"
+    z["x"]["form_lines"] = [_lauf(date="2026-10-01", dist=1200)]              # kein Lauf ≈heute
+    assert blatt.ausloeser(z, r)[0] == "G-KEIN-REFERENZ kein Lauf ≈heute im Blatt"
+    z["x"]["form_lines"] = [_lauf(date="2026-10-01", dist=1200), _lauf(date="2026-03-01", arr_adj=29.0, extra=["D"])]
+    assert blatt.ausloeser(z, r)[0] == "Referenzlauf 2026-03-01 steht unter „Ältere Läufe“"
+
+
+def test_ausloeser_marke_gewicht_startfolge():
+    r = _rennen_a(going="Collant", going_label="Very slow")
+    fl = [_lauf(date=f"2026-11-{d:02d}", going="Collant") for d in (15, 8, 1)] + [_lauf(date="2026-10-20", going="Collant")]
+    z = _z_a({"hcp_mark": {"kind": "sieg", "diff": 1.5}, "weight": 62.0, "form_lines": fl}, r)
+    a = blatt.ausloeser(z, r)
+    assert "F-AUFGEWICHT/G-UEBER-SIEGMARKE +1,5 kg über der letzten Siegmarke" in a
+    assert "G-GEWICHT-BODEN 62,0 kg auf Collant" in a
+    assert "G-GEWICHT-KLASSE-BODEN Aufgewicht und ab 62 kg auf Collant/Lourd – Klassenfrage?" in a
+    assert "G-STARTFOLGE 4 Starts in 42 Tagen" in a
+    z["x"].update(hcp_mark={"kind": "sieg", "diff": 0.5}, weight=61.5)
+    a = blatt.ausloeser(z, r)
+    assert "F-AUFGEWICHT +0,5 kg über der letzten Siegmarke" in a and "G-GEWICHT-BODEN" not in kennungen_der_ausloeser(a)
+    z["x"]["hcp_mark"] = {"kind": "platz", "diff": 3.0}                     # Platzmarke: Siegmarke unbekannt
+    assert not any("AUFGEWICHT" in s for s in blatt.ausloeser(z, r))
+    r["type"] = "Conditions"                                               # nur im Handicap
+    z["x"]["hcp_mark"] = {"kind": "sieg", "diff": 3.0}
+    assert not any("AUFGEWICHT" in s for s in blatt.ausloeser(z, r))
+
+
+def test_ausloeser_verbindungen_pause_trainerwechsel():
+    r = _rennen_a()
+    z = _z_a({"days": 60, "pref": {"jockey": {"trainer": {"runs": 20, "wins": 0}},
+                                   "trainer": {"course": {"runs": 30, "ae": 0.5}},
+                                   "horse": {"trainer": [{"runs": 2, "today": True}, {"runs": 9}]}}}, r)
+    k = kennungen_der_ausloeser(blatt.ausloeser(z, r))
+    assert {"G-GESPANN-OHNE-SIEG", "G-TRAINER-KALT", "F-PAUSE", "F-TRAINERWECHSEL"} <= set(k)
+    z["x"].update(days=59, pref={"jockey": {"trainer": {"runs": 20, "wins": 1}},
+                                 "trainer": {"course": {"runs": 29, "ae": 0.4}}})
+    assert not {"G-GESPANN-OHNE-SIEG", "G-TRAINER-KALT", "F-PAUSE", "F-TRAINERWECHSEL"} & set(kennungen_der_ausloeser(blatt.ausloeser(z, r)))
+
+
+def test_ausloeser_erstmals_und_abstammung():
+    r = _rennen_a(going="Lourd", going_label="Very slow", distance=2400)
+    z = _z_a({"cgd": "c◦◦", "abst_pass": {"gesamt": -15},
+              "pref": {"horse": {"going": [{"label": "Slow", "runs": 4}, {"label": "Very slow", "runs": 0, "today": True}]}}}, r)
+    a = blatt.ausloeser(z, r)
+    assert "F-BODEN-NEU erstmals Lourd (Bodengruppe Very slow)" in a
+    assert "F-DISTANZ-NEU erstmals diese Distanzgruppe (2400 m)" in a
+    assert "G-ABSTAMMUNG gesamt -15, heute 1. Lauf auf Boden" in a
+    assert "F-BELAG-NEU" not in kennungen_der_ausloeser(a)
+    r2 = _rennen_a(going="PSF STANDARD", going_label="PSF")
+    z2 = _z_a({"cgd": "◦◦·", "abst_pass": {"gesamt": -14}, "pref": {"horse": {"going": [{"label": "Slow", "runs": 2}]}}}, r2)
+    a2 = blatt.ausloeser(z2, r2)
+    assert "F-BELAG-NEU erstmals PSF" in a2 and "G-ABSTAMMUNG" not in kennungen_der_ausloeser(a2)
+    assert "F-BODEN-NEU" not in kennungen_der_ausloeser(a2)                # PSF ist kein sehr weicher Boden
+
+
+def test_ausloeser_ausruestung_cgd_box():
+    r = _rennen_a()
+    bil = [{"label": "ohne", "runs": 4, "places": 1}, {"label": "australisch", "runs": 5, "places": 5}]
+    z = _z_a({"blinkers": "SANS_OEILLERES", "form_lines": [_lauf(blinkers="OEILLERES_AUSTRALIENNES")],
+              "pref": {"horse": {"blinkers": bil}}, "cgd": "CgD", "draw": 1, "draw_stat": {"dev": -0.1, "sig": True}}, r)
+    a = blatt.ausloeser(z, r)
+    assert "G-AUSRUESTUNG-WEG heute ohne, zuletzt australisch: mit 5 L 100 %, ohne 4 L 25 %" in a
+    assert "P-CGD CgD" in a and "G-BOX Box 1 signifikant schlechter" in a
+    z["x"].update(blinkers="OEILLERES_AUSTRALIENNES", form_lines=[_lauf(blinkers="SANS_OEILLERES")])
+    assert "P-AUSRUESTUNG-ZURUECK heute australisch: mit 5 L 100 %, ohne 4 L 25 %" in blatt.ausloeser(z, r)
+    z["x"].update(blinkers="OEILLERES_CLASSIQUE")
+    assert "F-AUSRUESTUNG-NEU erstmals klassisch" in blatt.ausloeser(z, r)
+    bil.reverse(); bil[0]["places"] = 0                                   # mit ihr schwach: kein Auslöser
+    z["x"].update(blinkers="SANS_OEILLERES", form_lines=[_lauf(blinkers="OEILLERES_AUSTRALIENNES")])
+    assert "G-AUSRUESTUNG-WEG" not in kennungen_der_ausloeser(blatt.ausloeser(z, r))
+
+
+def test_ausloeser_nennen_nur_gueltige_kennungen():
+    import re
+    import durchgang
+    im_skript = set(re.findall(r"\b[FGPU]-[A-Z0-9]+(?:-[A-Z0-9]+)*\b", _PFAD.read_text(encoding="utf-8")))
+    assert im_skript and im_skript <= durchgang.kennungen(), im_skript - durchgang.kennungen()
+
+
+def test_leitfrage_zeile(capsys):
+    r = _rennen_a(runners=[{"no": 1, "horse": "TOP", "arr": {"adj": 30.0}}])
+    k = _z_a({"form_lines": [_lauf(date="2026-10-01", arr_adj=27.5)]}, r)
+    m = {"x": {"no": 1, "horse": "TOP", "form_lines": [_lauf(date="2025-06-01", arr_adj=30.5)]}}
+    blatt.leitfrage(r, [k], [(m, "FK-Favorit")])
+    assert capsys.readouterr().out.strip() == ("Leitfrage – Referenz-ARR (ber.) gegen Top-ARR 30,0 (#1): Kandidat 3 X 27,5 "
+                                               "(2026-10-01, -2,5) · Maßstab 1: 1 TOP 30,5 (2025-06-01, +0,5, 538 Tage alt)")
+
+
+def test_ausloeser_im_blatt(capsys):
+    x = {"no": 3, "horse": "X", "form_lines": [], "days": 90}
+    blatt.blatt({"x": x, "fk": 5.0, "p": 0.2, "rang": 1, "n": 8, "value": 0.1}, {**RENNEN, "race_id": "20261121R1C1"}, 60)
+    assert "- Auslöser: G-KEIN-REFERENZ kein Lauf ≈heute im Blatt · F-PAUSE 90 Tage" in capsys.readouterr().out

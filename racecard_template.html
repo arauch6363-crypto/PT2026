@@ -144,7 +144,7 @@ input{color:inherit}
               <span style="grid-row:span 2;font-size:10px;font-weight:800;letter-spacing:.06em;text-align:center;border-radius:3px;padding:2px 0;background:{{ cw.kBg }};color:{{ cw.kFg }}">{{ cw.k }}</span>
               <span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px"><span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:var(--tip-mute);margin-right:6px">C{{ cw.c }} {{ cw.time }}</span><b style="margin-right:4px">{{ cw.no }}</b><span style="font-weight:700;font-stretch:80%;text-transform:uppercase">{{ cw.horse }}</span></span>
               <span style="grid-row:span 2;font-family:'Spline Sans Mono',monospace;font-size:15px;font-weight:600;text-align:right">{{ cw.einh }}</span>
-              <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:var(--tip-mute)">MQ <b style="color:var(--tip-good)">{{ cw.mq }}</b> · FK {{ cw.fk }}{{ cw.jetzt }}</span>
+              <span style="font-family:'Spline Sans Mono',monospace;font-size:11px;color:var(--tip-mute)">{{ cw.mq }}FK {{ cw.fk }}{{ cw.jetzt }}</span>
             </button>
           </sc-for>
           <div style="border-top:1px solid var(--tip-line);padding-top:10px;margin-top:2px;font-size:11px;color:var(--tip-mute);line-height:1.35">{{ ct.rule }}</div>
@@ -988,12 +988,13 @@ const sgn = (v, d = 1) => v == null ? '–' : (v > 0 ? '+' : v < 0 ? '−' : '±
 const kurz = v => v == null ? '–' : fx(v, 1).replace(/,0$/, '');
 const fOdds = o => o == null ? '–' : o >= 100 ? '100+' : o < 10 ? fx(o, 1) : String(Math.round(o));
 // Claude-Durchgang (durchgang_JJJJMMTT_*.json, von racecard.py bzw. durchgang.py eingesetzt): Kennzeichen NAP (Wette,
-// 1 Einheit) / BET (Kleine Wette, ½ Einheit) mit Mindestquote; grau mit „FK < MQ“, wenn der aktuelle Festkurs darunter liegt
+// 1 Einheit) / BET (Kleine Wette, ½ Einheit); grau, wenn der aktuelle Festkurs unter dem beim Durchgang liegt (gespielt
+// wird zu diesem oder gar nicht). Ältere Durchgänge haben eine Mindestquote (mq); sie ist dort die Grenze.
 function claudeVals(x, race) {
   const c = x.claude;
   if (!c) return { cIs: false, cHat: false };
   const q = v => v == null ? '–' : fx(v, v < 10 ? 1 : 0).replace(/,0$/, '');
-  const fkJetzt = x.fk?.sieg ?? null, unter = c.mq != null && fkJetzt != null && fkJetzt < c.mq - 1e-9;
+  const grenze = c.mq ?? c.fk ?? null, fkJetzt = x.fk?.sieg ?? null, unter = grenze != null && fkJetzt != null && fkJetzt < grenze - 1e-9;
   const wette = c.urteil === 'wette' || c.urteil === 'klein';
   const urteil = c.urteil === 'wette' ? 'NAP · Wette 1 Einheit' : c.urteil === 'klein' ? 'BET · Kleine Wette ½ Einheit' : 'keine Wette';
   const sp = c.spanne && c.spanne[0] != null ? q(c.spanne[0]) + '–' + q(c.spanne[1]) : '–';
@@ -1001,11 +1002,12 @@ function claudeVals(x, race) {
     ...(c.fragen || []).map(t => ({ k: '?', t, fg: 'var(--tip-gold)' }))];
   return {
     cIs: wette, cHat: true, cUrteil: urteil,
-    cTxt: wette ? (c.kennzeichen || (c.urteil === 'wette' ? 'NAP' : 'BET')) + (unter ? ' · FK < MQ' : c.mq != null ? ' ≥ ' + q(c.mq) : '') : '',
+    cTxt: wette ? (c.kennzeichen || (c.urteil === 'wette' ? 'NAP' : 'BET')) + (unter ? ' · FK < ' + q(grenze) : c.mq != null ? ' ≥ ' + q(c.mq) : '') : '',
     cBg: unter ? '#8C877C' : c.urteil === 'wette' ? 'var(--tip-bg)' : '#E9B949', cFg: unter ? '#F6F4EF' : c.urteil === 'wette' ? 'var(--tip-gold)' : '#161512',
-    cTip: urteil + ' · Mindestquote ' + q(c.mq) + ' · Festkurs beim Durchgang ' + q(c.fk) + (fkJetzt != null ? ' · jetzt ' + q(fkJetzt) : '') + (c.stand ? ' · ' + String(c.stand).slice(11, 16) : ''),
-    cKurse: 'FK ' + q(c.fk) + ' · fair ' + sp + ' · MQ ' + q(c.mq) + (c.stand ? ' · ' + String(c.stand).slice(11, 16) : ''),
-    cZeilen: zeilen, cAusschlag: c.ausschlag ? 'Ausschlag: ' + c.ausschlag : '', cVergleich: race?.claude?.vergleich ? 'Rennvergleich: ' + race.claude.vergleich : '',
+    cTip: urteil + (c.mq != null ? ' · Mindestquote ' + q(c.mq) : '') + ' · Festkurs beim Durchgang ' + q(c.fk) + (fkJetzt != null ? ' · jetzt ' + q(fkJetzt) : '') + (c.stand ? ' · ' + String(c.stand).slice(11, 16) : ''),
+    cKurse: 'FK ' + q(c.fk) + ' · fair ' + sp + (c.mq != null ? ' · MQ ' + q(c.mq) : '') + (c.stand ? ' · ' + String(c.stand).slice(11, 16) : ''),
+    cZeilen: zeilen, cAusschlag: [c.anker ? 'Kursspanne: ' + c.anker : '', c.ausschlag ? 'Ausschlag: ' + c.ausschlag : '',
+      c.pruefung ? 'Prüfung' + (c.urteil_vor_pruefung && c.urteil_vor_pruefung !== c.urteil ? ' (' + c.urteil_vor_pruefung + ' → ' + c.urteil + ')' : '') + ': ' + c.pruefung : ''].filter(Boolean).join(' · '), cVergleich: race?.claude?.vergleich ? 'Rennvergleich: ' + race.claude.vergleich : '',
   };
 }
 const eur = v => v == null ? '–' : '€' + Math.round(v).toLocaleString('de-DE');
@@ -1300,7 +1302,8 @@ class Component extends DCLogic {
     const ctList = mt.races.flatMap(id => (idx.races[id].claudeTips || []).map(t => ({ ...t, r: idx.races[id] })))
       .sort((a, b) => String(a.r.time).localeCompare(String(b.r.time)) || a.no - b.no);
     const ctQ = v => v == null ? '–' : fx(v, v < 10 ? 1 : 0).replace(/,0$/, '');
-    const ctUnter = t => t.mq != null && t.fkJetzt != null && t.fkJetzt < t.mq - 1e-9;
+    const ctGrenze = t => t.mq ?? t.fk ?? null;   // ältere Durchgänge: Mindestquote, sonst Festkurs beim Durchgang
+    const ctUnter = t => ctGrenze(t) != null && t.fkJetzt != null && t.fkJetzt < ctGrenze(t) - 1e-9;
     const ctStand = mt.races.map(id => idx.races[id].claude?.stand).filter(Boolean).sort().pop();
     const ct = {
       has: mt.races.some(id => idx.races[id].claude), none: !ctList.length,
@@ -1308,10 +1311,10 @@ class Component extends DCLogic {
         bg: t.r.id === s.raceId ? 'var(--tip-gold)' : 'var(--tip-line)', fg: t.r.id === s.raceId ? 'var(--tip-bg)' : 'var(--tip-fg)' })),
       rows: ctList.map(t => ({ k: t.urteil === 'wette' ? 'NAP' : 'BET', c: t.r.no, time: t.r.time, no: t.no, horse: t.horse,
         kBg: ctUnter(t) ? '#8C877C' : t.urteil === 'wette' ? 'var(--tip-gold)' : '#E9B949', kFg: ctUnter(t) ? '#F6F4EF' : '#161512',
-        mq: ctQ(t.mq), fk: ctQ(t.fk), jetzt: t.fkJetzt != null && Math.abs(t.fkJetzt - (t.fk ?? 0)) > 1e-9 ? ' → jetzt ' + ctQ(t.fkJetzt) + (ctUnter(t) ? ' < MQ' : '') : '',
+        mq: t.mq != null ? 'MQ ' + ctQ(t.mq) + ' · ' : '', fk: ctQ(t.fk), jetzt: t.fkJetzt != null && Math.abs(t.fkJetzt - (t.fk ?? 0)) > 1e-9 ? ' → jetzt ' + ctQ(t.fkJetzt) + (ctUnter(t) ? ' < ' + ctQ(ctGrenze(t)) : '') : '',
         einh: t.urteil === 'wette' ? '1 E' : '½ E', op: ctUnter(t) ? .6 : 1,
         bg: t.r.id === s.raceId ? 'var(--tip-sel)' : 'transparent', pick: () => this.pickRace(t.r.id) })),
-      rule: 'NAP = Wette 1 Einheit, BET = Kleine Wette ½ Einheit · nur Sieg zum Festkurs ab Mindestquote (MQ) · FK beim Durchgang'
+      rule: 'NAP = Wette 1 Einheit, BET = Kleine Wette ½ Einheit · nur Sieg zum Festkurs beim Durchgang (FK) oder gar nicht'
         + (ctStand ? ' · Stand ' + String(ctStand).slice(11, 16) : '') + ' · Rennen antippen für die Begründung',
     };
     const WD = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'], MO = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];

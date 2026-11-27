@@ -46,8 +46,11 @@ Sitzung „entschieden“ schreibt (er nimmt sich die Seite im Lauf des Tages vo
   base64 im Feld `content`. Je Datei unter ihrem Titel nach AO kopieren bzw. dekodieren; nie den Inhalt in die
   Unterhaltung holen.
 - `python3 -I REPO/ergebnis_analyse.py material AO/racecard_TAG_daten.json.gz AO/TAG.parquet AO/durchgang_TAG_*.json --aus AO/analyse_TAG.json`
-- `python3 -I REPO/ergebnis_analyse.py protokoll AO/analyse_TAG.json` (schreibt `REPO/auswertung/regelprotokoll.csv`),
-  dann `python3 -I REPO/ergebnis_analyse.py bericht > AO/bericht.json`.
+- `python3 -I REPO/ergebnis_analyse.py protokoll AO/analyse_TAG.json` (schreibt `REPO/auswertung/regelprotokoll.csv`
+  und `REPO/auswertung/kandidaten.csv`),
+  dann `python3 -I REPO/ergebnis_analyse.py bericht > AO/bericht.json` und
+  `python3 -I REPO/ergebnis_analyse.py drift > AO/drift.json` und
+  `python3 -I REPO/ergebnis_analyse.py kalibrierung > AO/kalibrierung.json`.
 
 ### 4. Analysieren
 
@@ -60,16 +63,19 @@ Sitzung „entschieden“ schreibt (er nimmt sich die Seite im Lauf des Tages vo
   `entscheidung` offen), dann `python3 -I REPO/ergebnis_analyse.py vorschlaege AO/vorschlaege_TAG.json`.
 - ArtifactData `batch` auf die Seite (url oben), höchstens 50 Einträge je Batch:
   - `set` in `tage`, doc_id TAG: `datum` TAG, `titel` (z. B. „Mi 18.11. · Pau“), `zaehlung` aus dem Material,
-    `hinweis` (ein bis zwei Sätze: Lage des Tages, z. B. Häufung „Ermessen“), `faelle` (je Fall art, rennen, no, horse,
-    urteil, fk, pos, `regel` = Kennung oder „Ermessen“, `befund` = ein Satz), `regelprotokoll` = Inhalt von
-    `AO/bericht.json`.
+    `hinweis` (ein bis zwei Sätze: Lage des Tages, z. B. Häufung „Ermessen“; bei `anlass` in `AO/drift.json` die
+    Drift), `faelle` (je Fall art, rennen, no, horse, urteil, fk, pos, `regel` = Kennung oder „Ermessen“, `befund` =
+    ein Satz), `regelprotokoll` = Inhalt von `AO/bericht.json`, `drift` und `kalibrierung` = Inhalt von
+    `AO/drift.json` bzw. `AO/kalibrierung.json`.
   - `set` in `vorschlaege`, doc_id = id: alle Felder des Vorschlags aus dem Skill plus `datum` TAG, `entscheidung`
     „offen“, `notiz` „“.
   - Gibt es den Tag schon (erneuter Start), zuerst lesen und mit `if_version` schreiben.
 
 ### 6. Melden und warten
 
-Im Chat: Link zur Seite, je Siegergruppe die Zahl, die Vorschläge als Liste (id – Titel), und der Satz „Entscheide
+Im Chat: Link zur Seite, je Siegergruppe die Zahl, eine Zeile Drift (Tag: Kandidaten, wette/klein/nein; Tipp-Anteil
+7 Tage gegen davor; angenommene Vorschläge strenger : lockerer; bei `anlass` ausdrücklich als Frage), die Vorschläge
+als Liste (id – Titel, `wirkung`), und der Satz „Entscheide
 auf der Seite und schreib mir dann ‚entschieden‘.“ Dann die Antwort beenden.
 
 ## Teil B – integrieren (nach „entschieden“)

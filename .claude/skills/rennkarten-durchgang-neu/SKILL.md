@@ -1,13 +1,13 @@
 ---
 name: rennkarten-durchgang-neu
-description: "Rennkarte/Racecard (französischer Galopp, PT2026) auf Siegwetten durchgehen – ganze Karte oder einzelne Rennen: Value-Kandidaten prüfen, Urteil mit Kursspanne und Mindestquote."
+description: "Rennkarte/Racecard (französischer Galopp, PT2026) auf Siegwetten durchgehen – ganze Karte oder einzelne Rennen: Value-Kandidaten prüfen, Urteil mit Kursspanne."
 ---
 
 # Rennkarten-Durchgang
 
 Vor dem ersten Rennen lesen: `GLOSSARY.md` (Begriffe; Repo-Hauptordner, sonst Skill-Ordner), `DATEN.md` (woher jede
-Angabe stammt) und **`EINSICHTEN.md`** (wie schwer jedes Argument wiegt, typische Fehler). Im automatischen Durchgang
-wie von Hand: dasselbe Vorgehen. Bei Durchsicht mit dem Nutzer zusätzlich `LERNSCHLEIFE.md`.
+Angabe stammt) und **`EINSICHTEN.md`** (wie schwer jedes Argument wiegt, typische Fehler). Bei Durchsicht mit dem
+Nutzer zusätzlich `LERNSCHLEIFE.md`.
 
 ## Ziel und Leitfrage
 
@@ -19,16 +19,12 @@ Die **Leitfrage** jedes Urteils: **Reicht es für den Sieg?** Ein Pferd, das sol
 noch keine Siegwette. Gemessen wird an der besten zu heute passenden Leistung (ARR im Referenzlauf) gegen die besten
 Pferde des heutigen Feldes und gegen die Maßstäbe.
 
-Der Modell-Value ist **nur der Filter**, welche Pferde angesehen werden. Ob der Festkurs reicht, entscheidet die
-**eigene Kursspanne** (siehe Gesamturteil).
-
 **Kennungen.** Jedes Argument der Listen unten und in `EINSICHTEN.md` trägt eine Kennung wie `G-AUSRUESTUNG-WEG`
 (F = Fragezeichen, G = Gegen, P = Pro, U = Urteil). Jeder Satz in Pro, Gegen und Fragezeichen, der sich auf eine
 solche Regel stützt, endet mit ihrer Kennung in Klammern, z. B. „Ohne Scheuklappen, mit denen die drei besten Läufe
 kamen (G-AUSRUESTUNG-WEG)“. Der Satz **Ausschlag** nennt die Kennung der Regel, die das Urteil entschieden hat, oder
 das Wort „Ermessen“, wenn keine passt. Gültig sind nur Kennungen aus `SKILL.md` und `EINSICHTEN.md`; die Prüfung
-(`durchgang.rennen_pruefen`) lehnt andere ab. Die Ergebnisanalyse zählt daran, wie oft eine Regel griff und wie es
-ausging.
+(`durchgang.rennen_pruefen_streng`) lehnt andere ab.
 
 ## Ablauf
 
@@ -44,9 +40,11 @@ ausging.
 3. **Maßstäbe** prüfen (Abschnitt unten; im Blatt `MASSSTAB 1/2` und `2/2`). Fertig, wenn je Maßstab Referenz-ARR
    und größtes Fragezeichen feststehen.
 4. **Je Kandidat die Prüfliste.** Fertig, wenn jeder der sechs Prüfpunkte je Kandidat einen Befund (Pro, Gegen,
-   Fragezeichen) oder ausdrücklich „nichts“ geliefert hat.
+   Fragezeichen) oder ausdrücklich „nichts“ geliefert hat und jeder **Auslöser** des Blatts (Zeile „Auslöser:“) im
+   Urteil bestätigt (Satz mit der Kennung) oder mit Beleg entkräftet ist. Die Auslöser sind nur die Regeln, die sich
+   rechnen lassen; die Prüfliste gilt ganz.
 5. **Gesamturteil** je Kandidat. Fertig, wenn die Leitfrage mit Zahlen beantwortet ist (Referenz-ARR des Kandidaten
-   gegen Top-ARR im Feld und gegen beide Maßstäbe) und Spanne, Mindestquote und Ausschlag mit Kennung stehen.
+   gegen Top-ARR im Feld und gegen beide Maßstäbe; Blatt: Zeile „Leitfrage“ im Rennkopf) und Spanne und Ausschlag mit Kennung stehen.
 6. **Rennvergleich**: Kandidaten nach Beweislage ordnen, gegen die Maßstäbe stellen, Grenze ziehen.
 7. **Ausgabe**: im automatischen Durchgang das JSON-Format des Auftrags, sonst nach `AUSGABE.md`.
 
@@ -202,22 +200,34 @@ Handicap-Form auf ähnlicher Marke.
 
 ## Gesamturteil
 
-Je Kandidat: Pro-Argumente, Gegenargumente, Fragezeichen, dann die **eigene Kursspanne** – grob, ehrlich, aus dem
-Gesamteindruck („fair eher 8–10“). Gewettet wird, wenn der Festkurs klar über der Spanne liegt (`U-KURSSPANNE`) und die
-Leitfrage mit „ja, kann reichen“ beantwortet ist (`U-LEITFRAGE`). Mindestquote = unterer Rand der Spanne.
+Reihenfolge: zuerst **Veto** (Urteil „nein“), dann **Deckel** (höchstens kleine Wette), dann abwägen – beide stehen
+als Vermerk hinter der Kennung in `EINSICHTEN.md`.
+
+Je Kandidat: Pro-Argumente, Gegenargumente, Fragezeichen, dann die **eigene Kursspanne** – grob, ehrlich („fair eher
+8–10“) und fest, bevor das Urteil fällt. **Anker** sind der faire Modellkurs (1 ÷ Modell-Siegchance) und der Festkurs als
+Sicht des Marktes; von dort verschieben die benannten Argumente die Spanne (Ausgabe `anker`: ein Satz). Gewettet wird,
+wenn der Festkurs **klar über der Spanne** liegt – etwa 10 % und mehr über ihrem oberen Rand, das deckt die 5 % Steuer
+(`U-KURSSPANNE`) – und die Leitfrage mit „ja, kann reichen“ beantwortet ist (`U-LEITFRAGE`).
 
 - **Wette** = 1 Einheit. **Kleine Wette** = ½ Einheit: interessant, aber „da fehlt einiges“ (z. B. erster Ansatz
   nach vielen schwachen Läufen, Value dünn).
 - `U-KEIN-AUSWEG` **Kleine Wette nur auf stimmiger Grundlage:** Sie ist für Pferde, bei denen einiges fehlt, aber die
   Grundlage stimmt (unexposed, starke Verbindungen). Ist das Pferd exposed und sind Trainer oder Jockey schwach bzw.
   ohne aktuelle Form, lautet das Urteil keine Wette, auch wenn Value, Konstanz oder Marke dafür sprechen.
-- **Keine Wette**, wenn die Fragezeichen überwiegen, die Leitfrage verneint wird oder der Festkurs die eigene
-  Einschätzung nicht übersteigt.
+- **Keine Wette**, wenn die Fragezeichen überwiegen, die Leitfrage verneint wird oder der Festkurs nicht klar über der
+  Spanne liegt.
 
-`U-FAUSTREGEL` **Faustregel** (Orientierung, keine Rechenregel; Abweichungen ausdrücklich nennen):
+**Bild einer vollen Wette:** Der Referenzlauf reicht an die Besten im Feld heran, oft mit heutigen Gegnern direkt oder
+indirekt geschlagen; die heutigen Bedingungen sind belegt (CGD, Bahn, Boden aus den Vorlieben), oder Abstammung und
+Formtrend tragen das Neue; die Grundlage stimmt (unexposed oder im Aufsteigen, starke Verbindungen, Jockey kennt das
+Pferd); übrig bleiben entkräftete oder kleine Fragezeichen, kein Veto, kein Deckel. Je mehr davon zutrifft, desto eher
+Wette statt kleiner Wette.
+
+`U-FAUSTREGEL` **Faustregel** (Orientierung, keine Rechenregel; Abweichungen ausdrücklich nennen). Die Kursspanne
+entscheidet, ob der Kurs reicht; die Faustregel sagt, wie viel Beweislage bei welchem Value nötig ist:
 
 - Value knapp über der Grenze (+5 bis etwa +10 %): nur bei klarer, überzeugender Beweislage (z. B. CGD, Bewährung auf
-  sehr weichem Boden, Marke unter letzter Platzmarke) – und nur, wenn die eigene Spanne unter dem Festkurs liegt.
+  sehr weichem Boden, Marke unter letzter Platzmarke).
 - +10 % bis +50 %: höchstens ein Fragezeichen und kein gewichtiges Gegenargument.
 - Über +50 %: ein bis zwei Fragezeichen tragbar, **wenn genug für das Pferd spricht**. Viel Value ohne Pro-Argumente
   oder mit Aufgewicht, Klassenfrage und Höchstgewicht auf schwerem Boden zusammen reicht nicht.

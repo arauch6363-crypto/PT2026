@@ -122,6 +122,14 @@ def test_neuester_durchgang_gilt_und_anwenden(tmp_path):
     assert c6["runners"][0]["claude"]["kennzeichen"] == "BET" and c6["claude"]["vergleich"] == "A > B"
     assert d["races"]["20261112R1C2"]["runners"][0]["claude"]["kennzeichen"] is None
     assert "TABLE" not in dg.tabelle([a, b]) and "R1C6" in dg.tabelle([a, b]) and "R1C2" not in dg.tabelle([a, b])
+    assert "MQ" not in dg.tabelle([a, b])                                   # Mindestquote entfällt (mq nur in alten Dateien)
+
+
+def test_ohne_mindestquote_lesbar():
+    r = _rennen("X", (1, "wette", 3.0, 2.5))
+    del r["kandidaten"][0]["mq"]
+    k = dg.zusammenfuehren("2026-11-27", [r])["rennen"][0]["kandidaten"][0]
+    assert k["mq"] is None and k["fk"] == 3.0
 
 
 def test_markieren_html(tmp_path):
@@ -261,8 +269,18 @@ def test_zitierte_kennungen():
                               "ausschlag": ["P-CGD"]}
 
 
+LF = {"referenzlauf": "2026-11-01", "ref_arr": 30.5, "top_arr": 32.0, "massstab_arr": [31.0, None]}
+
+
+def _streng(*kand, rid="X"):
+    r = _rennen(rid, *kand)
+    for k in r["kandidaten"]:
+        k.update(anker="Modell fair 4, Festkurs 5; nichts verschiebt", leitfrage=dict(LF), ausschlag="Ermessen")
+    return r
+
+
 def test_streng_prueft_kennungen():
-    r = _rennen("X", (1, "nein", 3.0, 4.0))
+    r = _streng((1, "nein", 3.0, 4.0))
     r["kandidaten"][0].update(pro=["gut (P-CGD)"], ausschlag="Leitfrage verneint (U-LEITFRAGE)")
     dg.rennen_pruefen_streng(r)
     r["kandidaten"][0]["ausschlag"] = "Bauchgefühl"
@@ -285,3 +303,136 @@ def test_stillgelegte_kennungen(tmp_path):
     echt = dg.stillgelegt()                # im echten Skill: jede stillgelegte zählt unter einer gültigen weiter
     assert set(echt.values()) <= dg.kennungen()
     assert not set(echt) & dg.kennungen()
+
+
+def test_gestrichene_kennungen(tmp_path):
+    (tmp_path / "SKILL.md").write_text("- `G-A` eins\n", encoding="utf-8")
+    (tmp_path / "EINSICHTEN.md").write_text(
+        "- **[leicht]** `G-A` x\n\n## Stillgelegte Kennungen\n\n- `G-B` → `G-A`\n- `G-X` → gestrichen\n",
+        encoding="utf-8")
+    assert dg.gestrichen(tmp_path) == {"G-X"}
+    assert dg.stillgelegt(tmp_path) == {"G-B": "G-A"}
+    assert dg.kennungen(tmp_path) == {"G-A"}
+    assert "G-SELTEN-SIEG" in dg.gestrichen() and "G-SELTEN-SIEG" not in dg.kennungen()
+
+
+def test_veto_und_deckel_maschinenlesbar():
+    v = dg.vermerke()
+    assert {k for k, x in v.items() if x == "Veto"} == {
+        "G-REFERENZ-SCHWACH", "G-DISTANZ-PROBLEME", "G-ABSTAMMUNG", "G-DEBUET-STALL", "G-AUSRUESTUNG-WEG",
+        "G-GEWICHT-KLASSE-BODEN", "U-VALUE-DUENN"}
+    assert {k for k, x in v.items() if x == "Deckel"} == {
+        "G-ARR-UNTER", "G-UEBER-SIEGMARKE", "P-ERSTER-ANSATZ", "G-GESPANN-OHNE-SIEG", "G-MASSSTAB-BESSER"}
+    assert set(v) <= dg.kennungen()
+    # jede [ausschlaggebend]-Einsicht trägt genau ein Veto, Vetos nur dort
+    text = (dg.SKILL_ORDNER / "EINSICHTEN.md").read_text(encoding="utf-8")
+    for z in text.splitlines():
+        if z.startswith("- **["):
+            assert (z.count("**Veto**") == 1) == z.startswith("- **[ausschlaggebend"), z[:60]
+
+
+def test_streng_kursspanne_bei_tipps():
+    r = _streng((1, "wette", 6.0, 5.0))                 # Spanne [4, 5], Festkurs 6 darüber
+    dg.rennen_pruefen_streng(r)
+    r["kandidaten"][0]["spanne"] = [5, 6.5]
+    with pytest.raises(ValueError, match="nicht über der Kursspanne"):
+        dg.rennen_pruefen_streng(r)
+    r["kandidaten"][0]["spanne"] = []
+    with pytest.raises(ValueError, match="ohne Kursspanne"):
+        dg.rennen_pruefen_streng(r)
+    r["kandidaten"][0].update(urteil="nein")            # nein braucht keine Spanne unter dem Festkurs
+    dg.rennen_pruefen_streng(r)
+
+
+def test_streng_veto_und_deckel():
+    v = {"G-AUSRUESTUNG-WEG": "Veto", "G-ARR-UNTER": "Deckel", "P-ERSTER-ANSATZ": "Deckel"}
+    r = _streng((1, "klein", 6.0, 5.0))
+    k = r["kandidaten"][0]
+    k["gegen"] = ["ohne Scheuklappen (G-AUSRUESTUNG-WEG)"]
+    with pytest.raises(ValueError, match="Veto"):
+        dg.rennen_pruefen_streng(r, vermerk=v)
+    k["ausschlag"] = "Ausnahme: mit Scheuklappen nur ein Lauf (Ermessen)"
+    dg.rennen_pruefen_streng(r, vermerk=v)
+    k.update(gegen=[], fragen=["Scheuklappen weg, aber mit ihnen schwach (G-AUSRUESTUNG-WEG)"], ausschlag="Ermessen")
+    dg.rennen_pruefen_streng(r, vermerk=v)              # unter Fragezeichen greift kein Veto
+    k.update(urteil="wette", fragen=[], gegen=["ARR 4 unter dem Besten (G-ARR-UNTER)"])
+    with pytest.raises(ValueError, match="Deckel"):
+        dg.rennen_pruefen_streng(r, vermerk=v)
+    k["urteil"] = "klein"
+    dg.rennen_pruefen_streng(r, vermerk=v)
+    k.update(urteil="wette", gegen=[], pro=["erster Ansatz (P-ERSTER-ANSATZ)"])
+    with pytest.raises(ValueError, match="P-ERSTER-ANSATZ"):
+        dg.rennen_pruefen_streng(r, vermerk=v)
+
+
+def test_streng_anker_und_leitfrage():
+    r = _streng((1, "nein", 6.0, 5.0))
+    k = r["kandidaten"][0]
+    k["anker"] = ""
+    with pytest.raises(ValueError, match="anker"):
+        dg.rennen_pruefen_streng(r)
+    k["anker"] = "x"
+    del k["leitfrage"]
+    with pytest.raises(ValueError, match="leitfrage"):
+        dg.rennen_pruefen_streng(r)
+    k["leitfrage"] = {**LF, "referenzlauf": "keiner", "ref_arr": None, "massstab_arr": []}
+    dg.rennen_pruefen_streng(r)
+    k["leitfrage"] = {**LF, "referenzlauf": "1.11."}
+    with pytest.raises(ValueError, match="Datum"):
+        dg.rennen_pruefen_streng(r)
+
+
+def test_streng_leitfrage_gegen_karte():
+    karte = {"races": {"X": {"race_id": "X", "runners": [
+        {"no": 1, "arr": {"adj": 30.04}, "form_lines": [{"date": "2026-11-01"}, {"date": "2026-10-01"}]},
+        {"no": 2, "arr": {"adj": 32.0}}, {"no": 3, "nr": True, "arr": {"adj": 40.0}}]}}}
+    r = _streng((1, "nein", 6.0, 5.0))
+    dg.rennen_pruefen_streng(r, karte=karte)
+    r["kandidaten"][0]["leitfrage"]["top_arr"] = 30.0
+    with pytest.raises(ValueError, match="Top-ARR 32"):
+        dg.rennen_pruefen_streng(r, karte=karte)
+    r["kandidaten"][0]["leitfrage"].update(top_arr=32.0, referenzlauf="2026-09-01")
+    with pytest.raises(ValueError, match="kein Lauf"):
+        dg.rennen_pruefen_streng(r, karte=karte)
+    with pytest.raises(ValueError, match="nicht in der Karte"):
+        dg.rennen_pruefen_streng(_streng((1, "nein", 6.0, 5.0), rid="Y"), karte=karte)
+
+
+def test_pruefung_darf_nur_senken():
+    r = _streng((1, "klein", 6.0, 5.0))
+    k = r["kandidaten"][0]
+    k.update(urteil_vor_pruefung="wette", pruefung="Referenzlauf falsch gelesen: 3. statt 1.")
+    out = dg.rennen_pruefen_streng(r)
+    assert out["kandidaten"][0]["urteil_vor_pruefung"] == "wette"
+    k["pruefung"] = ""
+    with pytest.raises(ValueError, match="pruefung"):
+        dg.rennen_pruefen_streng(r)
+    k.update(urteil_vor_pruefung="nein", pruefung="x")
+    with pytest.raises(ValueError, match="nur senken"):
+        dg.rennen_pruefen_streng(r)
+
+
+def test_neue_felder_kommen_an_und_alte_dateien_bleiben_lesbar(tmp_path):
+    r = _streng((1, "klein", 6.0, 5.0), rid="20261112R1C6")
+    r["kandidaten"][0].update(urteil_vor_pruefung="wette", pruefung="Veto übersehen")
+    p = _schreiben(tmp_path, "durchgang_20261112_1400.json", [r])
+    k = json.loads(p.read_text())["rennen"][0]["kandidaten"][0]
+    assert k["leitfrage"] == LF and k["anker"] and k["pruefung"] == "Veto übersehen" and k["urteil_vor_pruefung"] == "wette"
+    alt = _rennen("20261112R1C2", (1, "wette", 3.0, 2.5))      # ohne neue Felder, mit mq
+    q = _schreiben(tmp_path, "durchgang_20261112_1300.json", [alt])
+    d = dg.mit_durchgaengen(_karte(), tmp_path)
+    c6 = d["races"]["20261112R1C6"]["runners"][0]["claude"]
+    assert c6["pruefung"] == "Veto übersehen" and c6["leitfrage"]["top_arr"] == 32.0
+    c2 = d["races"]["20261112R1C2"]["runners"][0]["claude"]
+    assert c2["mq"] == 2.5 and c2["leitfrage"] is None and c2["urteil_vor_pruefung"] is None
+    assert "R1C6" in dg.tabelle([p, q]) and "R1C2" in dg.tabelle([p, q])
+
+
+def test_pruefen_cli(tmp_path):
+    f = tmp_path / "r.json"
+    f.write_text(json.dumps(_streng((1, "nein", 6.0, 5.0))), encoding="utf-8")
+    aus = subprocess.run([sys.executable, "-I", str(Path(dg.__file__)), "pruefen", str(f)], capture_output=True, text=True)
+    assert aus.returncode == 0 and aus.stdout.startswith("ok X")
+    f.write_text(json.dumps(_rennen("X", (1, "nein", 6.0, 5.0))), encoding="utf-8")
+    aus = subprocess.run([sys.executable, "-I", str(Path(dg.__file__)), "pruefen", str(f)], capture_output=True, text=True)
+    assert aus.returncode != 0 and "FEHLER" in aus.stderr

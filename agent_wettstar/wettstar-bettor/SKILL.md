@@ -12,7 +12,7 @@ Gilt nur im Auftrag laut Agent-Systemprompt (dessen Sicherheitsregeln haben Vorr
 2. `/tmp/ws/bets.json` schreiben, eine Liste mit je einem Objekt pro Wette:
    `{"bahn":"Deauville","zeit":"16:50","nr":14,"name":"SUPERCLASS","min_fk":6.5,"stake":10,"p":0.217,"startbank":174.21}`
    - `zeit` = Startzeit (französische Zeit), `nr` = Startnummer (Zahl vor dem Punkt),
-     `min_fk` = Mindest-Festkurs (mq aus dem Payload), `stake` = Mindesteinsatz (10 NAP, 5 BET/MODELL),
+     `min_fk` = Untergrenze für den Festkurs (mq aus dem Payload), `stake` = Mindesteinsatz (10 NAP, 5 BET/MODELL),
      `p` = Modell-Siegchance, `startbank` = Startbank des Tages (beide optional). Das Skript setzt
      max(stake, gerundet(1/8 × Kelly × Startbank)) und begrenzt die Summe je Lauf auf 50 % der Startbank.
    - `bahn` und `name` wie auf der Karte (Großschreibung, Akzente, Apostrophe egal; das Skript vergleicht normalisiert).

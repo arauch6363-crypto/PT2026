@@ -33,3 +33,26 @@ desselben Tages ihn ebenfalls hatten.
   einen PR, auch ohne angenommenen Vorschlag.
 - Eine Regel **unter Druck** (n ≥ 20, z ≤ −2 gegen ihre Richtung) wird dem Nutzer erneut vorgelegt, nie automatisch
   gestrichen.
+
+## Nachtrag 27.11.2026: Rückschau, Drift, Kandidatenprotokoll, Kalibrierung
+
+Bis zum 21.11. kamen 10 von 14 untersuchten Fällen aus verlorenen Tipps, alle 27 Vorschläge wurden angenommen, und die
+Gegenprobe sieht nur Verlierer desselben Tages. So kann der Skill unbemerkt immer strenger werden. Dagegen stehen jetzt
+Zahlen, die die Ergebnisanalyse mitliefert:
+
+- **Rückschau** (`rueckschau`): Ein Vorschlag mit `wirkung` „strenger“ nennt die bisherigen Treffer, die die Regel
+  gestrichen hätte.
+- **Drift** (`drift`): Anteil wette / klein / nein je Tag und in den letzten 7 Tagen gegen davor, dazu angenommene
+  Vorschläge `strenger` : `lockerer`. Halbiert sich der Tipp-Anteil, wird der Nutzer gefragt; nichts greift
+  automatisch ein.
+- **Kandidatenprotokoll** (`auswertung/kandidaten.csv`) und **Kalibrierung** (`kalibrierung`): je Urteil Siege gegen
+  die Erwartung nach Markt und nach der eigenen Kursspanne, Ø ln(Festkurs / Endquote). Sie tragen schneller als das
+  Regelprotokoll, weil jeder Kandidat zählt und nicht jede Kennung für sich.
+
+Was die Zahlen **nicht** sagen: Bei den Fallzahlen einiger Wochen (bis 21.11. elf Tipps an zwei Tagen im
+Regelprotokoll) ist jede Abweichung im Rahmen des Zufalls; erst ab etwa 50 Tipps lässt sich eine zu großzügige
+Kursspanne von Pech unterscheiden. Ein Festkurs über der Endquote heißt, der Durchgang hat früh einen guten Kurs
+erwischt, nicht, dass das Urteil richtig war. Die Zahlen sind **kein neuer Maßstab** neben dem Testsatz: ADR 0002 gilt
+weiter, sie begründen allein keinen Vorschlag, sondern stehen als Beleg im Bericht und in der Gegenprobe. Das
+Kandidatenprotokoll beginnt am 27.11.2026; für frühere Tage liegen Kursspanne, Modellchance und Endquote nicht im Repo,
+die Drift zählt dort aus dem Regelprotokoll (nur Kandidaten mit zitierter Kennung).

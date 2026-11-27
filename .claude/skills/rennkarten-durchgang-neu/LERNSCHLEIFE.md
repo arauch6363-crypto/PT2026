@@ -22,6 +22,15 @@ Gilt nur für die Durchsicht mit dem Nutzer, nicht für den automatischen Durchg
   eine Einsicht zu einer Kennung steht nur in einem Abschnitt, mit einem Gewicht.
 - **Kennungen sind dauerhaft:** Eine neue Regel oder Einsicht bekommt eine neue Kennung; eine bestehende wird nie
   umbenannt oder für eine andere Bedeutung wiederverwendet (das Regelprotokoll der Ergebnisanalyse zählt nach ihr).
-  Eine gestrichene Regel nimmt ihre Kennung mit.
+  Eine gestrichene Regel nimmt ihre Kennung mit und steht in `EINSICHTEN.md` unter „Stillgelegte Kennungen“
+  (`ALT` → gestrichen).
+- **Veto und Deckel** stehen als Vermerk direkt hinter der Kennung (`` `G-…` **Veto** ``): Veto trägt jede
+  [ausschlaggebend]-Einsicht an ihrer Gegen- bzw. Urteils-Kennung, Deckel nur, wo der Text selbst „höchstens kleine
+  Wette“ sagt. `durchgang.vermerke()` liest sie, die strenge Prüfung setzt sie durch.
+- **Auslöser gehören ins Blatt:** Lässt sich die Bedingung einer neuen oder geänderten Regel aus der Karte rechnen,
+  ergänzt `scripts/blatt.py` (`ausloeser`) sie mit derselben Schwelle wie im Text, dazu Test und Zeile in `DATEN.md`.
+- **Rückschau bei Verschärfung:** Ein Vorschlag, der Urteile strenger macht (neues Veto oder neuer Deckel, höheres
+  Gewicht, engere Schwelle), nennt vor der Zustimmung die Rückschau der Ergebnisanalyse: welche früheren Sieger unter
+  den Claude-Tipps die Regel gestrichen hätte.
 - Widerspricht ein neues Urteil einer Regel oder Einsicht, das ansprechen (Ausnahme oder Regel zu streng?). Neue
   Begriffe gehen in `GLOSSARY.md`.

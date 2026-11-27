@@ -89,15 +89,49 @@ PY
   (Rennvergleich mit Grenze und Maßstab), hinweis (z. B. Boden nur angenommen oder Start in wenigen Minuten), massstab
   (Liste der MASSSTAB-Pferde aus dem Blatt, höchstens zwei: je no, horse, fk, befund – ein bis zwei Sätze, kein Urteil;
   leere Liste, wenn das Blatt keinen nennt) und kandidaten: je
-  Kandidat no, horse, urteil (wette, klein oder nein), fk (Festkurs laut Karte), mq (Mindestquote), spanne [von, bis],
-  p_modell, value, pro (Liste kurzer Sätze), gegen (Liste), fragen (Liste), ausschlag (ein Satz) – Kennungen wie im Skill unter „Kennungen“ beschrieben. Alle Kandidaten
-  müssen enthalten sein. Ist es kein Vollblutrennen: race_id, status araber, kandidaten leer. Prüfe die Datei mit
-  `python3 -I -c "import json,sys; sys.path.insert(0,'/home/claude/pt2026'); import durchgang; durchgang.rennen_pruefen_streng(json.load(open('/home/claude/rd/rennen_<race_id>.json')))"`
-  und korrigiere, bis sie fehlerfrei ist. Antworte mir danach nur mit einer Zeile je Kandidat: Nr Name – Urteil –
-  Mindestquote.“
+  Kandidat no, horse, urteil (wette, klein oder nein), fk (Festkurs laut Karte), spanne [von, bis],
+  p_modell, value, pro (Liste kurzer Sätze), gegen (Liste), fragen (Liste), anker (ein Satz: fairer Modellkurs, Festkurs und
+  was die Spanne davon verschiebt), leitfrage ({referenzlauf: Datum JJJJ-MM-TT oder „keiner“, ref_arr, top_arr,
+  massstab_arr: Liste je Maßstab} aus der Zeile „Leitfrage“ des Blatts), ausschlag (ein Satz) – Kennungen wie im Skill
+  unter „Kennungen“ beschrieben. Alle Kandidaten müssen enthalten sein. Ist es kein Vollblutrennen: race_id, status
+  araber, kandidaten leer. Prüfe die Datei mit
+  `python3 -I /home/claude/pt2026/durchgang.py pruefen /home/claude/rd/rennen_<race_id>.json --karte KARTE`
+  und korrigiere, bis sie „ok“ meldet; jede Meldung sagt, was fehlt oder der Regel widerspricht. Antworte mir danach nur mit einer Zeile je Kandidat: Nr Name – Urteil –
+  Kursspanne.“
 - Fehlt danach die Datei oder ist sie fehlerhaft: den Subagenten für dieses Rennen einmal neu starten. Scheitert er
   wieder, selbst `/home/claude/rd/rennen_<race_id>.json` mit `{"race_id": …, "status": "fehler", "hinweis": "<Grund>", "kandidaten": []}`
-  schreiben. Die Urteile der Subagenten unverändert übernehmen, nichts nachbewerten.
+  schreiben.
+
+## 4a. Prüf-Subagent je Rennen mit Tipp
+
+- Für jedes Rennen, dessen Datei mindestens ein Urteil „wette“ oder „klein“ hat, einen zweiten Subagenten mit leerem
+  Kontext starten (Agent-Tool, general-purpose, höchstens 4 gleichzeitig). Er bekommt dieselben Grundlagen, das Blatt
+  seines Rennens und die Ergebnisdatei, nichts aus anderen Rennen. Vorher die Datei nach
+  `/home/claude/rd/vor_pruefung/rennen_<race_id>.json` kopieren.
+- Prompt (Platzhalter ersetzen; DATEI = `/home/claude/rd/rennen_<race_id>.json`):
+
+  „Antworte auf Deutsch. Du prüfst die Tipps eines anderen Subagenten für genau ein Rennen: <race_id> (<RxCy>) auf der
+  Karte KARTE; sein Ergebnis steht in DATEI. Lies zuerst vollständig mit dem Read-Tool
+  /home/claude/pt2026/.claude/skills/rennkarten-durchgang-neu/SKILL.md und die dort genannten Dateien
+  (/home/claude/pt2026/GLOSSARY.md, EINSICHTEN.md und DATEN.md im Skill-Ordner), dann DATEI. Fakten nur über
+  `python3 -I /home/claude/pt2026/.claude/skills/rennkarten-durchgang-neu/scripts/blatt.py KARTE <RxCy>`.
+  Prüfe jeden Kandidaten mit Urteil „wette“ oder „klein“, und zwar genau drei Dinge: (1) jede Tatsache in pro, gegen,
+  fragen, anker, leitfrage und ausschlag gegen das Blatt (Zahlen, Daten, Plätze, Bilanzen, Ausrüstung, Verbindungen);
+  (2) ob das Blatt die Bedingung einer Einsicht mit Vermerk Veto oder Deckel (EINSICHTEN.md) erfüllt, die das Urteil
+  übergeht; (3) ob jeder Auslöser des Blatts bestätigt oder mit Beleg entkräftet ist.
+  Ein Urteil senkst du nur aus zwei Gründen: eine Tatsache, auf die es sich stützt, ist falsch, oder ein Veto oder
+  Deckel ist übersehen. Dann gilt bei Veto „nein“, bei Deckel „klein“, bei falscher Tatsache das Urteil, das ohne sie
+  bleibt. Wo du anders gewichten, eine andere Kursspanne setzen oder einen Auslöser anders lesen würdest, bleibt das
+  Urteil, wie es ist; das steht nur im Befund. Ein Urteil anheben darfst du nie.
+  Schreibe in DATEI je geprüftem Kandidaten urteil_vor_pruefung (das bisherige Urteil) und pruefung (Befund in ein bis
+  zwei Sätzen, z. B. „Tatsachen stimmen, Veto und Deckel beachtet“). Bei einer Senkung zusätzlich das neue urteil, die
+  berichtigten Sätze und die Kennung des Vetos oder Deckels unter gegen bzw. im ausschlag; alles andere bleibt
+  unverändert. Prüfe die Datei mit
+  `python3 -I /home/claude/pt2026/durchgang.py pruefen DATEI --karte KARTE` und korrigiere, bis sie „ok“ meldet.
+  Antworte mir danach nur mit einer Zeile je geprüftem Kandidaten: Nr Name – Urteil vorher → nachher – Befund kurz.“
+- Fehlt danach `pruefung` bei einem Tipp oder meldet `durchgang.py pruefen` einen Fehler: die Datei aus
+  `vor_pruefung/` zurückkopieren (ungeprüft übernehmen) und das im Ergebnis nennen. Die Urteile nach der Prüfung
+  unverändert übernehmen, nichts nachbewerten.
 
 ## 5. Ablegen
 
@@ -140,6 +174,8 @@ Ablage in Drive fehlgeschlagen“ nennen.
 - Erste Zeile: Karte, Commit des Repos, Zeit des Durchgangs.
 - `python3 -I /home/claude/pt2026/durchgang.py tabelle /home/claude/rd/durchgang_JJJJMMTT_*.json` ausgeben (alle
   Claude-Tipps des Tages).
+- Je Tipp, den der Prüf-Subagent gesenkt hat: Nr Name, Urteil vorher → nachher, Befund; ungeprüft übernommene Rennen
+  nennen.
 - Danach je Rennen eine Zeile: neu bearbeitet (mit Rennvergleich), schon erledigt, kein Festkurs (startet erneut,
   sobald Festkurse geholt sind; sonst von Hand), gelaufen, Araber, Fehler.
 - Link zum Artefakt „Racecard heute“ und der Name der neuen Drive-Datei (falls angelegt).

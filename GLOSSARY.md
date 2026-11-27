@@ -134,10 +134,6 @@ _Avoid_: Kelly-Einsatz, Stake
 Die grobe eigene Einschätzung, welcher Festkurs für ein Pferd fair wäre („fair eher 8–10“), ohne Rechnung. Gewettet wird, wenn der Festkurs klar darüber liegt.
 _Avoid_: faire Quote (das ist 1 ÷ Modell-Siegchance), eigene Siegchance
 
-**Mindestquote**:
-Der untere Rand der Kursspanne: der niedrigste Festkurs, zu dem eine Wette noch abgegeben wird. Liegt der Festkurs beim Wetten darunter, wird nicht gewettet.
-_Avoid_: faire Quote (das ist 1 ÷ Modell-Siegchance), Mindestkurs
-
 **Tipp**:
 Der mechanische Vorschlag der Karte nach ihrer Kelly-Regel, ohne Analyse.
 _Avoid_: Wette, Claude-Tipp
@@ -222,6 +218,22 @@ _Avoid_: Backtest (das ist `regel_backtest.py` über die ganze Historie)
 Je Regelkennung: wie oft sie in Durchgängen zitiert wurde, wie oft die Pferde gewonnen haben und wie viele Siege der Festkurs erwarten ließ (A/E, z). Nur vorwärts, ab Einführung der Kennungen. Eine Regel steht **unter Druck**, wenn n ≥ 20 und z ≤ −2 gegen ihre Richtung.
 _Avoid_: Regel-Backtest, Statistik
 
+**Rückschau**:
+Zu einem Vorschlag, der Urteile strenger macht: welche bisherigen Treffer (Claude-Tipps, die gewannen) die Kennung zitierten und die Regel gestrichen hätte, dazu dieselbe Zählung für abgelehnte Kandidaten. Quelle ist das Regelprotokoll.
+_Avoid_: Backtest (das ist `regel_backtest.py`), Gegenprobe (die sieht nur die Verlierer des Tages)
+
+**Drift**:
+Ob der Durchgang mit der Zeit strenger oder großzügiger wird: Anteil wette / klein / nein unter den Kandidaten je Tag und in den letzten 7 Tagen gegen davor, dazu das Verhältnis angenommener Vorschläge `strenger` : `lockerer`. Halbiert sich der Tipp-Anteil, fragt die Ergebnisanalyse den Nutzer; sie greift nicht selbst ein.
+_Avoid_: Strenge-Index, Trend
+
+**Kandidatenprotokoll**:
+Je Kandidat eines analysierten Tages eine Zeile (`auswertung/kandidaten.csv`): Urteil, Festkurs, Kursspanne, Modell- und Marktchance, Endquote, Kennung des Ausschlags, Sieg; dazu das Urteil vor der Prüfung und deren Befund, wo der Durchgang sie hat. Nur vorwärts ab 27.11.2026; Grundlage für Drift und Kalibrierung.
+_Avoid_: Tippliste, Wettprotokoll
+
+**Kalibrierung**:
+Aus dem Kandidatenprotokoll je Urteil: Siege gegen die erwarteten Siege nach Markt und nach der Mitte der Kursspanne (1 / Mitte), dazu Ø ln(Festkurs / Endquote) – positiv, wenn der Festkurs beim Durchgang über der Endquote lag. Zeigt, ob die Kursspanne zu großzügig ist; bei kleinen Fallzahlen Rauschen, kein Maßstab für den Skill.
+_Avoid_: Trefferquote (das ist die Übereinstimmung mit dem Nutzer im Testsatz), ROI
+
 ## Relationships
 
 - Ein **Kandidat** ist ein Starter, dessen **Value** mindestens +5 % beträgt.
@@ -229,10 +241,9 @@ _Avoid_: Regel-Backtest, Statistik
 - **Value** entsteht aus **Festkurs** und **Modell-Siegchance**; der **Value-Faktor** geht nicht ein.
 - Über jeden **Kandidaten** fällt ein **Gesamturteil**; lautet es ja, ist er eine **Wette**.
 - Das **Gesamturteil** wägt **Pro-Argumente**, **Gegenargumente** und **Fragezeichen** ab und vergleicht die **Kursspanne** mit dem **Festkurs**; **Value** entscheidet nur, wer **Kandidat** ist.
-- Die **Mindestquote** ist der untere Rand der **Kursspanne**.
 - Eine **Wette** kann zugleich ein **Tipp** der Karte sein, muss es aber nicht.
 - Ein **Durchgang** macht aus jedem **Kandidaten** einen **Claude-Tipp** (**NAP** oder **BET**) oder einen **abgelehnten Kandidaten**.
-- Ein **Claude-Tipp** wird zum **Festkurs** beim **Durchgang** abgerechnet; sein Kennzeichen erlischt nicht, wenn der Festkurs später unter die **Mindestquote** fällt.
+- Ein **Claude-Tipp** wird zum **Festkurs** beim **Durchgang** gespielt und abgerechnet oder gar nicht.
 - Ein **Testfall** fasst die Fälle eines Rennens aus der Fallsammlung zusammen; Kandidaten ohne Urteil des Nutzers laufen mit, zählen aber nicht.
 - Eine Abweichung vom Urteil des Nutzers ist eine **Fehlwette** oder ein **verpasster Kandidat**; Wette gegen Kleine Wette zählt halb.
 - Die **Ergebnisanalyse** ordnet jeden Sieger einer **Siegergruppe** zu und untersucht **verpasste Sieger** und **verlorene Claude-Tipps**; ihre **Vorschläge** gehen erst nach Zustimmung des Nutzers und bestandenem **Testsatz** in den Skill.
