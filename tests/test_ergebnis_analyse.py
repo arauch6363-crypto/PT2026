@@ -280,6 +280,40 @@ def test_drift_ohne_davor_kein_anlass():
     assert ea.drift([], [])["tage"] == []
 
 
+def test_kandidaten_zeilen():
+    d = _durchgaenge()
+    d["20261118R1C2"]["kandidaten"][0].update(urteil_vor_pruefung="wette", pruefung="ARR falsch gelesen, gesenkt.")
+    e = _einlauf()
+    e["20261118R1C1"]["starter"][2]["odds_final"] = float("nan")
+    z = {(x["race_id"][-4:], x["no"]): x for x in ea.kandidaten_zeilen(ea.material("20261118", _karte(), d, e))}
+    assert set(z) == {("R1C1", 3), ("R1C1", 2), ("R1C2", 2)}
+    t = z[("R1C1", 3)]
+    assert (t["urteil"], t["fk"], t["spanne_von"], t["spanne_bis"], t["p_modell"], t["endquote"]) == \
+        ("wette", 8.0, 6.0, 7.0, 0.3, 3.0)
+    assert t["ausschlag_kennung"] == "P-CGD" and t["gewonnen"] == 0 and "mq" not in t
+    assert t["urteil_vor_pruefung"] == "" and t["pruefung"] == ""
+    assert z[("R1C1", 2)]["endquote"] == "" and z[("R1C1", 2)]["gewonnen"] == 1     # NaN → leer
+    assert z[("R1C2", 2)]["ausschlag_kennung"] == "Ermessen"
+    assert z[("R1C2", 2)]["urteil_vor_pruefung"] == "wette" and z[("R1C2", 2)]["pruefung"].startswith("ARR")
+    assert list(t) == ea.KANDIDATEN_FELDER
+
+
+def test_kandidaten_fortschreiben_ersetzt_tag(tmp_path):
+    m = ea.material("20261118", _karte(), _durchgaenge(), _einlauf())
+    ea.kandidaten_fortschreiben(tmp_path, m)
+    assert ea.kandidaten_fortschreiben(tmp_path, m) == 3
+    assert len(ea.kandidaten_lesen(tmp_path)) == 3
+
+
+def test_drift_pferde_kandidaten_vor_regelprotokoll():
+    kand = [{"datum": "20261127", "race_id": "A", "no": "1", "urteil": "nein"}]
+    prot = [{"datum": "20261127", "race_id": "A", "no": "2", "urteil": "wette"},
+            {"datum": "20261126", "race_id": "B", "no": "1", "urteil": "klein"}]
+    d = ea.drift(ea.drift_pferde(kand, prot), [])
+    assert [(t["datum"], t["n"], t["quelle"]) for t in d["tage"]] == [("20261126", 1, "regelprotokoll"),
+                                                                       ("20261127", 1, "kandidaten")]
+
+
 def test_vorschlaege_wirkung(tmp_path):
     v = {"id": "20261127-1", "datum": "20261127", "entscheidung": "offen", "wirkung": "strenger"}
     ea.vorschlaege_ablegen(tmp_path, [v])

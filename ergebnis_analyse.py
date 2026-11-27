@@ -15,7 +15,8 @@ Aufruf:
     python3 -I ergebnis_analyse.py gegenprobe KARTE analyse_JJJJMMTT.json MUSTER
         Verlierer des Tages (Kandidaten, Maßstäbe), deren Blatt MUSTER (Regex) enthält: Anzahl, Namen, Zeile.
     python3 -I ergebnis_analyse.py protokoll analyse_JJJJMMTT.json [--ordner auswertung]
-        Regelprotokoll mit den Kennungen des Tages fortschreiben (ersetzt Zeilen desselben Tages).
+        Regelprotokoll (Kennungen) und Kandidatenprotokoll (je Kandidat eine Zeile) des Tages fortschreiben
+        (ersetzt Zeilen desselben Tages).
     python3 -I ergebnis_analyse.py bericht [--ordner auswertung]
         Regelprotokoll je Kennung und Richtung als JSON (n, Siege, erwartet, A/E, z, unter_druck).
     python3 -I ergebnis_analyse.py rueckschau [KENNUNG …] [--ordner auswertung]
@@ -56,7 +57,10 @@ VORSCHLAEGE = "vorschlaege.csv"
 TIPP = {"wette", "klein"}
 DRUCK_N, DRUCK_Z = 20, 2.0          # Regel unter Druck: mindestens so viele Fälle und |z| gegen ihre Richtung
 
+KANDIDATEN = "kandidaten.csv"
 PROTOKOLL_FELDER = ["datum", "race_id", "no", "horse", "kennung", "richtung", "urteil", "fk", "p_markt", "gewonnen"]
+KANDIDATEN_FELDER = ["datum", "race_id", "no", "horse", "urteil", "fk", "spanne_von", "spanne_bis", "p_modell",
+                     "p_markt", "endquote", "ausschlag_kennung", "gewonnen", "urteil_vor_pruefung", "pruefung"]
 TAGE_FELDER = ["datum", "analysiert", "commit", "vorschlaege"]
 VORSCHLAG_FELDER = ["id", "datum", "titel", "fall", "rennen", "race_id", "no", "horse", "durchgang", "datenpunkt",
                     "gegenprobe", "art", "zieldatei", "kennung", "alt", "text", "gewicht", "wirkung", "entscheidung",
@@ -105,6 +109,15 @@ def _overround(rennen: dict, ein: dict) -> float:
     return s
 
 
+def _quote(x) -> float | None:
+    """Endquote aus dem Parquet: None bei fehlend, NaN oder ≤ 1."""
+    try:
+        q = float(x)
+    except (TypeError, ValueError):
+        return None
+    return q if q > 1 and not math.isnan(q) else None
+
+
 def _gruppe(no: int, kand: dict[int, dict], massstab: set[int]) -> str:
     if no in kand:
         return "treffer" if kand[no]["urteil"] in TIPP else "verpasster_sieger"
@@ -136,8 +149,9 @@ def material(datum: str, karte: dict, durchgaenge: dict[str, dict], ein: dict[st
             fk = k.get("fk")
             kand[int(k["no"])] = {
                 **{f: k.get(f) for f in ("no", "horse", "urteil", "fk", "mq", "spanne", "p_modell", "value", "pro",
-                                         "gegen", "fragen", "ausschlag")},
+                                         "gegen", "fragen", "ausschlag", "urteil_vor_pruefung", "pruefung")},
                 "pos": st.get("pos"), "nichtstarter": bool(st.get("nichtstarter")),
+                "endquote": _quote(st.get("odds_final")),
                 "gewonnen": int(k["no"]) in e["sieger"],
                 "p_markt": (1 / fk) / over if fk and fk > 1 else None,
                 "kennungen": dg.zitierte(k)}
@@ -288,12 +302,54 @@ def protokoll_lesen(ordner: str | Path = ORDNER) -> list[dict]:
     return _csv_lesen(Path(ordner) / PROTOKOLL)
 
 
-def protokoll_fortschreiben(ordner: str | Path, m: dict) -> int:
-    alt = [z for z in protokoll_lesen(ordner) if z["datum"] != m["datum"]]
-    neu = protokoll_zeilen(m)
-    _csv_schreiben(Path(ordner) / PROTOKOLL, PROTOKOLL_FELDER,
-                   sorted(alt + neu, key=lambda z: (str(z["datum"]), str(z["race_id"]), int(z["no"]))))
+def _tag_ersetzen(pfad: Path, felder: list[str], datum: str, neu: list[dict]) -> int:
+    alt = [z for z in _csv_lesen(pfad) if z["datum"] != datum]
+    _csv_schreiben(pfad, felder, sorted(alt + neu, key=lambda z: (str(z["datum"]), str(z["race_id"]), int(z["no"]))))
     return len(neu)
+
+
+def protokoll_fortschreiben(ordner: str | Path, m: dict) -> int:
+    return _tag_ersetzen(Path(ordner) / PROTOKOLL, PROTOKOLL_FELDER, m["datum"], protokoll_zeilen(m))
+
+
+# ---------------------------------------------------------------- Kandidatenprotokoll
+
+def _leer(x):
+    return "" if x is None else x
+
+
+def kandidaten_zeilen(m: dict) -> list[dict]:
+    """Je Kandidat (gelaufen) eine Zeile: Urteil, Festkurs, eigene Kursspanne, Modell- und Marktchance, Endquote,
+    Kennung des Ausschlags („Ermessen“ ohne Kennung), Sieg; dazu das Urteil vor dem Prüf-Subagenten und sein Befund,
+    falls der Durchgang sie hat. Ein altes ``mq`` geht nicht ein."""
+    out = []
+    for r in m["rennen"]:
+        for k in r["kandidaten"]:
+            if k.get("nichtstarter"):
+                continue
+            sp = k.get("spanne") or [None, None]
+            sp = (list(sp) + [None, None])[:2]
+            ken = (k.get("kennungen") or {}).get("ausschlag") or []
+            ausschlag = " ".join(dict.fromkeys(ken)) or ("Ermessen" if "ermessen" in str(k.get("ausschlag") or "").lower()
+                                                         else "")
+            pr = k.get("pruefung")
+            out.append({"datum": m["datum"], "race_id": r["race_id"], "no": k["no"], "horse": k["horse"],
+                        "urteil": k["urteil"], "fk": _leer(k.get("fk")), "spanne_von": _leer(sp[0]),
+                        "spanne_bis": _leer(sp[1]), "p_modell": _leer(k.get("p_modell")),
+                        "p_markt": "" if k.get("p_markt") is None else round(k["p_markt"], 5),
+                        "endquote": _leer(k.get("endquote")), "ausschlag_kennung": ausschlag,
+                        "gewonnen": int(bool(k.get("gewonnen"))),
+                        "urteil_vor_pruefung": _leer(k.get("urteil_vor_pruefung")),
+                        "pruefung": json.dumps(pr, ensure_ascii=False) if isinstance(pr, (dict, list)) else _leer(pr)})
+    return out
+
+
+def kandidaten_lesen(ordner: str | Path = ORDNER) -> list[dict]:
+    return _csv_lesen(Path(ordner) / KANDIDATEN)
+
+
+def kandidaten_fortschreiben(ordner: str | Path, m: dict) -> int:
+    return _tag_ersetzen(Path(ordner) / KANDIDATEN, KANDIDATEN_FELDER, m["datum"], kandidaten_zeilen(m))
 
 
 def bericht(zeilen: list[dict], stillgelegt: dict[str, str] | None = None) -> list[dict]:
@@ -377,16 +433,28 @@ def _anteile(urteile: list[str]) -> dict:
     return aus
 
 
+def drift_pferde(kandidaten: list[dict], protokoll: list[dict]) -> list[dict]:
+    """Kandidatenprotokoll; für Tage, die dort fehlen (vor dem 27.11.2026), das Regelprotokoll – dort stehen nur
+    Kandidaten, die eine Kennung zitierten."""
+    tage = {z["datum"] for z in kandidaten}
+    return ([{**z, "quelle": "kandidaten"} for z in kandidaten] +
+            [{**z, "quelle": "regelprotokoll"} for z in protokoll if z["datum"] not in tage])
+
+
 def drift(pferde: list[dict], vorschlaege: list[dict], fenster: int = DRIFT_FENSTER) -> dict:
     """Wird der Durchgang strenger? Je Tag und für die letzten ``fenster`` Tage gegen die Zeit davor: Zahl der Kandidaten
     und wie viele wette / klein / nein (je Pferd einmal); dazu die angenommenen Vorschläge nach ``wirkung``. Anlass,
     wenn der Tipp-Anteil im Fenster unter DRIFT_GRENZE × Anteil davor fällt. ``pferde``: Zeilen mit datum, race_id,
     no, urteil (Regelprotokoll oder Kandidatenprotokoll; doppelte Pferde zählen einmal)."""
     je: dict[tuple, str] = {}
+    quelle: dict[str, str] = {}
     for z in pferde:
         je[(str(z["datum"]), str(z["race_id"]), str(z["no"]))] = z["urteil"]
+        if z.get("quelle"):
+            quelle[str(z["datum"])] = z["quelle"]
     tage = sorted({d for d, _, _ in je})
-    aus: dict = {"tage": [{"datum": t, **_anteile([u for (d, _, _), u in je.items() if d == t])} for t in tage]}
+    aus: dict = {"tage": [{"datum": t, **_anteile([u for (d, _, _), u in je.items() if d == t]),
+                           **({"quelle": quelle[t]} if t in quelle else {})} for t in tage]}
     if tage:
         ende = datetime.strptime(tage[-1], "%Y%m%d")
         im = {t for t in tage if (ende - datetime.strptime(t, "%Y%m%d")).days < fenster}
@@ -517,13 +585,15 @@ def main(argv: list[str]) -> None:
         print(json.dumps(gegenprobe(m, b, args[2]), ensure_ascii=False, indent=1))
     elif cmd == "protokoll":
         m = json.loads(Path(args[0]).read_text(encoding="utf-8"))
-        print(f"{protokoll_fortschreiben(ordner, m)} Zeilen für {m['datum']}")
+        print(f"{protokoll_fortschreiben(ordner, m)} Zeilen Regelprotokoll, "
+              f"{kandidaten_fortschreiben(ordner, m)} Zeilen Kandidatenprotokoll für {m['datum']}")
     elif cmd == "bericht":
         print(json.dumps(bericht(protokoll_lesen(ordner), dg.stillgelegt()), ensure_ascii=False, indent=1))
     elif cmd == "rueckschau":
         print(json.dumps(rueckschau(protokoll_lesen(ordner), args, dg.stillgelegt()), ensure_ascii=False, indent=1))
     elif cmd == "drift":
-        print(json.dumps(drift(protokoll_lesen(ordner), vorschlaege_lesen(ordner)), ensure_ascii=False, indent=1))
+        print(json.dumps(drift(drift_pferde(kandidaten_lesen(ordner), protokoll_lesen(ordner)),
+                               vorschlaege_lesen(ordner)), ensure_ascii=False, indent=1))
     elif cmd == "verdichtung":
         print(json.dumps(verdichtung(dg.SKILL_ORDNER, protokoll_lesen(ordner)), ensure_ascii=False, indent=1))
     elif cmd == "naechster-tag":

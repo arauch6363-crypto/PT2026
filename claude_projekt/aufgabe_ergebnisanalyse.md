@@ -46,7 +46,8 @@ Sitzung „entschieden“ schreibt (er nimmt sich die Seite im Lauf des Tages vo
   base64 im Feld `content`. Je Datei unter ihrem Titel nach AO kopieren bzw. dekodieren; nie den Inhalt in die
   Unterhaltung holen.
 - `python3 -I REPO/ergebnis_analyse.py material AO/racecard_TAG_daten.json.gz AO/TAG.parquet AO/durchgang_TAG_*.json --aus AO/analyse_TAG.json`
-- `python3 -I REPO/ergebnis_analyse.py protokoll AO/analyse_TAG.json` (schreibt `REPO/auswertung/regelprotokoll.csv`),
+- `python3 -I REPO/ergebnis_analyse.py protokoll AO/analyse_TAG.json` (schreibt `REPO/auswertung/regelprotokoll.csv`
+  und `REPO/auswertung/kandidaten.csv`),
   dann `python3 -I REPO/ergebnis_analyse.py bericht > AO/bericht.json` und
   `python3 -I REPO/ergebnis_analyse.py drift > AO/drift.json`.
 

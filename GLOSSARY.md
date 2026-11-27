@@ -230,6 +230,10 @@ _Avoid_: Backtest (das ist `regel_backtest.py`), Gegenprobe (die sieht nur die V
 Ob der Durchgang mit der Zeit strenger oder großzügiger wird: Anteil wette / klein / nein unter den Kandidaten je Tag und in den letzten 7 Tagen gegen davor, dazu das Verhältnis angenommener Vorschläge `strenger` : `lockerer`. Halbiert sich der Tipp-Anteil, fragt die Ergebnisanalyse den Nutzer; sie greift nicht selbst ein.
 _Avoid_: Strenge-Index, Trend
 
+**Kandidatenprotokoll**:
+Je Kandidat eines analysierten Tages eine Zeile (`auswertung/kandidaten.csv`): Urteil, Festkurs, Kursspanne, Modell- und Marktchance, Endquote, Kennung des Ausschlags, Sieg; dazu das Urteil vor der Prüfung und deren Befund, wo der Durchgang sie hat. Nur vorwärts ab 27.11.2026; Grundlage für Drift und Kalibrierung.
+_Avoid_: Tippliste, Wettprotokoll
+
 ## Relationships
 
 - Ein **Kandidat** ist ein Starter, dessen **Value** mindestens +5 % beträgt.
